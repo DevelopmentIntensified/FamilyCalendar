@@ -98,19 +98,31 @@ contract these files deliver.
 
 | file | role | what goes in it |
 |---|---|---|
-| `billing.contract.ts` | contract | zod schemas + types for the plan card wire (`SubscriptionSummary`, `PlanTier`, `SubscriptionRow`, `PlanLimits`, `PlanPricing`) matching the golden bodies; `PlanType`; `checkoutPlanInput`. Error messages stay in rules. |
-| `billing.limits.rules.ts` | rules | `FREE_PLAN_LIMITS`, `resolvePlanLimits(row, tier)` (override merge), the six plan refusals (`memberLimitRefusal`, `familyCreationRefusal`, `retentionRefusal`, `archiveRefusal`, `attachmentRefusal`, `exportImportRefusal`) with the legacy wording, `isUnlimitedLimit`. |
+| `billing.contract.ts` | contract | zod schemas + types for the plan card wire (`SubscriptionSummary`, `PlanTier`, `SubscriptionWindow`, `PlanLimits`, `PlanPricing`, `AiUsage`) matching the golden bodies; `PlanType` (re-exported from the pricing rules); `CheckoutPlanInput` (one `planTypeOrDefault` transform); `AiUsagePeriod` (the counter's identity, shared by `aiPeriod` and the repo). Error messages stay in rules. |
+| `billing.limits.rules.ts` | rules | `FREE_PLAN_LIMITS` (frozen), `resolvePlanLimits(row, tier)` (override merge; no row or no tier → free), the six plan refusals (legacy comparison direction: an Invalid Date or NaN is allowed) (`memberLimitRefusal`, `familyCreationRefusal`, `retentionRefusal`, `archiveRefusal`, `attachmentRefusal`, `exportImportRefusal`) with the legacy wording, `isUnlimitedLimit`. |
 | `billing.ai.rules.ts` | rules | `aiPeriod(now)` (month/year), `aiAllowance(used, limit)` (`max(0, …)`), `aiLimitRefusal`, `isPaidTier(tierName)`. |
-| `billing.pricing.rules.ts` | rules | `PLAN_PRICES` (9/90/150), `planPricing()`, `familyDiscountRate(membershipCount)` (≥4 → 40), `lifetimeDiscountRate(configuredRate, holdsLifetimeDiscount)` (20 when held), `checkoutQuote({ plan, basePrice, familyRate, lifetimeRate })` (sum, cap 100, round2, never negative). |
+| `billing.pricing.rules.ts` | rules | `PLAN_TYPES`/`PlanType`, `PLAN_PRICES` (9/90/150), `planPricing()`, `isPlanType`/`planTypeOrDefault`, `familyDiscountRate(membershipCount)` (≥4 → 40), `holdsLifetimeDiscount(discounts, heldDiscountIds)` (an enabled lifetime row among the claimed ids), `lifetimeDiscountRate(configuredRate, holdsDiscount)` (20 when held), `checkoutQuote({ plan, basePrice, familyRate, lifetimeRate })` (sum, cap 100, round2, never negative) plus its `CheckoutQuote`/`CheckoutLine` types. |
 | `billing.limits.rules.test.ts`, `billing.ai.rules.test.ts`, `billing.pricing.rules.test.ts` | tests | table-driven; expected values come from the Invariants, not from running the code. |
+| `billing.contract.test.ts` | test | the worked example's contract test: the golden free/paid bodies parse, a `Date` never passes the wire schema, and the `?plan` coercion defaults to monthly. |
 
 ### S4 — repo + fixtures
 
 | file | role | what goes in it |
 |---|---|---|
-| `billing.repo.server.ts` | repo | `findActiveSubscription`, `findTier`, `listEnabledTiers`, `findAiUsage`, `incrementAiUsage` (upsert on user+month+year), `listUserDiscounts`, `listEnabledDiscounts`, `insertUserDiscount`, `upsertTiers`, `upsertDiscounts`. `db` first, own tables only, no rules. |
+| `billing.repo.server.ts` | repo | `findActiveSubscription(db, userId, now)`, `findTier`, `listEnabledTiers`, `findAiUsage`, `incrementAiUsage` (upsert on user+month+year; answers the period's new total), `listUserDiscounts`, `listEnabledDiscounts`, `insertUserDiscount(db, { userId, discountId, now })` (stamps `appliedAt`), `insertTiersIfAbsent(db, rows, now)`, `insertDiscountsIfAbsent(db, rows, now)` (both insert-if-absent, like the legacy `.onConflictDoNothing()` seed). `db` first, own tables only, no rules. |
 | `billing.fixtures.server.ts` | fixtures | `seedTier`, `seedSubscription`, `seedDiscount`, `seedUserDiscount`, `seedAiUsage` builders over `uniqueSuffix()`. |
 | `billing.repo.db.test.ts` | test | `rollbackTest` for each query with a filter, ordering or upsert (active row newest-first, usage upsert keeps one row, enabled-only lists). |
+
+Implemented differences from the rows above, with their reasons:
+
+- `resolvePlanLimits(row, tier)` takes `null` for either argument and answers `FREE_PLAN_LIMITS`: that is the legacy pair of branches (no row → defaults; a row without a tier → defaults, *without* applying overrides) in one rule, so the S5 service cannot pick the wrong one.
+- The wire window type is `SubscriptionWindow`, not `SubscriptionRow`: `SubscriptionRow` is already exported by the kernel tables (`billing.tables.server.ts`) and R11 forbids a second definition. The override-bearing shape is `PlanSubscription` (structurally a `subscriptions` row).
+- `checkoutQuote` also returns `lines` (`CheckoutLine[]`: source, percentage, per-line cent amount) and `discountPercentage`. The legacy page prints one line per applied discount; keeping the per-line rounding here means S5 only attaches the discount row's id/name.
+- `incrementAiUsage` returns the new total (`used`) instead of a boolean, and is one atomic upsert rather than the legacy read-then-write: the count cannot be lost under two concurrent calls, and the service gets `remaining` without re-reading.
+- The repo's `insertTiersIfAbsent`/`insertDiscountsIfAbsent` are "insert if the id is absent" (the legacy seed's `.onConflictDoNothing()`), and they stamp `createdAt`/`updatedAt` from the caller's `now` (R5) rather than the column defaults.
+- `findActiveSubscription` drops the legacy `endDate IS NULL` branch: the column is `NOT NULL` (S1), so the branch could never match; the `endDate > now` comparison is strict, so a row ending exactly at `now` is expired.
+- `aiPeriod(now)` reads the month and year in UTC; the legacy code used the process-local getters. Owner-accepted: production runs in UTC and the v2 test environment pins `TZ=UTC`, so this is production parity and no wire value changes.
+- `checkoutQuote` takes the two rates as numbers; the legacy rule that a line needs a matching enabled `discounts` row is the S5 service's read (it passes rate 0 when no such row exists), not the rule's.
 
 ### S5 — service
 
@@ -161,7 +173,7 @@ contract these files deliver.
 | `applyDiscountToSubscription` | `applyUserDiscount` (one discount, idempotent); the `subscriptions.updatedAt` bump dies with the checkout stub. |
 | `getUserEligibleDiscounts` | `listEligibleDiscounts(ctx, actor, { membershipCount })`, same descriptions. |
 | `getBasePrice`, `getPlanPricing` | `PLAN_PRICES`, `planPricing()` — the ignored `_planType` parameter dies. |
-| `discountService.calculateFamilyMemberDiscount` | `familyDiscountRate(membershipCount)`; the count is the caller's (see the owner question in Notes). |
+| `discountService.calculateFamilyMemberDiscount` | `familyDiscountRate(membershipCount)`; the count is the caller's. Today's rule (membership rows, `>= 4`) is kept in S3–S6; Q-017 B (count one family's members, threshold 5) lands after S6 (it rewrites this rule's table test). |
 | `calculateLifetimeDiscount` | `lifetimeDiscountRate(configuredRate, holdsLifetimeDiscount)` + two repo reads. |
 | `calculateDiscounts` | `listEligibleDiscounts`. |
 | `getAvailableDiscounts` | repo `listEnabledDiscounts` (no export: the pages never listed them). |
@@ -187,18 +199,20 @@ contract these files deliver.
 |---|---|
 | `/pricing` computes `showDiscountedPrices`/`displayPrice` and never reads them | drop the dead server work; the page renders base prices (S7). |
 | `PlanTypeSelector` hardcodes `$5/$48` and `$9/$90`, 0 importers | delete the component; `PLAN_PRICES` is the one price table. |
-| pricing card says "Up to 5 family members" while the free tier allows 6 | owner question below; the rule (6) is the Invariant, the copy is decided in S7. |
-| `calculateFamilyMemberDiscount` counts the user's membership rows and uses `>= 4` | keep the *threshold mechanics* (40% from four up) in `familyDiscountRate`, but take the count as an argument; owner question below on which count. |
+| pricing card says "Up to 5 family members" while the free tier allows 6 | decided, Q-018 B (owner, 2026-11-12): the copy says up to 6 family members; a post-S6 fix, S7 changes the string. The rule (6) is the Invariant. |
+| `calculateFamilyMemberDiscount` counts the user's membership rows and uses `>= 4` | keep the *threshold mechanics* (40% from four up) in `familyDiscountRate`, but take the count as an argument. Decided, Q-017 B (owner, 2026-11-12): count the members of one family, threshold 5; a post-S6 fix, so S3–S6 keep today's rule. |
 | `getPlanPricing(_planType)` ignores its argument | drop the parameter; `planPricing()` returns all three plans. |
 | `getUserSubscriptionLimits` duplicates the default literal | drop; `FREE_PLAN_LIMITS` is the only literal. |
 | the purchase action trusts client-posted `finalPrice` | drop; the new action recomputes the quote from the plan (it still never sells — the stub message stays). |
-| `getDiscountByType` scans the first ten enabled rows and picks by flag | drop; the repo selects the discount row by the flags it needs. |
+| `getDiscountByType` scans the first ten enabled rows and picks by flag | drop; the repo selects the discount row by the flags it needs. Not `/api`-visible, but when several enabled rows match the flags, the legacy first-row-without-`ORDER BY` pick was arbitrary, so the name/id S5 attaches to the checkout page's discount line can differ from today's. |
 | `seed.ts` writes five random ad events | drop from billing; ad demo data moves to `sponsored`. |
 
-### Questions for the owner
+### Owner decisions
 
-1. **Family-size discount: which count?** (Q-017) Context: `discountService.ts:19-34` counts the user's `familyMembers` rows (so four *different* families qualify) and its 40% threshold disagrees with the checkout copy "5+ members". Options: (a) keep the legacy count and threshold exactly (0 behavioural change, but rewards the wrong thing); (b) count members of one family, threshold 5, matching the copy; (c) count distinct families, threshold 4. Recommendation: (b) — the discount is described and priced as a family-size benefit, and checkout is still a stub, so nothing can be mis-charged today. No wire change.
-2. **Pricing card copy: "Up to 5 family members" vs the free tier's 6.** (Q-018) Context: `pricing/+page.svelte:12` vs `seed.ts:19`. Options: (a) raise the copy to 6, (b) lower the free `memberLimit` to 5 (a plan-policy change for every family). Recommendation: (a) — the limit is a live rule and 6 is what an existing family already has.
+Both answered by the owner on 2026-11-12 (`docs/rewrite/questions.md`, lettering as there). Both are fixes that land **after S6**: S3+S4 port today's behaviour, so the rules below keep it.
+
+1. **Family-size discount: which count?** (Q-017, answer **B**) Context: `discountService.ts:19-34` counts the user's `familyMembers` rows (so four *different* families qualify) and its 40% threshold disagrees with the checkout copy "5+ members". Decided: count the members of one family, threshold 5. Until the post-S6 fix, `familyDiscountRate(membershipCount)` keeps `>= 4` on whatever count the caller passes, and the fix then rewrites this rule's table test. No wire change: the subscription summary carries no discount, and checkout is still a stub, so nothing can be mis-charged.
+2. **Pricing card copy: "Up to 5 family members" vs the free tier's 6.** (Q-018, answer **B**) Context: `pricing/+page.svelte:12` vs `seed.ts:19`. Decided: the copy says up to 6 family members; the free `memberLimit` stays 6 (`FREE_PLAN_LIMITS`). A string change in S7 or after; no rule moves.
 
 ### S2 — goldens
 
