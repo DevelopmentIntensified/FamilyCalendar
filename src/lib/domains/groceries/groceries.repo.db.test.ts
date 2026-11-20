@@ -386,7 +386,10 @@ describe('removeGroceryItem', () => {
 });
 
 describe('Store Memory', () => {
-	rollbackTest('listGroceryMemoryRows reads one name in one scope, in row order', async (db) => {
+	// Both Store Memory and the colour read have no ORDER BY, as legacy: heap order
+	// is no promise (sheet Notes, "Two reads rely on physical row order"), so these
+	// tests compare sorted.
+	rollbackTest('listGroceryMemoryRows reads one name in one scope', async (db) => {
 		const h = await seedHousehold(db);
 		await seedGroceryMemory(db, { userId: h.user.id, store: 'Aldi', count: 3 });
 		await seedGroceryMemory(db, { userId: h.user.id, store: 'Lidl', count: 3 });
@@ -396,8 +399,7 @@ describe('Store Memory', () => {
 		await seedGroceryMemory(db, { userId: h.user.id, familyId: h.familyId, store: 'Family store' });
 
 		const rows = await listGroceryMemoryRows(db, h.mine, 'milk');
-		expect(rows.map((row) => row.store)).toEqual(['Aldi', 'Lidl']);
-		expect(rows.map((row) => row.count)).toEqual([3, 3]);
+		expect(rows.map((row) => `${row.store} ${row.count}`).sort()).toEqual(['Aldi 3', 'Lidl 3']);
 	});
 
 	rollbackTest('listGroceryMemoryRows is family-wide for a Family scope', async (db) => {
@@ -416,7 +418,7 @@ describe('Store Memory', () => {
 		});
 
 		const rows = await listGroceryMemoryRows(db, h.family, 'milk');
-		expect(rows.map((row) => row.store)).toEqual(['Taught by a member', 'Taught by me']);
+		expect(rows.map((row) => row.store).sort()).toEqual(['Taught by a member', 'Taught by me']);
 	});
 
 	rollbackTest('listGroceryMemoryRows is empty when nothing was learned', async (db) => {
@@ -481,7 +483,7 @@ describe('listGroceryColourRows', () => {
 		});
 
 		const rows = await listGroceryColourRows(db, h.family);
-		expect(rows).toEqual([
+		expect([...rows].sort((a, b) => a.storeKey.localeCompare(b.storeKey))).toEqual([
 			{ storeKey: 'aldi', color: 'sky', userId: h.user.id, familyId: null },
 			{ storeKey: 'lidl', color: 'sage', userId: h.other.id, familyId: h.familyId }
 		]);
