@@ -196,7 +196,7 @@ Where each legacy export goes:
 # groceries: 0% ported
 
 legacy source files left (2/2, 735 LOC):
-  - src/lib/data/groceries.ts (430 LOC, model) importers: 5
+  - src/lib/data/groceries.ts (430 LOC, model) importers: 6
   - src/lib/server/db/actions/groceries.ts (305 LOC, server) importers: 5
 
 route files not yet wiring-only (5/5):

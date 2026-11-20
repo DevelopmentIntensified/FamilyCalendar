@@ -183,7 +183,7 @@ legacy source files left (9/9, 735 LOC):
   - src/lib/server/db/actions/users.ts (166 LOC, server) importers: 22
   - src/lib/server/utils/password.ts (12 LOC, server) importers: 7
   - src/lib/server/utils/userTimezone.ts (24 LOC, server) importers: 16
-  - src/lib/utils/anonymous.ts (28 LOC, model) importers: 21
+  - src/lib/utils/anonymous.ts (28 LOC, model) importers: 23
 
 route files not yet wiring-only (6/6):
   - src/routes/(calendar)/calendar/setUserDefaultTimeZone/+server.ts  /calendar/setUserDefaultTimeZone
