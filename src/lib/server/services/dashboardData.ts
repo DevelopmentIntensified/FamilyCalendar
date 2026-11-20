@@ -28,7 +28,6 @@ import {
 	attachRsvpStatus,
 	attachAttendanceSummaries
 } from '$lib/server/services/eventDisplayService';
-import { getTodayVerse } from '$lib/server/services/verseService';
 import { computeWeeklyStreak } from '$lib/server/services/streakService';
 import { toIsoTimestamp } from '$lib/server/db/actions/taskStats';
 import { DateTime } from 'luxon';
@@ -141,8 +140,8 @@ export async function loadDashboard(scope: DashboardScope) {
 	})();
 
 	// Events for the day, from the personal + (optional) family calendar.
-	// One guarded pipeline so an expansion/RSVP failure still leaves tasks
-	// and the verse on screen.
+	// One guarded pipeline so an expansion/RSVP failure still leaves the
+	// tasks on screen.
 	// Day window (#042): expand only the viewed day (±1d tz pad) instead of
 	// ±2y — the day filter below then keeps ~everything expansion yields.
 	const dayWindow = {
@@ -390,20 +389,6 @@ export async function loadDashboard(scope: DashboardScope) {
 		};
 	})();
 
-	const verseTranslation = userSettings?.verseTranslation ?? 'esv';
-	// The verse's switch means "show the verse" (080), and it is read in one
-	// place — the shared visibility answer — so a saved hidden state still
-	// applies after it left the band, here and on /calendar alike (109).
-	const verseG = await guard('verse', null, async () =>
-		visibility.needs('verse') ? await getTodayVerse(verseTranslation) : null
-	);
-	// Verse gets its own friendly label: the banner template reads
-	// "Couldn't load {labels} just now — …", so the bare 'verse' label
-	// would render as "Couldn't load verse". (A full-sentence warning
-	// would need a DayDashboard banner touch — out of scope for this lane.)
-	if (verseG.error) loadWarnings.push("today's verse");
-	const dailyVerse = verseG.data;
-
 	return {
 		zone,
 		dayISO: dayStartIso,
@@ -413,7 +398,6 @@ export async function loadDashboard(scope: DashboardScope) {
 		familyId,
 		modules,
 		dashboardData,
-		dailyVerse,
 		loadWarnings,
 		taskCategories: await categoriesP
 	};

@@ -1,38 +1,28 @@
 # Port sheet: verse
 
-**domain** · rank 11 · port #9 · home: `src/lib/domains/verse/` · README after the port: `src/lib/domains/verse/README.md` (written in S1)
+**domain** · deleted · home: `src/lib/domains/verse/` (removed with the feature)
 
-Daily Verse: fetch, cache, translation, the verse card.
+DELETE-ONLY (owner, 2026-11-12, [Q-031/Q-032](../questions.md)): the verse feature is gone everywhere — `/api/daily-verse`, `dailyVerse` on `/api/dashboard`, `verseTranslation`/`verseTranslations` on `/api/me/settings`, the verse card, the picker and the bundled text. The Android app tolerates it (its readers are optional or defaulted). The `user_settings.verse_translation` column stays (no DDL), and so does the `verse` Dashboard Module id, because the Android dashboard reads `shows("verse")` from the modules map. Deleted, not ported.
 
-DELETE-ONLY (owner, 2026-11-12, Q-031/Q-032 in [questions](../questions.md)): the verse feature goes everywhere — `/api/daily-verse`, `dailyVerse` on `/api/dashboard`, `verseTranslation`/`verseTranslations` on `/api/me/settings`, the card, the picker and the bundled text. The Android app tolerates it (its readers are optional or defaulted). The `user_settings.verse_translation` column stays (no DDL). The S1 inventory and S2 goldens below are superseded.
-
-- **May import:** kernel, identity, billing, alerts, family, dashboardModules, bills, parsing, calendar, tasks, groceries.
+- **May import:** nothing — the module no longer exists.
 - **Owns tables:** none.
 - **Must be ported first:** nothing (from the legacy import graph; see the ledger).
 - **Playbook:** [port-a-module.md](../playbooks/port-a-module.md).
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `2c2c797`
-- [ ] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] Delete-only ([Q-031/Q-032](../questions.md)): `/api/daily-verse`, the verse card (`DailyVerseCard.svelte`, the dashboard info band), `verseService.ts` (+ test), `calendarData.loadDailyVerse`, `dailyVerse` on `/api/dashboard`, `verseTranslation`/`verseTranslations` and the picker on `/api/me/settings` + /account removed; census 100%. S1–S7 and S9 don't apply: there is no v2 module folder. The `verse_translation` column and the `verse` Dashboard Module id stay.
+- [x] Goldens first: the identity (`/api/me/settings`) and dayDashboard (`/api/dashboard`) bodies lost their verse fields before any code was deleted — no other golden changed.
 
 ## Must survive
 
 Behaviour the port must keep (each becomes an Invariant in the README, pinned by a test):
 
-- One verse per day from the bundled list (`date.ordinal % 40`; Jan 1 → Psalm 23:1). Every response is labelled `translation: 'esv'` regardless of the user's setting; see the inventory for the attribution text. Dual gate with dashboardModules: a module hide plus `showDailyVerse === true`.
-- `GET /api/daily-verse?date=` shape (Android).
+- DELETE-ONLY (Q-031/Q-032). No golden of its own: deleting the surface is owner-approved, and the two goldens that carried its fields (identity, dayDashboard) pin their absence. Keep the `user_settings.verse_translation` column (no DDL) and the `verse` Dashboard Module id (`src/lib/dashboardModules.ts`), so `/api/dashboard`'s `modules` map and the family switches don't change; `UNMOUNTED_MODULES` keeps its switch off `/account`.
 
-## Behaviour inventory (draft — verify in S1)
+## Behaviour inventory (historical — the feature is deleted)
 
-Extracted from the legacy code and tests on 2026-11-11 as a starting point for S1. It is not authoritative: check each line against the code before relying on it.
+Taken from the legacy code and tests on 2026-11-11, then used to delete it. It is not authoritative and nothing below is ported.
 
 <!-- inventory:begin -->
 ### API surface
@@ -60,7 +50,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 - The calendar renders a compact strip above the grid when a verse is present: uppercase "Daily verse" label, italic verse text, then reference and attribution (attribution hidden below `sm`) — `src/lib/components/calendar/DailyVerseCard.svelte:7-19`, `src/lib/components/calendar/Calendar.svelte:517-525`
 - The Day Dashboard renders the verse only when `visibility.needs('verse')`, in the user's `verseTranslation` — `src/lib/server/services/dashboardData.ts:393-399`
-- `/account` carries the per-user `showDailyVerse` toggle, unchecked when the setting is absent — `src/lib/components/account/AccountCalendarSection.svelte:234-237`
+- `/account` carried the per-user `showDailyVerse` toggle, unchecked when the setting was absent (deleted 2026-11-12 with the rest of the web UI; `PATCH /api/me/settings` still writes the field) — `src/lib/components/account/AccountCalendarSection.svelte`
 - Loader failures are surfaced as a friendly label ("today's verse") in the dashboard warning banner rather than a raw module id — `src/lib/server/services/dashboardData.ts:404`
 
 ### Probably accidental (candidates to drop, owner to confirm)
@@ -80,76 +70,24 @@ None.
 
 ## Plan
 
-New files below `src/lib/domains/verse/` (designed in S1; contract/rules in S3, repo/fixtures in S4, service in S5, http in S6, ui in S7):
-
-| file | role | what goes in it |
-|---|---|---|
-| `verse.contract.ts` | contract | `DailyVerse` (`reference`, `text`, `attribution`, `translation: 'esv'`), `DailyVerseQuery` (`date` absent-or-strict-`YYYY-MM-DD`, message `Invalid date`). A `DailyVerseBody` wire schema may live here **unexported** as documentation; the interface exports neither (invariant 8 + the goldens pin the body). |
-| `verse.selection.rules.ts` | rules | the 40 curated verses (private), `pickDailyVerse(isoDate)`, `VERSE_TRANSLATIONS` (one entry) and the `Public domain.` attribution. |
-| `verse.selection.rules.test.ts` | rules test | day → verse table (Jan 1, ordinal 40, Dec 31), whole-year coverage, the `esv` label on every verse, one vocabulary entry. |
-| `verse.service.server.ts` | service | `findDailyVerse(ctx, actor, { date? })`: the viewer's settings, the composed `dashboardModules` visibility, then selection; a failed switch read degrades to the setting and reports a fault. |
-| `verse.service.db.test.ts` | service test | the gate matrix over real rows, the clock-injected "today", the degrade, and invariant 12 (one composition). |
-| `verse.http.server.ts` | http | `findDailyVerseEndpoint`: `endpoint({ auth: 'user', query })`, 401 before the date, 400 `Invalid date`, 200 three-field body. |
-| `verse.http.db.test.ts` | http golden | written in S2 against the legacy route; frozen at its S2 content through S6. |
-| `ui/DailyVerseCard.svelte` | ui | the strip, rebuilt on `kernel/ui` primitives; props `verse: DailyVerse`; no fetch. |
-| `ui/DailyVerseCard.svelte.test.ts` | ui test | label, italic text, reference, attribution hidden below `sm`. |
-| `index.ts`, `index.server.ts`, `ui/index.ts` | entries | the re-exports listed in the README's Public interface. |
-| `README.md` | doc | the module's front door (written in S1). |
-
-No `repo` and no `fixtures`: the module owns no tables; it reads `identity`'s settings and `dashboardModules`' answer through their public entries. No `api` and no `state`: both surfaces are server-rendered loads and the card is prop-driven.
-
-Where each legacy export goes:
-
-| legacy | outcome |
-|---|---|
-| `DailyVerse` (`src/lib/server/services/verseService.ts:3-9`) | `verse.contract.ts` `DailyVerse`, minus `fallback`. |
-| `CuratedVerse` (`:11-14`) | private element type of the list in `verse.selection.rules.ts`. |
-| `TRANSLATIONS` / `VerseTranslationInfo` / `TranslationId` (`:16-32`) | `VERSE_TRANSLATIONS` in `verse.selection.rules.ts` (one entry, `as const`); `identity` keeps serving it as `/api/me/settings.verseTranslations`. |
-| `DAILY_VERSES` and `export { DAILY_VERSES }` (`:34-194`) | private constant in `verse.selection.rules.ts`. The export dies: it existed "for tests" and widened the surface to the data table. |
-| `bundledVerseForDate` (`:196-205`) | `pickDailyVerse`. |
-| `getVerseForDate` / `getTodayVerse` (`:207-215`) | one `findDailyVerse(ctx, actor, { date? })`; the `_translation` parameter dies and "today" comes from `ctx.clock`. |
-| `loadDailyVerse` (`src/lib/server/services/calendarData.ts:100-116`) | `findDailyVerse`. Its `warning` string becomes a kernel fault report; the dashboard screen keeps its own "today's verse" warning label. |
-| `DailyVerseCard.svelte` (`src/lib/components/calendar/DailyVerseCard.svelte`) | `ui/DailyVerseCard.svelte`, rebuilt from the rule in invariant 13. |
-| `GET` in `src/routes/api/daily-verse/+server.ts` | wiring only: `export const GET = findDailyVerseEndpoint.handler;` (R8). |
+(S1: list every new file with its role, and where each legacy export goes. Not applicable: delete-only.)
 
 ## Notes
 
-- S1 verified the draft inventory against the code. Two corrections to the API table: the route strips `translation` as well, so the wire is exactly `{reference,text,attribution}`; and `?date=` (present, empty) is invalid (400), not an omitted date.
-- Golden coverage (S2): all goldens run committed mode because the legacy handler reads through the legacy `db` singleton. Every visibility branch (no settings row, `false`, `null`, hidden `verse`, other/retired ids in the hidden list, personal-scope family switch off, another user's settings), the three selection anchors, absent vs empty vs invalid `date`, and 401-before-400 are pinned. The "failing switch read" degrade is NOT reachable through the wire without module mocking (R9 forbids it), so it stays a `verse.service.db.test.ts` test.
-- Probably accidental items, decided:
-  - ESV label on KJV-style public-domain text — visible on the `/api/me/settings.verseTranslations` wire → kept as invariants 2/3, owner question 1.
-  - "Today" from the server clock, no viewer zone — visible on the wire (absent `date`) → kept as invariant 9, owner question 2.
-  - `_translation` parameter — internal → dies (one service, no translation argument).
-  - `DailyVerse.fallback` — internal, never left the service → dies.
-  - Unvalidated date inside the service (bad ISO → `NaN` ordinal → `undefined` fields) — internal, the route guards it → dies: the contract validates and the rule is typed to a validated date.
-  - `DAILY_VERSES` exported "for tests" — internal → dies; the rules test walks whole years.
-  - `VerseTranslationInfo.bundled` — internal, never reaches the wire (`verseTranslationOptions` projects `id`/`label`/`attribution`) → dies; the local constant makes "no network" structural, and invariant 3 says so.
-  - A family-switch read on every verse request although the verse is personal — internal (an extra SELECT) → dissolves: the verse asks `dashboardModules` for the composed answer and stops reading switches itself.
-- Naming: the service is `findDailyVerse`, not `getDailyVerse`, because it returns the verse or `null` and never throws ([conventions.md](../../architecture/conventions.md), Signatures); the endpoint follows as `findDailyVerseEndpoint`. The wire body type is not exported (`DailyVerseBody` may stay unexported in `verse.contract.ts` as documentation) — `endpoint()` takes no response schema and the goldens pin the body literally.
-- One composition (invariant 12): the calendar strip will call `findDailyVerse` from the calendar screen's loader; the `calendar` module owns that call site.
-
-### Questions for the owner
-
-1. **ESV label on public-domain text.** (Q-031) `CONTEXT.md` says the verse renders "in the user's `verseTranslation` (ESV by default)" and `/api/me/settings` exposes `verseTranslations:[{id:'esv',label:'ESV',attribution:'Public domain.'}]`, but the bundled text is KJV wording ("begotten", "thou", "saith the LORD") — ESV is copyrighted, so this is not ESV text.
-   Options: (a) keep as-is, no wire change; (b) relabel the entry `KJV` / attribution `Public domain (King James Version).` — a `/api/me/settings.verseTranslations` wire change, Android reads `label` only; (c) fetch real ESV text, which needs a Crossway key and kills the no-network rule.
-   *Recommendation:* (b) as its own owner-approved change after the port; the port keeps (a) exactly, because invariants 2/3 are the installed contract.
-2. **"Today" ignores the viewer's zone.** (Q-032) An absent `date` uses the server's local day, so a viewer in another zone can be shown yesterday's or tomorrow's verse. Options: (a) keep, no wire change, calendar strip and API always agree; (b) use the viewer's `timeZone` setting for an absent `date`, which matches the rest of their dashboard but can differ between server and client around midnight. *Recommendation:* (b) as a follow-up ticket; it changes the absent-`date` contract, so it must not be folded into S6.
+- Deleted 2026-11-12 (Q-031/Q-032): `src/lib/domains/verse/` (S1 skeleton), `src/lib/server/services/verseService.ts` + its test, `src/routes/api/daily-verse/` (+ test), `DailyVerseCard.svelte`, `DashboardInfoBand.svelte` (+ test) and every use in their importers. `verse` left `scripts/arch/registry.mjs` (MODULES and PORT_ORDER) and `legacy-map.json` with it; the module owns no table, so nothing outlives the folder except the `verse_translation` column and the Dashboard Module id.
+- `showDailyVerse` is the one verse field the web dropped without leaving the wire: the Android app reads and PATCHes it and the `verse` Dashboard Module id gates on it, so `/api/me/settings` still returns and accepts it while the /account form stopped posting it (a form save must not silently reset it to false).
+- The identity and dayDashboard goldens changed first, to the post-deletion wire: `/api/me/settings` no longer carries `verseTranslation` in `settings` (a stored row's column is stripped by `accountSettingsView`) nor a `verseTranslations` key, and `/api/dashboard` no longer carries `dailyVerse`. A PATCH naming `verseTranslation` now answers the unknown-key 400 (`Unknown field: verseTranslation`), pinned by both the golden and the legacy route test.
 
 ## Census
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# verse: 0% ported
+# verse: 100% ported
 
-legacy source files left (2/2, 237 LOC):
-  - src/lib/components/calendar/DailyVerseCard.svelte (21 LOC, ui) importers: 1
-  - src/lib/server/services/verseService.ts (216 LOC, server) importers: 4
+legacy source files left (0/0, 0 LOC):
 
-route files not yet wiring-only (1/1):
-  - src/routes/api/daily-verse/+server.ts  /api/daily-verse
+route files not yet wiring-only (0/0):
 
-legacy test files left (2/2) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/server/services/verseService.test.ts [pure, 13 tests]
-  - src/routes/api/daily-verse/server.test.ts [route, 5 tests]
+legacy test files left (0/0) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

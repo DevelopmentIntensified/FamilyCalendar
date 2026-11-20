@@ -33,6 +33,10 @@ vite.config.ts.timestamp-*
 .env*.local
 .env*
 
+# Perf harness output (K-11): the numbers to keep are in
+# docs/rewrite/perf-baseline.md and e2e/pages/perf-baseline.json.
+/e2e/pages/perf-results/
+
 .playwright-cli/
 
 # F-Droid repo (#287): signing keys never live in the tree; fdroid scratch output neither

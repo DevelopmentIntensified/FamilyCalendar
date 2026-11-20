@@ -21,7 +21,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 // The ROUTE module, not the legacy loader: after the port this import still
@@ -36,13 +36,12 @@ type Wire = {
 	meId: string;
 	familyId: string | null;
 	modules: Record<string, boolean>;
-	dailyVerse: Record<string, JsonValue> | null;
 	taskCategories: JsonValue;
 	data: Record<string, JsonValue>;
 	warnings: JsonValue;
 };
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 /**
  * `timestamptz` columns declared `mode: 'string'` reach the wire as the
@@ -180,7 +179,7 @@ async function seedFamilyDay() {
 		{ userId: 'user-mia', familyId: 'family-chen', role: 'member', memberType: 'child' },
 		{ userId: 'user-noah', familyId: 'family-chen', role: 'member', memberType: 'child' }
 	]);
-	// A stored zone: the viewed day is read there. The verse's own switch is on.
+	// A stored zone: the viewed day is read there. The verse module's switch is on.
 	await db.insert(userSettings).values({
 		userId: 'user-me',
 		timeZone: 'UTC',
@@ -360,7 +359,6 @@ describe('GET /api/dashboard (G8)', () => {
 				'meId',
 				'familyId',
 				'modules',
-				'dailyVerse',
 				'taskCategories',
 				'data',
 				'warnings'
@@ -374,14 +372,6 @@ describe('GET /api/dashboard (G8)', () => {
 		expect(wire.familyId).toBe('family-chen');
 		expect(wire.modules).toEqual(ALL_VISIBLE);
 		expect(wire.taskCategories).toEqual([{ id: 'category-errands', name: 'Errands' }]);
-		// The bundled verse is chosen by the REAL clock's ordinal: assert shape.
-		expect(wire.dailyVerse).toEqual({
-			reference: expect.any(String),
-			text: expect.any(String),
-			attribution: 'Public domain.',
-			translation: 'esv',
-			fallback: false
-		});
 		expect(wire.warnings).toEqual([]);
 		expect(Object.keys(wire.data).sort()).toEqual([...DATA_KEYS].sort());
 
@@ -736,16 +726,9 @@ describe('GET /api/dashboard (G8)', () => {
 		expect(wire.data.familyTasks).toEqual([]);
 		expect(wire.data.familyMembers).toEqual([]);
 		expect(wire.data.kidsSchedule).toEqual([]);
-		// Groceries and the verse are unaffected by those hides.
+		// Groceries are unaffected by those hides.
 		expect(wire.data.mineGroceries).toEqual([{ name: 'Bread', stores: [] }]);
 		expect(wire.data.familyGroceries).toEqual([]);
-		expect(wire.dailyVerse).toEqual({
-			reference: expect.any(String),
-			text: expect.any(String),
-			attribution: 'Public domain.',
-			translation: 'esv',
-			fallback: false
-		});
 		expect(wire.warnings).toEqual([]);
 	});
 
@@ -782,8 +765,7 @@ describe('GET /api/dashboard (G8)', () => {
 		expect(wire.dayISO).toBe('2026-11-02T00:00:00.000-06:00');
 		expect(wire.isToday).toBe(false);
 		expect(wire.data.dayEvents).toEqual([]);
-		// No settings row would mean no verse; this row has showDailyVerse default off.
-		expect(wire.dailyVerse).toBeNull();
+		// This row has showDailyVerse default off, so the module reads hidden.
 		expect(wire.modules).toEqual({ ...ALL_VISIBLE, verse: false });
 		expect(wire.warnings).toEqual([]);
 	});
@@ -811,17 +793,17 @@ describe('GET /api/dashboard (G8)', () => {
 		expect(wire.zone).toBe('UTC');
 		expect(wire.isToday).toBe(true);
 		// On legacy the day is the REAL clock's; after the port it is ctx.clock's
-		// (testCtx's fixed clock). Accept either source and assert the instant.
-		const testClockDay = testCtx().clock.now().toISOString().slice(0, 10);
+		// (goldenCtx's fixed clock). Accept either source and assert the instant.
+		const testClockDay = goldenCtx().clock.now().toISOString().slice(0, 10);
 		expect(
 			[...new Set([before, after, testClockDay])].map((day) =>
 				Date.parse(`${day}T00:00:00.000Z`)
 			)
 		).toContain(Date.parse(wire.dayISO));
 		expect(wire.familyId).toBeNull();
-		// No settings row: the verse is off, the other modules keep their default.
+		// No settings row: the verse module keeps its default off, the other
+		// modules keep their default.
 		expect(wire.modules).toEqual({ ...ALL_VISIBLE, verse: false });
-		expect(wire.dailyVerse).toBeNull();
 		expect(wire.taskCategories).toEqual([]);
 		expect(wire.data.userTasks).toEqual([]);
 		expect(wire.data.familyTasks).toEqual([]);
@@ -850,7 +832,7 @@ describe('GET /api/dashboard (G8)', () => {
 		const after = new Date().toISOString().slice(0, 10);
 		expect(wire.isToday).toBe(true);
 		// The fallback day is the real clock's on legacy, ctx.clock's after the port.
-		const testClockDay = testCtx().clock.now().toISOString().slice(0, 10);
+		const testClockDay = goldenCtx().clock.now().toISOString().slice(0, 10);
 		expect(
 			[...new Set([before, after, testClockDay])].map((day) =>
 				Date.parse(`${day}T00:00:00.000Z`)

@@ -21,6 +21,8 @@
 		"pages:build": "npm run build:safe && git rev-parse HEAD > .svelte-kit/pages-build-head",
 		"visual:baseline": "node scripts/pages-run.mjs baseline",
 		"visual:check": "node scripts/pages-run.mjs check",
+		"perf:check": "node scripts/pages-run.mjs perf",
+		"perf:baseline": "node scripts/pages-run.mjs perf-baseline",
 		"db:up": "docker compose up -d --wait",
 		"db:down": "docker compose down",
 		"db:reset": "docker compose down -v",

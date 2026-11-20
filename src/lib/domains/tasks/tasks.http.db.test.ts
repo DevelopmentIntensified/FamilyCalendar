@@ -20,7 +20,7 @@ import {
 import type { Db } from '$lib/kernel/db/database.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import {
@@ -48,7 +48,7 @@ import {
 	PATCH as patchCategory
 } from '../../../routes/api/task-categories/[id]/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 const ISO = /^\d{4}-\d{2}-\d{2}T/;
 /** The day legacy uses when the caller has no stored zone: UTC (`new Date().toISOString()`). */
 const utcToday = () => DateTime.now().toUTC().startOf('day');

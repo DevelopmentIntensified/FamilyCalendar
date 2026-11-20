@@ -15,17 +15,14 @@
 			color?: string | null;
 			syncEventsToFamilyCalendar?: boolean | null;
 			autoParseEventDetails?: boolean | null;
-			showDailyVerse?: boolean | null;
 			showAdsAsEvents?: boolean | null;
-			verseTranslation?: string | null;
 			hiddenDashboardModules?: string[] | null;
 		} | null;
 		calendars: { id: string; name: string }[];
-		verseTranslations: { id: string; label: string; attribution: string }[];
 		consentHistory?: AdConsentHistoryEntry[];
 	}
 
-	let { userSettings, calendars, verseTranslations, consentHistory = [] }: Props = $props();
+	let { userSettings, calendars, consentHistory = [] }: Props = $props();
 
 	const dateFormat = new Intl.DateTimeFormat('en-GB', {
 		day: 'numeric',
@@ -66,21 +63,12 @@
 	let timeZone = $state(userSettings?.timeZone ?? 'UTC');
 	let defaultView = $state(userSettings?.defaultView ?? 'dayView');
 	let defaultCalendarId = $state(userSettings?.defaultCalendarId ?? '');
-	let selectedTranslation = $state('esv');
 	$effect(() => {
 		weekStart = userSettings?.weekStart ?? 'sunday';
 		timeZone = userSettings?.timeZone ?? 'UTC';
 		defaultView = userSettings?.defaultView ?? 'dayView';
 		defaultCalendarId = userSettings?.defaultCalendarId ?? '';
-		// Legacy rows may store 'kjv' (removed translation) — coerce so the
-		// select never renders blank.
-		selectedTranslation = verseTranslations?.some((t) => t.id === userSettings?.verseTranslation)
-			? (userSettings?.verseTranslation ?? 'esv')
-			: 'esv';
 	});
-	let selectedAttribution = $derived(
-		verseTranslations?.find((t) => t.id === selectedTranslation)?.attribution
-	);
 
 	// 105: the per-user Dashboard Module switches moved to their own section
 	// (AccountDashboardSection) with their own action, so this form no longer
@@ -216,44 +204,6 @@
 					checked={userSettings?.autoParseEventDetails ?? true}
 				/>
 			</label>
-		</div>
-
-		<!-- Daily verse -->
-		<div class="mt-6 space-y-2 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-			<h3 class="text-xs font-semibold uppercase tracking-wide text-amber-700">Daily verse</h3>
-
-			<label class="flex cursor-pointer items-start justify-between gap-4 rounded-lg bg-white p-3">
-				<span>
-					<span class="block text-sm font-medium text-slate-800">Show daily verse</span>
-					<span class="mt-0.5 block text-xs text-slate-500"
-						>An optional daily Bible verse on your dashboard.</span
-					>
-				</span>
-				<input
-					type="checkbox"
-					name="showDailyVerse"
-					value="true"
-					class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300"
-					checked={userSettings?.showDailyVerse ?? false}
-				/>
-			</label>
-
-			<div class="space-y-2 rounded-lg bg-white p-3">
-				<label for="verseTranslation" class="block text-sm font-medium text-slate-800"
-					>Translation</label
-				>
-				<select
-					id="verseTranslation"
-					name="verseTranslation"
-					bind:value={selectedTranslation}
-					class="w-full rounded-lg border border-slate-300 px-4 py-2.5"
-				>
-					{#each verseTranslations as translation (translation.id)}
-						<option value={translation.id}>{translation.label}</option>
-					{/each}
-				</select>
-				<p class="text-xs text-slate-400">{selectedAttribution}</p>
-			</div>
 		</div>
 
 		<!-- Sponsorship (#088): the one ad control, and the one field the

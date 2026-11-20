@@ -70,12 +70,9 @@ describe('GET /api/me/settings (G3)', () => {
 		expect((await GET(getEv(null))).status).toBe(401);
 	});
 
-	it('settings (incl. defaultView) + translations + consent history', async () => {
+	it('settings (incl. defaultView) + consent history', async () => {
 		const body = await (await GET(getEv({ id: 'u1' }))).json();
 		expect(body.settings.defaultView).toBe('dashboard');
-		expect(body.verseTranslations[0]).toEqual(
-			expect.objectContaining({ id: expect.any(String), label: expect.any(String) })
-		);
 		expect(body.consentHistory).toEqual([
 			{ decision: 'granted', recordedAt: '2026-10-01T00:00:00.000Z' }
 		]);
@@ -100,7 +97,7 @@ describe('PATCH /api/me/settings (G3)', () => {
 		[{ defaultView: 'yearView' }, 'Invalid defaultView'],
 		[{ color: 'red' }, 'Invalid color'],
 		[{ showAdsAsEvents: 'yes' }, 'Invalid showAdsAsEvents'],
-		[{ verseTranslation: 'xyz' }, 'Invalid verseTranslation'],
+		[{ verseTranslation: 'esv' }, 'Unknown field: verseTranslation'],
 		[{ hiddenDashboardModules: [] }, 'Unknown field: hiddenDashboardModules'],
 		[[1], 'Invalid body']
 	])('400 %j', async (body, error) => {
@@ -127,8 +124,7 @@ describe('PATCH /api/me/settings (G3)', () => {
 			syncEventsToFamilyCalendar: true,
 			autoParseEventDetails: false,
 			showDailyVerse: true,
-			showAdsAsEvents: false,
-			verseTranslation: 'esv'
+			showAdsAsEvents: false
 		});
 		const body = await res.json();
 		expect(body.settings).toBeDefined();

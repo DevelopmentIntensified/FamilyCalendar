@@ -2,16 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PgTable } from 'drizzle-orm/pg-core';
 
 /**
- * The calendar loader's Daily Verse (issue 109).
- *
- * The verse's visibility is a function of TWO persisted facts — the
- * `showDailyVerse` setting and the Dashboard Module switch — and this loader
- * used to read only the first. A user who hid the verse in /account was still
- * served one on /calendar, with no error and nothing to notice it.
- *
- * The table below is the whole truth table of those two facts, because "one says
- * hide, the other says show" is exactly where the defect lived. The stubs are
- * only the DB seam; the visibility rules under test stay real.
+ * The calendar loader's guest-merge prompt (#241) and the facts it hands the
+ * event modal (#282). The stubs are only the DB seam; the rules under test
+ * stay real.
  */
 
 /** A drizzle chain stub: a resolved promise carrying the builder methods. */
@@ -28,7 +21,7 @@ function makeChain(rows: unknown[] = []) {
 	return chain;
 }
 
-// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub, same shape as family/page.server.test.ts; only the verse gate is under test.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- scripted drizzle stub, same shape as family/page.server.test.ts; only the loader's own reads are under test.
 vi.mock('$lib/server/db', () => ({
 	db: {
 		// Every drizzle query opens with `.from()`; the tables this loader
@@ -49,20 +42,6 @@ vi.mock('$lib/server/db/actions/tasks', () => ({
 	getTasksForUser: vi.fn(async () => [])
 }));
 
-const VERSE = {
-	reference: 'Psalm 127:1',
-	text: 'Except the LORD build the house, they labour in vain.',
-	attribution: 'ESV',
-	translation: 'esv',
-	fallback: false
-};
-
-// oxlint-disable-next-line anti-slop/no-module-mocking -- the verse fetch itself is the thing being gated; spy on it to prove it never runs.
-vi.mock('$lib/server/services/verseService', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/server/services/verseService')>()),
-	getTodayVerse: vi.fn(async () => VERSE)
-}));
-
 // oxlint-disable-next-line anti-slop/no-module-mocking -- #241: the merge-candidate DB check is not under test, only who gets prompted.
 vi.mock('$lib/server/services/guestMergeService', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/server/services/guestMergeService')>()),
@@ -75,20 +54,15 @@ vi.mock('$lib/server/db/actions/taskCategories', () => ({
 }));
 
 import { load } from './+page.server';
-import { getTodayVerse } from '$lib/server/services/verseService';
 import { isClaimableGuest } from '$lib/server/services/guestMergeService';
 
 /** A persisted userSettings row, as the group layout hands it to the loader. */
 type SavedSettings = {
-	showDailyVerse: boolean;
-	verseTranslation: string;
 	hiddenDashboardModules: string[] | null;
 };
 
 function settingsFor(over: Partial<SavedSettings> = {}): SavedSettings {
 	return {
-		showDailyVerse: true,
-		verseTranslation: 'esv',
 		hiddenDashboardModules: [],
 		...over
 	};
@@ -144,7 +118,6 @@ function loadEvent(
 }
 
 interface CalendarData {
-	dailyVerse: typeof VERSE | null;
 	loadWarnings: string[];
 	calendarData: Promise<unknown>;
 }
@@ -164,58 +137,6 @@ async function runLoad(settings: SavedSettings): Promise<CalendarData> {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-});
-
-/** The two persisted facts × what the payload must carry. */
-const TABLE: Array<{
-	what: string;
-	settings: SavedSettings;
-	verse: boolean;
-}> = [
-	{
-		what: 'setting on, never hidden — the default account',
-		settings: settingsFor(),
-		verse: true
-	},
-	{
-		what: 'setting on, module hidden in /account — the reported bug',
-		settings: settingsFor({ hiddenDashboardModules: ['verse'] }),
-		verse: false
-	},
-	{
-		what: 'setting off, module left on — the other way round',
-		settings: settingsFor({ showDailyVerse: false }),
-		verse: false
-	},
-	{
-		what: 'both off — no verse',
-		settings: settingsFor({ showDailyVerse: false, hiddenDashboardModules: ['verse'] }),
-		verse: false
-	},
-	{
-		what: 'a null hidden list is not a hidden verse',
-		settings: settingsFor({ hiddenDashboardModules: null }),
-		verse: true
-	},
-	{
-		what: 'hiding another module leaves the verse alone',
-		settings: settingsFor({ hiddenDashboardModules: ['board', 'kids'] }),
-		verse: true
-	}
-];
-
-describe('/calendar — the Daily Verse reads BOTH persisted facts (109)', () => {
-	it.each(TABLE)('$what', async ({ settings, verse }) => {
-		const data = await runLoad(settings);
-		expect(data.dailyVerse === null).toBe(!verse);
-		// A hidden verse must cost nothing: the read never runs at all.
-		expect(vi.mocked(getTodayVerse).mock.calls.length > 0).toBe(verse);
-	});
-
-	it('hiding the verse carries no warning — a hidden module is not a failure', async () => {
-		const data = await runLoad(settingsFor({ hiddenDashboardModules: ['verse'] }));
-		expect(data.loadWarnings).not.toContain('verse');
-	});
 });
 
 describe('/calendar — guest-merge prompt only for registered accounts (#241)', () => {

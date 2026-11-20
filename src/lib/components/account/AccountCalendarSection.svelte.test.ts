@@ -11,8 +11,6 @@ const settings = {
 	color: '#3b82f6',
 	syncEventsToFamilyCalendar: false,
 	autoParseEventDetails: true,
-	showDailyVerse: false,
-	verseTranslation: 'esv',
 	hiddenDashboardModules: []
 };
 
@@ -20,7 +18,6 @@ function props(overrides = {}) {
 	return {
 		userSettings: { ...settings },
 		calendars: [{ id: 'c1', name: 'Mine' }],
-		verseTranslations: [{ id: 'esv', label: 'ESV', attribution: 'Public domain.' }],
 		...overrides
 	};
 }

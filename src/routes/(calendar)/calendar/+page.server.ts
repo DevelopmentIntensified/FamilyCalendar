@@ -5,7 +5,6 @@ import { db } from '$lib/server/db';
 import { events, type CalendarEvent } from '$lib/server/db/schema';
 import {
 	getFamilyCalendarInfo,
-	loadDailyVerse,
 	loadSponsoredEvents,
 	personalCalendarColor,
 	toSponsoredDisplay,
@@ -97,12 +96,12 @@ export const load: PageServerLoad = async (event) => {
 	// listCategoryOptions never throws (a failed read is []).
 	const taskCategoriesP = listCategoryOptions(userId);
 
-	// Wave 1 (#041): personal calendar, family scope, ads, verse are
+	// Wave 1 (#041): personal calendar, family scope and ads are
 	// independent (settings/familyId/zone already in hand) — one wave.
 	const userCalendarColor = personalCalendarColor(userSettings);
 	// Zone derives from the layout's settings row — no third SELECT (#041).
 	const userZone = zoneFromSettings(userSettings) ?? 'UTC';
-	const [personalG, familyG, adsG, verseG] = await Promise.all([
+	const [personalG, familyG, adsG] = await Promise.all([
 		guard('calendar', { userCalendar: null, userEvents: [] }, async () => {
 			const userCalendar = await ensurePersonalCalendar(userId);
 			let userEvents: CalendarEvent[] = [];
@@ -181,23 +180,11 @@ export const load: PageServerLoad = async (event) => {
 		guard('ads', { adEventsData: [] as CalendarEvent[] }, async () => {
 			const now = zonedNow(userZone);
 			return { adEventsData: await loadSponsoredEvents(userId, userSettings, now.month, now.year) };
-		}),
-		guard('verse', null, async () => {
-			// The verse's visibility is a function of BOTH persisted facts — the
-			// `showDailyVerse` setting and the Dashboard Module switch — so it
-			// asks the one shared answer rather than reading one of them (109).
-			// This loader used to read only the setting, and a user who hid the
-			// verse in /account was still served one here. Shared with
-			// GET /api/daily-verse (#292 G7).
-			const { verse, warning } = await loadDailyVerse(userSettings, familyId);
-			warn(warning);
-			return verse;
 		})
 	]);
 	warn(personalG.error);
 	warn(familyG.error);
 	warn(adsG.error);
-	warn(verseG.error);
 	const userCalendar = personalG.data.userCalendar;
 	const userEvents: CalendarEvent[] = personalG.data.userEvents;
 	const familyEventsData: CalendarEvent[] = familyG.data.familyEventsData;
@@ -210,7 +197,6 @@ export const load: PageServerLoad = async (event) => {
 	];
 	const showAds = shouldServeAds(userSettings);
 	const adEventsData: CalendarEvent[] = adsG.data.adEventsData;
-	const dailyVerse = verseG.data;
 
 	// Streamed below the shell (#041): tasks + events resolve after first
 	// paint instead of blocking the whole response. Each leg degrades to
@@ -307,7 +293,6 @@ export const load: PageServerLoad = async (event) => {
 		taskCategories: await taskCategoriesP,
 		familyId,
 		calendarIds,
-		dailyVerse,
 		loadWarnings
 	};
 };

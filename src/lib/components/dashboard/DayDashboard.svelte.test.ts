@@ -15,12 +15,6 @@ function modulesFor(hiddenDashboardModules: string[]) {
 	}).modules;
 }
 
-const verse = {
-	reference: 'Psalm 127:1',
-	text: 'Except the LORD build the house, they labour in vain.',
-	attribution: 'ESV'
-};
-
 const base = {
 	dateLabel: 'Tuesday, September 29',
 	isToday: true,
@@ -90,46 +84,11 @@ describe('DayDashboard — board quick-add categories (#283)', () => {
 	});
 });
 
-describe('DayDashboard — the verse reads above the cards, not inside the band (080)', () => {
-	it('puts the verse in the info band, outside the card band', () => {
-		render(DayDashboard, {
-			props: { ...base, dailyVerse: verse, modules: modulesFor([]) }
-		});
-		const band = screen.getByTestId('dashboard-info-band');
-		const cards = screen.getByTestId('dashboard-card-band');
-		expect(band.textContent).toContain(verse.text);
-		// Above the cards, and not one of them.
-		expect(cards.contains(band)).toBe(false);
-		expect(band.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-	});
-
-	it('a saved hidden state keeps the verse away', () => {
-		// The saved state a user carries out of the pre-move dashboard: the
-		// verse is on in settings, and its card was hidden for them.
-		render(DayDashboard, {
-			props: { ...base, dailyVerse: verse, modules: modulesFor(['verse']) }
-		});
-		expect(screen.queryByTestId('dashboard-info-band')).toBeNull();
-		expect(screen.queryByText(verse.text)).toBeNull();
-	});
-
-	it('a saved visible state still shows it', () => {
-		render(DayDashboard, {
-			props: { ...base, dailyVerse: verse, modules: modulesFor(['board']) }
-		});
-		expect(screen.getByTestId('dashboard-info-band')).toBeInTheDocument();
-	});
-
-	it('no verse loaded means no empty info band', () => {
-		render(DayDashboard, { props: { ...base, dailyVerse: null, modules: modulesFor([]) } });
-		expect(screen.queryByTestId('dashboard-info-band')).toBeNull();
-	});
-
-	it('renders the cards the saved state leaves visible', () => {
+describe('DayDashboard — the card band renders the cards the saved state leaves visible', () => {
+	it('hides the card whose module is off', () => {
 		render(DayDashboard, {
 			props: {
 				...base,
-				dailyVerse: verse,
 				modules: modulesFor(['verse', 'board', 'kids'])
 			}
 		});
