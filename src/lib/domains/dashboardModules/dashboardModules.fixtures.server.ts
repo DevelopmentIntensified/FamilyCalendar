@@ -12,8 +12,8 @@ import type { Db } from '$lib/kernel/db/database.server';
 import { dashboardModuleSwitches, families, familyMembers } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 
-/** A family member's role — the only three the switch route can see. */
-export type FamilyRole = 'creator' | 'admin' | 'member';
+/** A family member's role — the only three the switch route can see. Local: family owns the vocabulary. */
+type FamilyRole = 'creator' | 'admin' | 'member';
 
 /** A person, a family, and their membership in it at `role`. */
 export async function seedFamilyWithRole(db: Db, role: FamilyRole) {
