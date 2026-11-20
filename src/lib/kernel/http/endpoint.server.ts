@@ -7,7 +7,8 @@
  *                 admin not admin   -> 403 {"error":"Forbidden"}
  *   rate limit    429 {"error": rule.message}   (checked after auth)
  *   query/params  zod-parsed; failure -> 400 {"error": first issue message}
- *   body          JSON; empty body = {}; malformed -> 400 {"error":"Invalid JSON"}
+ *   body          JSON; bodyMode 'json' (default): empty body = {}, malformed -> 400 {"error":"Invalid JSON"}
+ *                 bodyMode 'lenient': malformed, empty or unreadable body = null, so the schema refuses it
  *   AppError      -> its status + {"error", ...extra}
  *   anything else -> logged, filed via ctx.faults, 500 {"error": failMessage}
  *
@@ -40,7 +41,7 @@ import {
 	unauthorized
 } from '../errors/appError';
 import { clientKeyOf } from '../ratelimit/rateLimiter';
-import { firstIssueMessage, type JsonValue } from '../validation/validators';
+import { firstIssueMessage, INVALID_JSON_MESSAGE, type JsonValue } from '../validation/validators';
 
 export type EndpointAuth = 'public' | 'optional' | 'user' | 'admin' | 'cron';
 
@@ -57,6 +58,9 @@ export type RateLimitRule = {
 	readonly windowMs: number;
 	readonly message: string;
 };
+
+/** See `EndpointSpec.bodyMode`. */
+export type BodyMode = 'json' | 'lenient';
 
 type Schema = z.ZodType | undefined;
 export type Parsed<S extends Schema> = S extends z.ZodType ? z.output<S> : undefined;
@@ -85,6 +89,16 @@ export type EndpointSpec<
 	readonly auth: A;
 	readonly query?: Q;
 	readonly body?: B;
+	/**
+	 * How the request body is read before `body` runs. Default `'json'`: an empty body is `{}` and
+	 * malformed JSON is refused with `400 {"error":"Invalid JSON"}` before the schema sees it.
+	 * `'lenient'`: a malformed, empty/whitespace-only or unreadable body reaches the schema as
+	 * `null`; a body that parses (including a literal `null`, a string, a number, an array) reaches
+	 * it as parsed. Use it when a legacy route refused such bodies with its own sentence (usually
+	 * the one it gives a non-object body) that a frozen golden pins: the contract then decides
+	 * the refusal and its wording. Opt in per endpoint, never by default.
+	 */
+	readonly bodyMode?: BodyMode;
 	readonly params?: P;
 	readonly rateLimit?: RateLimitRule;
 	/** The 500 body message; default 'Something went wrong'. Keep legacy wording when porting. */
@@ -141,7 +155,9 @@ async function runEndpoint<
 		if (spec.rateLimit) enforceRateLimit(ctx, event.request, spec.rateLimit);
 		const query = parseInput(spec.query, Object.fromEntries(event.url.searchParams));
 		const params = parseInput(spec.params, event.params);
-		const body = spec.body ? parseInput(spec.body, await readJsonBody(event.request)) : undefined;
+		const body = spec.body
+			? parseInput(spec.body, await readJsonBody(event.request, spec.bodyMode ?? 'json'))
+			: undefined;
 		return await spec.handle({
 			ctx,
 			// SAFETY: authorize() returns an Actor for user/admin, Actor|null for optional, null otherwise — exactly ActorFor<A>.
@@ -204,19 +220,22 @@ function parseInput<S extends Schema>(schema: S, input: BoundaryInput): Parsed<S
 	return result.data as Parsed<S>;
 }
 
-async function readJsonBody(request: Request): Promise<JsonValue> {
+async function readJsonBody(request: Request, mode: BodyMode): Promise<JsonValue> {
+	const lenient = mode === 'lenient';
 	let text: string;
 	try {
 		text = await request.text();
 	} catch {
-		throw invalid('Invalid JSON');
+		if (lenient) return null;
+		throw invalid(INVALID_JSON_MESSAGE);
 	}
-	if (!text.trim()) return {};
+	if (!text.trim()) return lenient ? null : {};
 	try {
 		// SAFETY: JSON.parse only ever produces JsonValue-shaped data.
 		return JSON.parse(text) as JsonValue;
 	} catch {
-		throw invalid('Invalid JSON');
+		if (lenient) return null;
+		throw invalid(INVALID_JSON_MESSAGE);
 	}
 }
 

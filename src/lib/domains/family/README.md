@@ -17,7 +17,19 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [index.ts](index.ts) | entry | Public isomorphic interface: contract types, role/palette/invite/search rules, display helpers. | — |
 | [index.server.ts](index.server.ts) | entry | Public server interface: the `FamilyCalendarPort`/`MemberTasksPort` contracts, family services and `/api` handlers. | — |
 | [ui/index.ts](ui/index.ts) | entry | Public components (family card, roster rail, palette picker, invite/member tabs, join card). | — |
-| [family.fixtures.server.ts](family.fixtures.server.ts) | fixtures | Family-row builders for db tests: `seedFamily`, `seedMembership`, `seedInvite`, `seedFamilyRoster`, `seedFullFamily`, `FamilyTestUser`. Task rows stay in the test because `tasks` owns task fixtures. | — |
+| [family.contract.ts](family.contract.ts) | contract | The wire, in zod: body/query/param schemas for all 18 `/api` methods with the legacy 400 copy and coercions (absent vs null, non-string = empty, only `true` consents), ISO-string response schemas (the `/family` list's roster rows carry no email), the `/family/create` form shape, and the server-side row views with real `Date`s that never sit on the wire. | [family.contract.test.ts](family.contract.test.ts) |
+| [family.roles.rules.ts](family.roles.rules.ts) | rules | The two closed vocabularies (`FAMILY_ROLES`, `MEMBER_TYPES`) and who may do what. Every function takes a role and nothing else, so a Member Type cannot leak into a permission (ADR-0001). | [family.roles.rules.test.ts](family.roles.rules.test.ts) |
+| [family.palette.rules.ts](family.palette.rules.ts) | rules | The six-colour palette, its default, the retired blue, the exact `isFamilyColor` guard (create) and the wider `isHexColor` (PATCH, Q-025). | [family.palette.rules.test.ts](family.palette.rules.test.ts) |
+| [family.invites.rules.ts](family.invites.rules.ts) | rules | The invite defaults (10 uses, 7 days) declared once, the two clamps, the email/link mint presets, `isInviteUsable(invite, now)` and the one refusal answer for a code that cannot be accepted. `now` is always a parameter. | [family.invites.rules.test.ts](family.invites.rules.test.ts) |
+| [family.search.rules.ts](family.search.rules.ts) | rules | The two search doors' bounds, `maskEmail`, the ILIKE escaping and patterns, and the two matching predicates (`isPickerMatch` prefix, `isInviteFlowMatch` exact) that must stay different. | [family.search.rules.test.ts](family.search.rules.test.ts) |
+| [family.members.rules.ts](family.members.rules.ts) | rules | Every refusal a membership change can meet, in legacy order, with each door's own copy: manager/member gates, role change, Member Type, removal, direct add, child details, consent, emailed-invite target, the `added_to_family` Alert copy. | [family.members.rules.test.ts](family.members.rules.test.ts) |
+| [family.families.rules.ts](family.families.rules.ts) | rules | Creating and renaming a family: `familyDraft`, `cleanMemberIds`, `dayOneRosterRefusal` (limits are parameters; billing owns the numbers), `familyPatch`, and how a `/family` card is composed. | [family.families.rules.test.ts](family.families.rules.test.ts) |
+| [family.display.rules.ts](family.display.rules.ts) | rules | The pure UI helpers every roster surface shares: `canEditRole`, `canRemove`, `memberDisplayName`, `rolePillClass`. | [family.display.rules.test.ts](family.display.rules.test.ts) |
+| [family.families.repo.server.ts](family.families.repo.server.ts) | repo | The membership read (oldest first, roster size and names in one query), family find/insert-with-roster/update, the grouped open-task count (read-only `tasks` join) and the oldest-family lookup. No calendar write, no clock. | [family.families.repo.db.test.ts](family.families.repo.db.test.ts) |
+| [family.members.repo.server.ts](family.members.repo.server.ts) | repo | Role and membership lookups, both roster reads, membership insert/role/type/delete and the append-only consent record. No `tasks` write. | [family.members.repo.db.test.ts](family.members.repo.db.test.ts) |
+| [family.invites.repo.server.ts](family.invites.repo.server.ts) | repo | The invite code reads (one family, many, one code, the `FOR UPDATE` read), mint, revoke, the DB-side use bump and the family member count. | [family.invites.repo.db.test.ts](family.invites.repo.db.test.ts) |
+| [family.search.repo.server.ts](family.search.repo.server.ts) | repo | The picker's prefix search (no ORDER BY, capped), the invite flow's exact lookup and the verified-account check. | [family.search.repo.db.test.ts](family.search.repo.db.test.ts) |
+| [family.fixtures.server.ts](family.fixtures.server.ts) | fixtures | Family-row builders for db tests: `seedFamily`, `seedMembership`, `seedInvite`, `seedFamilyRoster`, `seedFullFamily`, `FamilyTestUser`; each takes an optional trailing `db` (default: the committed test database, a `rollbackTest` passes its transaction). Task rows stay in the test because `tasks` owns task fixtures. | — |
 | [family.http.db.test.ts](family.http.db.test.ts) | test | Golden contract for all 18 `/api` methods this module owns, run against the legacy handlers on the real test database. The emailed-invite method is a spec golden (its handler imports `$env/static/private` and sends mail). | itself |
 
 ## Public interface
@@ -26,11 +38,11 @@ Everything other modules and routes may use, grouped by entry file. One line eac
 
 ### `index.ts`
 
-- `FamilyRole`, `MemberType`, `RosterMember`, `FamilySummary`, `FamilyDetail`, `InviteCode`, `InvitePreview`, `InviteUsable`, `MemberSearchHit`, `FamilyCreateInput`, `FamilyMemberInput` — contract types; `role` and `memberType` are separate fields everywhere and never interchangeable.
+- `FamilyRole`, `MemberType`, `FamilyView`, `FamilyMembershipView`, `FamilyCardView`, `FamilyDetailView`, `RosterMemberView`, `FamilyRosterRowView`, `InviteCodeView`, `MemberSearchHit`, and the inferred wire types of `family.contract.ts` (`FamilyOverviewResponse`, `FamilyDetailResponse`, `CreateFamilyBody`, …) — `role` and `memberType` are separate fields everywhere and never interchangeable.
 - `FAMILY_PALETTE`, `DEFAULT_FAMILY_COLOR`, `isFamilyColor` — the six-colour family palette, its default and the exact membership guard (create only; see Invariants for PATCH). `RETIRED_FAMILY_COLOR` stays module-internal: it exists only for the palette rules test, so it is not re-exported here.
 - `canEditRole`, `canRemove`, `memberDisplayName`, `rolePillClass` — shared, pure UI permission and display helpers (the deletion test fails: every caller would otherwise re-implement "creator on anyone but self").
 - `DEFAULT_INVITE_MAX_USES`, `clampInviteDays`, `clampInviteUses`, `isInviteUsable` — the invite defaults and clamps, and the one "can this code still be used" predicate.
-- `MEMBER_SEARCH_MIN_QUERY`, `MEMBER_SEARCH_MAX_QUERY`, `MEMBER_SEARCH_ROW_CAP`, `maskEmail` — the picker search bounds and the one email-masking rule.
+- `MEMBER_SEARCH_MIN_QUERY`, `MEMBER_SEARCH_MAX_QUERY`, `MEMBER_SEARCH_ROW_CAP`, `maskEmail`, `searchTermProblem` — the picker search bounds, the one email-masking rule and the one "is this term allowed" answer.
 - An optional `index.ts` re-export of the module's own client api is not part of the public surface: `family.api.ts` is used by this module's state classes only.
 
 ### `index.server.ts`
@@ -56,6 +68,24 @@ Services (each hides a whole use-case; no pass-throughs):
 
 Endpoints (thin `endpoint()` definitions exported for the route files): `listFamiliesEndpoint`, `createFamilyEndpoint`, `getFamilyEndpoint`, `updateFamilyEndpoint`, `listInviteCodesEndpoint`, `changeMemberEndpoint`, `removeMemberEndpoint`, `addDirectEndpoint`, `addChildEndpoint`, `sendInviteEmailEndpoint`, `mintInviteLinkEndpoint`, `mintInviteEndpoint`, `previewInviteEndpoint`, `revokeInviteEndpoint`, `joinFamilyEndpoint`, `memberSearchEndpoint`, `rosterEndpoint`, `searchFamilyEndpoint`.
 
+### Module-internal (S3–S4; reached through the S5 services, not from an entry file)
+
+Rules, one line each (all pure; `now`, zone and plan limits are parameters):
+
+- `family.roles.rules.ts`: `isFamilyRole`/`isMemberType` — the vocabulary guards; `roleRank`/`meetsRole(role, min)` — creator 2, admin 1, member 0, anything else −1; `canManageInvites`/`canManageMembers`/`canSetMemberType`/`canPromoteToCreator`/`canChangeRole(actorRole, newRole)` — the permission table, a function of the role alone; `requireRole(role, min)` — the generic 403 refusal or null.
+- `family.palette.rules.ts`: `isFamilyColor(value)` — exact palette membership; `isHexColor(value)` — the wider `#rrggbb` rule PATCH keeps (Q-025).
+- `family.invites.rules.ts`: `clampInviteDays`/`clampInviteUses`/`shareInvitePlan(days, uses)` — the mint door's clamps; `EMAIL_INVITE_PLAN`/`LINK_INVITE_PLAN` — what an emailed invite (1 use, 1 day) and a link (10 uses, 1 day) mint; `inviteExpiresAt(now, days)`; `isInviteUsable(invite, now)`; `isInviteRefusal(answer)`/`inviteRefusalCopy(refusal)` — the one 400 and the 403 family-full answer.
+- `family.search.rules.ts`: `escapeIlike`/`likePrefix(term)`/`likeExact(query)` — the two ILIKE patterns; `isPickerMatch`/`isInviteFlowMatch` — the two doors' matching rules as executable spec.
+- `family.members.rules.ts`: `managerRefusal(door, role)`/`memberRefusal(door, role)` — the creator/admin and any-member gates with each door's copy; `roleChangeRefusal`/`memberTypeRefusal`/`removalRefusal`/`directAddRefusal` — first refusal in legacy order; `childDetailsRefusal` (the child door keeps its own address pattern), `consentRefusal`, `inviteTargetRefusal`; `addedToFamilyAlert(actor, familyId)` — the direct-add Alert copy.
+- `family.families.rules.ts`: `familyDraft(name, color)` — create validation; `cleanMemberIds(values, creatorId)`; `hasUnaddablePick(picked, verifiedIds)`; `dayOneRosterRefusal(memberLimit, pickedCount)`; `familyPatch(name, color)`; `cardMembers`/`familyCreatedLabel(createdAt, zone)`/`buildFamilyCard(...)` — one `/family` card; `firstNameOf(roster, userId)`.
+
+Repo functions, one line each (`db` first, no clock, `null` for "not found"):
+
+- `family.families.repo.server.ts`: `listMemberships(db, userId)` — every family of the user, oldest first, with role/Member Type, roster size and first names; `findFamilyById`; `insertFamilyWithRoster(db, {id, name, color, creatorId, memberIds, now})` — family plus day-one roster, no calendar; `updateFamilyRow(db, id, patch)`; `countOpenFamilyTasks(db, familyIds)` — one grouped read-only count; `findMembershipFamilyId(db, userId)` — the oldest family (Q-024 B).
+- `family.members.repo.server.ts`: `findMemberRole(db, userId, familyId)`; `findMembership`; `listRoster(db, familyId)`; `listRosterForFamilies(db, familyIds)` — one read for the list's side rail; `insertMembership`; `updateMemberRole`; `updateMemberType`; `deleteMembership` — returns the removed row or null (no task write); `findUserForAdd`; `insertChildConsent(db, {childUserId, parentUserId, familyId, now})` — append-only.
+- `family.invites.repo.server.ts`: `listInviteCodes(db, familyId)`; `listInviteCodesForFamilies`; `findInviteCode` (no expiry filter: `isInviteUsable` decides); `findInviteCodeForUpdate` — `SELECT … FOR UPDATE`; `insertInviteCode`; `deleteInviteCode`; `incrementInviteUse` — DB-side `coalesce(useCount, 0) + 1`; `countFamilyMembers`.
+- `family.search.repo.server.ts`: `findVerifiedUsersByPrefix(db, {term, excludeUserIds})` (+ `prefixSearchQuery`, the unexecuted builder the test reads the SQL from); `findInvitableUsers(db, {familyId, email, firstName, lastName})` — exact legs, current members left out; `listVerifiedUserIds(db, userIds)`.
+
 ### `ui/index.ts`
 
 - `FamilyCard` — one `/family` card: initial on its colour, stat strip, roster avatars, ways in.
@@ -72,7 +102,7 @@ Endpoints (thin `endpoint()` definitions exported for the route files): `listFam
 - Database + services: `*.db.test.ts` using `rollbackTest` and `testCtx({ db })` (needs Postgres: `docker start familycalendar-db`).
 - HTTP contract: `family.http.db.test.ts` pins status + body of every endpoint (golden tests, committed mode). Its emailed-invite `describe` is a spec golden, skipped until S6: the legacy handler imports `$env/static/private` and sends mail through Resend, so it cannot run in the db project.
 - UI: `ui/*.svelte.test.ts` render with props; state classes are tested without a DOM.
-- Fixtures: `family.fixtures.server.ts` — `seedFamily`, `seedMembership`, `seedInvite`, `seedFamilyRoster`, `seedFullFamily`, `FamilyTestUser`. Task rows stay local to the test that needs them (`tasks` owns task fixtures).
+- Fixtures: `family.fixtures.server.ts` — `seedFamily`, `seedMembership`, `seedInvite`, `seedFamilyRoster`, `seedFullFamily`, `FamilyTestUser`; each takes an optional trailing `db` (the committed test database by default; a `rollbackTest` passes its transaction). Task rows stay local to the test that needs them (`tasks` owns task fixtures).
 
 ## Invariants
 

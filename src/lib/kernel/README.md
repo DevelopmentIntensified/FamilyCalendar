@@ -53,8 +53,8 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [db/tables/tasks.tables.server.ts](db/tables/tasks.tables.server.ts) | schema | `tasks`'s tables, moved verbatim from the legacy schema; row types `TaskRow`, `TaskTagRow`, `TaskCompletionRow`, `TaskCategoryRow`, `TaskfocusCommandRow`, `TaskfocusSessionRow`. | schema diff ([scripts/db-schema-diff.ts](../../../scripts/db-schema-diff.ts)) |
 | [errors/appError.ts](errors/appError.ts) | rules | `AppError` with codes mapped to HTTP status; constructors `invalid`, `notFound`, `forbidden`, `conflict(msg, extra)`, and so on. Expected failures only. | [appError.test.ts](errors/appError.test.ts) |
 | [errors/appError.test.ts](errors/appError.test.ts) | test | status mapping, extra fields cannot override `error` | — |
-| [http/endpoint.server.ts](http/endpoint.server.ts) | infra | `endpoint({ auth, query, body, params, rateLimit, failMessage, handle })` → `{ handler }` for `+server.ts`. Owns auth, parsing, the `{error}` shape, 429/500 and fault filing. | [endpoint.test.ts](http/endpoint.test.ts) |
-| [http/endpoint.test.ts](http/endpoint.test.ts) | test | auth modes incl. cron, parsing, Invalid JSON, AppError/extra, 500 + fault, rate limit | — |
+| [http/endpoint.server.ts](http/endpoint.server.ts) | infra | `endpoint({ auth, query, body, bodyMode, params, rateLimit, failMessage, handle })` → `{ handler }` for `+server.ts`. Owns auth, parsing, the `{error}` shape, 429/500 and fault filing. | [endpoint.test.ts](http/endpoint.test.ts) |
+| [http/endpoint.test.ts](http/endpoint.test.ts) | test | auth modes incl. cron, parsing, Invalid JSON, body modes (json/lenient), AppError/extra, 500 + fault, rate limit | — |
 | [http/pageHandlers.server.ts](http/pageHandlers.server.ts) | infra | `pageLoad` (redirects to /login or /calendar) and `formAction` (`fail(...)` with `{ success: false, error }`), `formFields`. | [pageHandlers.test.ts](http/pageHandlers.test.ts) |
 | [http/pageHandlers.test.ts](http/pageHandlers.test.ts) | test | redirect rules, legacy `requireUserAction` failure shape, AppError mapping, fault filing | — |
 | [ids/ids.ts](ids/ids.ts) | infra | `Ids` port, `systemIds` (the existing 15-char row-id format), `sequentialIds` for tests, `sha256Hex`, the one hash for stored secrets. | [ids.test.ts](ids/ids.test.ts) |
@@ -105,7 +105,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [ui/sheetSwipe.test.ts](ui/sheetSwipe.test.ts) | test | legacy threshold table, clamping, idle state | — |
 | [ui/trapFocus.ts](ui/trapFocus.ts) | action | `use:trapFocus` Svelte action: Tab/Shift+Tab cycle inside the node, focus returns on destroy. Disabled, `hidden` and `inert` subtrees and `input[type=hidden]` are skipped by walking the DOM (no layout APIs). Moved from `utils/focusTrap.ts`. | [trapFocus.svelte.test.ts](ui/trapFocus.svelte.test.ts) |
 | [ui/trapFocus.svelte.test.ts](ui/trapFocus.svelte.test.ts) | test | forward/backward wrap, native Tab, focus restore and listener removal, unreachable controls skipped | — |
-| [validation/validators.ts](validation/validators.ts) | rules | zod plus shared fields: `requiredText`, `optionalText`, `isoDate`, `yearMonth`, `isoInstant`, `emailAddress`, `oneOf`, `wholeNumber`, `formList`, `clampedInt`, `firstIssueMessage`, `JsonValue`. | [validators.test.ts](validation/validators.test.ts) |
+| [validation/validators.ts](validation/validators.ts) | rules | zod plus shared fields: `requiredText`, `optionalText`, `isoDate`, `yearMonth`, `isoInstant`, `emailAddress`, `oneOf`, `wholeNumber`, `formList`, `clampedInt`, `firstIssueMessage`, `JsonValue`, and `INVALID_JSON_MESSAGE` (the one `Invalid JSON` copy: `endpoint()`'s malformed-body 400 and the object-level error of contracts that reproduce legacy `readJsonObject`). | [validators.test.ts](validation/validators.test.ts) |
 | [validation/validators.test.ts](validation/validators.test.ts) | test | one table per helper | — |
 
 ## Public interface
@@ -126,7 +126,7 @@ Parse input once, at the boundary, through the `query`/`body`/`params`/`form` sc
 
 ### HTTP
 
-- `endpoint()` builds `+server.ts` handlers.
+- `endpoint()` builds `+server.ts` handlers. `body` reads JSON by default (an empty body is `{}`, malformed JSON answers `400 {"error":"Invalid JSON"}`); set `bodyMode: 'lenient'` on an endpoint whose legacy route refused malformed or empty JSON with its own sentence, and a malformed, empty or unreadable body reaches the schema as `null`, so the contract decides the refusal and its wording.
 - `pageLoad()` builds `load`.
 - `formAction()` builds `actions`.
 - Response helpers: `ok`, `created`, `reply`.

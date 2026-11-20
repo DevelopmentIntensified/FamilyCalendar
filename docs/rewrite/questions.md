@@ -953,6 +953,16 @@ B. Answer the existing 400 for a `null` body. Cost: a malformed request gets a 4
 
 Recommendation: B, as the contract already does; lands with S6 and gets its own golden row then. Applied default until answered: A.
 
+## Q-115 A non-string name in two family request bodies (family S3+S4, 2026-11-18; modules: family)
+
+Context: legacy reads `name` off the emailed-invite body and the add-child body without a type check. A number as the invite's name is accepted and the request goes on; a number as the child's name throws and answers 500. No golden pins either case. The S3 contract reads a non-string name as empty, so both doors answer their existing missing-name 400.
+
+Options:
+A. Keep legacy: accept the number on the invite door, answer 500 on the child door. Cost: S6 reproduces a crash on purpose.
+B. Answer each door's existing missing-name 400. Cost: a malformed request the invite door accepts today gets a 400; no well-formed client sends a number.
+
+Recommendation: B, as the contract already does; lands with S6 with its own golden rows. Applied default until answered: A.
+
 ## Recorded defaults (the sheets recommend keeping legacy)
 
 Every row below is a question the module sheets raised and answered themselves: keep today's behaviour. The owner has not overridden any of them, so each stands as `A (recorded default)` and the sheet may cite its id. Each is filed with its own id so a later sheet or ticket can point at it, and the owner may reverse any of them.
@@ -996,4 +1006,5 @@ Every row below is a question the module sheets raised and answered themselves: 
 | Q-100 | calendarPage | Keep `?edit=` failing with "Event not found" outside the loaded window? | The deep link finds rows in the month window or the fetch cache only | A one-Event read is a wire addition needing its own ticket | A (recorded default) | not pinned by a golden yet |
 | Q-112 | alerts | Keep marking an already-read Alert re-stamping `readAt`? | A repeat mark moves `readAt`, and with it the 90-day retention anchor | Same rule as feedback's Q-007 (re-stamping kept); no client reads the first-read time | A (recorded default) | `alerts.repo.db.test.ts` (S4), no golden |
 | Q-113 | marketing | Keep the contact form's own email regex instead of the kernel `emailAddress` rule? | The legacy regex, never trimmed: a padded `" alex@example.com"` is refused | The golden pins the refusal of a padded address, and the kernel rule trims; the stricter `isEmailAddress` would also refuse `a@b.c` | A (recorded default) | `marketing.http.db.test.ts` (padded address refused) + `marketing.mail.rules.test.ts` (S3) |
+| Q-114 | family | Keep the add-child door's looser email pattern instead of the kernel rule the two invite doors use? | The child route's own regex, which also accepts `a@b.c`, `a..b@c.de` and an underscore in the domain | Unifying tightens a 200 into a 400 on a live door; no golden pins the difference | A (recorded default) | `family.members.rules.test.ts` (`CHILD_EMAIL_PATTERN` rows, S3), no golden |
 | — (answered, no id) | shell | Backport the `passwordHash`/`receiptIngestToken`/phonenumber leak fix to legacy before cutover? | `(calendar)/calendar/+layout.server.ts:17` serialises the whole `users` row to the browser on every app page | **Not a default: the owner chose the hotfix** — issue #324, branch `hotfix/user-page-data`, commit `be915320`; v2 fixes it in shell's port too | hotfix #324 | not pinned by a golden yet |

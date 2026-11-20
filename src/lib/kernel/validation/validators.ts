@@ -16,6 +16,14 @@ import { z } from 'zod';
 
 export { z };
 
+/**
+ * The 400 copy for a body that is not a JSON object. `endpoint()` answers it
+ * for malformed JSON in the default body mode, and the legacy handlers'
+ * `readJsonObject` helpers answered it for any non-object body, so a contract
+ * that reproduces them uses it as its object-level error.
+ */
+export const INVALID_JSON_MESSAGE = 'Invalid JSON';
+
 /** Any value JSON.parse can produce. */
 export type JsonValue =
 	| string

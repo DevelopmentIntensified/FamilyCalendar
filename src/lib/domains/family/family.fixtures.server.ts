@@ -3,16 +3,23 @@
  * Member, invite code); task rows stay local to a test because `tasks` owns
  * task fixtures.
  *
- *   const { ann, bob } = await seedFamilyRoster();
+ *   const { ann, bob } = await seedFamilyRoster();            // committed goldens
  *   await seedInvite({ code: 'LIVE000001', familyId: 'fam-1' });
+ *   await seedFamily('fam-9', { name: 'Nines' }, db);          // inside rollbackTest
+ *
+ * Every builder takes an optional trailing `db`. It defaults to the committed
+ * test database, which is what the golden's calls rely on; a `rollbackTest`
+ * passes its transaction so the rows vanish with it.
  *
  * Doc: ./README.md#how-to-test
  */
+import type { Db } from '$lib/kernel/db/database.server';
 import {
 	families,
 	familyInviteCodes,
 	familyMembers,
-	users
+	users,
+	type FamilyInviteCodeRow
 } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testDb } from '$lib/kernel/testing/testDb.server';
@@ -22,9 +29,10 @@ export type FamilyTestUser = typeof users.$inferSelect;
 
 export async function seedFamily(
 	id: string,
-	overrides: { name?: string; color?: string | null; createdAt?: string } = {}
+	overrides: { name?: string; color?: string | null; createdAt?: string } = {},
+	db: Db = testDb()
 ) {
-	const [row] = await testDb()
+	const [row] = await db
 		.insert(families)
 		.values({
 			id,
@@ -40,20 +48,24 @@ export async function seedMembership(
 	familyId: string,
 	userId: string,
 	role = 'member',
-	memberType = 'member'
+	memberType = 'member',
+	db: Db = testDb()
 ) {
-	await testDb().insert(familyMembers).values({ familyId, userId, role, memberType });
+	await db.insert(familyMembers).values({ familyId, userId, role, memberType });
 }
 
-export async function seedInvite(overrides: {
-	code: string;
-	familyId: string;
-	expiresAt?: string;
-	maxUses?: number | null;
-	useCount?: number | null;
-	createdBy?: string | null;
-}) {
-	await testDb()
+export async function seedInvite(
+	overrides: {
+		code: string;
+		familyId: string;
+		expiresAt?: string;
+		maxUses?: number | null;
+		useCount?: number | null;
+		createdBy?: string | null;
+	},
+	db: Db = testDb()
+): Promise<FamilyInviteCodeRow> {
+	const [row] = await db
 		.insert(familyInviteCodes)
 		.values({
 			code: overrides.code,
@@ -62,36 +74,39 @@ export async function seedInvite(overrides: {
 			maxUses: overrides.maxUses === undefined ? 10 : overrides.maxUses,
 			useCount: overrides.useCount === undefined ? 0 : overrides.useCount,
 			createdBy: overrides.createdBy ?? null
-		});
+		})
+		.returning();
+	if (!row) throw new Error('seedInvite: insert returned no row');
+	return row;
 }
 
 /** ann (creator), bob (admin), cid (member), dee (member), out (not in the family). */
-export async function seedFamilyRoster() {
-	const ann = await seedUser(testDb(), { firstName: 'Ann', lastName: 'Rivera' });
-	const bob = await seedUser(testDb(), { firstName: 'Bob', lastName: 'Stone' });
-	const cid = await seedUser(testDb(), { firstName: 'Cid', lastName: 'Vale' });
-	const dee = await seedUser(testDb(), { firstName: 'Dee', lastName: 'Wren' });
-	const out = await seedUser(testDb(), { firstName: 'Out', lastName: 'Sider' });
-	await seedFamily('fam-1', { name: 'Riveras', color: '#c45e38' });
-	await seedMembership('fam-1', ann.id, 'creator', 'parent');
-	await seedMembership('fam-1', bob.id, 'admin', 'parent');
-	await seedMembership('fam-1', cid.id, 'member');
-	await seedMembership('fam-1', dee.id, 'member');
+export async function seedFamilyRoster(db: Db = testDb()) {
+	const ann = await seedUser(db, { firstName: 'Ann', lastName: 'Rivera' });
+	const bob = await seedUser(db, { firstName: 'Bob', lastName: 'Stone' });
+	const cid = await seedUser(db, { firstName: 'Cid', lastName: 'Vale' });
+	const dee = await seedUser(db, { firstName: 'Dee', lastName: 'Wren' });
+	const out = await seedUser(db, { firstName: 'Out', lastName: 'Sider' });
+	await seedFamily('fam-1', { name: 'Riveras', color: '#c45e38' }, db);
+	await seedMembership('fam-1', ann.id, 'creator', 'parent', db);
+	await seedMembership('fam-1', bob.id, 'admin', 'parent', db);
+	await seedMembership('fam-1', cid.id, 'member', 'member', db);
+	await seedMembership('fam-1', dee.id, 'member', 'member', db);
 	return { ann, bob, cid, dee, out };
 }
 
 /** A family already at the default plan's 6-member cap (creator + 5, bob is the admin). */
-export async function seedFullFamily() {
-	const ann = await seedUser(testDb(), { firstName: 'Ann', lastName: 'Rivera' });
-	const bob = await seedUser(testDb(), { firstName: 'Bob', lastName: 'Stone' });
+export async function seedFullFamily(db: Db = testDb()) {
+	const ann = await seedUser(db, { firstName: 'Ann', lastName: 'Rivera' });
+	const bob = await seedUser(db, { firstName: 'Bob', lastName: 'Stone' });
 	const members: FamilyTestUser[] = [];
 	for (let i = 0; i < 4; i += 1) {
-		members.push(await seedUser(testDb(), { firstName: `Member${i}`, lastName: 'Stone' }));
+		members.push(await seedUser(db, { firstName: `Member${i}`, lastName: 'Stone' }));
 	}
-	const out = await seedUser(testDb(), { firstName: 'Out', lastName: 'Sider' });
-	await seedFamily('fam-full', { name: 'Full House' });
-	await seedMembership('fam-full', ann.id, 'creator', 'parent');
-	await seedMembership('fam-full', bob.id, 'admin', 'parent');
-	for (const member of members) await seedMembership('fam-full', member.id, 'member');
+	const out = await seedUser(db, { firstName: 'Out', lastName: 'Sider' });
+	await seedFamily('fam-full', { name: 'Full House' }, db);
+	await seedMembership('fam-full', ann.id, 'creator', 'parent', db);
+	await seedMembership('fam-full', bob.id, 'admin', 'parent', db);
+	for (const member of members) await seedMembership('fam-full', member.id, 'member', 'member', db);
 	return { ann, bob, members, out };
 }

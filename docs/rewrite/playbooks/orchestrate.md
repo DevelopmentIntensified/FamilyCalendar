@@ -8,7 +8,6 @@ How an orchestrator (a strong model) runs the ledger with cheap implementation a
 |---|---|---|---|
 | orchestrator | strong model (Opus) | picks ledger rows, writes briefs, creates worktrees, verifies, commits, merges, pushes, updates the ledger | implements a task itself; it may fix a single trivial line |
 | implementer | `deepseek-flash` subagent | edits files for exactly one brief, in its own worktree | runs tests, type checks, formatters, builds or git; touches files outside the brief |
-| reviewers | read-only subagents in three tiers (below) | the `code-review` skill's two axes: **standards** and **spec** | edit code |
 
 ## One task
 
@@ -31,23 +30,17 @@ How an orchestrator (a strong model) runs the ledger with cheap implementation a
 
    Each worktree uses its own test database, so prefix db runs with `V2_TEST_DB=familycalendar_v2_test_<id>`. A red result gets a corrective brief that quotes the failure; repeat.
 5. **Commit** on the task branch: `rewrite(<id>): <what>`.
-6. **Review.** Reviewers read `git diff <base>...rewrite/<id>`. Three tiers (owner decision, 2026-11-11):
+6. **No review step** (owner decision, 2026-11-18). No reviewer subagent reads the diff, and `grok-reviewer` is not used at all. Step 4's verify is the merge gate, so the brief carries the whole spec:
+   - expected values come from legacy code and the frozen goldens, never from running the new code;
+   - the implementer re-reads each file it wrote against the module README Invariants before reporting;
+   - the standards are [rules.md](../../architecture/rules.md), [conventions.md](../../architecture/conventions.md) (including Depth and Performance), [testing.md](../../architecture/testing.md) and the module README template.
 
-   | tier | agent | when |
-   |---|---|---|
-   | gate | `reviewer` (glm-5.3-flash), Standards and Spec in parallel | every task; a merge waits for both |
-   | middle | `grok-reviewer` (grok-4.7), one combined pass | sparingly: the medium-risk modules (family, groceries, alerts, billing) and the speed-critical screens (account, dayDashboard, familyHub, shell, calendarPage) at their implementation merge, and as a tie-break when a gate finding is disputed |
-   | high | `opus-reviewer` (Opus), Standards and Spec | kernel tasks and the high-risk modules (tasks, calendar, identity, access, parsing). At most two at a time: Opus shares the account rate limit with the orchestrator. Findings land as fix-forward commits |
+   A deviation or legacy quirk the work surfaces still goes to [questions.md](../questions.md), as an open question or a recorded default.
 
    Rate limits and load (owner decisions, 2026-11-12):
-   - When `deepseek-flash` answers 429, rerun the same brief on `sonnet-impl` (Claude Sonnet); when the gate `reviewer` does, rerun it on `haiku-reviewer` (Claude Haiku).
-   - At most four subagents run at once, Opus reviewers included.
+   - When `deepseek-flash` answers 429, rerun the same brief on `sonnet-impl` (Claude Sonnet).
+   - At most four subagents run at once.
    - Heavy local checks (typecheck, test runs, builds, Playwright) run one at a time at below-normal CPU priority, so the owner's machine stays responsive.
-
-   - **Standards:** [rules.md](../../architecture/rules.md), [conventions.md](../../architecture/conventions.md) (including Depth and Performance), [testing.md](../../architecture/testing.md), the module README template, AGENTS.md, plus the `code-review` skill's smell baseline. **Depth** is checked explicitly: does each new public export earn its place (deletion test), and does every invariant live behind the interface rather than at a call site?
-   - **Spec:** the brief, the playbook section, the module sheet (Must survive, inventory, Notes) and the answered questions.
-
-   A finding that breaks a documented rule or the spec gets a corrective brief, then verify again, then re-review only the fix commits. For judgement-call smells, the orchestrator decides; the ones not acted on go into the sheet's Notes with a reason.
 7. **Merge.**
    - `git merge --no-ff rewrite/<id>` into `rewrite/v2`;
    - repeat step 4 on the merge;
