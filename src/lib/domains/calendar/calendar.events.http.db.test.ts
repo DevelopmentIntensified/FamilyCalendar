@@ -20,7 +20,7 @@ import {
 import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import {
 	seedAttendanceRow,
@@ -35,7 +35,7 @@ import { GET as getEventIcs } from '../../../routes/api/events/[id]/ics/+server'
 import { GET as getRsvp, POST as postRsvp } from '../../../routes/api/events/[id]/rsvp/+server';
 import { GET as getEvents, POST as postEvents } from '../../../routes/api/events/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 const PERSONAL_CAL = 'cal-personal01';
 const FAMILY_CAL = 'cal-family01';

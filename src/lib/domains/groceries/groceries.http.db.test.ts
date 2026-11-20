@@ -17,7 +17,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import { GET as getGroceries, POST as postGroceries } from '../../../routes/api/groceries/+server';
@@ -30,7 +30,7 @@ import {
 	PATCH as patchColours
 } from '../../../routes/api/groceries/colours/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 // The legacy code reads the real clock for `createdAt`/`checkedAt`, so these
 // are shape assertions, not dates (characterize-endpoints.md gotcha).
