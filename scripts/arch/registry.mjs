@@ -254,6 +254,10 @@ export const FOREIGN_READS = {
 	alerts: {
 		subscriptions:
 			'notification preferences live in activeSubscriptions.notificationMethods (legacy storage, no DDL)'
+	},
+	sponsored: {
+		events:
+			'serve the 📢 rows a user already owns (Q-040 decided B: the read and this entry go with that fix)'
 	}
 };
 
