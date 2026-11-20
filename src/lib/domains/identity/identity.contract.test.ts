@@ -8,14 +8,13 @@
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
-import { firstIssueMessage, z } from '$lib/kernel/validation/validators';
+import { firstIssueMessage, INVALID_JSON_MESSAGE, z } from '$lib/kernel/validation/validators';
 import {
 	ApiTokenCreateBody,
 	ApiTokenIdParams,
 	ApiTokenMintedResponse,
 	ApiTokenRevokedResponse,
 	ApiTokensResponse,
-	BODY_NOT_OBJECT_MESSAGE,
 	CalendarSettingsPatchBody,
 	CalendarSettingsResponse,
 	DEFAULT_CALENDAR_UNAVAILABLE_MESSAGE,
@@ -37,7 +36,7 @@ function messageOf(schema: z.ZodType, value: unknown): string | null {
 describe('wire copy', () => {
 	it('keeps the legacy wording verbatim', () => {
 		expect([
-			BODY_NOT_OBJECT_MESSAGE,
+			INVALID_JSON_MESSAGE,
 			TOKEN_NAME_REQUIRED_MESSAGE,
 			TOKEN_ID_REQUIRED_MESSAGE,
 			PROFILE_NAMES_REQUIRED_MESSAGE,
@@ -80,7 +79,7 @@ describe('ApiTokenCreateBody', () => {
 		['a JSON string', 'nope'],
 		['a JSON number', 5]
 	])('answers "Invalid JSON" for %s (legacy readJsonObject)', (_label, body) => {
-		expect(messageOf(ApiTokenCreateBody, body)).toBe(BODY_NOT_OBJECT_MESSAGE);
+		expect(messageOf(ApiTokenCreateBody, body)).toBe(INVALID_JSON_MESSAGE);
 	});
 });
 
@@ -129,7 +128,7 @@ describe('ProfileUpdateBody', () => {
 		['a JSON string', 'nope'],
 		['a JSON array', []]
 	])('answers "Invalid JSON" for %s', (_label, body) => {
-		expect(messageOf(ProfileUpdateBody, body)).toBe(BODY_NOT_OBJECT_MESSAGE);
+		expect(messageOf(ProfileUpdateBody, body)).toBe(INVALID_JSON_MESSAGE);
 	});
 });
 

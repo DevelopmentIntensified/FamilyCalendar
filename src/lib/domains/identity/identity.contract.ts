@@ -16,18 +16,11 @@
  *
  * Doc: ./README.md#invariants
  */
-import { isoInstant, requiredText, z } from '$lib/kernel/validation/validators';
+import { INVALID_JSON_MESSAGE, isoInstant, requiredText, z } from '$lib/kernel/validation/validators';
 import { calendarSettingsPatch, type ACCOUNT_SETTINGS_DEFAULTS } from './identity.settings.rules';
 import { API_TOKEN_PREFIX, apiTokenName } from './identity.token.rules';
 
 // --- Wire copy --------------------------------------------------------------
-
-/**
- * The 400 a body that is not a JSON object gets on the token and profile
- * routes: legacy `readJsonObject` answers it with the malformed-JSON copy
- * (`src/lib/server/utils/jsonBody.ts:9-30`).
- */
-export const BODY_NOT_OBJECT_MESSAGE = 'Invalid JSON';
 
 /** `POST /api/me/api-tokens` with an absent, non-string or blank name. */
 export const TOKEN_NAME_REQUIRED_MESSAGE = 'Token name is required';
@@ -63,7 +56,7 @@ export const ApiTokenCreateBody = z.object(
 				.pipe(z.string().min(1, { error: TOKEN_NAME_REQUIRED_MESSAGE }))
 		)
 	},
-	{ error: BODY_NOT_OBJECT_MESSAGE }
+	{ error: INVALID_JSON_MESSAGE }
 );
 export type ApiTokenCreateBody = z.infer<typeof ApiTokenCreateBody>;
 
@@ -86,7 +79,7 @@ const personName = z.preprocess(textOrEmpty, requiredText(PROFILE_NAMES_REQUIRED
  */
 export const ProfileUpdateBody = z.object(
 	{ firstName: personName, lastName: personName },
-	{ error: BODY_NOT_OBJECT_MESSAGE }
+	{ error: INVALID_JSON_MESSAGE }
 );
 export type ProfileUpdateBody = z.infer<typeof ProfileUpdateBody>;
 
