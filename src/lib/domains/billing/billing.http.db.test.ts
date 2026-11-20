@@ -11,13 +11,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { aiUsageTracking, subscriptions, subscriptionTypes } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 // The ROUTE module, not the service: this is what clients hit, and after the port
 // it re-exports the new handler, so this import never changes.
 import { GET as getSubscription } from '../../../routes/api/me/subscription/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 
 /** Any instant serialised by the wire: shape only, the value is generated. */
 const anInstant = () => expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);

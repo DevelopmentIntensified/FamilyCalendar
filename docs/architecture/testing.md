@@ -9,6 +9,7 @@ Tests sit at seams (public interfaces), so a change can be checked one section a
 | `src/lib/{kernel,domains,screens,app}/**/*.test.ts` | `unit` | node | no. `DATABASE_URL` points at a closed port, so a stray query fails fast |
 | `…/**/*.db.test.ts` | `db` | node | yes: `familycalendar_v2_test` on the local Docker Postgres (or `familycalendar_v2_test_<id>` when `V2_TEST_DB` is set, one per parallel worktree), rebuilt from `sql/migrations` at the start of every run, one file at a time |
 | `…/**/*.svelte.test.ts` | `ui` | jsdom | no; kept for component rendering only (jsdom costs ~0.3–0.7 s per legacy component test) |
+| `e2e/pages/**/*.unit.ts` | `pages` | node | no; the page harness's pure logic (budgets, medians, reports), no browser and no Playwright |
 | anything else under `src/` | `server` / `client` | legacy suites | the legacy harness (`familycalendar_test`) |
 
 ## Time zone
@@ -108,7 +109,8 @@ Any change to a parser (event quick-add, task quick-add, date vocabulary, new ke
 | `npm run typecheck` | zero type errors in v2 code; legacy count ≤ baseline | before commit (~40 s) |
 | `npm run gate` | arch + docs + typecheck + `test:affected`. It never runs the whole suite (owner directive 2026-11-11) | before commit |
 | `npm run gate:push` | gate + `npm run build:safe` (placeholder secrets, local DB, migrations off) | before push (never push a broken build) |
-| `npm run perf:check -- <m>` | the module's pages within their load budgets ([ADR 0010](../adr/0010-performance-budget.md)) | S7, before the module is done |
+| `npm run perf:check -- <m>` | the module's pages within their load budgets ([ADR 0010](../adr/0010-performance-budget.md)): ready time in the desktop and mobile profiles, desktop TTFB (mobile TTFB is reported as information), and initial JS against the page's recorded ceiling plus 2%. Five runs, medians; fails on the four hard limits only | S7, before the module is done; on an otherwise idle machine (build + Playwright, so not after every edit) |
+| `npm run perf:baseline` | measures every catalog page and writes `e2e/pages/perf-baseline.json` (every page's numbers in both profiles, plus its ceiling) and `docs/rewrite/perf-baseline.md` (slowest first, a target row per profile). Legacy pages may miss the hard limits; this run does not fail on them (a timeout or harness error still fails it) | once on the legacy code (K-11), and again when the machine changes — it is the ceiling each page's initial JS may only shrink from |
 | `npm run test:v2` | every v2 test | rarely: after changing sql/migrations or the db test infrastructure (not import-reachable), and before cutover |
 
 Playwright: run it directly (`npx playwright test`). Don't use the deprecated `playwright-cli` skill.

@@ -12,7 +12,7 @@ Dashboard Module registry, family master switches, per-user hides, the one visib
 ## Steps
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `8779688`
+- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
@@ -151,8 +151,8 @@ Every file lives in `src/lib/domains/dashboardModules/`. Roles per [conventions]
 
 legacy source files left (4/4, 356 LOC):
   - src/lib/components/dashboard/DashboardModuleRow.svelte (84 LOC, ui) importers: 1
-  - src/lib/dashboardModules.ts (168 LOC, model) importers: 13
-  - src/lib/server/db/actions/dashboardModules.ts (48 LOC, server) importers: 3
+  - src/lib/dashboardModules.ts (168 LOC, model) importers: 12
+  - src/lib/server/db/actions/dashboardModules.ts (48 LOC, server) importers: 2
   - src/lib/utils/moduleRowState.ts (56 LOC, model) importers: 2
 
 route files not yet wiring-only (2/2):

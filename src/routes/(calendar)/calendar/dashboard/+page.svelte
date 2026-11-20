@@ -93,7 +93,6 @@
 					isToday: data.isToday,
 					meId: data.meId,
 					familyId: data.familyId,
-					dailyVerse: data.dailyVerse,
 					glance: dd.glance,
 					dayEvents: dd.dayEvents,
 					top3: dd.top3,
@@ -115,7 +114,6 @@
 				meId={data.meId}
 				familyId={data.familyId}
 				modules={data.modules}
-				dailyVerse={data.dailyVerse}
 				glance={dd.glance}
 				dayEvents={dd.dayEvents}
 				top3={dd.top3}

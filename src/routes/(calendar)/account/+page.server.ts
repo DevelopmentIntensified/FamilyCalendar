@@ -14,7 +14,7 @@ import { familyCalendarEntries } from '$lib/components/account/accountCalendars'
 import { listTokensForUser } from '$lib/server/db/actions/apiTokens';
 import { isNotificationPreferenceId } from '$lib/components/account/accountNotifications';
 import {
-	ACCOUNT_SETTINGS_DEFAULTS,
+	accountSettingsView,
 	defaultUpdateEmailDeps,
 	deleteAccount,
 	loadConsentHistory,
@@ -28,7 +28,6 @@ import {
 	saveDashboardModules,
 	saveNotificationPreference,
 	updateProfile,
-	verseTranslationOptions,
 	type AccountResult,
 	type UpdateEmailDeps
 } from '$lib/server/services/accountData';
@@ -102,7 +101,7 @@ export const load: PageServerLoad = async (event) => {
 			emailVerified: user!.emailVerified,
 			createdAt: user!.createdAt
 		},
-		userSettings: userSettings ?? ACCOUNT_SETTINGS_DEFAULTS,
+		userSettings: accountSettingsView(userSettings),
 		calendars: calendarList,
 		// 105: one row per family the user belongs to, oldest first, each with
 		// its real roster size (098).
@@ -113,7 +112,6 @@ export const load: PageServerLoad = async (event) => {
 			memberType: m.memberType,
 			memberCount: m.memberCount
 		})),
-		verseTranslations: verseTranslationOptions(),
 		subscription,
 		planLimits,
 		aiUsage,
@@ -146,9 +144,7 @@ export const actions: Actions = {
 			defaultCalendarId: formString(formData, 'defaultCalendarId') || null,
 			syncEventsToFamilyCalendar: formData.get('syncEventsToFamilyCalendar') === 'on',
 			autoParseEventDetails: formData.get('autoParseEventDetails') === 'true',
-			showDailyVerse: formData.get('showDailyVerse') === 'true',
-			showAdsAsEvents: formData.get('showAdsAsEvents') === 'true',
-			verseTranslation: formString(formData, 'verseTranslation')
+			showAdsAsEvents: formData.get('showAdsAsEvents') === 'true'
 		});
 		return toActionResult(result);
 	},

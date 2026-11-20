@@ -10,7 +10,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 - Owns: the reading filters — hidden Calendars, hidden people and search — their composition order, and their device-local storage keys; plus selection mode, the bulk edit bar and the smart-plan review.
 - Owns: the create-anything modal, a wrapper that composes calendar's Event form with tasks' Quick Add, task fields and checklist snippet.
 - Owns: the `?date`, `?view`, `?edit`, `?quickadd` deep links, the "create event from selection" affordance and the `/share-target` redirect.
-- Does not own: Events, Recurring Event expansion, Exception Overrides, RSVP/attendance, ICS, bulk-edit execution (the `calendar` domain); Tasks, quick-add grammar, categories, TaskDetailModal (the `tasks` domain); Sponsored Events and their serve gate (the `sponsored` domain); the Daily Verse text and card (the `verse` domain); the one Dashboard Module visibility answer (the `dashboardModules` domain); the `(calendar)` group layout, settings, roster and shell chrome (`shell` → app). No table.
+- Does not own: Events, Recurring Event expansion, Exception Overrides, RSVP/attendance, ICS, bulk-edit execution (the `calendar` domain); Tasks, quick-add grammar, categories, TaskDetailModal (the `tasks` domain); Sponsored Events and their serve gate (the `sponsored` domain); the one Dashboard Module visibility answer (the `dashboardModules` domain); the `(calendar)` group layout, settings, roster and shell chrome (`shell` → app). No table.
 
 ## Files
 
@@ -27,7 +27,7 @@ The public API is designed at S1. The three entry files are empty stubs today; S
 Six exports for a 6.3k-LOC screen. Everything else — eight rule files, three state classes, the range cache, every view and modal — stays private and is tested where it lives.
 
 - `index.ts`:
-  - `CalendarPageModel` — the one typed load model: the shell (settings-derived facts, calendars, roster, Daily Verse, deep-link seeds, warnings) plus `grid`, the streamed promise that carries the visible month's Events, Sponsored Events and due Tasks. Deletion test: every component and state method reads its props from this type; without it the load shape is hand-mirrored at each call site, which is the bug class conventions forbid. Components type their props as `CalendarPageModel['grid']`-style slices.
+  - `CalendarPageModel` — the one typed load model: the shell (settings-derived facts, calendars, roster, deep-link seeds, warnings) plus `grid`, the streamed promise that carries the visible month's Events, Sponsored Events and due Tasks. Deletion test: every component and state method reads its props from this type; without it the load shape is hand-mirrored at each call site, which is the bug class conventions forbid. Components type their props as `CalendarPageModel['grid']`-style slices.
   - `CalendarView` — `'month' | 'week' | 'day' | 'list'`. Deletion test: the view is the one closed vocabulary the toolbar, the four views, the URL rules and the perf catalog share; inlining the union at each site would let a fifth spelling in.
 - `index.server.ts`:
   - `calendarPageLoad` — the `pageLoad({ auth: 'user' })` handler: URL rules, the Dashboard redirect, the guest-merge prompt, then `getCalendarPage`.
@@ -75,7 +75,6 @@ Every rule below must not change, with the test that pins it. `path:line` is the
 ### Sections, degrade and what the page reads
 
 - Each section degrades to its fallback plus a warning label instead of a 500, and a rejected grid draws `Couldn't load your events.` with Retry — `+page.server.ts:42-47`, `+page.svelte:546-556,603-612` · tests: `calendarPage.service.db.test.ts › "a failing section degrades to its fallback and names itself"`, `ui/CalendarPage.svelte.test.ts › "draws Couldn't load your events with Retry when the grid rejects"`.
-- The Daily Verse needs BOTH `showDailyVerse` and the `verse` Dashboard Module; a hidden verse adds no warning and costs no verse read — the switches read is what discovers the module-off case, and turning the setting off skips the call entirely — `src/lib/server/services/calendarData.ts:96-117`, `+page.server.ts:181-200` · tests: `calendarPage.service.db.test.ts › "setting on, module hidden in /account — the reported bug"`, `› "hiding the verse carries no warning"`.
 - The guest-merge prompt is only for a registered account with a claimable stash cookie; an Anonymous Account is never sent to `/merge-guest`, and a failing check degrades to "no merge" — `+page.server.ts:49-66` · test: `calendarPage.service.db.test.ts › "an Anonymous Account with a stale stash cookie is not sent to /merge-guest"`.
 - The calendar list is the viewer's Personal Calendar first (`Personal Calendar`, settings colour else `#fa8072`) then the family calendar (`families.name` else `Family Calendar`, colour else `#e0ffff`); the personal calendar is provisioned on load — `calendarData.ts:23-58,118-135` · test: `calendarPage.service.db.test.ts › "lists Personal Calendar first, then the family calendar"`.
 - Sponsored Events are served only when `showAdsAsEvents` is on, render amber `#f59e0b`, and sit on no calendar — `calendarData.ts:57-92`, `+page.server.ts:181-212` · tests: `calendarPage.service.db.test.ts › "serves no Sponsored Events when the gate is off"`, `calendarPage.calendars.rules.test.ts › "keeps an event that belongs to no calendar (an ad)"`.
@@ -136,9 +135,12 @@ Every rule below must not change, with the test that pins it. `path:line` is the
   - **calendar** — calendars + personal-calendar provisioning, the Event range read (Occurrences with RSVP, attendance and creator name), the client api for range/PUT/DELETE/bulk, `describeRecurrence`, chip vocabulary and `EventChip`/`EventModal`/`EventFormModal`, and the event-move/select math. Why: Events and calendars are that module's concept; this screen only lays them out.
   - **tasks** — due Tasks inside the window, categories on demand, `TaskDetailModal`, quick-add help and the checklist snippet, and the client api. Why: the grid draws due Tasks on their due day, and the create modal's task tab is a tasks form.
   - **sponsored** — the month's Sponsored Events behind their serve gate. Why: the gate is that module's rule, not a screen read of the settings row.
-  - **verse** — the Daily Verse, already gated by dashboardModules. Why: the card and its visibility rule are verse's.
-  - **dashboardModules** — the one visibility answer (`needs('verse')`): a verse the setting turned off costs no read at all, and while the setting is on one switches read decides whether the verse is shown.
+  - **dashboardModules** — the one visibility answer (`modules`, `needs(read)`): which cards render and which expensive reads a visible module is worth.
   - **feedback** — report a misparsed phrase from the bulk bar.
   - **shell / app layout** — settings, `familyId` and the roster arrive through `parent()`; the page never re-reads them.
   - **kernel** — `pageLoad`, `localPref`, toasts, `apiClient`, `Sheet`/`ConfirmAction`/`Pill`/`Skeleton`/`DayNav`, time day keys/grouping/formatting/zone, and the ticker.
 - Called by: `src/routes/(calendar)/calendar/+page.svelte` (renders `CalendarPage`), `src/routes/(calendar)/calendar/+page.server.ts` (`calendarPageLoad`) and `src/routes/share-target/+page.server.ts` (`shareTargetLoad`) — wiring only.
+
+**Notes**
+
+- Verse deleted 2026-11-12 (Q-031/Q-032): `/api/daily-verse`, the strip and the verse section (with its warning label) left the page; the `verse` Dashboard Module id stays, so the family switches are unchanged.

@@ -14,7 +14,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { goldenCtx } from '$lib/app/testing/goldenCtx.server';
 import { testDb, truncateAll } from '$lib/kernel/testing/testDb.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import {
@@ -40,7 +40,7 @@ import {
 } from '../../../routes/api/taskfocus/sessions/[id]/+server';
 import { POST as absorbSession } from '../../../routes/api/taskfocus/sessions/[id]/absorb/+server';
 
-const ctx = () => testCtx({ db: testDb() });
+const ctx = () => goldenCtx({ db: testDb() });
 const ISO = /^\d{4}-\d{2}-\d{2}T/;
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;

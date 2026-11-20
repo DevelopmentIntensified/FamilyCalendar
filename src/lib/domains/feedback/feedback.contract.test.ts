@@ -82,7 +82,9 @@ describe('BugReportBody', () => {
 		['an object', { href: '/calendar' }],
 		['an array', []]
 	])('stores a %s url as null, like the legacy route', (_label, url) => {
-		const body = url === undefined ? validBugReport : { ...validBugReport, url };
+		// `absent` must really omit the key: validBugReport carries a url.
+		const { url: _omitted, ...withoutUrl } = validBugReport;
+		const body = url === undefined ? withoutUrl : { ...validBugReport, url };
 		expect(BugReportBody.parse(body).url).toBeNull();
 	});
 

@@ -17,7 +17,6 @@
 	import { chipShell } from '$lib/utils/chipVocabulary';
 	import { avatarColor } from '$lib/utils/avatarColor';
 	import type { PrototypeProps, VariantKey } from './prototypeProps';
-	import DashboardInfoBand from '../DashboardInfoBand.svelte';
 	import type { GlanceEvent } from '../TodayGlanceCard.svelte';
 
 	let {
@@ -25,7 +24,6 @@
 		isToday,
 		meId,
 		familyId,
-		dailyVerse,
 		glance,
 		dayEvents,
 		top3,
@@ -157,10 +155,6 @@
 		<div class="rounded-lg border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700" role="status">
 			{protoNotice}
 		</div>
-	{/if}
-
-	{#if dailyVerse && showsModule(modules, 'verse')}
-		<DashboardInfoBand {dailyVerse} />
 	{/if}
 
 	<!-- KPI bar -->

@@ -11,7 +11,6 @@ export interface PrototypeProps {
 	isToday: boolean;
 	meId: string;
 	familyId: string | null;
-	dailyVerse: { reference: string; text: string; attribution?: string } | null;
 	glance: { doneToday: number; openToday: number; weekStreak: number };
 	dayEvents: GlanceEvent[];
 	top3: {

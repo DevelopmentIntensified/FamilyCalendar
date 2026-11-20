@@ -16,7 +16,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 - Does not own: every rule it renders. Profile, email change, sessions, API tokens and user settings
   are identity's; notification preferences are alerts'; subscription, limits and AI usage are
   billing's; the dashboard hide list is dashboardModules'; calendars and the default-calendar rule
-  are calendar's; the ad-consent trail is sponsored's; the verse catalogue is verse's; family
+  are calendar's; the ad-consent trail is sponsored's; family
   memberships are family's; every exported row is selected by the domain that owns its table.
 
 ## Files
@@ -131,14 +131,10 @@ exist now; `planned:` tests are written in S3–S7 against the new files in the 
   `src/lib/server/services/accountData.ts:161-169`. Pin: `planned: account.service.db.test.ts
   › rejects a default calendar the user cannot see and writes nothing`.
 - A user with no settings row reads the approved defaults (`weekStart sunday`, `timeZone UTC`,
-  `color #3b82f6`, `defaultView dayView`, `defaultCalendarId null`, sync off, ads off,
-  `verseTranslation esv`), and merely viewing writes nothing. Evidence:
+  `color #3b82f6`, `defaultView dayView`, `defaultCalendarId null`, sync off, ads off),
+  and merely viewing writes nothing. Evidence:
   `src/lib/server/services/accountData.ts:52-67,86-99`. Pin: `planned: account.service.db.test.ts
   › shows the approved defaults and writes no row on a read`.
-- An unknown `verseTranslation` is stored as `'esv'`, and a retired `'kjv'` row is coerced in the
-  select so it never renders blank. Evidence: `src/lib/server/services/accountData.ts:159`,
-  `src/lib/components/account/AccountCalendarSection.svelte:70-80`. Pin: `planned:
-  account.service.db.test.ts › saves an unknown verse translation as esv`.
 - Ads are opt-in (`showAdsAsEvents` default false); the consent trail is written only on a
   transition, and a consent-write failure is logged but must not fail the settings save. Evidence:
   `src/lib/server/services/accountData.ts:60-62,171-202`. Pin: `planned: account.service.db.test.ts
@@ -239,8 +235,7 @@ exist now; `planned:` tests are written in S3–S7 against the new files in the 
 - Calls: identity (identity, profile, email change, sessions, API tokens, account deletion, user
   settings, settings defaults); alerts (notification preferences and their receipt wording); billing
   (subscription summary, plan limits, AI usage, plan pricing); dashboardModules (canonical module
-  ids and the hidden list); calendar (the user's calendars and the default-calendar check); verse
-  (translation catalogue); sponsored (ad-consent trail and the consent write); family (memberships,
+  ids and the hidden list); calendar (the user's calendars and the default-calendar check); sponsored (ad-consent trail and the consent write); family (memberships,
   names, roster sizes); tasks, bills and groceries (their export slices). Export-only, in legacy
   order: identity and the parallel billing/family/tasks/groceries/alerts reads, then calendar with
   the exported tasks' event ids, then bills' receipt items.
@@ -248,3 +243,7 @@ exist now; `planned:` tests are written in S3–S7 against the new files in the 
   `src/routes/(calendar)/account/section/[section]/+server.ts`;
   `src/routes/(calendar)/calendar/settings/+page.server.ts`; `src/routes/api/me/+server.ts`;
   `src/routes/api/account/export/+server.ts`.
+
+**Notes**
+
+- Verse deleted 2026-11-12 (Q-031/Q-032): the translation picker and the `showDailyVerse` toggle left the Calendar Settings card and `verseTranslation` left the settings wire and save. `showDailyVerse` stays on the `/api/me/settings` wire and PATCH-writable (the Android app toggles it and it gates the kept `verse` Dashboard Module id); the form no longer posts it, so a save leaves the stored value alone.
