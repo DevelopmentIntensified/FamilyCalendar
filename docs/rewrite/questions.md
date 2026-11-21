@@ -953,6 +953,8 @@ B. Answer the existing 400 for a `null` body. Cost: a malformed request gets a 4
 
 Recommendation: B, as the contract already does; lands with S6 and gets its own golden row then. Applied default until answered: A.
 
+Answer (owner, 2026-11-18): **B.** A JSON `null` body reaches the schema as `null` and answers the route's existing 400 (`scope must be mine or family`, or the colour route's 400) instead of today's 500. No golden pins the 500, so it lands with S6, which adds the golden row then.
+
 ## Q-115 A non-string name in two family request bodies (family S3+S4, 2026-11-18; modules: family)
 
 Context: legacy reads `name` off the emailed-invite body and the add-child body without a type check. A number as the invite's name is accepted and the request goes on; a number as the child's name throws and answers 500. No golden pins either case. The S3 contract reads a non-string name as empty, so both doors answer their existing missing-name 400.
@@ -962,6 +964,8 @@ A. Keep legacy: accept the number on the invite door, answer 500 on the child do
 B. Answer each door's existing missing-name 400. Cost: a malformed request the invite door accepts today gets a 400; no well-formed client sends a number.
 
 Recommendation: B, as the contract already does; lands with S6 with its own golden rows. Applied default until answered: A.
+
+Answer (owner, 2026-11-18): **B.** Both doors answer their existing missing-name 400 — the invite door stops accepting the number, the child door stops crashing — and S6 adds the golden rows then.
 
 ## Q-116 Email-change codes and the password-reset marker are stored in plaintext (identity S3+S4, 2026-11-18; modules: identity)
 
@@ -973,9 +977,11 @@ B. Store them as digests like the sign-in kinds. Cost: codes issued before the d
 
 Recommendation: B, as its own commit after identity's S6 (`fix(identity): Q-116 …`). Applied default until answered: A.
 
+Answer (owner, 2026-11-18): **B.** `email_change` codes and the `reset_used` marker are stored as SHA-256 digests like the three sign-in kinds. No `/api` response changes; lands after identity's S6 as `fix(identity): Q-116 …`.
+
 ## Recorded defaults (the sheets recommend keeping legacy)
 
-Every row below is a question the module sheets raised and answered themselves: keep today's behaviour. The owner has not overridden any of them, so each stands as `A (recorded default)` and the sheet may cite its id. Each is filed with its own id so a later sheet or ticket can point at it, and the owner may reverse any of them.
+Every row below is a question the module sheets raised and answered themselves: keep today's behaviour. The owner has not overridden any of them except Q-030, now a port (2026-11-20), so each other row stands as `A (recorded default)` and the sheet may cite its id. Each is filed with its own id so a later sheet or ticket can point at it, and the owner may reverse any of them.
 
 | id | module | question | today | why keep | answer | pinned by |
 |---|---|---|---|---|---|---|
@@ -987,7 +993,7 @@ Every row below is a question the module sheets raised and answered themselves: 
 | Q-026 | family | Keep `200 {users:[]}` when `q`/`familyId` is missing? | Silent empty list | An empty type-ahead box is a normal state, not a client error | A (recorded default) | `family.http.db.test.ts › answers an empty list when q or familyId is missing` |
 | Q-027 | family | Keep DELETE-of-a-non-member answering success? | `{success:true}`, no write | Idempotent delete, like the rest of the app; the UI only offers it on roster rows | A (recorded default) | `family.http.db.test.ts › answers a no-op success for a target who is not a member` |
 | Q-029 | dashboardModules | Should `/api/me/dashboard-modules` reject unknown ids like the family switch route? | Unknown ids silently dropped, 200 | Covers a retired id after an app update; junk never persists either way | A (recorded default) | `dashboardModules.http.db.test.ts › drops every unknown id and answers 200, unlike the family switch route` |
-| Q-030 | dashboardModules | How does `GET /api/families/{id}` keep returning `moduleSwitches` across the rank boundary? | The families payload carries the master-switch map | A fixed wire; the exception is declared in the registry, so the rule stays in one home | A (recorded default) | `family.http.db.test.ts › answers the whole detail payload for a member` |
+| Q-030 | dashboardModules | How does `GET /api/families/{id}` keep returning `moduleSwitches` across the rank boundary? | The families payload carries the master-switch map | A fixed wire; the exception is declared in the registry, so the rule stays in one home | Port (owner, 2026-11-20): `family` declares a family-owned `moduleSwitches` port that `src/lib/app` wires to dashboardModules' `listFamilyModuleSwitches`; no registry rank exception, no module cycle, `/api` wire unchanged | `family.http.db.test.ts › answers the whole detail payload for a member` |
 | Q-033 | groceries | Keep the trailing-slash `400 Item ID required`? | `POST /api/groceries/<id>/` → 400 | One line keeps today's answer | A (recorded default) | `groceries.http.db.test.ts › answers 400 "Item ID required" for a trailing slash` |
 | Q-034 | groceries | Keep scope travelling per verb (PATCH body, GET/DELETE `?scope`)? | Asymmetric, and Android sends exactly that | The installed client is the contract | A (recorded default) | `groceries.http.db.test.ts › answers 400 "scope must be mine or family" when body scope is absent or junk` |
 | Q-035 | groceries | Keep the first writer's `userId` on family colour rows? | A colour flip updates only `color` and `updatedAt` (`src/lib/server/db/actions/groceries.ts:290-300`), so the row keeps whoever wrote it first | The family tier never reads it, and the column is NOT NULL | A (recorded default) | `groceries.http.db.test.ts › answers the viewer's own colour rows plus the palette` |
