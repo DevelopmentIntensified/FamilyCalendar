@@ -203,9 +203,10 @@ export type AppHandleErrorInput = {
  * Filing goes to feedback's `fileAutoBugReport` — the same service
  * `ctx.faults.report` wires for `endpoint()`'s 5xx, so one throttle covers
  * both — and is awaited, as legacy awaited `createBugReport`: the report must
- * land before the error response ends, or a serverless freeze drops it. That
- * service never throws (it skips anonymous callers, throttles itself and
- * catches its own failures), so filing can never break the error response.
+ * land before the error response ends, or a serverless freeze drops it. The
+ * call sits in legacy's own try/catch fence, so a throw BEFORE that service's
+ * internal catch (a hostile `message` getter, a broken event) can never escape
+ * `handleError` and break the error response.
  */
 export function createAppHandleError(
 	ctx: Ctx
@@ -215,12 +216,17 @@ export function createAppHandleError(
 		console.error(error);
 		const userId = event?.locals?.user?.id ?? null;
 		if (!userId) return;
-		await fileAutoBugReport(ctx, {
-			status: status ?? 500,
-			message: error instanceof Error ? error.message : String(error),
-			path: event?.url?.pathname ?? '',
-			userId
-		});
+		// Auto-filing is best-effort by design.
+		try {
+			await fileAutoBugReport(ctx, {
+				status: status ?? 500,
+				message: error instanceof Error ? error.message : String(error),
+				path: event?.url?.pathname ?? '',
+				userId
+			});
+		} catch {
+			// The response is already an error; a failed report must not become one.
+		}
 	};
 }
 

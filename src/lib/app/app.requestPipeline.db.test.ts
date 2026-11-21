@@ -492,4 +492,28 @@ describe('handleError auto-filing (issue 153)', () => {
 
 		expect(await db.select().from(bugReports)).toHaveLength(1);
 	});
+
+	// Legacy's own try/catch fence: a throw BEFORE feedback's internal catch
+	// (here a hostile `message` getter, read while building the fault) must
+	// never escape handleError and turn the error response into a second one.
+	rollbackTest('swallows a filing failure so the error response survives', async (db) => {
+		const handleError = createAppHandleError(pipeline(db).ctx);
+		const person = await seedUser(db);
+		const hostile = new Error('hostile');
+		Object.defineProperty(hostile, 'message', {
+			configurable: true,
+			get() {
+				throw new Error('message getter blew up');
+			}
+		});
+
+		await expect(
+			handleError({
+				status: 500,
+				error: hostile,
+				event: { url: new URL('http://localhost/calendar'), locals: { user: { id: person.id } } }
+			})
+		).resolves.toBeUndefined();
+		expect(await db.select().from(bugReports)).toHaveLength(0);
+	});
 });
