@@ -1,15 +1,20 @@
+<!--
+	One feature card on `/features`: the tinted icon tile, the title and the blurb.
+	The legacy `src/lib/components/marketing/FeatureCard.svelte` is the visual
+	baseline; the icon data comes from the module's closed set.
+-->
 <script lang="ts">
-	import { FEATURE_ICONS, type FeatureIcon } from './featureIcons';
+	import { featureIcon, type FeatureIconName } from '../marketing.icons.rules';
 
 	interface Props {
-		icon: FeatureIcon;
+		icon: FeatureIconName;
 		title: string;
 		blurb: string;
 	}
 
 	let { icon, title, blurb }: Props = $props();
 
-	let def = $derived(FEATURE_ICONS[icon]);
+	const def = $derived(featureIcon(icon));
 </script>
 
 <div class="rounded-2xl border border-slate-200 bg-white p-6 transition-shadow hover:shadow-lg">

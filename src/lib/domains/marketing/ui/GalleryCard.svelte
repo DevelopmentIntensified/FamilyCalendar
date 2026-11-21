@@ -1,3 +1,7 @@
+<!--
+	One photo card in `/features`'s family gallery: the image, a dark wash and the
+	title/blurb over it. `wide` is the third card's two-column span on tablets.
+-->
 <script lang="ts">
 	interface Props {
 		img: string;

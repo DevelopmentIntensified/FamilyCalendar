@@ -11,7 +11,7 @@
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
-import { MARKETING_PAGES, SITE, pageSeo, type SeoMetaTag } from './marketing.seo.rules';
+import { MARKETING_PAGES, SITE, pageSeo, pageTitle, type SeoMetaTag } from './marketing.seo.rules';
 
 function property(tags: readonly SeoMetaTag[], name: string): string | undefined {
 	return tags.find((tag) => 'property' in tag && tag.property === name)?.content;
@@ -105,6 +105,7 @@ describe('pageSeo', () => {
 		{ pathname: '/login', noindex: true },
 		{ pathname: '/signup', noindex: true },
 		{ pathname: '/forgot-password', noindex: true },
+		{ pathname: '/forgot-password/reset', noindex: true },
 		{ pathname: '/checkout', noindex: true }
 	])('$pathname is noindex: $noindex', ({ pathname, noindex }) => {
 		const robots = named(pageSeo(ORIGIN, pathname).meta, 'robots');
@@ -114,5 +115,20 @@ describe('pageSeo', () => {
 	it('puts robots last, after the share tags', () => {
 		const { meta } = pageSeo(ORIGIN, '/checkout');
 		expect(meta.at(-1)).toEqual({ name: 'robots', content: 'noindex, follow' });
+	});
+});
+
+describe('pageTitle', () => {
+	it('is the row’s own title, so no page renders a second one', () => {
+		expect(pageTitle('/')).toBe(MARKETING_PAGES['/']?.title);
+		expect(pageTitle('/about')).toBe(MARKETING_PAGES['/about']?.title);
+	});
+
+	it('ignores a trailing slash, like the lookup it wraps', () => {
+		expect(pageTitle('/features/')).toBe(MARKETING_PAGES['/features']?.title);
+	});
+
+	it('falls back to the site default rather than throwing', () => {
+		expect(pageTitle('/some/route/that/is/new')).toBe(SITE.defaultTitle);
 	});
 });

@@ -1,4 +1,4 @@
-import type { PageServerLoad } from './$types';
-import { androidRelease } from '$lib/fdroid/release';
+import { androidPageLoad } from '$lib/domains/marketing/index.server';
 
-export const load: PageServerLoad = () => ({ release: androidRelease() });
+/** The release comes from the committed `src/lib/fdroid/published.json`. */
+export const load = androidPageLoad;

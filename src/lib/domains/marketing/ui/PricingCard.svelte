@@ -1,14 +1,22 @@
+<!--
+	One pricing card: name, blurb, price, feature ticks, CTA to `/signup`, with
+	the three legacy colour treatments (plain, primary with its floating badge,
+	amber with its note). The legacy `src/lib/components/marketing/PricingCard`
+	is this component; it moved into the module with the page that composes it.
+-->
 <script lang="ts">
+	import type { PricingAccent } from '../marketing.pricing.rules';
+
 	interface Props {
 		name: string;
 		blurb: string;
 		price: string;
 		per: string;
-		features: string[];
+		features: readonly string[];
 		ctaLabel: string;
 		badge?: string | null;
 		note?: string | null;
-		accent?: 'plain' | 'primary' | 'amber';
+		accent?: PricingAccent;
 	}
 
 	let {

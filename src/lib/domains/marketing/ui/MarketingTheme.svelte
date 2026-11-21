@@ -1,3 +1,21 @@
+<!--
+	The marketing theme: the `--mp-*` tokens and the `.mp-*` vocabulary, verbatim
+	from the legacy `src/lib/marketing/theme.css` (#194 owns the dead tokens).
+
+	It lives in a component because the arch checker gives a domain file only the
+	TS roles (rules|contract|repo|service|http|api|state|fixtures), so a `.css`
+	next to the module cannot be named. Every selector is `:global(...)` on
+	purpose: these are page-wide tokens and classes, not this component's own
+	markup, and scoping them would make the whole file dead.
+
+	Doc: ../README.md#invariants
+-->
+<script lang="ts">
+	// Renders nothing: importing the component is what puts the stylesheet in the
+	// marketing group's bundle (the shell imports it once).
+</script>
+
+<style>
 /* ============================================================================
    The FamilyPlanz marketing theme.
 
@@ -30,7 +48,7 @@
    is a decision somebody makes rather than a drift nobody notices.
    ========================================================================== */
 
-:root {
+:global(:root) {
 	/* ── paper ───────────────────────────────────────────────────────────── */
 	--mp-canvas: #f8f6f3;
 	--mp-surface: #ffffff;
@@ -159,24 +177,24 @@
    of the existing ones that want the theme rather than a repeated hex.
    ========================================================================== */
 
-.mp-wash-hero {
+:global(.mp-wash-hero) {
 	position: relative;
 	overflow: hidden;
 	background: var(--mp-wash-hero);
 }
 
-.mp-orb {
+:global(.mp-orb) {
 	position: absolute;
 	border-radius: var(--mp-r-pill);
 	filter: var(--mp-orb-blur);
 	pointer-events: none;
 }
-.mp-orb--blue { background: var(--mp-orb-blue); }
-.mp-orb--blush { background: var(--mp-orb-blush); }
-.mp-orb--mint { background: var(--mp-orb-mint); }
-.mp-orb--peach { background: var(--mp-orb-peach); }
+:global(.mp-orb--blue) { background: var(--mp-orb-blue); }
+:global(.mp-orb--blush) { background: var(--mp-orb-blush); }
+:global(.mp-orb--mint) { background: var(--mp-orb-mint); }
+:global(.mp-orb--peach) { background: var(--mp-orb-peach); }
 
-.mp-frame {
+:global(.mp-frame) {
 	position: relative;
 	background: var(--mp-glass);
 	backdrop-filter: blur(8px);
@@ -186,13 +204,13 @@
 	overflow: hidden;
 }
 
-.mp-tint { border-color: transparent; }
-.mp-tint--blush { background: var(--mp-tint-blush); }
-.mp-tint--blue { background: var(--mp-tint-blue); }
-.mp-tint--mint { background: var(--mp-tint-mint); }
-.mp-tint--lavender { background: var(--mp-tint-lavender); }
+:global(.mp-tint) { border-color: transparent; }
+:global(.mp-tint--blush) { background: var(--mp-tint-blush); }
+:global(.mp-tint--blue) { background: var(--mp-tint-blue); }
+:global(.mp-tint--mint) { background: var(--mp-tint-mint); }
+:global(.mp-tint--lavender) { background: var(--mp-tint-lavender); }
 
-.mp-pill {
+:global(.mp-pill) {
 	display: inline-flex;
 	align-items: center;
 	border-radius: var(--mp-r-pill);
@@ -200,14 +218,14 @@
 	font-size: 0.6875rem;
 	font-weight: 600;
 }
-.mp-pill--blush { background: var(--mp-blush); color: var(--mp-brand); }
-.mp-pill--peach { background: var(--mp-peach); color: var(--mp-peach-ink); }
-.mp-pill--blue { background: var(--mp-blue); color: var(--mp-blue-ink); }
-.mp-pill--mint { background: var(--mp-mint); color: var(--mp-mint-ink); }
-.mp-pill--lavender { background: var(--mp-lavender); color: var(--mp-lavender-ink); }
-.mp-pill--brand { background: var(--mp-warm-100); color: var(--mp-warm-700); }
+:global(.mp-pill--blush) { background: var(--mp-blush); color: var(--mp-brand); }
+:global(.mp-pill--peach) { background: var(--mp-peach); color: var(--mp-peach-ink); }
+:global(.mp-pill--blue) { background: var(--mp-blue); color: var(--mp-blue-ink); }
+:global(.mp-pill--mint) { background: var(--mp-mint); color: var(--mp-mint-ink); }
+:global(.mp-pill--lavender) { background: var(--mp-lavender); color: var(--mp-lavender-ink); }
+:global(.mp-pill--brand) { background: var(--mp-warm-100); color: var(--mp-warm-700); }
 
-.mp-lede {
+:global(.mp-lede) {
 	margin: 1rem 0 0;
 	font-size: var(--mp-lede-size);
 	line-height: var(--mp-lede-leading);
@@ -215,19 +233,19 @@
 	max-width: 40rem;
 }
 @media (min-width: 768px) {
-	.mp-lede { font-size: 1.25rem; }
+	:global(.mp-lede) { font-size: 1.25rem; }
 }
 
 /* The page background. The marketing pages currently set their own
    arbitrary-value backgrounds; this is what a new one should use. */
-.mp-canvas {
+:global(.mp-canvas) {
 	background: var(--mp-canvas);
 	color: var(--mp-ink);
 	font-family: var(--mp-font);
 	-webkit-font-smoothing: antialiased;
 }
 
-.mp-skip {
+:global(.mp-skip) {
 	position: absolute;
 	left: -9999px;
 	top: 0;
@@ -238,6 +256,8 @@
 	border-radius: 0 0 var(--mp-r-seg) 0;
 	box-shadow: var(--mp-shadow-raised);
 }
-.mp-skip:focus {
+:global(.mp-skip:focus) {
 	left: 0;
 }
+
+</style>
