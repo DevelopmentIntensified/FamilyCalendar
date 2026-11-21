@@ -71,12 +71,16 @@ describe('familyDiscountRate', () => {
 	it.each<[number, number]>([
 		[0, 0],
 		[3, 0],
-		[4, 40],
+		[4, 0],
 		[5, 40],
+		[6, 40],
 		[12, 40]
-	])('family discount is 40% from four memberships up: %i → %i%%', (membershipCount, expected) => {
-		expect(familyDiscountRate(membershipCount)).toBe(expected);
-	});
+	])(
+		'family discount is 40% from five family members up: %i → %i%%',
+		(familyMemberCount, expected) => {
+			expect(familyDiscountRate(familyMemberCount)).toBe(expected);
+		}
+	);
 });
 
 describe('lifetimeDiscountRate', () => {

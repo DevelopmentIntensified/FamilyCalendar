@@ -8,7 +8,7 @@
  */
 import { eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
-import { aiUsageTracking, discounts, subscriptionTypes } from '$lib/kernel/db/tables.server';
+import { aiUsageTracking, discounts, subscriptions, subscriptionTypes } from '$lib/kernel/db/tables.server';
 import { seedUser, uniqueSuffix } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import {
@@ -19,6 +19,7 @@ import {
 	seedUserDiscount
 } from './billing.fixtures.server';
 import {
+	deleteSubscriptionsByUserId,
 	findActiveSubscription,
 	findAiUsage,
 	findTier,
@@ -225,5 +226,25 @@ describe('seed writes', () => {
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.name).toBe('Lifetime Discount');
 		expect(rows[0]?.createdAt.getTime()).toBe(NOW.getTime());
+	});
+});
+
+describe('account deletion', () => {
+	rollbackTest("deleteSubscriptionsByUserId removes only that person's rows", async (db) => {
+		const user = await seedUser(db);
+		const other = await seedUser(db);
+		const tier = await seedTier(db);
+		await seedSubscription(db, user.id, { subscriptionTypeId: tier.id });
+		await seedSubscription(db, user.id, { subscriptionTypeId: null });
+		await seedSubscription(db, other.id, { subscriptionTypeId: tier.id });
+
+		await deleteSubscriptionsByUserId(db, user.id);
+
+		expect(
+			await db.select().from(subscriptions).where(eq(subscriptions.userId, user.id))
+		).toHaveLength(0);
+		expect(
+			await db.select().from(subscriptions).where(eq(subscriptions.userId, other.id))
+		).toHaveLength(1);
 	});
 });
