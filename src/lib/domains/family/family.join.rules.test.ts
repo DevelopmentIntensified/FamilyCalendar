@@ -36,7 +36,10 @@ describe('familyJoinView', () => {
 describe('the approved copy', () => {
 	it('names all three possible reasons and guesses none', () => {
 		expect(FAMILY_JOIN_UNUSABLE_HEADING).toBe("This invite link isn't valid any more");
-		expect(FAMILY_JOIN_UNUSABLE_BODY).toContain('it may have expired');
+		// Legacy copy, verbatim: `src/routes/(marketing)/family/join/[code]/+page.svelte:66-68`
+		// at 66a11131 — "The link may have expired, it may have been revoked, or every
+		// use of it may already have been taken."
+		expect(FAMILY_JOIN_UNUSABLE_BODY).toContain('The link may have expired');
 		expect(FAMILY_JOIN_UNUSABLE_BODY).toContain('revoked');
 		expect(FAMILY_JOIN_UNUSABLE_BODY).toContain('every use of it may already have been taken');
 	});
