@@ -80,6 +80,7 @@ Follow [characterize-endpoints.md](characterize-endpoints.md). Every `/api/**` r
 1. `<m>.http.server.ts`:
    - `/api` handlers use `endpoint()` and reproduce the wire exactly: auth mode, rate limit, status codes, bodies, messages.
    - When legacy refused malformed or empty JSON with its own sentence (the one it gives a non-object body) and a golden pins it, set `bodyMode: 'lenient'` on that endpoint: such a body reaches the contract's body schema as `null`, so the contract refuses it with that wording. Do not set it elsewhere; the default (`Invalid JSON`, empty body = `{}`) is what most legacy routes do.
+   - When legacy answered the unparsable body with its own copy that is NOT the schema's non-object sentence (groceries and the focus sessions: `Invalid JSON body` on malformed and empty alike), set `malformedBody: { error }` instead: it replaces the `Invalid JSON` refusal and makes an empty body a refusal too, while a body that parses still reaches the schema. Do not hand-parse `request.text()` in a module: `endpoint()` owns that reader ([kernel-tasks › K-20](kernel-tasks.md#k-20)).
    - Page loads and actions use `pageLoad()` / `formAction()`, shaped for the new UI.
 2. Export them from `index.server.ts` and list them in the README.
 3. Replace each route file with wiring only:

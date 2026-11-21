@@ -13,7 +13,7 @@ App chrome: root + group layouts, nav bars, alert bell slot, offline banner, err
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
 - [ ] S2 `/api` goldens, green on legacy — S2 commit sha: n/a (no `/api` route; see Notes)
-- [ ] S3 contract + rules
+- [x] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
@@ -141,7 +141,7 @@ hands over, and adds no query and no write of its own.
 - Server: `shellCalendarGroupLoad` reads identity settings and the family id in parallel, then the roster (2 round trips instead of the legacy 3 serial queries), passes the root summary through with `event.parent()` (no second query, no `url` read), and returns no `pathname` → it runs once per group entry rather than once per navigation (#3, #5). The whitelisted model removes #4.
 - After paint (none of it blocks first paint): time-zone probe on idle behind the localStorage gate → save → targeted `invalidate('shell:scope')` instead of `invalidateAll()` (#10); offline replay + pending count read on idle (#9); badge count (#6/#7/#8 replaced).
 - On demand: the verify form renders only when the notice says so; menus and the bell panel are lazy (#11 shrinks to the chrome shell + wordmark).
-- Rendering: the notice is decided once by a pure rule over (searchParams, user, daysLeft, dismissals); the single banner stack is measured with `ResizeObserver`; `<main>` offset comes from `shell.frame.rules` (40 px guess before the first measurement); icons stay inline.
+- Rendering: the notice is decided once by a pure rule over (searchParams, `viewer` = `{ isAnonymous, emailVerified }`, daysLeft, dismissals); the single banner stack is measured with `ResizeObserver`; `<main>` offset comes from `shell.frame.rules` (40 px guess before the first measurement); icons stay inline.
 
 **Target load plan — family group (`/(family)/**`)**
 
@@ -151,10 +151,10 @@ hands over, and adds no query and no write of its own.
 
 | file | role | contents |
 |---|---|---|
-| `shell.contract.ts` | contract | zod models with inferred types: `ShellRootModel` (whitelisted user summary + year), `ShellScopeModel` (the passed-through root summary + settings, familyId, roster, anonymous days left), `ShellNoticeModel`; plus the narrow ports `ShellBadgePort`, `ShellVerifyPort`, `ShellTimezonePort`, `ShellOfflinePort`. `shellErrorView`'s return is inferred in `shell.error.rules.ts` (one consumer), so there is no error model here. `.strict()` so a leaking field (e.g. `passwordHash`) fails a test instead of shipping. |
+| `shell.contract.ts` | contract | zod models with inferred types: `ShellRootModel` (whitelisted user summary + year), `ShellScopeModel` (the passed-through root summary + settings, familyId, roster, anonymous days left), `ShellNoticeModel`; plus the narrow ports `ShellBadgePort`, `ShellVerifyPort`, `ShellTimezonePort`, `ShellOfflinePort`. `shellErrorView`'s return is inferred in `shell.error.rules.ts` (one consumer), so there is no error model here. Strict objects (`z.strictObject`) so a leaking field (e.g. `passwordHash`) fails a test instead of shipping. |
 | `shell.nav.rules.ts` | rules | `shellNavItems` (the six destinations, labels, short labels, inline icons, `bellInstead`), `ShellNavItem`, `shellActiveHref`. `marketingNavItems` is not here — it goes to marketing. |
 | `shell.frame.rules.ts` | rules | `shellChromeForRoute(routeId)`, `shellBannerOffset(measuredHeight, bannerCount)` (the 40 px fallback), `shellIsKeyboardOpen(innerHeight, visualViewportHeight)` (the 150 px threshold). |
-| `shell.notices.rules.ts` | rules | `shellDaysLeft(lastActiveAt, now)` (Inactivity Window 90, ceil, floor 0), `shellNoticeFor({ searchParams, user, daysLeft, dismissed })` (the one precedence chain), `shellMergeSummary(events, tasks)` (pluralisation, tasks only when > 0). |
+| `shell.notices.rules.ts` | rules | `shellDaysLeft(lastActiveAt, now)` (Inactivity Window 90, ceil, floor 0), `shellNoticeFor({ searchParams, viewer, daysLeft, dismissed })` (the one precedence chain; `viewer` is `{ isAnonymous, emailVerified }` because identity owns the Anonymous Account predicate), `shellMergeSummary(events, tasks)` (pluralisation, tasks only when > 0). |
 | `shell.error.rules.ts` | rules | `shellErrorView(status, message)` → `{ tone, title, body, showReport }` for 404 / other 4xx / 5xx. |
 | `shell.api.ts` | api | `createShellPorts()`: the single wiring point for the four ports over alerts' count, access' verify/resend, identity's time-zone save and kernel/client's offline queue. Layouts pass `ports` in; tests pass fakes. |
 | `shell.service.server.ts` | service | `loadShellRoot(ctx, actor, viewer)` (whitelist from the session row + the year from `ctx.clock.now()`; no query) and `loadCalendarGroup(ctx, actor)` (identity settings ∥ family id, then roster; `Promise.allSettled` around the family half so a broken family read is `null`/`[]`). |
@@ -242,6 +242,23 @@ sha. Its db tests in S5/S6 pin the layout loads, not a wire.
 - **The shared scope is composed here for now.** `loadCalendarGroup` calls identity's settings read
   and family's id/roster reads itself (a screen may compose domains). If `family` later exports a
   viewer-scope reader, shell calls it instead: same data, one call site fewer, and no rule changes.
+
+**S3 decisions (2026-11-19).**
+
+- `shellNoticeFor` takes `viewer = { isAnonymous, emailVerified }`, not a `user` row. Identity owns
+  `isAnonymousAccount` and its public entry is still `export {}` at S3, so shell cannot re-derive the
+  placeholder marker in a pure rule; the load (S5) and the frame (S7) compute it with identity's rule
+  and pass it in. The Plan rows and the load-plan sentence now say so.
+- The contract uses `z.strictObject` (the repo convention, as in `identity.contract.ts`); the
+  unknown-key refusal is the same as `.strict()`. The #324 whitelist test belongs to
+  `shell.service.db.test.ts` (S5).
+- `ShellSettingsModel` is the browser-boundary projection of the identity settings the calendar
+  group's pages read (plus the dashboard gates), not identity's row type: `verseTranslation`,
+  `useCloudAI`/`useLocalAI` and row plumbing stay out and are never serialised by shell.
+- `ShellScopeModel` flattens the passed-through root summary (`user`, `year`): a signed-in group
+  always has a user, so there is no nullable nesting.
+- No chrome for `/claim` and `/merge-guest`: the rule counts only `/(calendar)/calendar/**` and
+  `/(family)/**`, and both legacy pages render standalone (no navbar/tab bar).
 
 ### Bugs found while verifying (fixed in this port, none is a fixed external contract)
 
