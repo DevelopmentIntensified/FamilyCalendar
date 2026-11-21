@@ -3,12 +3,14 @@
  *
  * The serve path is ONE call — `listSponsoredEvents` — so the gate cannot be
  * bypassed by a caller: it checks `showAdsAsEvents` through identity's settings
- * view FIRST (gate off = no ad query), resolves the month and the zone, reads
- * the user's own 📢 rows or draws the month's three, and projects every row
- * through the one display rule (amber, `allDay`, no calendar, `isAd`). The
- * consent services never decide anything on that path: records are evidence
- * (the settings view also carries the trail; the gate ignores it), and only a
- * real transition appends one.
+ * view FIRST (gate off = no ad read), resolves the month and the zone, draws
+ * the month's three generated rows from the `sha256(userId + 'YYYY-MM')` seed
+ * (Q-041 B; a user's own 📢 Events are not ad inventory, Q-040 B), and
+ * projects every row through the one display rule (amber, `allDay`, no
+ * calendar, `isAd`, `created_at` = the month's start, Q-042 B). The consent
+ * services never decide anything on that path: records are evidence (the
+ * settings view also carries the trail; the gate ignores it), and only a real
+ * transition appends one.
  *
  * Authorization: the serve read answers for the caller only; the consent
  * functions take the person's id because identity's `AdConsentPort` hands them
@@ -22,32 +24,32 @@
  *
  * Doc: ./README.md#public-interface
  */
-import { getCalendarSettings } from '$lib/domains/identity/index.server';
+import { getCalendarSettings, type IdentityCtx } from '$lib/domains/identity/index.server';
 import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import type { SponsoredConsentDecision, SponsoredEvent } from './sponsored.contract';
 import { sponsoredConsentDecision } from './sponsored.consent.rules';
-import { sponsoredSourceOfRow, toSponsoredEvent } from './sponsored.display.rules';
+import { toSponsoredEvent } from './sponsored.display.rules';
 import {
 	planSponsoredMonth,
+	sponsoredDrawSeed,
 	sponsoredMonthOf,
 	sponsoredMonthOfKey,
-	sponsoredMonthWindow
+	sponsoredMonthWindow,
+	sponsoredSeededDraw
 } from './sponsored.month.rules';
 import {
 	deleteAdEventsCreatedBefore,
 	insertSponsoredConsentRecord,
-	listOwnedSponsoredEventRows,
 	listSponsoredConsentRecords
 } from './sponsored.repo.server';
 import { shouldServeSponsoredEvents } from './sponsored.serve.rules';
-import type { SponsoredCtx } from './index.server';
 
 /** What one serve read is asked for: a validated `YYYY-MM`, or the month of `now`. */
 export type SponsoredMonthRequest = {
 	/** A validated `YYYY-MM` (`SponsoredEventsQuery`); absent = the month of `now` in the user's zone. */
 	readonly month?: string;
-	/** The request instant: the wire's whole "now", used for the month and `created_at`. */
+	/** The request instant: which month an absent `month` means. */
 	readonly now: Date;
 };
 
@@ -59,15 +61,16 @@ export type SponsoredConsentRecord = {
 
 /**
  * The month's Sponsored Events for `actor`, as the wire and the calendar
- * render them: `[]` when the gate is off, the user's own 📢 rows in start
- * order when the month has any, else the three generated ones.
+ * render them: `[]` when the gate is off, else the month's three generated
+ * rows in draw order — the sole source (owner Q-040 B; an own 📢 Event is the
+ * user's own calendar data, never ad inventory).
  *
  * The gate comes from identity's settings view, which also carries the consent
  * trail; the trail is ignored (evidence, never permission) — the one serve
  * path reads it as part of that view and never decides anything with it.
  */
 export async function listSponsoredEvents(
-	ctx: SponsoredCtx,
+	ctx: IdentityCtx,
 	actor: Actor,
 	input: SponsoredMonthRequest
 ): Promise<SponsoredEvent[]> {
@@ -78,15 +81,15 @@ export async function listSponsoredEvents(
 	const month = input.month
 		? sponsoredMonthOfKey(input.month)
 		: sponsoredMonthOf({ now: input.now, zone });
+	// Q-042 B: `created_at` is the month's start in the user's zone, so every
+	// read of the same month serves the same value.
 	const window = sponsoredMonthWindow({ month, zone });
-	const serving = { ownerId: actor.id, createdAt: input.now };
+	const serving = { ownerId: actor.id, createdAt: new Date(window.fromIso) };
+	// Q-041 B: the draw is seeded per user and month, so the same month serves
+	// the same three rows on every request.
+	const random = sponsoredSeededDraw(sponsoredDrawSeed({ userId: actor.id, month }));
 
-	const rows = await listOwnedSponsoredEventRows(ctx.db, { ownerId: actor.id, ...window });
-	if (rows.length > 0) {
-		return rows.map((row) => toSponsoredEvent(sponsoredSourceOfRow(row), serving));
-	}
-
-	return planSponsoredMonth({ month, zone, random: ctx.random }).map((plan) =>
+	return planSponsoredMonth({ month, zone, random }).map((plan) =>
 		toSponsoredEvent(
 			{
 				id: ctx.ids.id(),

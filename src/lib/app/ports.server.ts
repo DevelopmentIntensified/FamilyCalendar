@@ -19,21 +19,16 @@
  *   (`sponsoredAdConsentPort`), built on sponsored's own repo and services and
  *   bound to the ctx it is attached to, so it reads the request's database and
  *   clock (a golden's transaction-scoped test db included).
- * - sponsored's `random` — the one place the generation draw gets randomness
- *   from (rule R5 keeps `Math.random()` in `app`/`kernel` only).
  *
  * Doc: docs/rewrite/playbooks/add-a-port.md#domain-ports
  */
 import type { CalendarAccessPort, IdentityPorts } from '$lib/domains/identity/index.server';
-import {
-	sponsoredAdConsentPort,
-	type SponsoredPorts
-} from '$lib/domains/sponsored/index.server';
+import { sponsoredAdConsentPort } from '$lib/domains/sponsored/index.server';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
 
 /** Cross-module adapters. Grows one owning module at a time. */
-export type AppPorts = IdentityPorts & SponsoredPorts;
+export type AppPorts = IdentityPorts;
 
 /** TRANSITION BRIDGE — `calendar`'s S5 replaces this with its exported adapter. */
 const legacyCalendarAccess: CalendarAccessPort = {
@@ -45,7 +40,6 @@ export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
 	return {
 		...ctx,
 		calendarAccess: legacyCalendarAccess,
-		adConsent: sponsoredAdConsentPort(ctx),
-		random: () => Math.random()
+		adConsent: sponsoredAdConsentPort(ctx)
 	};
 }

@@ -259,10 +259,6 @@ export const FOREIGN_READS = {
 		users:
 			'roster names/emails, picker + invite-flow search, verified-account check, direct-add lookup',
 		tasks: 'open-task counts on the /family list (read-only grouped count)'
-	},
-	sponsored: {
-		events:
-			'serve the 📢 rows a user already owns (Q-040 decided B: the read and this entry go with that fix)'
 	}
 };
 

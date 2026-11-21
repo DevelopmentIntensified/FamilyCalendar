@@ -9,16 +9,16 @@
  * The request instant: the wire's absent `month` means "the current month in
  * the user's zone", read once here as `ctx.clock.now()` — the same clock every
  * other rule input takes (R5). A golden gets the real `systemClock` as its
- * `ctx.clock`, so the frozen absent-month row (day 10 of the real current
- * month) still comes back; a service test pins `now` explicitly.
+ * `ctx.clock`, so the frozen absent-month row still resolves against the real
+ * current month; a service test pins `now` explicitly.
  *
  * Doc: ./README.md#public-interface
  */
+import type { IdentityCtx } from '$lib/domains/identity/index.server';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
 import { SponsoredEventsQuery, type SponsoredEventsResponse } from './sponsored.contract';
 import { listSponsoredEvents } from './sponsored.service.server';
-import type { SponsoredCtx } from './index.server';
 
 /**
  * `GET /api/sponsored-events?month=YYYY-MM`: the month's Sponsored Events,
@@ -29,7 +29,7 @@ export const listSponsoredEventsEndpoint = endpoint({
 	auth: 'user',
 	query: SponsoredEventsQuery,
 	handle: async ({ ctx, actor, query }) => {
-		const events = await listSponsoredEvents(sponsoredCtx(ctx), actor, {
+		const events = await listSponsoredEvents(identityCtx(ctx), actor, {
 			month: query.month,
 			now: ctx.clock.now()
 		});
@@ -40,15 +40,14 @@ export const listSponsoredEventsEndpoint = endpoint({
 
 /**
  * The endpoint builder types `ctx` as the kernel `Ctx`; the app attaches
- * identity's two ports and sponsored's `random` to every ctx
- * (`src/lib/app/ports.server.ts`). Fails loudly when the wiring is missing
- * rather than reading through `undefined`.
+ * identity's two ports to every ctx (`src/lib/app/ports.server.ts`). Fails
+ * loudly when the wiring is missing rather than reading through `undefined`.
  */
-function sponsoredCtx(ctx: Ctx): SponsoredCtx {
-	if (!('calendarAccess' in ctx) || !('adConsent' in ctx) || !('random' in ctx)) {
+function identityCtx(ctx: Ctx): IdentityCtx {
+	if (!('calendarAccess' in ctx) || !('adConsent' in ctx)) {
 		throw new Error(
-			'sponsored ports are not wired: src/lib/app/ports.server.ts must attach calendarAccess, adConsent and random'
+			'sponsored ports are not wired: src/lib/app/ports.server.ts must attach calendarAccess and adConsent'
 		);
 	}
-	return ctx as SponsoredCtx;
+	return ctx as IdentityCtx;
 }

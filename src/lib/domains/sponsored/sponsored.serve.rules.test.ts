@@ -1,18 +1,11 @@
 /**
- * The serve gate and the 📢 title rule. Expected values come from the README
- * Invariants and the legacy pure cases (adService.test.ts), never from running
- * the code.
+ * The serve gate. Expected values come from the README Invariants and the
+ * legacy pure cases (adService.test.ts), never from running the code.
  *
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
-import {
-	isSponsoredTitle,
-	shouldServeSponsoredEvents,
-	SPONSORED_TITLE_MARKER,
-	sponsoredMessageOf,
-	type SponsoredServeSettings
-} from './sponsored.serve.rules';
+import { shouldServeSponsoredEvents, type SponsoredServeSettings } from './sponsored.serve.rules';
 
 /**
  * A settings row full of other preferences, the ad flag off. Bound to a
@@ -40,38 +33,5 @@ describe('shouldServeSponsoredEvents — the one serve gate', () => {
 		['every other field set, flag false', rowFullOfOtherPreferences, false]
 	])('%s → %s', (_label, settings, expected) => {
 		expect(shouldServeSponsoredEvents(settings)).toBe(expected);
-	});
-});
-
-describe('the 📢 title marker', () => {
-	it('is the megaphone emoji', () => {
-		expect(SPONSORED_TITLE_MARKER).toBe('📢');
-	});
-
-	// adService.ts:103 — `title LIKE '📢%'`: the marker must be the first character.
-	it.each<[string, boolean]>([
-		['📢 20% off annual plans', true],
-		['📢Sale', true],
-		['📢', true],
-		['📢📢 Double', true],
-		['Dentist', false],
-		['Sale 📢', false],
-		[' 📢 Leading space', false],
-		['', false]
-	])('isSponsoredTitle(%j) → %s', (title, expected) => {
-		expect(isSponsoredTitle(title)).toBe(expected);
-	});
-
-	// adService.ts:111 — `title.replace('📢', '').trim()`: the FIRST marker goes, then the
-	// whitespace on both ends; a second marker stays.
-	it.each<[string, string]>([
-		['📢 20% off annual plans', '20% off annual plans'],
-		['📢    Extra spaces', 'Extra spaces'],
-		['📢Sale  ', 'Sale'],
-		['📢', ''],
-		['📢📢 Double', '📢 Double'],
-		['📢 Tab\tinside ', 'Tab\tinside']
-	])('sponsoredMessageOf(%j) → %j', (title, expected) => {
-		expect(sponsoredMessageOf(title)).toBe(expected);
 	});
 });

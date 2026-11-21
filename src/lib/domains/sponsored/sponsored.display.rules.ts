@@ -1,23 +1,24 @@
 /**
  * sponsored display rules: the one projection every served Sponsored Event
- * goes through, whether it is an own 📢 Event or a generated one
- * (`adService.ts:294-334`, `calendarData.ts:53-62,79-81`, `+server.ts:35`).
+ * goes through — every served row is generated (owner Q-040 B). The legacy
+ * projection is `adService.ts:294-334`, `calendarData.ts:53-62,79-81`,
+ * `+server.ts:35`.
  *
  * The row is the calendar display shape plus the ad marking: `📢 <message>`,
  * all-day, no calendar (`calendarId: ''`, so no person can be attributed to it
  * and no person filter hides it), `end` and `date` equal to `start`, the amber
  * and `isAd: true` — so no consumer can render a Sponsored Event unlabelled.
  *
- * `created_at` is the serving instant the caller passes, one per response
- * (Q-042, ported as today). The decided fix B — the stored value for an own
- * row, the month start for a generated one — changes only what the service
- * passes as `createdAt`, not this rule.
+ * `created_at` is the month window's start (owner Q-042 B), passed by the
+ * service: stable for every read of the same month.
  *
  * Doc: ./README.md#invariants
  */
 import { toInstantString } from '$lib/kernel/time/dates';
-import type { OwnedSponsoredEventRow, SponsoredEvent } from './sponsored.contract';
-import { SPONSORED_TITLE_MARKER, sponsoredMessageOf } from './sponsored.serve.rules';
+import type { SponsoredEvent } from './sponsored.contract';
+
+/** The marker every served title starts with (#067); the projection writes it. */
+export const SPONSORED_TITLE_MARKER = '📢';
 
 /**
  * Sponsored Events render in this amber on the wire and on every calendar view
@@ -27,7 +28,7 @@ import { SPONSORED_TITLE_MARKER, sponsoredMessageOf } from './sponsored.serve.ru
  */
 export const SPONSORED_EVENT_COLOR = '#f59e0b';
 
-/** What a served row is built from: an own 📢 Event, or a generated plan plus its id. */
+/** What a served row is built from: a generated plan plus its id. */
 export type SponsoredEventSource = {
 	readonly id: string;
 	readonly message: string;
@@ -41,19 +42,9 @@ export type SponsoredEventSource = {
 export type SponsoredEventServing = {
 	/** The requesting user: every served row is theirs (`adService.ts:310,328`). */
 	readonly ownerId: string;
-	/** Served as `created_at`. */
+	/** Served as `created_at`: the served month's start (Q-042 B). */
 	readonly createdAt: Date;
 };
-
-/** An own 📢 Event as a served source: its message is the title without the marker, trimmed. */
-export function sponsoredSourceOfRow(row: OwnedSponsoredEventRow): SponsoredEventSource {
-	return {
-		id: row.id,
-		message: sponsoredMessageOf(row.title),
-		description: row.description,
-		start: row.start
-	};
-}
 
 /**
  * The wire row. `start` is normalized to a UTC ISO instant; one that is not an
