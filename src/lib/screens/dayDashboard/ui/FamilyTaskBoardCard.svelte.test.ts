@@ -6,7 +6,7 @@
  * Doc: ../README.md#invariants
  */
 import { describe, expect, it, afterEach, vi } from 'vitest';
-import { cleanup, render, screen, fireEvent } from '@testing-library/svelte';
+import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { memoryToasts } from '$lib/kernel/client/toasts.svelte';
 import type { TasksApi } from '$lib/domains/tasks';
 import FamilyTaskBoardCard from './FamilyTaskBoardCard.svelte';
@@ -127,7 +127,11 @@ describe('FamilyTaskBoardCard', () => {
 		await fireEvent.input(input, { target: { value: 'call @Nobody' } });
 		expect(state.quickTitle).toBe('call @Nobody');
 		await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-		expect(screen.getByRole('alert').textContent).toContain('Unknown member @Nobody');
+		// The parser loads on the first quick-add (a dynamic import), so the
+		// refusal lands a microtask later.
+		await waitFor(() =>
+			expect(screen.getByRole('alert').textContent).toContain('Unknown member @Nobody')
+		);
 		expect(state.quickTitle).toBe('call @Nobody');
 		expect(calls).toEqual([]);
 	});

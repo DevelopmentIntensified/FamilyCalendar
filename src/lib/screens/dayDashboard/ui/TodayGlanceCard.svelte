@@ -7,13 +7,9 @@
 	Legacy reference: `components/dashboard/TodayGlanceCard.svelte` (#314/#067).
 -->
 <script lang="ts">
-	import {
-		CalendarAttendanceBadge,
-		CalendarEventChipMark
-	} from '$lib/domains/calendar/ui';
-	import { describeEventChip } from '$lib/domains/calendar';
+	import GlanceAttendanceBadge from './GlanceAttendanceBadge.svelte';
 	import type { DashboardDayEventRow } from '../dayDashboard.contract';
-	import { glanceRsvpVisual, orderGlanceEvents } from '../dayDashboard.cards.rules';
+	import { glanceChip, glanceRsvpVisual } from '../dayDashboard.cards.rules';
 
 	interface Props {
 		dateLabel: string;
@@ -31,7 +27,12 @@
 			? `/calendar?date=${dayDate}&view=day`
 			: '/calendar?view=day'
 	);
-	const rows = $derived(orderGlanceEvents(events));
+	const allDayEvents = $derived(events.filter((event) => event.allDay));
+	const timedEvents = $derived(
+		events
+			.filter((event) => !event.allDay)
+			.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+	);
 
 	function timeLabel(value: string): string {
 		const date = new Date(value);
@@ -50,7 +51,7 @@
 
 	{#snippet eventRow(event: DashboardDayEventRow, shell: string)}
 		{@const rsvp = glanceRsvpVisual(event.rsvpStatus)}
-		{@const chip = describeEventChip({ density: 'word', event })}
+		{@const chip = glanceChip(event)}
 		<button
 			type="button"
 			data-chip-kind={chip.kind}
@@ -72,7 +73,24 @@
 						>{/if}
 				</span>
 			{/if}
-			<CalendarEventChipMark kind={chip.kind} density={chip.markDensity} />
+			<span class="inline-flex shrink-0 items-center" style="gap:2px" data-chip-mark={chip.kind}>
+				<span
+					class="inline-flex items-center justify-center text-[var(--chip-color)]"
+					style="width:10px;height:10px"
+					aria-hidden="true"
+				>
+					<span
+						class="inline-block bg-current"
+						style="width:{chip.width}px;height:{chip.height}px;border-radius:{chip.radius}"
+					></span>
+				</span>
+				{#if chip.word}
+					<span
+						class="shrink-0 text-[9px] font-semibold uppercase leading-none tracking-wide opacity-70"
+						data-chip-word={chip.word}>{chip.word}</span
+					>
+				{/if}
+			</span>
 			<span
 				data-testid="glance-event-title"
 				class="min-w-0 flex-1 truncate text-sm text-slate-700">{event.title}</span
@@ -88,23 +106,29 @@
 				>
 			{/if}
 			{#if event.attendance && event.attendance.invited > 1}
-				<CalendarAttendanceBadge attendance={event.attendance} variant="row" />
+				<GlanceAttendanceBadge attendance={event.attendance} />
 			{/if}
 		</button>
 	{/snippet}
 
-	{#if rows.length > 0}
-		<div class="space-y-1.5">
-			{#each rows as event (event.id)}
+	{#if allDayEvents.length > 0}
+		<div class="mb-3 space-y-1.5">
+			{#each allDayEvents as event (event.id)}
 				{@render eventRow(
 					event,
-					event.allDay
-						? 'border border-slate-100 bg-slate-50/60 hover:border-slate-200 hover:bg-slate-100'
-						: 'hover:bg-slate-50'
+					'border border-slate-100 bg-slate-50/60 hover:border-slate-200 hover:bg-slate-100'
 				)}
 			{/each}
 		</div>
-	{:else}
+	{/if}
+
+	{#if timedEvents.length > 0}
+		<div class="space-y-1.5">
+			{#each timedEvents as event (event.id)}
+				{@render eventRow(event, 'hover:bg-slate-50')}
+			{/each}
+		</div>
+	{:else if allDayEvents.length === 0}
 		<div
 			class="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400"
 		>

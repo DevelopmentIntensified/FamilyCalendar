@@ -109,6 +109,46 @@ export function initialsFromName(name: string): string {
 		.join('');
 }
 
+// --- Glance chip -------------------------------------------------------------
+
+/** Which mark a glance row wears: an ad outranks all-day, all-day outranks timed. */
+export type GlanceChipKind = 'timed' | 'allDay' | 'sponsored';
+
+/** The mark's geometry, mirrored from calendar's chip table for the three kinds a day can carry. */
+export type GlanceChip = {
+	readonly kind: GlanceChipKind;
+	/** The row's inline style: the calendar colour as a CSS variable. */
+	readonly style: string;
+	readonly width: number;
+	readonly height: number;
+	readonly radius: string;
+	/** The visible word ('' for a timed chip). */
+	readonly word: string;
+};
+
+/**
+ * The glance chip, computed here rather than through `calendar.chips.rules`:
+ * that module imports luxon for its day split, and the dashboard's first paint
+ * must not pay 21.5 KB for one 10px dot. The geometry and words are calendar's
+ * table (`chrome` kinds only); when calendar splits its chip rules out of the
+ * luxon file, this rule goes away and the mark component comes back.
+ */
+export function glanceChip(event: {
+	readonly allDay: boolean;
+	readonly isAd?: boolean | null;
+	readonly color: string;
+}): GlanceChip {
+	const kind: GlanceChipKind = event.isAd ? 'sponsored' : event.allDay ? 'allDay' : 'timed';
+	return {
+		kind,
+		style: `--chip-color:${event.color || '#fa8072'};`,
+		width: kind === 'timed' ? 6 : kind === 'allDay' ? 10 : 9,
+		height: kind === 'timed' ? 6 : kind === 'allDay' ? 5 : 9,
+		radius: kind === 'timed' ? '9999px' : kind === 'allDay' ? '1px' : '0px',
+		word: kind === 'allDay' ? 'All day' : kind === 'sponsored' ? 'Ad' : ''
+	};
+}
+
 // --- Glance RSVP badge -------------------------------------------------------
 
 /** The badge a glance row draws for the viewer's answer to a family event. */

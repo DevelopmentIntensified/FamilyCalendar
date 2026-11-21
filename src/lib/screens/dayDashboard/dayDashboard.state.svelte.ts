@@ -13,8 +13,11 @@
  */
 import type { ToastAction, Toasts } from '$lib/kernel/client/toasts.svelte';
 import { systemClock } from '$lib/kernel/time/clock';
-import { parseTaskQuickAdd } from '$lib/domains/parsing';
-import { taskQuickAddRefusal, taskRecurringCompleteText, type TasksApi } from '$lib/domains/tasks';
+import {
+	taskQuickAddRefusal,
+	taskRecurringCompleteText,
+	type TasksApi
+} from '$lib/domains/tasks';
 import { familyBoardTaskBody } from './dayDashboard.cards.rules';
 import type {
 	DashboardFamilyTaskRow,
@@ -102,6 +105,9 @@ export class DayDashboardState {
 	async addFamilyTask(): Promise<void> {
 		const title = this.quickTitle.trim();
 		if (!title || this.quickBusy) return;
+		// Parsing brings luxon (its due-date grammar reads the viewer's zone), so
+		// it loads on the first quick-add, not with the card band (ADR 0010).
+		const { parseTaskQuickAdd } = await import('$lib/domains/parsing');
 		const parsed = parseTaskQuickAdd(this.quickTitle, {
 			now: this.clock(),
 			zone: this.zone,

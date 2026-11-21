@@ -6,7 +6,6 @@
 	Legacy reference: `components/dashboard/KidsScheduleCard.svelte` (072).
 -->
 <script lang="ts">
-	import { DateTime } from 'luxon';
 	import type { DashboardKidsEventRow } from '../dayDashboard.contract';
 	import { groupKidsSchedule, initialsFromName } from '../dayDashboard.cards.rules';
 	import { idColor } from '$lib/kernel/ui/colorHash';
@@ -22,13 +21,18 @@
 
 	const groups = $derived(groupKidsSchedule(events));
 
+	function clock(iso: string): string {
+		const at = new Date(iso);
+		if (Number.isNaN(at.getTime())) return '';
+		return at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+	}
+
 	function timeLabel(event: DashboardKidsEventRow): string {
 		if (event.allDay) return 'All day';
-		const start = DateTime.fromISO(event.start);
-		if (!start.isValid) return '';
-		const end = event.end ? DateTime.fromISO(event.end) : null;
-		const endLabel = end && end.isValid ? ` – ${end.toFormat('h:mm a')}` : '';
-		return `${start.toFormat('h:mm a')}${endLabel}`;
+		const start = clock(event.start);
+		if (!start) return '';
+		const end = event.end ? clock(event.end) : '';
+		return `${start}${end ? ` – ${end}` : ''}`;
 	}
 </script>
 

@@ -5,7 +5,6 @@
 	Legacy reference: `components/dashboard/CompletedTodayCard.svelte`.
 -->
 <script lang="ts">
-	import { DateTime } from 'luxon';
 	import type { DashboardCompletedRow } from '../dayDashboard.contract';
 
 	interface Props {
@@ -17,8 +16,9 @@
 
 	function timeLabel(iso: string | null): string {
 		if (!iso) return '';
-		const at = DateTime.fromISO(iso);
-		return at.isValid ? at.toFormat('h:mm a') : '';
+		const at = new Date(iso);
+		if (Number.isNaN(at.getTime())) return '';
+		return at.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 	}
 </script>
 
