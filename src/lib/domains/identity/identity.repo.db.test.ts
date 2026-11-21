@@ -19,6 +19,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
+import { TEST_CODE_PEPPER } from '$lib/kernel/testing/testCtx.server';
 import { emailCodeKey } from './identity.code.rules';
 import {
 	IDENTITY_SEEDED_AT,
@@ -582,7 +583,10 @@ describe('api tokens', () => {
 
 describe('email codes', () => {
 	rollbackTest('insertEmailCode stores the row as given', async (db) => {
-		const key = emailCodeKey({ code: '24681357', email: 'mia@example.com', type: 'login' });
+		const key = emailCodeKey(
+			{ code: '24681357', email: 'mia@example.com', type: 'login' },
+			TEST_CODE_PEPPER
+		);
 		const row = await insertEmailCode(db, {
 			code: key.codeHash,
 			email: key.email,
@@ -607,7 +611,10 @@ describe('email codes', () => {
 	rollbackTest(
 		'findEmailCodeByKey needs the digest, the email AND the type to match',
 		async (db) => {
-			const key = emailCodeKey({ code: '24681357', email: 'mia@example.com', type: 'login' });
+			const key = emailCodeKey(
+				{ code: '24681357', email: 'mia@example.com', type: 'login' },
+				TEST_CODE_PEPPER
+			);
 			await seedIdentityEmailCode({ code: key.codeHash, email: key.email, type: key.type }, db);
 
 			expect((await findEmailCodeByKey(db, key))?.email).toBe('mia@example.com');
@@ -616,14 +623,20 @@ describe('email codes', () => {
 			expect(
 				await findEmailCodeByKey(
 					db,
-					emailCodeKey({ code: '11111111', email: 'mia@example.com', type: 'login' })
+					emailCodeKey(
+						{ code: '11111111', email: 'mia@example.com', type: 'login' },
+						TEST_CODE_PEPPER
+					)
 				)
 			).toBeNull();
 		}
 	);
 
 	rollbackTest('deleteEmailCodeByKey deletes only the fully matching row', async (db) => {
-		const key = emailCodeKey({ code: '24681357', email: 'mia@example.com', type: 'login' });
+		const key = emailCodeKey(
+			{ code: '24681357', email: 'mia@example.com', type: 'login' },
+			TEST_CODE_PEPPER
+		);
 		await seedIdentityEmailCode({ code: key.codeHash, email: key.email, type: key.type }, db);
 		await seedIdentityEmailCode({ code: 'other-digest', email: key.email, type: 'login' }, db);
 
@@ -634,12 +647,18 @@ describe('email codes', () => {
 	});
 
 	rollbackTest('finds the email-change code and the reset marker by their digests', async (db) => {
-		const change = emailCodeKey({
-			code: '12345678',
-			email: 'mia@example.com',
-			type: 'email_change'
-		});
-		const marker = emailCodeKey({ code: 'used:abc', email: 'mia@example.com', type: 'reset_used' });
+		const change = emailCodeKey(
+			{
+				code: '12345678',
+				email: 'mia@example.com',
+				type: 'email_change'
+			},
+			TEST_CODE_PEPPER
+		);
+		const marker = emailCodeKey(
+			{ code: 'used:abc', email: 'mia@example.com', type: 'reset_used' },
+			TEST_CODE_PEPPER
+		);
 		await seedIdentityEmailCode(
 			{
 				code: change.codeHash,

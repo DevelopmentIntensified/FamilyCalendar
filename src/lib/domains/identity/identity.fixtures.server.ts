@@ -171,9 +171,10 @@ export async function seedIdentityConsent(
 }
 
 /**
- * One `codes` row exactly as given: pass `code` as stored — the SHA-256 hex
- * (`sha256Hex`) every kind uses, the email-change code and the reset marker
- * included (Q-116). Expires in 2099 unless overridden.
+ * One `codes` row exactly as given: pass `code` as stored — the keyed digest
+ * (`emailCodeKey(input, TEST_CODE_PEPPER).codeHash`, i.e. HMAC-SHA-256 with the
+ * test pepper) every kind uses, the email-change code and the reset marker
+ * included (Q-116, Q-117). Expires in 2099 unless overridden.
  */
 export async function seedIdentityEmailCode(
 	values: Pick<NewCodeRow, 'code' | 'email'> & Partial<NewCodeRow>,

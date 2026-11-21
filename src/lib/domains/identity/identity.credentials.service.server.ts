@@ -2,11 +2,13 @@
  * identity credentials service: bcrypt password hashing, and the email-code
  * issue/redeem use-cases.
  *
- * Every email code is stored as its SHA-256 hex, never the plaintext — the
- * three sign-in kinds, the email-change code and the reset marker alike (#162,
- * Q-116) — and every lookup binds `(hash, email, type)` so a digest match alone
- * cannot redeem (#154). Expected refusals answer `null` — the wording of a
- * wrong or expired code belongs to the flow that owns it (access), not here.
+ * Every email code is stored as `HMAC-SHA-256(pepper, code)` hex with the
+ * server pepper (`ctx.config.codePepper`), never the plaintext and never a bare
+ * SHA-256 a 6–8 digit code cannot defend — the three sign-in kinds, the
+ * email-change code and the reset marker alike (#162, Q-116, Q-117) — and every
+ * lookup binds `(hash, email, type)` so a digest match alone cannot redeem
+ * (#154). Expected refusals answer `null` — the wording of a wrong or expired
+ * code belongs to the flow that owns it (access), not here.
  *
  * Passwords stay bcrypt, cost 10 (no forced reset).
  *
@@ -15,7 +17,6 @@
 import bcrypt from 'bcryptjs';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import type { CodeRow, NewCodeRow } from '$lib/kernel/db/tables.server';
-import { sha256Hex } from '$lib/kernel/ids/ids';
 import { emailCodeExpiresAt, emailCodeKey, isEmailCodeExpired } from './identity.code.rules';
 import {
 	deleteEmailCodeByKey,
@@ -48,13 +49,14 @@ export type IssueEmailCodeInput = {
 };
 
 /**
- * Stores one code for `type` as its SHA-256 hex — every kind, so the
+ * Stores one code for `type` as its keyed digest — every kind, so the
  * email-change code and the reset marker never sit in `codes.code` readable
- * (Q-116). The expiry defaults to the 15-minute TTL.
+ * (Q-116), and the pepper keeps an offline dump from reversing the 6–8 digits
+ * (Q-117). The expiry defaults to the 15-minute TTL.
  */
 export async function issueEmailCode(ctx: Ctx, input: IssueEmailCodeInput): Promise<CodeRow> {
 	const values: NewCodeRow = {
-		code: sha256Hex(input.code),
+		code: emailCodeKey(input, ctx.config.codePepper).codeHash,
 		expiresAt: input.expiresAt ?? emailCodeExpiresAt(ctx.clock.now()),
 		email: input.email,
 		type: input.type,
@@ -84,7 +86,7 @@ export async function redeemEmailCode(
 	input: RedeemEmailCodeInput
 ): Promise<CodeRow | null> {
 	const now = ctx.clock.now();
-	const key = emailCodeKey(input);
+	const key = emailCodeKey(input, ctx.config.codePepper);
 	const row = await findEmailCodeByKey(ctx.db, key);
 	if (!row) return null;
 	if (isEmailCodeExpired(row.expiresAt, now)) {

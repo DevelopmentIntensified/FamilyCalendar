@@ -43,6 +43,8 @@ export type AppConfig = {
 	readonly cronSecret: string | null;
 	/** Signs session cookies (`BETTER_AUTH_SECRET`); resolved fail-closed by `src/lib/app`. */
 	readonly sessionSecret: string;
+	/** Peppers email-code digests (`EMAILSECRET`); resolved fail-closed by `src/lib/app` (Q-117). */
+	readonly codePepper: string;
 	/** True in production: the session cookie gets `Secure`, and a missing secret refuses to boot. */
 	readonly production: boolean;
 	/** Default module-mail sender (`NOREPLYEMAIL`), for a service that must pass `from` explicitly. */

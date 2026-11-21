@@ -1,20 +1,24 @@
 /**
- * Pure email-code rules: the type vocabulary (every kind stored as a digest,
- * Q-116), the 15-minute TTL, the expiry predicate and the `(hash, email, type)`
- * lookup key. Expected values come from `codes.ts`, `magicLink.ts`,
- * `accountData.ts`, the verify routes and the reset route's `used:<hash>`
- * marker; the digest is the NIST SHA-256 test vector, not this code's output.
+ * Pure email-code rules: the type vocabulary (every kind stored as a keyed
+ * digest, Q-116/Q-117), the fail-closed pepper fallback, the 15-minute TTL, the
+ * expiry predicate and the `(hash, email, type)` lookup key. Expected values
+ * come from `codes.ts`, `magicLink.ts`, `accountData.ts`, the verify routes and
+ * the reset route's `used:<hash>` marker; the digest is RFC 4231 case 2's
+ * HMAC-SHA-256 value, not this code's output.
  *
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
+import { sha256Hex } from '$lib/kernel/ids/ids';
 import {
+	CODE_PEPPER_PLACEHOLDER,
 	EMAIL_CODE_TTL_MS,
 	EMAIL_CODE_TYPES,
 	emailCodeExpiresAt,
 	emailCodeKey,
 	HASHED_EMAIL_CODE_TYPES,
-	isEmailCodeExpired
+	isEmailCodeExpired,
+	resolveCodePepper
 } from './identity.code.rules';
 
 const NOW = new Date('2026-01-15T12:00:00.000Z');
@@ -55,6 +59,33 @@ describe('vocabulary', () => {
 	});
 });
 
+describe('resolveCodePepper', () => {
+	// Modeled on `resolveSessionSecret` (session.rules.ts:38-51): production
+	// fails closed; elsewhere the placeholder keeps zero-env builds hashing
+	// (`secret ?? placeholder`, so '' stays '').
+	it.each<[string, string | undefined, boolean, string]>([
+		['a configured pepper in production', 's3cret', true, 's3cret'],
+		['a configured pepper elsewhere', 's3cret', false, 's3cret'],
+		['no pepper outside production', undefined, false, CODE_PEPPER_PLACEHOLDER],
+		['an empty pepper outside production', '', false, '']
+	])('the placeholder pepper only in non-production: %s', (_label, secret, production, expected) => {
+		expect(resolveCodePepper(secret, production)).toBe(expected);
+	});
+
+	it.each<[string, string | undefined]>([
+		['no pepper', undefined],
+		['an empty pepper', '']
+	])('refuses to boot production with %s', (_label, secret) => {
+		expect(() => resolveCodePepper(secret, true)).toThrow(
+			'EMAILSECRET is required in production — refusing to store email codes with the placeholder pepper.'
+		);
+	});
+
+	it('keeps the placeholder pepper the repo publishes', () => {
+		expect(CODE_PEPPER_PLACEHOLDER).toBe('code-pepper-placeholder-change-me');
+	});
+});
+
 describe('TTL and expiry', () => {
 	// magicLink.ts:249 and accountData.ts:394: `Date.now() + 60 * 1000 * 15`.
 	it('lives 15 minutes from issue', () => {
@@ -73,19 +104,38 @@ describe('TTL and expiry', () => {
 });
 
 describe('emailCodeKey', () => {
-	// codes.ts:32-56: the lookup binds the digest, the email AND the type, so
-	// a digest match alone never redeems.
-	it('hashes the code and stamps its type (SHA-256 hex; email and type as given)', () => {
-		expect(emailCodeKey({ code: 'abc', email: 'mia@example.com', type: 'login' })).toEqual({
-			codeHash: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+	// codes.ts:32-56: the lookup binds the keyed digest, the email AND the type,
+	// so a digest match alone never redeems.
+	it('hashes the code with the pepper and stamps its type (HMAC-SHA-256 hex)', () => {
+		// RFC 4231 case 2: key "Jefe", data "what do ya want for nothing?".
+		expect(
+			emailCodeKey(
+				{ code: 'what do ya want for nothing?', email: 'mia@example.com', type: 'login' },
+				'Jefe'
+			)
+		).toEqual({
+			codeHash: '5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843',
 			email: 'mia@example.com',
 			type: 'login'
 		});
 	});
 
 	it('never carries the plaintext code', () => {
-		const key = emailCodeKey({ code: '24681357', email: 'mia@example.com', type: 'signup' });
+		const key = emailCodeKey(
+			{ code: '24681357', email: 'mia@example.com', type: 'signup' },
+			'pepper'
+		);
 		expect(Object.values(key)).not.toContain('24681357');
 		expect(key.codeHash).toMatch(/^[0-9a-f]{64}$/);
+	});
+
+	// Q-117: the pepper is the whole defence for a 6–8 digit code, so a row
+	// hashed under another pepper — or with a bare SHA-256 — never matches.
+	it('keys the digest: another pepper or a bare SHA-256 answers a different hash', () => {
+		const input = { code: '24681357', email: 'mia@example.com', type: 'signup' };
+		const withA = emailCodeKey(input, 'pepper-a');
+		const withB = emailCodeKey(input, 'pepper-b');
+		expect(withA.codeHash).not.toBe(withB.codeHash);
+		expect(withA.codeHash).not.toBe(sha256Hex('24681357'));
 	});
 });
