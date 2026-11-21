@@ -31,9 +31,9 @@ import {
 	inviteExpiresAt,
 	inviteRefusalCopy,
 	isInviteUsable,
-	shareInvitePlan,
 	type InviteMintPlan
 } from './family.invites.rules';
+import { shareInvitePlan } from './family.contract';
 import {
 	deleteInviteCode,
 	findInviteCode,
