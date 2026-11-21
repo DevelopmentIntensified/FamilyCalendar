@@ -1,8 +1,14 @@
-import { test, expect, loginWithSession } from '../testUtils';
-import { db } from '$lib/server/db';
-import { tasks, taskCompletions, users } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '../testUtils';
+import {
+	test,
+	expect,
+	createNewUser,
+	db,
+	eq,
+	loginWithSession,
+	taskCompletions,
+	tasks,
+	users
+} from '../testUtils';
 
 /**
  * 093, mark 3: "the month totals box and whatever sits beside it must be the

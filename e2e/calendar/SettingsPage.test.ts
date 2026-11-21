@@ -1,52 +1,15 @@
-import { test, expect, type Page } from '@playwright/test';
-import { db } from '../../src/lib/server/db';
-import { sessions, users } from '../../src/lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '../testUtils';
-import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
-import { deleteUser } from '../../src/lib/server/db/actions/users';
-import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { lucia } from '$lib/server/auth';
+import { test, expect } from '@playwright/test';
+import { createNewUser, loginWithSession, teardownTestUser } from '../testUtils';
 
 const testEmail = `delivered+settings${Date.now()}@resend.dev`;
 
-async function loginWithSession(page: Page, userEmail: string) {
-	const user = await db.select().from(users).where(eq(users.email, userEmail));
-	if (!user[0]) throw new Error('User not found');
-	const session = await lucia.createSession(user[0].id, {});
-	const cookie = lucia.createSessionCookie(session.id);
-	await page.context().addCookies([
-		{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}
-	]);
-}
-
 test.beforeEach(async () => {
-	const existingUser = await db.select().from(users).where(eq(users.email, testEmail));
-	if (existingUser[0]) {
-		await db.delete(sessions).where(eq(sessions.userId, existingUser[0].id));
-		await deleteAccount(testEmail);
-		await deleteUser(existingUser[0].id);
-		await deleteCodesByEmail(testEmail);
-	}
+	await teardownTestUser({ email: testEmail });
 	await createNewUser('test', 'settings', testEmail);
 });
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, testEmail));
-	if (user[0]) {
-		await db.delete(sessions).where(eq(sessions.userId, user[0].id));
-		await deleteAccount(testEmail);
-		await deleteUser(user[0].id);
-		await deleteCodesByEmail(testEmail);
-	}
+	await teardownTestUser({ email: testEmail });
 });
 
 test.describe('Settings Page - Profile', () => {

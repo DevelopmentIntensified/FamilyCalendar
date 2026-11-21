@@ -1,12 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { db } from '$lib/server/db';
-import { families, familyMembers, users, calendars } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { getSessionCookie } from '../testUtils';
-import { createFamily, removeFamilyMember } from '$lib/server/db/actions/families';
-import { deleteAccount } from '$lib/server/db/actions/accounts';
-import { deleteUser } from '$lib/server/db/actions/users';
-import { deleteCodesByEmail } from '$lib/server/db/actions/codes';
+import {
+	createFamily,
+	createNewUser,
+	db,
+	eq,
+	families,
+	familyMembers,
+	getSessionCookie,
+	removeFamilyMember,
+	teardownTestUser
+} from '../testUtils';
 
 const ownerEmail = 'delivered+owner' + Date.now() + '@resend.dev';
 const memberEmail = 'delivered+member' + Date.now() + '@resend.dev';
@@ -18,14 +21,10 @@ test.beforeEach(async () => {
 	await cleanupOwner();
 	await cleanupMember();
 
-	const ownerUser = await import('../testUtils').then((m) =>
-		m.createNewUser('Test', 'Owner', ownerEmail)
-	);
+	const ownerUser = await createNewUser('Test', 'Owner', ownerEmail);
 	ownerId = ownerUser.id;
 
-	const memberUser = await import('../testUtils').then((m) =>
-		m.createNewUser('Test', 'Member', memberEmail)
-	);
+	const memberUser = await createNewUser('Test', 'Member', memberEmail);
 	memberId = memberUser.id;
 
 	const family = await createFamily({ name: 'Test Family', color: '#3b82f6' });
@@ -43,28 +42,14 @@ test.afterEach(async () => {
 });
 
 async function cleanupOwner() {
-	const owner = await db.select().from(users).where(eq(users.email, ownerEmail));
-	if (owner[0]) {
-		await db.delete(familyMembers).where(eq(familyMembers.userId, owner[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, owner[0].id));
-		await deleteCodesByEmail(ownerEmail);
-		await deleteAccount(ownerEmail);
-		await deleteUser(owner[0].id);
-	}
+	await teardownTestUser({ email: ownerEmail });
 	if (familyId) {
 		await db.delete(families).where(eq(families.id, familyId));
 	}
 }
 
 async function cleanupMember() {
-	const member = await db.select().from(users).where(eq(users.email, memberEmail));
-	if (member[0]) {
-		await db.delete(familyMembers).where(eq(familyMembers.userId, member[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, member[0].id));
-		await deleteCodesByEmail(memberEmail);
-		await deleteAccount(memberEmail);
-		await deleteUser(member[0].id);
-	}
+	await teardownTestUser({ email: memberEmail });
 }
 
 test('Family member removal via UI', async ({ page }) => {

@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
-import { deleteUser } from '../../src/lib/server/db/actions/users';
-import { createCode, deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { db } from '../../src/lib/server/db';
-import { calendars, users, events } from '../../src/lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '../testUtils';
-import { getSessionCookie } from '../testUtils';
+import {
+	createNewUser,
+	db,
+	eq,
+	events,
+	getSessionCookie,
+	teardownTestUser
+} from '../testUtils';
 
 const firstName = 'test';
 const lastName = 'quickcreate';
@@ -16,39 +16,16 @@ let uid = '';
 
 test.beforeEach(async () => {
 	// Clean up any existing user first
-	const existingUser = await db.select().from(users).where(eq(users.email, email));
-	if (existingUser[0]) {
-		await db.delete(events).where(eq(events.ownerId, existingUser[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, existingUser[0].id));
-		await deleteAccount(email);
-		await deleteUser(existingUser[0].id);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 	// Create fresh user with unique email to avoid duplicate key errors
 	email =
 		'quickcreate' + Date.now() + Math.random().toString(36).substring(2, 6) + '@familyplanz.com';
 	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
-	const uniqueCode = Math.random().toString(36).substring(2, 10);
-	await createCode({
-		code: uniqueCode,
-		expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-		email,
-		firstName,
-		lastName,
-		emailId: null
-	});
 });
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (user[0]) {
-		await db.delete(events).where(eq(events.ownerId, user[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-		await deleteAccount(email);
-		await deleteUser(uid);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 });
 
 test('Quick Create Modal - Open and Close', async ({ page }) => {

@@ -1,13 +1,14 @@
-import { test, expect, type Page } from '@playwright/test';
-import { db } from '../../src/lib/server/db';
-import { sessions, users, calendars, userSettings } from '../../src/lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '../testUtils';
-import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
-import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
-import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
-import { lucia } from '$lib/server/auth';
+import { test, expect } from '@playwright/test';
+import {
+	authSession,
+	createExtraSession,
+	createNewUser,
+	db,
+	eq,
+	getUser,
+	loginWithSession,
+	teardownTestUser
+} from '../testUtils';
 
 const firstName = 'test';
 const lastName = 'accountsettings';
@@ -15,48 +16,14 @@ const email = `delivered+accountsettings${Date.now()}@resend.dev`;
 
 let uid = '';
 
-async function loginWithSession(page: Page, userEmail: string) {
-	const user = await db.select().from(users).where(eq(users.email, userEmail));
-	if (!user[0]) throw new Error('User not found');
-	const session = await lucia.createSession(user[0].id, {});
-	const cookie = lucia.createSessionCookie(session.id);
-	await page.context().addCookies([
-		{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}
-	]);
-}
-
 test.beforeEach(async () => {
-	const existingUser = await db.select().from(users).where(eq(users.email, email));
-	if (existingUser[0]) {
-		await db.delete(calendars).where(eq(calendars.ownerId, existingUser[0].id));
-		await db.delete(userSettings).where(eq(userSettings.userId, existingUser[0].id));
-		await db.delete(sessions).where(eq(sessions.userId, existingUser[0].id));
-		await deleteAccount(email);
-		await deleteUser(existingUser[0].id);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 });
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (user[0]) {
-		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-		await db.delete(userSettings).where(eq(userSettings.userId, user[0].id));
-		await db.delete(sessions).where(eq(sessions.userId, user[0].id));
-		await deleteAccount(email);
-		await deleteUser(uid);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 });
 
 test('View account settings page', async ({ page }) => {
@@ -98,27 +65,15 @@ test('Logout from all devices removes other sessions', async ({ page }) => {
 	});
 
 	await test.step('Create additional sessions in DB', async () => {
-		const random: RandomReader = {
-			read(bytes) {
-				crypto.getRandomValues(bytes);
-			}
-		};
-
-		await db.insert(sessions).values({
-			id: generateRandomString(random, 'abcdefghijklmnopqrstuvwxyz', 40),
-			userId: uid,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30)
-		});
-
-		await db.insert(sessions).values({
-			id: generateRandomString(random, 'abcdefghijklmnopqrstuvwxyz', 40),
-			userId: uid,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30)
-		});
+		await createExtraSession(uid);
+		await createExtraSession(uid);
 	});
 
 	await test.step('Verify multiple sessions exist', async () => {
-		const allSessions = await db.select().from(sessions).where(eq(sessions.userId, uid));
+		const allSessions = await db
+			.select()
+			.from(authSession)
+			.where(eq(authSession.userId, uid));
 		expect(allSessions.length).toBeGreaterThanOrEqual(3);
 	});
 
@@ -144,7 +99,10 @@ test('Logout from all devices removes other sessions', async ({ page }) => {
 	});
 
 	await test.step('Verify only current session remains', async () => {
-		const remainingSessions = await db.select().from(sessions).where(eq(sessions.userId, uid));
+		const remainingSessions = await db
+			.select()
+			.from(authSession)
+			.where(eq(authSession.userId, uid));
 		expect(remainingSessions.length).toBe(1);
 	});
 

@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
-import { deleteUser } from '../../src/lib/server/db/actions/users';
-import { createCode, deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { db } from '../../src/lib/server/db';
-import { calendars, users, events } from '../../src/lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '../testUtils';
-import { createEvent } from '../../src/lib/server/db/actions/events';
-import { getUserCalendar } from '../../src/lib/server/db/actions/calendar';
-import { getSessionCookie } from '../testUtils';
+import {
+	createEvent,
+	createNewUser,
+	db,
+	eq,
+	events,
+	getSessionCookie,
+	getUserCalendar,
+	teardownTestUser
+} from '../testUtils';
 
 const firstName = 'test';
 const lastName = 'eventdelete';
@@ -18,25 +18,9 @@ let uid = '';
 let eventId = '';
 
 test.beforeEach(async () => {
-	const existingUser = await db.select().from(users).where(eq(users.email, email));
-	if (existingUser[0]) {
-		await db.delete(events).where(eq(events.ownerId, existingUser[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, existingUser[0].id));
-		await deleteAccount(email);
-		await deleteUser(existingUser[0].id);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
-	const uniqueCode = Math.random().toString(36).substring(2, 10);
-	await createCode({
-		code: uniqueCode,
-		expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-		email,
-		firstName,
-		lastName,
-		emailId: null
-	});
 
 	const userCalendar = await getUserCalendar(uid);
 	// A +2h/+3h offset run late at night spills into tomorrow, so the event
@@ -64,14 +48,7 @@ test.beforeEach(async () => {
 });
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (user[0]) {
-		await db.delete(events).where(eq(events.ownerId, user[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-		await deleteAccount(email);
-		await deleteUser(uid);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 });
 
 test('Event Deletion', async ({ page }) => {

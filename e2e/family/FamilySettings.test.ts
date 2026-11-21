@@ -1,30 +1,24 @@
 import { test, expect } from '@playwright/test';
-import { db } from '$lib/server/db';
-import { families, familyMembers, users, calendars } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { getSessionCookie } from '../testUtils';
-import { createFamily } from '$lib/server/db/actions/families';
-import { deleteAccount } from '$lib/server/db/actions/accounts';
-import { deleteUser } from '$lib/server/db/actions/users';
-import { deleteCodesByEmail } from '$lib/server/db/actions/codes';
+import {
+	createFamily,
+	createNewUser,
+	db,
+	eq,
+	families,
+	familyMembers,
+	getSessionCookie,
+	teardownTestUser
+} from '../testUtils';
 
 const ownerEmail = 'delivered+owner' + Date.now() + '@resend.dev';
 let ownerId = '';
 let familyId = '';
 
 test.beforeEach(async () => {
-	const existing = await db.select().from(users).where(eq(users.email, ownerEmail));
-	if (existing[0]) {
-		await db.delete(familyMembers).where(eq(familyMembers.userId, existing[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, existing[0].id));
-		await db.delete(families).where(eq(families.id, familyId));
-		await deleteCodesByEmail(ownerEmail);
-		await deleteUser(existing[0].id);
-	}
+	await teardownTestUser({ email: ownerEmail });
+	if (familyId) await db.delete(families).where(eq(families.id, familyId));
 
-	const ownerUser = await import('../testUtils').then((m) =>
-		m.createNewUser('Test', 'Owner', ownerEmail)
-	);
+	const ownerUser = await createNewUser('Test', 'Owner', ownerEmail);
 	ownerId = ownerUser.id;
 
 	const family = await createFamily({ name: 'Test Family', color: '#3b82f6' });
@@ -34,15 +28,8 @@ test.beforeEach(async () => {
 });
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, ownerEmail));
-	if (user[0]) {
-		await db.delete(familyMembers).where(eq(familyMembers.userId, user[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-		await db.delete(families).where(eq(families.id, familyId));
-		await deleteCodesByEmail(ownerEmail);
-		await deleteUser(user[0].id);
-		await deleteAccount(ownerEmail);
-	}
+	await teardownTestUser({ email: ownerEmail });
+	if (familyId) await db.delete(families).where(eq(families.id, familyId));
 });
 
 test('Family settings - rename family', async ({ page }) => {

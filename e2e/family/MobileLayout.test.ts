@@ -1,19 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
-import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
-import { deleteUser } from '../../src/lib/server/db/actions/users';
-import { createCode, deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { db } from '../../src/lib/server/db';
 import {
-	calendars,
-	users,
-	events,
+	createNewUser,
+	db,
+	eq,
 	families,
 	familyMembers,
-	tasks
-} from '../../src/lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '../testUtils';
-import { getSessionCookie } from '../testUtils';
+	getSessionCookie,
+	tasks,
+	teardownTestUser
+} from '../testUtils';
 
 const firstName = 'test';
 const lastName = 'mobileLay';
@@ -23,25 +18,9 @@ let uid = '';
 let famId = '';
 
 test.beforeAll(async () => {
-	const existingUser = await db.select().from(users).where(eq(users.email, email));
-	if (existingUser[0]) {
-		await db.delete(events).where(eq(events.ownerId, existingUser[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, existingUser[0].id));
-		await deleteAccount(email);
-		await deleteUser(existingUser[0].id);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
-	const uniqueCode = Math.random().toString(36).substring(2, 10);
-	await createCode({
-		code: uniqueCode,
-		expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-		email,
-		firstName,
-		lastName,
-		emailId: null
-	});
 
 	// Seed a family + membership so the list/roster/tasks render populated.
 	const [fam] = await db
@@ -67,15 +46,7 @@ test.afterAll(async () => {
 	if (famId) {
 		await db.delete(families).where(eq(families.id, famId));
 	}
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (user[0]) {
-		await db.delete(events).where(eq(events.ownerId, user[0].id));
-		await db.delete(tasks).where(eq(tasks.userId, uid));
-		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-		await deleteAccount(email);
-		await deleteUser(uid);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 });
 
 /** Elements sticking past the right viewport edge (empty = no overflow). */
