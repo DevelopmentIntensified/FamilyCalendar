@@ -82,7 +82,7 @@ describe('POST /checkout?/purchase', () => {
 			{ planType: 'monthly' },
 			{ planType: 'monthly', finalPrice: '0' },
 			{ planType: 'monthly', finalPrice: '' }
-		]) {
+		] satisfies ReadonlyArray<Record<string, string>>) {
 			const result = await invokeAction(checkoutPurchaseAction, {
 				ctx: testCtx(),
 				path: '/checkout',

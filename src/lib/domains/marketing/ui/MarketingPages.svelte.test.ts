@@ -7,6 +7,7 @@
  *
  * Doc: ../README.md#invariants
  */
+import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { androidRelease, type PublishedRepo } from '../marketing.android.rules';

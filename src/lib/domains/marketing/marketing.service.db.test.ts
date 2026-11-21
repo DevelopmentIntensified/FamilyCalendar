@@ -102,7 +102,7 @@ describe('sendContactMessage', () => {
 
 	rollbackTest('refuses every missing required field, and refuses first', async (db) => {
 		const ctx = testCtx({ db });
-		const forms = [
+		const forms: ReadonlyArray<Record<string, string>> = [
 			{ email: valid.email, message: valid.message },
 			{ name: valid.name, message: valid.message },
 			{ name: valid.name, email: valid.email },
