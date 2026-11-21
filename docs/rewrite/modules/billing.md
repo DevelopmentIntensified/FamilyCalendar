@@ -17,7 +17,7 @@ Plans, subscriptions, plan limits (family size, archive), discounts, checkout st
 - [x] S4 repo (+ fixtures)
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
+- [ ] S7 UI rebuild — **S7: none (pages owned by marketing/account)**; no page or component belongs to billing, so there is nothing to rebuild or visual-check (see Notes › S7)
 - [ ] S8 rewire importers, delete legacy code and legacy tests
 - [ ] S9 README final, census --write, gate:push, ledger done
 
@@ -159,6 +159,12 @@ Implemented differences from the rows above, with their reasons:
 | `ui/PlanUsageRow.svelte` | ui | one usage row (`Unlimited` when the plan says so). |
 | `ui/planCard.svelte.test.ts` | test | renders with props: free, paid, lifetime, over-cap usage. |
 
+**Implemented difference: S7: none (pages owned by marketing/account).** No page or component belongs to billing, so nothing above was built and the visual/perf checks have no subject here.
+
+- The plan card (`PlanCard`, `PlanUsageRow`) and its display copy (`formatPlanLimit`, `formatBytesLabel`, `subscriptionPeriodLabel`, `renewalDateLabel`) are the **account** screen's: the legacy files are `src/lib/components/account/AccountSubscriptionSection.svelte` and `accountSubscription.ts`, and `accountSubscription.test.ts` already pins the copy. Billing keeps only what the card reads (`getSubscriptionSummary`) and the one display rule that is policy (`isUnlimitedLimit`, 999 → "no limit").
+- The `/pricing` and `/checkout` pages are **marketing**'s S7; both stay legacy until then (the checkout stub's `Checkout is not yet available.` is still the legacy page action).
+- Consequence for this module: `ui/index.ts` stays empty (matching `sponsored`), the README's Files/Public interface/How to test record that, and the plan-card Invariant names account's test as its pin instead of a `billing.display.rules.test.ts` that no longer exists.
+
 ### Where each legacy export goes — or why it dies
 
 | legacy export | home in the port |
@@ -193,6 +199,30 @@ Implemented differences from the rows above, with their reasons:
 | `seed.ts` (`seed()`) | `ensureBillingDefaults(ctx)` — six tiers + two discounts, idempotent; the five random ad events move to `sponsored`. |
 | `PlanTypeSelector.svelte` | dies: 0 importers and hardcoded prices that contradict `PLAN_PRICES`. |
 | `pricing/+page.server.ts`, `pricing/+page.svelte`, `checkout/+page.server.ts`, `checkout/+page.svelte` | S7 page wiring over the billing services; `marketing` owns the copy and the routes when it is ported. |
+
+### S8 — importer rewiring, and the legacy files that stay
+
+Rewiring first: nothing to rewire. No file outside `src/lib/domains/billing/` deep-imports the module (`grep -rn "domains/billing/" src` finds only the folder itself and a doc comment), and the one live caller — `src/routes/api/me/subscription/+server.ts` — is 3 lines re-exporting `getSubscriptionEndpoint` (wiring only).
+
+Deleted (`S8`, one file, 90 LOC): `src/lib/components/PlanTypeSelector.svelte` — 0 importers, hardcoded `$5/$48` and `$9/$90` contradict `PLAN_PRICES`, and its "You're on the Free plan" state is the account plan card's job.
+
+Kept, each still imported by an unported module (deleting one would break a live legacy route; `package.json` may not be edited at S8):
+
+| legacy file | imported by (owning module, still legacy) |
+|---|---|
+| `src/lib/server/services/subscriptionService.ts` | `src/lib/server/db/actions/families.ts:15`, `src/routes/(family)/family/[familyId]/members/add/{child,direct}/+server.ts:7`, `src/routes/(family)/family/create/+page.server.ts:6` (family); `src/lib/server/services/accountData.ts:22` (account); `src/lib/server/services/archiveData.ts:14` (calendar); `src/lib/server/services/familyData.ts:28` (familyHub); `src/routes/api/parse-event/+server.ts:9` (parsing); `src/routes/(marketing)/checkout/+page.server.ts:8` (marketing) |
+| `src/lib/server/services/checkoutService.ts` | `src/lib/server/services/accountData.ts:23` (account); `src/routes/(marketing)/checkout/+page.server.ts:7`, `src/routes/(marketing)/pricing/+page.server.ts:7,63` (marketing) |
+| `src/lib/server/services/discountService.ts` | `src/lib/server/services/checkoutService.ts:4` (kept above, so live through account/marketing) |
+| `src/lib/server/services/analyticsService.ts` | `src/routes/(marketing)/pricing/+page.server.ts:8` (marketing) |
+| `src/lib/server/seed.ts` | nothing in `src`, but `package.json:29`'s `db:seed` runs it and the repo README (`README.md:16`) documents that command for seeded dev users the e2e runs use; `ensureBillingDefaults` covers only billing's six tiers and two discounts, has no app caller yet (APP-01), and the seed's ad demo events belong to `sponsored`. Deleting it would leave a dangling documented npm script that S8 may not fix, so it goes when APP-01 wires the boot/lazy seed and the user/ad data find their homes |
+
+Their legacy tests stay with them: `subscriptionService.test.ts` and `discountService.test.ts` each cover a subject file the app still runs, so deleting either would drop the only pin on live code. Every behaviour they cover is already re-homed in `billing.*.test.ts` / `billing.http.db.test.ts`, so they die with their subject files when the importers above are rebuilt.
+
+### S9 — README
+
+- Files table: every file in the folder is listed, `ui/index.ts` recorded as the empty component entry (S7 none), and the golden's row no longer claims it runs against the legacy handler.
+- Invariants: every row names the test that pins it today — billing's own (`billing.http.db.test.ts`, the three `*.rules.test.ts`, the two `*.db.test.ts`) or the sibling's where the behaviour sits across a call (parsing's goldens for the cap/record/short-window rows; account's legacy `accountSubscription.test.ts` for the plan card's copy).
+- Depends on: Calls / Called by now say what is true — one caller today (`/api/me/subscription`) and the modules that will call billing as they land — instead of listing callers that do not exist yet.
 
 ## Notes
 
