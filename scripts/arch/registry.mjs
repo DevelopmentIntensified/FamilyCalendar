@@ -264,6 +264,9 @@ export const FOREIGN_READS = {
 	calendar: {
 		users:
 			'creator first name on every displayed occurrence and member first/last names on attendance rows'
+	},
+	tasks: {
+		events: "the parent Event's title, start and calendar on every task list row"
 	}
 };
 

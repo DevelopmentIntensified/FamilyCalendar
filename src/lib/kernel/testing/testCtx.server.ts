@@ -50,6 +50,17 @@ export type TestCtx = Ctx & {
 /** The pepper `testCtx()` hashes email codes with; tests that seed a digest use it too. */
 export const TEST_CODE_PEPPER = 'test-code-pepper';
 
+/**
+ * The pepper `/api` goldens hash and verify e-mail codes with: the environment's
+ * `EMAILSECRET` — the value SvelteKit bakes for the legacy `$env/static/private`
+ * import a frozen golden's own JWT mint reads — else the committed test value.
+ * It lives in kernel/testing because R6 allows the environment read here, and
+ * both `goldenCtx` and the module fixtures need the SAME value to seed rows a
+ * ported handler can redeem.
+ */
+export const GOLDEN_CODE_PEPPER =
+	process.env.EMAILSECRET ?? 'test-email-secret-key-for-testing-only-32chars';
+
 export type TestCtxOverrides = {
 	readonly db?: Db;
 	readonly now?: string;
@@ -80,6 +91,8 @@ export function testCtx(overrides: TestCtxOverrides = {}): TestCtx {
 			codePepper: overrides.codePepper ?? TEST_CODE_PEPPER,
 			production: overrides.production ?? false,
 			mailFrom: 'noReply@familyplanz.com',
+			// The legacy `getUrl()` answer under NODE_ENV=test.
+			siteUrl: 'https://test.familyplanz.com',
 			vapidPublicKey: null,
 			vapidPrivateKey: null,
 			vapidSubject: 'mailto:admin@familyplanz.com',

@@ -1,14 +1,4 @@
-import { invalidateSession } from '$lib/server/auth';
-import { redirect } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import { logoutEndpoint } from '$lib/domains/access/index.server';
 
-export const POST: RequestHandler = async ({ locals }) => {
-	const session = locals.session;
-	if (!session) {
-		return redirect(302, '/');
-	}
-	await invalidateSession(session.id);
-	locals.session = null;
-	locals.user = null;
-	return redirect(302, '/');
-};
+/** POST /api/logout — 302 `/` whether or not a session existed, clearing the cookie (Q-105). */
+export const POST = logoutEndpoint.handler;

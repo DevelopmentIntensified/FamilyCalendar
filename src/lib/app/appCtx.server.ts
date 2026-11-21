@@ -52,6 +52,17 @@ const sessionSecret = resolveSessionSecret(process.env.BETTER_AUTH_SECRET, produ
 const codePepper = resolveCodePepper(process.env.EMAILSECRET, production);
 
 const mailFrom = process.env.NOREPLYEMAIL ?? '';
+/**
+ * The public origin mailed links point at — the legacy `getUrl()` rule
+ * (`src/lib/utils/getUrl.ts`): localhost while developing, the test host under
+ * NODE_ENV=test, the marketing origin otherwise.
+ */
+const siteUrl =
+	process.env.NODE_ENV === 'development'
+		? 'http://localhost:5173'
+		: process.env.NODE_ENV === 'test'
+			? 'https://test.familyplanz.com'
+			: 'https://familyplanz.com';
 const vapidSubject = process.env.VAPID_SUBJECT ?? 'mailto:admin@familyplanz.com';
 const cerebrasModel = process.env.CEREBRAS_MODEL || 'gpt-oss-120b';
 /** The legacy geocoder's `User-Agent`, unchanged (`api/location-search/+server.ts`). */
@@ -93,6 +104,7 @@ export const appCtx = wirePorts({
 		codePepper,
 		production,
 		mailFrom,
+		siteUrl,
 		vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
 		vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? null,
 		vapidSubject,

@@ -7,7 +7,7 @@
  * maps it onto `fail(status, { success:false, message })`, the API onto
  * `json({ error: message }, { status })`.
  */
-import { getUser, updateUser } from '$lib/server/db/actions/users';
+import { updateUser } from '$lib/server/db/actions/users';
 import { getUserSettings, updateUserSettings } from '$lib/server/db/actions/userSettings';
 import { invalidateSession, invalidateUserSessions } from '$lib/server/auth';
 import { db } from '$lib/server/db';
@@ -21,15 +21,8 @@ import {
 	getDefaultLimits
 } from '$lib/server/services/subscriptionService';
 import { getPlanPricing } from '$lib/server/services/checkoutService';
-import { sendEmail } from '$lib/utils/sendEmail';
-import { createJWT } from 'oslo/jwt';
-import { TimeSpan } from 'oslo';
-import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
-import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
-import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
 import { recordAdConsentChange, getAdConsentRecords } from '$lib/server/services/adConsentService';
 import { dashboardModulesSavedMessage } from '$lib/domains/dashboardModules';
-import { isRegisteredAccount } from '$lib/utils/anonymous';
 import { createApiToken, revokeToken } from '$lib/server/db/actions/apiTokens';
 import {
 	getNotificationPreferences,
@@ -289,119 +282,12 @@ export async function updateProfile(
 }
 
 /**
- * Testable seam for the hardened email-change request (Oct lane): keeps the
- * 3/15m throttle + code-consumer binding behaviour verbatim while letting
- * route tests inject fakes.
+ * `/account?/updateEmail` — access owns this flow now (HMAC-keyed code row the
+ * verify page can redeem, the legacy bodies). Re-exported here because the
+ * account route is still legacy code and may not import module code (R8);
+ * "legacy may import v2" is the intended direction.
  */
-export type UpdateEmailDeps = {
-	getUser: typeof getUser;
-	sendEmail: typeof sendEmail;
-	createJwt: typeof createJWT;
-	baseUrl: string;
-	fromEmail: string;
-	emailSecret: Uint8Array;
-	deleteCodesByEmail: typeof deleteCodesByEmail;
-	createCode: typeof createCode;
-};
-
-export const defaultUpdateEmailDeps = (
-	baseUrl: string,
-	fromEmail: string,
-	emailSecret: string
-): UpdateEmailDeps => ({
-	getUser,
-	sendEmail,
-	createJwt: createJWT,
-	baseUrl,
-	fromEmail,
-	emailSecret: new TextEncoder().encode(emailSecret),
-	deleteCodesByEmail,
-	createCode
-});
-
-/**
- * Starts an email change: mails a code + link to the NEW address and binds
- * the code to the current one. `readEmail` is called only after the
- * throttle and the guest check pass (the page reads its form there).
- */
-export async function requestEmailChange(
-	request: Request,
-	userId: string,
-	readEmail: () => Promise<string>,
-	deps: UpdateEmailDeps
-): Promise<AccountResult> {
-	// Throttle email bombing: 3 sends per 15min per user+IP (forgot-password pattern).
-	if (!rateLimit(clientKey(request, `email-change:${userId}`), 3, 15 * 60 * 1000)) {
-		return bad(429, 'Too many attempts. Try again shortly.');
-	}
-	const currentUser = await deps.getUser(userId);
-
-	// Anonymous Accounts have no email yet — they claim their first email via
-	// the magic-link save flow, not the change-email flow (#242).
-	if (!isRegisteredAccount(currentUser)) {
-		return {
-			...bad(
-				400,
-				"You're using a guest calendar — add your first email from the Save-your-calendar banner instead."
-			),
-			guestNeedsClaim: true
-		};
-	}
-	const email = await readEmail();
-
-	if (!email || !email.includes('@')) {
-		return bad(400, 'Valid email is required');
-	}
-	if (email === currentUser?.email) {
-		return bad(400, 'New email must be different from current email');
-	}
-
-	try {
-		const random: RandomReader = {
-			read(bytes) {
-				crypto.getRandomValues(bytes);
-			}
-		};
-		const code = generateRandomString(random, '0123456789', 8);
-		const token = await deps.createJwt(
-			'HS256',
-			deps.emailSecret,
-			{ code, pendingEmail: email },
-			{
-				headers: { alg: 'HS256', typ: 'JWT' },
-				expiresIn: new TimeSpan(15, 'm')
-			}
-		);
-
-		const verifyUrl = new URL(deps.baseUrl);
-		verifyUrl.pathname = '/account/verify-email';
-		verifyUrl.searchParams.set('token', token);
-
-		await deps.sendEmail({
-			to: email,
-			from: deps.fromEmail,
-			subject: 'Family Planz Email Change Verification',
-			html: `<h1>Your verification code is: ${code}</h1>
-<p>Or click this link to verify: <a href="${verifyUrl.toString()}">Verify Email</a></p>`
-		});
-
-		await deps.deleteCodesByEmail(currentUser!.email);
-		await deps.createCode({
-			code,
-			expiresAt: new Date(Date.now() + 60 * 1000 * 15),
-			email: currentUser!.email,
-			firstName: currentUser!.firstName,
-			lastName: currentUser!.lastName,
-			type: 'email_change',
-			pendingEmail: email
-		});
-
-		return { ok: true, message: 'Verification email sent. Please check your inbox.' };
-	} catch (error) {
-		console.error('Failed to update email:', error);
-		return bad(500, 'Failed to send verification email');
-	}
-}
+export { changeEmailAction } from '$lib/domains/access/index.server';
 
 /**
  * Signs out every web session except `keepSessionId` (the caller's own

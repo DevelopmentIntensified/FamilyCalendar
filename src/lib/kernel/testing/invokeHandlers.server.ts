@@ -42,6 +42,8 @@ export type InvokeOptions = {
 	/** Signed-in person for LEGACY code (`locals.user`). */
 	readonly user?: LegacyUser | null;
 	readonly via?: Actor['via'];
+	/** Request cookies, by name — what `event.cookies.get` answers (the guest stash, sessions). */
+	readonly cookies?: Readonly<Record<string, string>>;
 	/** Parent layout data for loads. */
 	readonly parentData?: Readonly<Record<string, JsonValue>>;
 };
@@ -121,7 +123,7 @@ export function makeEvent(options: InvokeOptions, form?: FormData): ServerLoadEv
 			: user
 				? actorFromUser(user, options.via ?? 'session')
 				: null;
-	const cookies = new Map<string, string>();
+	const cookies = new Map<string, string>(Object.entries(options.cookies ?? {}));
 	const event = {
 		request,
 		url,

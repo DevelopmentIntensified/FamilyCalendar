@@ -36,7 +36,12 @@ import { createFetchOutboundHttp } from '$lib/kernel/http/fetchOutboundHttp.serv
 import type { Http } from '$lib/kernel/http/outboundHttp';
 import { createMemoryPush } from '$lib/kernel/push/push';
 import { systemIds, type Ids } from '$lib/kernel/ids/ids';
-import { testCtx, type TestCtx, type TestCtxOverrides } from '$lib/kernel/testing/testCtx.server';
+import {
+	GOLDEN_CODE_PEPPER,
+	testCtx,
+	type TestCtx,
+	type TestCtxOverrides
+} from '$lib/kernel/testing/testCtx.server';
 import { systemClock, type Clock } from '$lib/kernel/time/clock';
 
 /** What a golden gets: `TestCtx`'s doubles, with production's clock, ids and http. */
@@ -50,6 +55,9 @@ export function goldenCtx(overrides: TestCtxOverrides = {}): GoldenCtx {
 	const ctx = testCtx(overrides);
 	return wirePorts({
 		...ctx,
+		// The frozen goldens mint their reset/email-change JWTs with the legacy
+		// `$env/static/private` EMAILSECRET; the ported services verify with
+		// `config.codePepper`, so a golden's ctx must carry the same value.
 		clock: overrides.now === undefined ? systemClock : ctx.clock,
 		ids: systemIds,
 		// The location-search golden scripts the upstream by stubbing global
@@ -63,6 +71,7 @@ export function goldenCtx(overrides: TestCtxOverrides = {}): GoldenCtx {
 		// golden route sends push).
 		config: {
 			...ctx.config,
+			codePepper: overrides.codePepper ?? GOLDEN_CODE_PEPPER,
 			vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
 			vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? null
 		},

@@ -44,8 +44,6 @@ import {
 	MobileSignupResponse,
 	MobileTokenResponse,
 	MobileVerifyBody,
-	PAGE_LOGIN_ORPHAN_MESSAGE,
-	PAGE_SIGNUP_TAKEN_MESSAGE,
 	PASSWORD_VERIFY_CALLBACK_PATH,
 	PASSWORD_TOO_SHORT_MESSAGE,
 	RATE_LIMIT_MESSAGE,
@@ -108,8 +106,6 @@ describe('wire copy', () => {
 			resetUsed: RESET_USED_MESSAGE,
 			resetNoAccount: RESET_ACCOUNT_NOT_FOUND_MESSAGE,
 			resetFailed: RESET_FAILED_MESSAGE,
-			pageSignupTaken: PAGE_SIGNUP_TAKEN_MESSAGE,
-			pageLoginOrphan: PAGE_LOGIN_ORPHAN_MESSAGE,
 			verifyCallback: PASSWORD_VERIFY_CALLBACK_PATH
 		}).toEqual({
 			logoutLocation: '/',
@@ -147,8 +143,6 @@ describe('wire copy', () => {
 			resetUsed: 'This reset link has already been used. Please request a new one.',
 			resetNoAccount: 'Account not found',
 			resetFailed: 'Failed to reset password',
-			pageSignupTaken: 'Account with this email already Exists',
-			pageLoginOrphan: 'No Account found',
 			verifyCallback: '/signup/password/verify'
 		});
 	});
@@ -339,10 +333,11 @@ describe('ForgotPasswordBody and ResetPasswordBody', () => {
 		expect(ForgotPasswordBody.parse({ email: 42 })).toEqual({ email: '' });
 	});
 
-	it('a destructured array/scalar reads as no field, only null throws', () => {
+	it('a destructured array/scalar reads as no field, a null body is the house 400', () => {
 		expect(ForgotPasswordBody.parse([1, 2])).toEqual({ email: '' });
 		expect(ForgotPasswordBody.parse('body')).toEqual({ email: '' });
-		expect(messageOf(ForgotPasswordBody, null)).toBe(FORGOT_SEND_FAILED_MESSAGE);
+		// Q-062 B: the legacy reader threw on a literal `null`; the answer is 400.
+		expect(messageOf(ForgotPasswordBody, null)).toBe('Invalid JSON');
 		expect(ResetPasswordBody.parse([1, 2])).toEqual({ token: '', password: '' });
 		expect(ResetPasswordBody.parse('body')).toEqual({ token: '', password: '' });
 	});
@@ -358,8 +353,8 @@ describe('ForgotPasswordBody and ResetPasswordBody', () => {
 		});
 	});
 
-	it('reset maps a malformed body to today’s 500 sentence', () => {
-		expect(messageOf(ResetPasswordBody, null)).toBe(RESET_FAILED_MESSAGE);
+	it('reset maps a null body to the house Invalid JSON (Q-062)', () => {
+		expect(messageOf(ResetPasswordBody, null)).toBe('Invalid JSON');
 	});
 });
 

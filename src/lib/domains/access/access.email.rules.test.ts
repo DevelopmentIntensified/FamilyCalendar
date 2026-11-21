@@ -154,13 +154,24 @@ describe('readMagicLinkPayload', () => {
 
 describe('readResetTokenPayload', () => {
 	it('reads the email claim a reset JWT carries', () => {
-		expect(readResetTokenPayload({ email: 'reset@example.test' })).toEqual({
-			email: 'reset@example.test'
-		});
+		expect(readResetTokenPayload({ purpose: 'password_reset', email: 'reset@example.test' })).toEqual(
+			{ email: 'reset@example.test' }
+		);
 	});
 
 	it('accepts an empty email claim: the account lookup refuses it, not the shape', () => {
-		expect(readResetTokenPayload({ email: '' })).toEqual({ email: '' });
+		expect(readResetTokenPayload({ purpose: 'password_reset', email: '' })).toEqual({ email: '' });
+	});
+
+	// Q-102 B: the purpose claim is what makes a token a reset token. A sign-in
+	// link carries the same `email` claim and no purpose, so it is refused.
+	it.each<[string, unknown]>([
+		['a sign-in link payload', { kind: 'login', email: 'reset@example.test', code: '13572468' }],
+		['an email claim with no purpose', { email: 'reset@example.test' }],
+		['another purpose', { purpose: 'sign_in', email: 'reset@example.test' }],
+		['a non-string purpose', { purpose: 7, email: 'reset@example.test' }]
+	])('refuses %s', (_label, payload) => {
+		expect(readResetTokenPayload(payload)).toBeNull();
 	});
 
 	it.each<[unknown]>([[null], [[1]], ['jwt'], [{}], [{ code: '12345678' }], [{ email: 42 }]])(
