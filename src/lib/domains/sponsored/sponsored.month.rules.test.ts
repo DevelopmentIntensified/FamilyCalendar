@@ -14,6 +14,7 @@ import {
 	planSponsoredMonth,
 	SPONSORED_EVENT_MESSAGES,
 	SPONSORED_EVENTS_PER_MONTH,
+	sponsoredGeneratedEventId,
 	sponsoredMonthOf,
 	sponsoredMonthOfKey,
 	sponsoredMonthWindow,
@@ -219,5 +220,38 @@ describe('planSponsoredMonth — three generated Sponsored Events', () => {
 			{ message: DISCOUNT, start: '2026-11-16T10:00:00.000Z' }
 		]);
 		expect(random.left()).toBe(0);
+	});
+});
+
+describe('sponsoredGeneratedEventId — the virtual row id on the wire', () => {
+	// The id is a hash of (owner, month, index), so its exact characters are not
+	// hand-derivable; what the wire pins is the SHAPE and the stability, and
+	// those are what the golden and this table hold.
+	const NOVEMBER: SponsoredMonth = { year: 2026, month: 11 };
+
+	it.each<[string, number]>([
+		['owner-a', 0],
+		['owner-a', 1],
+		['owner-a', 2],
+		['owner-b', 0]
+	])('is a 15-char a-z0-9 row id for %s index %i', (ownerId, index) => {
+		expect(sponsoredGeneratedEventId(ownerId, NOVEMBER, index)).toMatch(/^[a-z0-9]{15}$/);
+	});
+
+	it('is stable for the same owner, month and index', () => {
+		expect(sponsoredGeneratedEventId('owner-a', NOVEMBER, 1)).toBe(
+			sponsoredGeneratedEventId('owner-a', { year: 2026, month: 11 }, 1)
+		);
+	});
+
+	it('differs per index, per owner and per month', () => {
+		const ids = [
+			sponsoredGeneratedEventId('owner-a', NOVEMBER, 0),
+			sponsoredGeneratedEventId('owner-a', NOVEMBER, 1),
+			sponsoredGeneratedEventId('owner-a', NOVEMBER, 2),
+			sponsoredGeneratedEventId('owner-b', NOVEMBER, 0),
+			sponsoredGeneratedEventId('owner-a', { year: 2026, month: 12 }, 0)
+		];
+		expect(new Set(ids).size).toBe(ids.length);
 	});
 });

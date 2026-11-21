@@ -1,0 +1,56 @@
+/**
+ * sponsored http: the one `/api` handler, `GET /api/sponsored-events`.
+ *
+ * Reproduces the legacy wire exactly (`+server.ts:13-35`): signed in (401
+ * `Unauthorized`), strict `month` (400 `Invalid month`), `200 {events}`.
+ * `calendarPage`'s ad leg calls the service directly, so no page load lives
+ * here.
+ *
+ * The request instant: the wire's absent `month` means "the current month in
+ * the user's zone", and the frozen golden pins that against the REAL clock (it
+ * seeds day 10 of the real current month), while a test ctx's clock is
+ * deliberately frozen. So the real instant is read once at this boundary with
+ * the kernel's `systemClock` and passed into the service as `now`; nothing
+ * below this file reads an ambient clock, and S5 tests pin `now` themselves.
+ *
+ * Doc: ./README.md#public-interface
+ */
+import type { Ctx } from '$lib/kernel/ctx/ctx.server';
+import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
+import { systemClock } from '$lib/kernel/time/clock';
+import { SponsoredEventsQuery, type SponsoredEventsResponse } from './sponsored.contract';
+import { listSponsoredEvents } from './sponsored.service.server';
+import type { SponsoredCtx } from './index.server';
+
+/**
+ * `GET /api/sponsored-events?month=YYYY-MM`: the month's Sponsored Events,
+ * `{events: []}` when the serve gate is off. An absent month is the current
+ * month in the user's zone (settings zone, else `UTC`).
+ */
+export const listSponsoredEventsEndpoint = endpoint({
+	auth: 'user',
+	query: SponsoredEventsQuery,
+	handle: async ({ ctx, actor, query }) => {
+		const events = await listSponsoredEvents(sponsoredCtx(ctx), actor, {
+			month: query.month,
+			now: systemClock.now()
+		});
+		const response: SponsoredEventsResponse = { events };
+		return ok(response);
+	}
+});
+
+/**
+ * The endpoint builder types `ctx` as the kernel `Ctx`; the app attaches
+ * identity's two ports and sponsored's `random` to every ctx
+ * (`src/lib/app/ports.server.ts`). Fails loudly when the wiring is missing
+ * rather than reading through `undefined`.
+ */
+function sponsoredCtx(ctx: Ctx): SponsoredCtx {
+	if (!('calendarAccess' in ctx) || !('adConsent' in ctx) || !('random' in ctx)) {
+		throw new Error(
+			'sponsored ports are not wired: src/lib/app/ports.server.ts must attach calendarAccess, adConsent and random'
+		);
+	}
+	return ctx as SponsoredCtx;
+}
