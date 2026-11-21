@@ -17,6 +17,7 @@ import {
 	isAnonymousAccount,
 	isRegisteredAccount,
 	LAST_ACTIVE_TOUCH_MS,
+	personFullName,
 	profilePatch,
 	SIGN_UP_TIME_ZONE,
 	touchDue,
@@ -106,6 +107,19 @@ describe('displayName', () => {
 		[null, null]
 	])('%j → %j', (person, expected) => {
 		expect(displayName(person)).toBe(expected);
+	});
+});
+
+describe('personFullName', () => {
+	// The legacy stats SQL's `first || ' ' || last` (taskStats.ts:73,86), which
+	// keeps an empty last name's trailing space ('Sam ') — the golden pins it.
+	it.each<[{ firstName: string; lastName: string }, string]>([
+		[{ firstName: 'Mia', lastName: 'Lopez' }, 'Mia Lopez'],
+		[{ firstName: 'Sam', lastName: '' }, 'Sam '],
+		[{ firstName: '', lastName: 'Kai' }, ' Kai'],
+		[{ firstName: 'Mia', lastName: 'Lopez ' }, 'Mia Lopez ']
+	])('%j → %j', (person, expected) => {
+		expect(personFullName(person)).toBe(expected);
 	});
 });
 

@@ -20,7 +20,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { and, asc, desc, eq, like, lt, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, lt, ne } from 'drizzle-orm';
 import type { Db } from '$lib/kernel/db/database.server';
 import {
 	accounts,
@@ -56,6 +56,23 @@ export async function findPersonById(db: Db, id: string): Promise<UserRow | null
 export async function findPersonByEmail(db: Db, email: string): Promise<UserRow | null> {
 	const [row] = await db.select().from(users).where(eq(users.email, email));
 	return row ?? null;
+}
+
+/**
+ * Stored names for a set of ids, in no claimed order — the display-name read
+ * another module makes for ids it already holds (tasks' stats figures and its
+ * assignee/creator fields). Unknown ids are simply absent; an empty id list
+ * spends no query.
+ */
+export async function listPersonNamesByIds(
+	db: Db,
+	ids: readonly string[]
+): Promise<{ id: string; firstName: string; lastName: string }[]> {
+	if (ids.length === 0) return [];
+	return await db
+		.select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
+		.from(users)
+		.where(inArray(users.id, [...ids]));
 }
 
 /** The timestamp columns `insertPerson` stamps itself. */

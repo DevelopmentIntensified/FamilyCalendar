@@ -20,15 +20,16 @@
  * - family's `calendar.createFamilyCalendar` → `createFamilyCalendarPort()`,
  *   which writes through the ctx family hands it, so the row joins family's
  *   create transaction.
+ * - family's `tasks.unassignMemberTasks` → tasks' REAL
+ *   `unassignMemberTasks(ctx, familyId, userId)` from
+ *   `$lib/domains/tasks/index.server`, the assignment clear alone (family
+ *   deletes the roster row itself, AFTER this call), writing through the ctx
+ *   family hands it so the clear joins family's removal transaction.
+ * - family's `moduleSwitches.listFamilyModuleSwitches` → dashboardModules'
+ *   exported `listFamilyModuleSwitches` (Q-030; a real adapter, not a bridge).
  *
- * family's remaining ports are bridged, because family's S5+S6 ran before
- * tasks' (the third is owner answer Q-030, a family-owned port, implemented by
- * dashboardModules):
- * - `tasks.unassignMemberTasks` → legacy `removeFamilyMember`, which also drops
- *   the roster row, so family calls it BEFORE its own delete. `tasks`' S5
- *   exports the assignment clear alone and family's delete does the row.
- * - `moduleSwitches.listFamilyModuleSwitches` → dashboardModules' exported
- *   `listFamilyModuleSwitches` (Q-030; no longer a bridge).
+ * family's remaining two ports are bridged, because their owning modules have
+ * no use-case yet:
  * - `childAccount.createChildAccount` → legacy `createNewUser`, the one helper
  *   that writes the child's `users` row, `email` account, settings and personal
  *   calendar. Identity's S5 has no such use-case and `calendars` belongs to
@@ -38,10 +39,10 @@
  *   secret, and only `app` may read the environment (R6). A kernel token port
  *   would be the real home; it does not exist yet.
  *
- * dashboardModules' Q-030 adapter is the exception: it is not a bridge, because
- * `family` declares that port for a HIGHER-ranked module (`dashboardModules`
- * implements it). This module's other family need, the viewer's role, is a
- * direct call (family is rank 4).
+ * dashboardModules' Q-030 adapter is an exception in rank terms: it is not a
+ * bridge, because `family` declares that port for a HIGHER-ranked module
+ * (`dashboardModules` implements it). This module's other family need, the
+ * viewer's role, is a direct call (family is rank 4).
  *
  * Doc: docs/rewrite/playbooks/add-a-port.md#domain-ports
  */
@@ -52,17 +53,16 @@ import {
 	createCalendarAccessPort,
 	createFamilyCalendarPort
 } from '$lib/domains/calendar/index.server';
+import { listFamilyModuleSwitches } from '$lib/domains/dashboardModules/index.server';
 import type {
 	FamilyChildAccountPort,
 	FamilyInviteLinkPort,
 	FamilyModuleSwitchesPort,
-	FamilyPorts,
-	MemberTasksPort
+	FamilyPorts
 } from '$lib/domains/family/index.server';
-import { listFamilyModuleSwitches } from '$lib/domains/dashboardModules/index.server';
 import type { IdentityPorts } from '$lib/domains/identity/index.server';
 import { sponsoredAdConsentPort } from '$lib/domains/sponsored/index.server';
-import { removeFamilyMember } from '$lib/server/db/actions/families';
+import { unassignMemberTasks } from '$lib/domains/tasks/index.server';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { getUrl } from '$lib/utils/getUrl';
 
@@ -74,13 +74,6 @@ const INVITE_TOKEN_SECRET = new TextEncoder().encode(process.env.EMAILSECRET ?? 
 
 /** One day, as both legacy invite doors minted. */
 const INVITE_TOKEN_LIFETIME = new TimeSpan(1, 'd');
-
-/** TRANSITION BRIDGE — `tasks`' S5 replaces this with the assignment clear alone. */
-const legacyMemberTasks: MemberTasksPort = {
-	unassignMemberTasks: async (_ctx, familyId, userId) => {
-		await removeFamilyMember(familyId, userId);
-	}
-};
 
 /** Q-030: dashboardModules' S5 exports the real family-switch read. */
 const dashboardModuleSwitches: FamilyModuleSwitchesPort = {
@@ -126,7 +119,7 @@ export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
 		calendarAccess: createCalendarAccessPort(ctx),
 		adConsent: sponsoredAdConsentPort(ctx),
 		calendar: createFamilyCalendarPort(),
-		tasks: legacyMemberTasks,
+		tasks: { unassignMemberTasks },
 		moduleSwitches: dashboardModuleSwitches,
 		childAccount: legacyChildAccount,
 		inviteLink: legacyInviteLink

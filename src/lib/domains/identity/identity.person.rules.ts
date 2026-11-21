@@ -55,6 +55,19 @@ export function displayName(
 	return [person?.firstName, person?.lastName].filter(Boolean).join(' ').trim() || null;
 }
 
+/**
+ * The STORED full name, untrimmed: `first + ' ' + last`, the exact string the
+ * legacy SQL's `first || ' ' || last` put on the stats wire — an empty last
+ * name keeps its trailing space (`'Sam '`). `displayName` is the label rule and
+ * trims; the two are not interchangeable, so this one keeps the row shape.
+ */
+export function personFullName(person: {
+	readonly firstName: string;
+	readonly lastName: string;
+}): string {
+	return `${person.firstName} ${person.lastName}`;
+}
+
 /** The users row a new guest gets: an id-derived placeholder email, no roles. */
 export type AnonymousPersonValues = {
 	readonly id: string;

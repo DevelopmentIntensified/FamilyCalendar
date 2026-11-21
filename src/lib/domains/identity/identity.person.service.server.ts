@@ -36,6 +36,7 @@ import {
 	insertPasswordCredential,
 	insertPerson,
 	insertSettings,
+	listPersonNamesByIds,
 	touchPersonLastActive,
 	updatePersonNames
 } from './identity.repo.server';
@@ -71,6 +72,26 @@ export async function getPersonByEmail(ctx: Ctx, email: string): Promise<UserRow
 /** The sign-up and invite guards: is this address already an account? */
 export async function isEmailTaken(ctx: Ctx, email: string): Promise<boolean> {
 	return (await findPersonByEmail(ctx.db, email)) !== null;
+}
+
+/** One person's stored names, as the id-batch read answers them. */
+export type PersonName = {
+	readonly id: string;
+	readonly firstName: string;
+	readonly lastName: string;
+};
+
+/**
+ * Names for the ids a caller already holds (tasks' stats figures and its
+ * assignee/creator fields). Actor-free on purpose: every caller passes ids of
+ * rows it has already scoped, and the read answers nothing else. Unknown ids
+ * are simply absent and the order is not claimed.
+ */
+export async function listPersonNames(
+	ctx: Ctx,
+	ids: readonly string[]
+): Promise<PersonName[]> {
+	return await listPersonNamesByIds(ctx.db, ids);
 }
 
 /** The caller's own person; a missing row is an expected 404, never a silent null. */

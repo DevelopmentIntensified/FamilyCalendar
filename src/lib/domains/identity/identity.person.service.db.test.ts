@@ -26,10 +26,12 @@ import {
 	getPersonByEmail,
 	getTimeZone,
 	isEmailTaken,
+	listPersonNames,
 	touchLastActive,
 	updatePersonProfile,
 	type ProfileInput
 } from './identity.person.service.server';
+import { personFullName } from './identity.person.rules';
 import { verifyPassword } from './identity.credentials.service.server';
 
 const NOW = new Date('2026-04-01T12:00:00.000Z');
@@ -220,6 +222,26 @@ describe('people', () => {
 		expect(await getTimeZone(ctx, pseudo.id)).toBe('UTC+5');
 		expect(await getTimeZone(ctx, invalid.id)).toBeUndefined();
 		expect(await getTimeZone(ctx, none.id)).toBeUndefined();
+	});
+
+	rollbackTest('listPersonNames answers the stored names of the ids it is given', async (db) => {
+		const ctx = testCtx({ db, now: NOW.toISOString() });
+		const mia = await seedUser(db, { firstName: 'Mia', lastName: 'Diaz' });
+		// users.lastName is NOT NULL, so an empty last name is the realistic edge.
+		const sam = await seedUser(db, { firstName: 'Sam', lastName: '' });
+		await seedUser(db, { firstName: 'Unasked', lastName: 'Person' });
+
+		const names = await listPersonNames(ctx, [mia.id, sam.id, 'no-such-person']);
+
+		expect(names).toHaveLength(2);
+		expect(names).toEqual(
+			expect.arrayContaining([
+				{ id: mia.id, firstName: 'Mia', lastName: 'Diaz' },
+				{ id: sam.id, firstName: 'Sam', lastName: '' }
+			])
+		);
+		expect(names.map(personFullName)).toEqual(expect.arrayContaining(['Mia Diaz', 'Sam ']));
+		expect(await listPersonNames(ctx, [])).toEqual([]);
 	});
 
 	rollbackTest('deletePerson removes the row and cascades sessions, settings and tokens', async (db) => {

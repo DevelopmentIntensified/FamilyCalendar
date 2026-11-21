@@ -207,9 +207,9 @@ describe('POST /api/taskfocus/commands', () => {
 		expect(await db.select().from(taskfocusCommands)).toEqual([]);
 	});
 
-	it('validates taskId ownership even for stop (probably accidental)', async () => {
-		// TODAY's wire: a stop carrying a foreign task id is a 400, though stop
-		// ignores the id and the spec says stop may carry none.
+	it('skips the task lookup for stop, so a stale foreign id still enqueues and is not stored (Q-056)', async () => {
+		// Q-056: stop ignores the id (the spec says it may carry none), so only
+		// the contract's type/length check applies — never the ownership lookup.
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
@@ -223,8 +223,51 @@ describe('POST /api/taskfocus/commands', () => {
 			body: { command: 'stop', taskId: samsTask.id }
 		});
 
-		expect(res.status).toBe(400);
-		expect(res.body).toEqual({ error: 'Task not found' });
+		expect(res.status).toBe(201);
+		expect(res.body).toEqual({
+			id: expect.any(String),
+			command: 'stop',
+			taskId: null,
+			issuedAt: expect.stringMatching(ISO)
+		});
+		expect(await db.select().from(taskfocusCommands)).toHaveLength(1);
+	});
+
+	it('starts focus on any task the caller can edit: a family task and an accepted assignment (Q-060)', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+		const sam = await seedUser(db, { firstName: 'Sam' });
+		const family = await seedTaskFamily(db);
+		await addMember(db, mia.id, family.id);
+		await addMember(db, sam.id, family.id);
+		const familyTask = await seedTask(db, {
+			title: 'Mow the lawn',
+			userId: sam.id,
+			familyId: family.id
+		});
+		const handedOver = await seedTask(db, {
+			title: 'Sam`s own, mine to do',
+			userId: sam.id,
+			assignedTo: mia.id,
+			assignmentStatus: 'accepted'
+		});
+
+		for (const task of [familyTask, handedOver]) {
+			const res = await invoke(postCommand, {
+				ctx: ctx(),
+				user: mia,
+				path: '/api/taskfocus/commands',
+				method: 'POST',
+				body: { command: 'start', taskId: task.id }
+			});
+			expect(res.status).toBe(201);
+			expect(res.body).toEqual({
+				id: expect.any(String),
+				command: 'start',
+				taskId: task.id,
+				issuedAt: expect.stringMatching(ISO)
+			});
+		}
 	});
 });
 
