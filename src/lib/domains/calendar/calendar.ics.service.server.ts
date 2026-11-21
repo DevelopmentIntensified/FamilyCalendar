@@ -379,7 +379,7 @@ export async function commitImport(
 export async function undoImport(
 	ctx: Ctx,
 	actor: Actor,
-	input: { readonly calendarId: unknown; readonly batch: unknown }
+	input: { readonly calendarId: unknown; readonly batch?: unknown }
 ): Promise<CalendarImportUndoPayload> {
 	const target = await resolveImportTarget(ctx, actor, input.calendarId);
 

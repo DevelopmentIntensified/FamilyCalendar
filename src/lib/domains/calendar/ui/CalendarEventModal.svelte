@@ -225,6 +225,7 @@
 		<CalendarEventForm
 			state={form}
 			{api}
+			attendees={modal?.attendees ?? []}
 			deleting={modal?.deleting ?? false}
 			{attachedTaskCount}
 			onclose={close}

@@ -28,11 +28,9 @@ const LOCALE = 'en-US';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** The four recurrence storage words a cadence collapses onto. */
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
-
 /**
- * The RFC 5545 FREQ subset every recurrence writer and reader shares. One home
+ * The four recurrence storage words a cadence collapses onto: the RFC 5545 FREQ
+ * subset every recurrence writer and reader shares. One home
  * (K-06): calendar, tasks and parsing all import this type instead of declaring
  * a private union, so a new frequency cannot mean two different things.
  */

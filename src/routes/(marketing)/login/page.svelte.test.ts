@@ -36,6 +36,7 @@ describe('/login honours data.redirectTo (#244)', () => {
 					isLoggedIn: false,
 					user: null,
 					origin: 'http://test.com',
+					year: 2026,
 					pathname: '/login',
 					mergeMode: false,
 					redirectTo: '/family/join/ABC123'
@@ -57,6 +58,7 @@ describe('/login honours data.redirectTo (#244)', () => {
 					isLoggedIn: false,
 					user: null,
 					origin: 'http://test.com',
+					year: 2026,
 					pathname: '/login',
 					mergeMode: false,
 					redirectTo: '/family/join/ABC123'
@@ -73,7 +75,7 @@ describe('/login page URL error display', () => {
 		mockPageState.url = new URL('http://test.com/login?error=Token+expired');
 
 		render(LoginPage, {
-			props: { data: { isLoggedIn: false, user: null, origin: 'http://test.com', pathname: '/login', mergeMode: false, redirectTo: '/calendar' } }
+			props: { data: { isLoggedIn: false, user: null, origin: 'http://test.com', year: 2026, pathname: '/login', mergeMode: false, redirectTo: '/calendar' } }
 		});
 
 		expect(screen.getByText('Token expired')).toBeInTheDocument();
@@ -81,7 +83,7 @@ describe('/login page URL error display', () => {
 
 	it('does not show error when no ?error= parameter', async () => {
 		render(LoginPage, {
-			props: { data: { isLoggedIn: false, user: null, origin: 'http://test.com', pathname: '/login', mergeMode: false, redirectTo: '/calendar' } }
+			props: { data: { isLoggedIn: false, user: null, origin: 'http://test.com', year: 2026, pathname: '/login', mergeMode: false, redirectTo: '/calendar' } }
 		});
 
 		expect(screen.queryByText(/Token expired|Invalid|Error/)).not.toBeInTheDocument();
@@ -93,6 +95,7 @@ describe('/login notices + error codes (#246)', () => {
 		isLoggedIn: false,
 		user: null,
 		origin: 'http://test.com',
+		year: 2026,
 		pathname: '/login',
 		mergeMode: false,
 		redirectTo: '/calendar'

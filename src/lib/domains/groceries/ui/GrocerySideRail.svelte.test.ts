@@ -170,7 +170,7 @@ describe('GrocerySideRail', () => {
 		const { state } = makeState();
 		render(GrocerySideRail, { props: { state } });
 
-		const options = [...document.querySelectorAll('#known-stores option')].map(
+		const options = [...document.querySelectorAll<HTMLOptionElement>('#known-stores option')].map(
 			(option) => option.value
 		);
 		expect(options).toEqual(['Aldi', 'Lidl']);
