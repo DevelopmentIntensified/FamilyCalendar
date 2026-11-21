@@ -73,6 +73,29 @@ describe('getSubscriptionSummary', () => {
 			expect.objectContaining({ level: 'error', event: 'subscription_summary_failed' })
 		);
 	});
+
+	// The window is legacy's (`subscriptionService.ts:334-349`): the UTC month and
+	// year of the clock, compared against the counter's `month`/`year` columns.
+	// The golden seeds the ambient month and cannot pin the edges; this does.
+	rollbackTest("counts only the injected clock's UTC month, across a month edge", async (db) => {
+		const user = await seedUser(db);
+		await seedAiUsage(db, user.id, { month: 12, year: 2025, aiEventCreationsUsed: 4 });
+		await seedAiUsage(db, user.id, { month: 6, year: 2026, aiEventCreationsUsed: 6 });
+		await seedAiUsage(db, user.id, { month: 7, year: 2026, aiEventCreationsUsed: 5 });
+
+		const june = testCtx({ db, now: '2026-06-30T23:59:59.999Z' });
+		const atJuneEnd = await getSubscriptionSummary(june, actorFromUser(user, 'session'));
+		expect(atJuneEnd.aiUsage).toEqual({ used: 6, limit: 10, remaining: 4 });
+
+		const july = testCtx({ db, now: '2026-07-01T00:00:00.000Z' });
+		const atJulyStart = await getSubscriptionSummary(july, actorFromUser(user, 'session'));
+		expect(atJulyStart.aiUsage).toEqual({ used: 5, limit: 10, remaining: 5 });
+
+		// Last December's row is neither this month's nor a fallback.
+		const january = testCtx({ db, now: '2026-01-31T12:00:00.000Z' });
+		const inJanuary = await getSubscriptionSummary(january, actorFromUser(user, 'session'));
+		expect(inJanuary.aiUsage).toEqual({ used: 0, limit: 10, remaining: 10 });
+	});
 });
 
 describe('getPlanLimits', () => {
