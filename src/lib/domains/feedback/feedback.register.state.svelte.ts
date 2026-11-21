@@ -41,8 +41,14 @@ export class FeedbackBugRegisterState {
 	/** `YYYY-MM-DD` for the export's download name, in the page's zone. */
 	readonly today: string;
 
-	/** The agent-ready text of the open rows only (issue 262: it follows a resolve). */
-	exportText = $derived(formatBugReportsExport(this.open, this.now, this.zone));
+	/**
+	 * The agent-ready text of the open rows only (issue 262: it follows a
+	 * resolve). A getter, not a `$derived` field: the field initialiser would
+	 * read `now`/`zone` before the constructor assigns them.
+	 */
+	get exportText(): string {
+		return formatBugReportsExport(this.open, this.now, this.zone);
+	}
 
 	constructor(
 		api: FeedbackRegisterApi,
@@ -93,7 +99,10 @@ export class FeedbackPhraseRegisterState {
 	private readonly zone: string;
 	readonly today: string;
 
-	exportText = $derived(formatUnmatchedPhrasesExport(this.open, this.now, this.zone));
+	/** The same getter shape as the bug register (issue 262). */
+	get exportText(): string {
+		return formatUnmatchedPhrasesExport(this.open, this.now, this.zone);
+	}
 
 	constructor(
 		api: FeedbackRegisterApi,

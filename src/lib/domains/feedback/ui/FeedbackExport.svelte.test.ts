@@ -83,8 +83,9 @@ describe('FeedbackExport', () => {
 		const originalRevoke = URL.revokeObjectURL;
 		const originalClick = HTMLAnchorElement.prototype.click;
 		const downloads: string[] = [];
+		const revoked: string[] = [];
 		URL.createObjectURL = () => 'blob:export';
-		URL.revokeObjectURL = () => {};
+		URL.revokeObjectURL = (url) => void revoked.push(url);
 		HTMLAnchorElement.prototype.click = function captureDownload(this: HTMLAnchorElement) {
 			downloads.push(this.download);
 		};
@@ -95,6 +96,9 @@ describe('FeedbackExport', () => {
 			await vi.waitFor(() =>
 				expect(downloads).toEqual(['bug-reports-2026-11-21.txt'])
 			);
+			// The component revokes on a 0 ms timer (after the click): wait for
+			// that signal while the stub is still installed.
+			await vi.waitFor(() => expect(revoked).toEqual(['blob:export']));
 		} finally {
 			HTMLAnchorElement.prototype.click = originalClick;
 			URL.createObjectURL = originalCreate;

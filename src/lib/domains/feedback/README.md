@@ -52,7 +52,7 @@ Everything other modules and routes may use, grouped by entry file. One line eac
   - `reportBugHref(currentPath)` — issue 257: the "report this page" link, carrying the current page as `from` (or `/report-bug` when there is no usable page).
   - `formatBugReportsExport(open, now, zone)` / `formatUnmatchedPhrasesExport(open, now, zone)` — the agent-ready text; lives here because the API and the page must produce byte-identical text, so `now` and the zone are parameters (both callers pass `ctx.clock.now()` and `'UTC'`).
   - `createFeedbackApi(client?)` — the browser client for `POST /api/report-phrase`, the two register reads and the two resolves; returns `ApiResult`, never throws.
-  - `FeedbackBugRegisterState` / `FeedbackPhraseRegisterState` — one admin register's client state: `open`, `resolved`, `pendingId`, `exportText` (derived, issue 262), `today`, and `resolve(id)` with the optimistic move, rollback and toast. Constructor `(api, toasts, initial, now, zone)`.
+  - `FeedbackBugRegisterState` / `FeedbackPhraseRegisterState` — one admin register's client state: `open`, `resolved`, `pendingId`, `exportText` (a getter over the open rows, issue 262), `today`, and `resolve(id)` with the optimistic move, rollback and toast. Constructor `(api, toasts, initial, now, zone)`.
   - `ReportBugState` — the `/report-bug` form's client state: `from` (kept across the post-submit reload, issue 257), `rememberFrom`, `submitting` / `startSubmit` / `finishSubmit` (issue 258).
   - `type FeedbackFormEnhancer` — the `$app/forms` `enhance` shape a component takes as a prop, declared here so `ui/` stays free of `$app/*`.
 - `index.server.ts`:

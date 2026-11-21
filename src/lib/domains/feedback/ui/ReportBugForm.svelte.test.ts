@@ -120,8 +120,7 @@ describe('ReportBugForm', () => {
 			formElement: form,
 			action: input.action,
 			result: { type: 'success', status: 200, data: {} },
-			update: () => pending.promise,
-			applyAction: async () => {}
+			update: () => pending.promise
 		});
 
 		await tick();

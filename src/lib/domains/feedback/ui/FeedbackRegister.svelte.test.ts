@@ -160,7 +160,8 @@ describe('FeedbackRegister — phrases', () => {
 		expect(screen.getByText('call mom')).toBeInTheDocument();
 		expect(screen.getByText('dinner at six')).toBeInTheDocument();
 		expect(screen.getByText(/Call mom/)).toBeInTheDocument();
-		expect(screen.getByRole('columnheader', { name: 'First seen' })).toBeInTheDocument();
+		// One table per source (legacy), so the header repeats: Event parse, Bulk edit.
+		expect(screen.getAllByRole('columnheader', { name: 'First seen' })).toHaveLength(2);
 	});
 
 	it('resolves the phrase row the button belongs to', async () => {
