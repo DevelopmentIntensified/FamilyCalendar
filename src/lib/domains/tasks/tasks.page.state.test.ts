@@ -4,11 +4,39 @@ import type { Scheduler } from '$lib/kernel/time/scheduler';
 import type { TasksApi } from './tasks.api';
 import { TasksPageState } from './tasks.page.state.svelte';
 import type { TaskEditDraft } from './tasks.editor.rules';
-import type { TaskPageRow } from './tasks.contract';
+import type { TaskPageRow, TaskWithTagsWire } from './tasks.contract';
 import { buildTaskCategory, buildTaskRow, buildTaskSections } from './tasks.ui.fixtures';
 
 const NOW = new Date(2026, 8, 15, 12, 0, 0, 0);
 const AT = '2026-09-01T10:00:00.000Z';
+
+/** The `PUT` answer's row: the wire row the state reads back off a mutation. */
+function wireTask(overrides: Partial<TaskWithTagsWire> = {}): TaskWithTagsWire {
+	return {
+		id: 't1',
+		title: 'Mow the yard',
+		notes: null,
+		dueDate: null,
+		completedAt: null,
+		archivedAt: null,
+		recurrenceFrequency: null,
+		recurrenceInterval: null,
+		completionCount: 0,
+		assignedTo: null,
+		assignmentStatus: 'none',
+		priority: 'normal',
+		visibility: 'private',
+		userId: 'u1',
+		familyId: null,
+		eventId: null,
+		focusMinutes: null,
+		focusStartedAt: null,
+		category: null,
+		createdAt: AT,
+		tags: [],
+		...overrides
+	};
+}
 
 function fakeApi(overrides: Partial<TasksApi> = {}): TasksApi {
 	const unexpected = async () => {
@@ -245,7 +273,7 @@ describe('TasksPageState — focus', () => {
 describe('TasksPageState — assignments', () => {
 	it('accepts with the legacy copy and re-reads', async () => {
 		const { state, toasts, refresh } = buildState({
-			api: fakeApi({ update: vi.fn(async () => ({ ok: true as const, data: { success: true as const, task: {} } })) }),
+			api: fakeApi({ update: vi.fn(async () => ({ ok: true as const, data: { success: true as const, task: wireTask() } })) }),
 			rows: [{ id: 't1' }]
 		});
 		await state.respond({ id: 't9', title: 'Mow' }, true);
@@ -327,7 +355,7 @@ describe('TasksPageState — editor', () => {
 			api: fakeApi({
 				update: vi.fn(async () => ({
 					ok: true as const,
-					data: { success: true as const, task: { title: 'Mow the yard' } }
+					data: { success: true as const, task: wireTask({ title: 'Mow the yard' }) }
 				}))
 			}),
 			rows: [{ id: 't1' }]
