@@ -24,8 +24,9 @@
  * `faults` is not a bridge any more: it is `feedback`'s `fileAutoBugReport`
  * through the module's public entry, so `endpoint()`'s 5xx filing and the
  * pipeline's `handleError` (APP-03) reach one service that owns the #153 skip,
- * the 10-minute throttle and its own catch. The cleanup cron still calls the
- * legacy prunes until APP-01's `runRetention` calls `pruneFeedbackOlderThan`.
+ * the 10-minute throttle and its own catch. `runRetention` (./retention.server.ts)
+ * now calls the modules' prunes, so the cleanup cron no longer touches legacy
+ * code.
  *
  * Doc: src/lib/app/README.md
  */

@@ -64,6 +64,7 @@ export {
 	touchLastActive,
 	getTimeZone,
 	deletePerson,
+	pruneInactiveAnonymousAccounts,
 	type PersonName,
 	type ProfileInput,
 	type CreatePersonWithPasswordInput,
