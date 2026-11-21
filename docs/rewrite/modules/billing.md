@@ -139,6 +139,17 @@ Implemented differences from the rows above, with their reasons:
 | `billing.api.ts` | api | `fetchSubscriptionSummary()` on the kernel client; typed from `billing.contract.ts`. |
 | `src/routes/api/me/subscription/+server.ts` (outside this folder) | wiring | becomes two lines re-exporting `getSubscriptionEndpoint.handler`; the S2 golden must stay byte-identical. |
 
+Implemented differences from the rows above, with their reasons:
+
+- `getPlanLimits` takes an optional `{ personId }` (default: the caller): family's member gate resolves the **creator's** limit (`getFamilySizeLimit`), not the viewer's, and limits are caps rather than personal data. The family wave passes the creator id; the README's signature is updated.
+- `deleteSubscriptionsForPerson` (wave plan §6 item 6) shipped in S5 with repo `deleteSubscriptionsByUserId`: account deletion must delete the subscription rows before the person row (`activeSubscriptions.userId` is the one user FK with `ON DELETE no action`). It runs on the caller's `ctx`, so the account composition passes its `txCtx` and the delete joins the one transaction; self-or-admin.
+- `recordAiCreation` answers the `AiUsage` allowance (`used`/`limit`/`remaining`) instead of the legacy `{ success, remaining }`; nothing on the wire reads it, and parsing only needs the remaining count.
+- `ensureBillingDefaults` has **no caller yet**: APP-01 decides whether the app seeds at boot or lazily on first read. It is tested idempotent and writes no ad events (those belong to `sponsored`).
+- The checkout stub's `Checkout is not yet available.` stays in the legacy `/checkout` action until marketing's S7 replaces that page, so the README's stub Invariant now names the legacy action as its pin; billing's service only quotes, and its test pins the quote's "matching enabled row" rule.
+- `getCheckoutQuote`/`listEligibleDiscounts` scan **all** enabled discount rows; the legacy `getDiscountByType` capped its scan at ten (and picked without `ORDER BY`). With the seed's two rows nothing changes; the sheet already drops that arbitrary pick.
+- The account export slice (Q-078 B, wave plan §6 item 7) is **not** built: the slice's document shape is the account screen's contract, and exporting raw `subscriptions`/`discounts` rows would be a table leak. The account wave must specify billing's slice; today no caller reads it.
+- `applyUserDiscount` keeps the legacy read-then-insert idempotency in one service call. Two truly concurrent claims can still race into the composite primary key (legacy had the same race); no client retries a claim.
+
 ### S7 — UI + display rules
 
 | file | role | what goes in it |
@@ -217,7 +228,7 @@ Both answered by the owner on 2026-11-12 (`docs/rewrite/questions.md`, lettering
 ### S2 — goldens
 
 - `billing.http.db.test.ts` covers the one `/api` route: success for a session and a Bearer caller, the free defaults, a tiered subscription with an override, this month's AI counter (under and over the cap), an expired row, newest-of-two active rows, and the degrade-on-read-failure path. All run against the legacy handler (no spec-goldens needed).
-- The AI-usage test seeds the month/year from the real clock because the legacy service reads it (`subscriptionService.ts:333-334`); it asserts counts and shapes, never dates. The other goldens use fixed far-past/far-future dates so they never depend on today.
+- The AI-usage test seeds the month/year from the real clock because the legacy service reads it (`subscriptionService.ts:333-334`); it asserts counts and shapes, never dates. The other goldens use fixed far-past/far-future dates so they never depend on today. After the port the handler reads the same real month through `ctx.clock`: `goldenCtx` gives goldens production's `systemClock` (and `systemIds`), not `testCtx`'s frozen clock. The window's edges are pinned in `billing.service.db.test.ts` (`getSubscriptionSummary` › "counts only the injected clock's UTC month"), where `testCtx({ now })` controls time.
 - The degrade golden renames `aiUsageTracking` for one request (drizzle sends unnamed statements — `prepare: false` — so the renamed relation is re-resolved by name and the read fails) and restores it in `finally`. If this proves brittle on a future drizzle upgrade, move it to `billing.service.db.test.ts` with a throwing `Db` passed to `testCtx({ db })`; it must not be deleted, the behaviour is on the wire.
 
 
