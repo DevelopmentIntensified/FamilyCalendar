@@ -693,3 +693,68 @@ export const TaskStatsResponse = z.object({
 	roster: z.array(z.object({ firstName: z.string(), memberType: z.string() }))
 });
 export type TaskStatsResponse = z.infer<typeof TaskStatsResponse>;
+
+// --- Page data shapes (not the wire) -----------------------------------------
+
+/**
+ * A Task row as the `/calendar/tasks` load hands it to the browser: the
+ * `TaskSectionRow` read (`tasks.items.service.server.ts`) after devalue, so the
+ * one `mode:'default'` column may arrive as a Date instead of an ISO string.
+ * The page's api client and components type on this, never on a `.server` file.
+ */
+export type TaskPageRow = {
+	readonly id: string;
+	readonly title: string;
+	readonly notes: string | null;
+	readonly dueDate: string | null;
+	readonly completedAt: string | null;
+	readonly recurrenceFrequency: string | null;
+	readonly recurrenceInterval: number | null;
+	readonly completionCount: number;
+	readonly assignedTo: string | null;
+	readonly assignmentStatus: string | null;
+	readonly priority: string;
+	readonly visibility: string;
+	readonly userId: string;
+	readonly familyId: string | null;
+	readonly eventId: string | null;
+	readonly focusMinutes: number | null;
+	readonly focusStartedAt: string | Date | null;
+	readonly category: string | null;
+	readonly createdAt: string | Date;
+	readonly tags: readonly string[];
+	readonly assigneeFirstName: string | null;
+	readonly assigneeLastName: string | null;
+	readonly creatorFirstName: string | null;
+	readonly eventTitle: string | null;
+	readonly eventStart: string | null;
+};
+
+/** One member of the viewer's family roster, as the group layout supplies it. */
+export type TaskRosterMember = {
+	readonly userId: string;
+	readonly firstName: string;
+	readonly lastName: string;
+};
+
+/** A category option: the id for the manage list, the name for the combobox. */
+export type TaskCategoryItem = { readonly id: string; readonly name: string };
+
+/** The three queues and the labels of the legs that degraded (the list read). */
+export type TaskSections = {
+	readonly myTasks: readonly TaskPageRow[];
+	readonly pendingAssignments: readonly TaskPageRow[];
+	readonly requestedByMe: readonly TaskPageRow[];
+	readonly warnings: readonly string[];
+};
+
+/** Everything the `/calendar/tasks` page (and its Screen) reads from `data`. */
+export type TaskPageData = {
+	readonly user?: { readonly id: string } | null;
+	readonly userSettings?: { readonly timeZone?: string | null } | null;
+	readonly familyId: string | null;
+	readonly familyMembers: readonly TaskRosterMember[];
+	readonly taskCategories: readonly TaskCategoryItem[];
+	readonly taskLists: TaskSections;
+	readonly loadWarnings: readonly string[];
+};

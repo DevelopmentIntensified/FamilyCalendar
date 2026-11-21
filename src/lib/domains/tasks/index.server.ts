@@ -90,3 +90,7 @@ export {
 	discardFocusSessionEndpoint,
 	absorbFocusSessionEndpoint
 } from './tasks.focus.http.server';
+
+// --- Page loads ---------------------------------------------------------------
+
+export { tasksPageLoad } from './tasks.http.server';

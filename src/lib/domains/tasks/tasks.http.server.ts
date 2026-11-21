@@ -18,6 +18,9 @@
  * Doc: ./README.md#public-interface
  */
 import { created, endpoint, ok } from '$lib/kernel/http/endpoint.server';
+import { pageLoad } from '$lib/kernel/http/pageHandlers.server';
+import { listFamilyRoster, resolveMembershipFamilyId } from '$lib/domains/family/index.server';
+import { getTimeZone } from '$lib/domains/identity/index.server';
 import {
 	addTaskCategory,
 	listTaskCategories,
@@ -122,4 +125,38 @@ export const deleteTaskCategoryEndpoint = endpoint({
 export const taskStatsEndpoint = endpoint({
 	auth: 'user',
 	handle: async ({ ctx, actor }) => ok(await getStatsPage(ctx, actor))
+});
+
+// --- Page ----------------------------------------------------------------
+
+/**
+ * `GET /calendar/tasks`'s load: the three queues, the viewer's categories, the
+ * family roster and the stored zone the quick-add resolves dates in. The group
+ * layout still supplies `user`, `familyId` and the roster for other pages; this
+ * page reads them here so its data comes from the module's own services.
+ */
+export const tasksPageLoad = pageLoad({
+	auth: 'user',
+	handle: async ({ ctx, actor }) => {
+		const familyId = await resolveMembershipFamilyId(ctx, actor.id);
+		const [sections, categories, roster, timeZone] = await Promise.all([
+			listTaskSections(ctx, actor),
+			listTaskCategories(ctx, actor),
+			listFamilyRoster(ctx, actor, familyId),
+			getTimeZone(ctx, actor.id)
+		]);
+		return {
+			user: { id: actor.id },
+			userSettings: { timeZone: timeZone ?? 'UTC' },
+			familyId,
+			familyMembers: roster.members.map((member) => ({
+				userId: member.userId,
+				firstName: member.firstName ?? '',
+				lastName: member.lastName ?? ''
+			})),
+			taskCategories: categories.map(({ id, name }) => ({ id, name })),
+			taskLists: sections,
+			loadWarnings: [] as string[]
+		};
+	}
 });
