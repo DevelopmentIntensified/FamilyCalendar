@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm';
 import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
 import { getAdEventsForUser, shouldServeAds, type AdDisplayEvent } from '$lib/server/services/adService';
 import { parseEvents } from '$lib/server/services/eventDisplayService';
+import { SPONSORED_EVENT_COLOR } from '$lib/domains/sponsored';
 
 export const PERSONAL_CALENDAR_NAME = 'Personal Calendar';
 export const DEFAULT_PERSONAL_COLOR = '#fa8072';
@@ -45,9 +46,6 @@ export async function getFamilyCalendarInfo(familyId: string): Promise<{
 		color
 	};
 }
-
-/** Sponsored (ad) events render in this amber on every calendar view. */
-export const SPONSORED_EVENT_COLOR = '#f59e0b';
 
 /** Project an ad display event onto the stored event row shape (stored-only fields are null). */
 function toCalendarEvent(ad: AdDisplayEvent): CalendarEvent {

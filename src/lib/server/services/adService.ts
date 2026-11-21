@@ -1,11 +1,10 @@
 import { db } from '$lib/server/db';
-import { adEvents, events } from '$lib/server/db/schema';
+import { events } from '$lib/server/db/schema';
 import { eq, and, sql, gte, lt, asc } from 'drizzle-orm';
 import { generateId } from '$lib/server/utils/generateId';
 import { DateTime } from 'luxon';
 import { getUserZone } from '$lib/server/utils/userTimezone';
 import { getUserSettings } from '$lib/server/db/actions/userSettings';
-import { uploadAdAsset, getBlobUrl, deleteAdAssetByFilename, listBlobAssets } from './blobService';
 
 export interface AdEventData {
 	eventId: string;
@@ -181,94 +180,6 @@ export async function generateAdEventsForMonth({
 	}
 
 	return generatedAds;
-}
-
-export async function injectAdEvent(
-	calendarId: string,
-	ownerId: string,
-	adData: AdEventData
-): Promise<string> {
-	const [adEvent] = await db
-		.insert(events)
-		.values({
-			id: adData.eventId,
-			calendarId,
-			ownerId,
-			title: `📢 ${adData.adContent.sponsorName}: ${adData.adContent.message}`,
-			start: adData.eventDate.toISOString(),
-			end: new Date(adData.eventDate.getTime() + 60 * 60 * 1000).toISOString(),
-			description: adData.adContent.ctaText
-				? `${adData.adContent.message}\n\n${adData.adContent.ctaText}: ${adData.adContent.ctaLink ?? ''}`
-				: adData.adContent.message
-		})
-		.returning();
-
-	await db.insert(adEvents).values({
-		id: generateId(15),
-		sponsorName: adData.adContent.sponsorName,
-		message: adData.adContent.message,
-		ctaText: adData.adContent.ctaText ?? null,
-		ctaLink: adData.adContent.ctaLink ?? null,
-		targetPlan: adData.adContent.targetPlan ?? null,
-		deadline: adData.adContent.deadline ?? null,
-		scheduledFor: adData.eventDate,
-		impressions: 0,
-		clicks: 0,
-		conversions: 0
-	});
-
-	return adEvent.id;
-}
-
-export async function trackAdImpression(adEventId: string): Promise<void> {
-	await db
-		.update(adEvents)
-		.set({
-			impressions: sql`${adEvents.impressions} + 1`
-		})
-		.where(eq(adEvents.id, adEventId));
-}
-
-export async function trackAdClick(adEventId: string): Promise<void> {
-	await db
-		.update(adEvents)
-		.set({
-			clicks: sql`${adEvents.clicks} + 1`
-		})
-		.where(eq(adEvents.id, adEventId));
-}
-
-export interface UploadAdImageParams {
-	filename: string;
-	imageData: Buffer;
-	contentType?: string;
-}
-
-export async function uploadAdImage({
-	filename,
-	imageData,
-	contentType = 'image/png'
-}: UploadAdImageParams): Promise<string> {
-	const asset = await uploadAdAsset({
-		filename,
-		content: imageData,
-		contentType
-	});
-
-	return asset.url;
-}
-
-export async function getAdImageUrl(filename: string): Promise<string> {
-	return getBlobUrl(filename);
-}
-
-export async function deleteAdImage(filename: string): Promise<void> {
-	return deleteAdAssetByFilename(filename);
-}
-
-export async function listAdImages(prefix?: string): Promise<string[]> {
-	const assets = await listBlobAssets(prefix);
-	return assets.map((asset) => asset.url);
 }
 
 /**

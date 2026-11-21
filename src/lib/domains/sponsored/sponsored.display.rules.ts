@@ -16,12 +16,16 @@
  * Doc: ./README.md#invariants
  */
 import { toInstantString } from '$lib/kernel/time/dates';
-import {
-	SPONSORED_EVENT_COLOR,
-	type OwnedSponsoredEventRow,
-	type SponsoredEvent
-} from './sponsored.contract';
+import type { OwnedSponsoredEventRow, SponsoredEvent } from './sponsored.contract';
 import { SPONSORED_TITLE_MARKER, sponsoredMessageOf } from './sponsored.serve.rules';
+
+/**
+ * Sponsored Events render in this amber on the wire and on every calendar view
+ * (#067). It lives with the projection that writes it, not in the contract, so
+ * `index.ts` can hand a screen the amber without pulling the zod wire schemas
+ * into the browser bundle; the contract imports it to pin the wire literal.
+ */
+export const SPONSORED_EVENT_COLOR = '#f59e0b';
 
 /** What a served row is built from: an own 📢 Event, or a generated plan plus its id. */
 export type SponsoredEventSource = {

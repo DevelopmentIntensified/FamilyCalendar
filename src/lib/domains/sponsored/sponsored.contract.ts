@@ -14,14 +14,12 @@
  */
 import { isoInstant, yearMonth, z } from '$lib/kernel/validation/validators';
 import { SPONSORED_CONSENT_DECISIONS } from './sponsored.consent.rules';
+import { SPONSORED_EVENT_COLOR } from './sponsored.display.rules';
 
 // --- Vocabularies -----------------------------------------------------------
 
 /** What a consent record records: consent given, or consent withdrawn. */
 export type SponsoredConsentDecision = (typeof SPONSORED_CONSENT_DECISIONS)[number];
-
-/** Sponsored Events render in this amber on the wire and on every calendar view (#067). */
-export const SPONSORED_EVENT_COLOR = '#f59e0b';
 
 // --- Wire copy --------------------------------------------------------------
 

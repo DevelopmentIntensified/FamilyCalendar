@@ -165,7 +165,7 @@ The module owns no page and one JSON route; its cost lands on `calendarPage` and
 ### Decisions
 
 - **Q-003 is answered: the blob store is DELETED in S8.** (Owner answer relayed for this port; `docs/rewrite/questions.md` still shows an empty Answer field, and neither file is in this task's file set.) No `blob` port is designed: `blobService.ts` and `uploadAdImage` / `getAdImageUrl` / `deleteAdImage` / `listAdImages` go in S8, together with `adService.ts`'s `@vercel/blob` import. Ads serve without images.
-- **`scripts/arch/registry.mjs` needs two edits outside this file set:** the `sponsored` purpose line still says "blob assets" (trim it), and S4 adds the `FOREIGN_READS.sponsored.events` entry.
+- **`scripts/arch/registry.mjs`: both edits already landed.** The `sponsored` purpose line no longer says "blob assets", and the `FOREIGN_READS.sponsored.events` entry exists with its reason (S4). Nothing else is needed from the registry.
 - **Consent seam, agreed with the identity port:** identity's `index.ts` declares `CalendarSettingsConsentPort` (`listConsentHistory`, `recordConsentChange`); `/api/me/settings` GET+PATCH and the account page pass this module's two functions. Structural satisfaction, so identity never imports sponsored. The save reads the previous flag before writing and logs a record failure without failing the save (`accountData.ts:184-206`).
 - **`events` is read as a declared foreign read.** The 📢 rule lives in `events` (calendar's table); S4 adds the `FOREIGN_READS` entry with its reason. If owner question 1 lands "drop", the read and the entry both disappear and the module needs no calendar access at all.
 - **The engagement counters and the target-plan reporting read are dropped, not kept.** `adEvents` has no writer in v2 once `injectAdEvent` dies (`adService.ts:186-221` had no caller), no route exposes impressions/clicks, no served id can match an `adEvents` row (served ids are `events.id` or generated ids; the ad row gets its own id — `adService.ts:113,167,207`), and nothing calls `countRecentAdEventsByTargetPlan` (`adEvents.ts:27-38`). Both are consumer-less internal paths (Speculative Generality), so the port keeps neither; the `adEvents` columns and `pruneSponsoredEventsOlderThan` stay because retention is a must-survive rule of the table the schema owns. A future ad-inventory ticket designs the writer, the counters and the reporting together.
@@ -181,9 +181,28 @@ The module owns no page and one JSON route; its cost lands on `calendarPage` and
 - **The `adConsent` TRANSITION BRIDGE is replaced by sponsored's real adapter** (`sponsoredAdConsentPort(ctx)`), attached in `src/lib/app/ports.server.ts`; `calendarAccess` stays a bridge. `AppPorts` is `IdentityPorts & SponsoredPorts`, and `random` is wired there to `Math.random` (R5).
 - **The service test's ctx carries three fakes** (identity's two ports + a scripted `random`), because `getCalendarSettings` is typed `IdentityCtx`; `SponsoredCtx = IdentityCtx & SponsoredPorts`.
 
-### Files kept for unported importers
+### S7 as built: none (owned by the screens)
 
-None of this module's legacy files survives. S8 must rewire the importers first: `calendarData.ts` and `(calendar)/calendar/+page.server.ts` (calendar), `accountData.ts` (identity / account), `api/cron/cleanup/+server.ts` (app). The four legacy test files (`adService.test.ts`, `adConsentService.test.ts`, `adEvents.prune.test.ts`, `api/sponsored-events/server.test.ts`) are deleted with the sources.
+`ui/` stays empty and no component was added. The sheet and the README ("No `ui/` component on purpose"; `ui/index.ts` stays empty) assign every sponsored surface to a screen: the chip word "Ad" / accessible name "Sponsored", the legend and the ad-less event modal to **calendarPage**, the opt-in checkbox and the consent history to **account**, and the dashboard's glance row keys on `isAd` if it is ever handed a sponsored row. The module's contribution is the wire marking those screens read (`isAd: true`, `SPONSORED_EVENT_COLOR`). No page is owned here, so there is no `visual:check -- sponsored` baseline and no `perf:check -- sponsored` budget.
+
+### S8 as built: deleted, and what still keeps a legacy file alive
+
+Deleted:
+- `src/lib/server/services/blobService.ts` (Q-003) and, in `adService.ts`, the `@vercel/blob` import with `uploadAdImage` / `getAdImageUrl` / `deleteAdImage` / `listAdImages` / `UploadAdImageParams`. Ads serve without assets.
+- `adService.ts`'s `injectAdEvent`, `trackAdImpression` and `trackAdClick`: the dead write path and the never-incrementing counters (no caller in `src/`). `adEvents` now has no writer, and the retention prune keeps the columns meaningful.
+- `src/routes/api/sponsored-events/server.test.ts`: the route is wiring-only to `listSponsoredEventsEndpoint`, and the S2 goldens replace the legacy route test.
+- `src/lib/server/services/calendarData.ts`'s own `SPONSORED_EVENT_COLOR` literal: it now imports the amber from the module's isomorphic entry, so the live legacy calendar path cannot drift from the wire colour (#067). The rest of that file still imports `adService` (next list).
+
+Kept, each with the unported importer that still needs it:
+- `src/lib/server/services/adService.ts` + `adService.test.ts` — `src/lib/server/services/calendarData.ts:10` imports `getAdEventsForUser` / `shouldServeAds` / `AdDisplayEvent`, and `src/routes/(calendar)/calendar/+page.server.ts:15` calls `shouldServeAds`, for the unported calendar page load. Both die with `calendarPage`'s ad leg (which calls `listSponsoredEvents`). `AdEventData` / `GenerateAdsParams` / `AD_TEMPLATES` survive inside this file only because those retained functions use them.
+- `src/lib/server/services/adConsentService.ts` + `adConsentService.test.ts` — `src/lib/server/services/accountData.ts:30` imports `recordAdConsentChange` / `getAdConsentRecords` for the unported account page and `/api/me/*` routes, and `src/routes/api/me/settings/server.test.ts` still mocks the module. Dies with the `account` screen reaching settings through identity's `AdConsentPort`.
+- `src/lib/server/db/actions/adEvents.ts` + `adEvents.prune.test.ts` — `src/routes/api/cron/cleanup/+server.ts:8` imports `pruneAdEventsOlderThan`. The cron is app logic, not wiring, so **R8 forbids it calling `pruneSponsoredEventsOlderThan`** (`arch: R8 route file uses module code but is not wiring-only`); the file goes when `app`'s cleanup cron is ported as its own piece. The module's own prune is already pinned by `sponsored.service.db.test.ts` and `sponsored.repo.db.test.ts`.
+- `@vercel/blob` in `package.json`: its last import is gone, but removing the dependency means editing `package.json` / the lockfile, which this task may not do. Ask for it in the dependency pass.
+
+### S9 as built
+
+- `index.ts` now carries the interface the S1 README designed (`shouldServeSponsoredEvents`, `SPONSORED_EVENT_COLOR`, the four contract types); it was empty, which made the documented isomorphic entry untrue. `SPONSORED_EVENT_COLOR` moved from `sponsored.contract.ts` into `sponsored.display.rules.ts` (the contract still pins the wire literal by importing it), so importing the isomorphic entry does not pull zod's wire schemas into a browser bundle; `sponsored.contract.test.ts` imports the amber from its new home.
+- `npm run census -- --write` and `npm run gate:push` were not run (this task may run only the arch/docs checks). The Census block below is therefore stale: `blobService.ts` and `api/sponsored-events/server.test.ts` are gone, `adEvents.ts` and `adService.ts` remain as noted above, and `api/sponsored-events/+server.ts` is now wiring-only (S6).
 
 ### Questions for the owner
 
