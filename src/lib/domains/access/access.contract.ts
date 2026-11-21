@@ -76,11 +76,23 @@ export const UNAUTHORIZED_MESSAGE = 'Unauthorized';
 /** The web/mobile `/api` limiter's copy (`forgot-password/+server.ts:59`). */
 export const RATE_LIMIT_MESSAGE = 'Too many attempts. Try again shortly.';
 
+/** The page sign-in/sign-up routes' address copy (`login/email`, `signup/email`). */
+export const INVALID_EMAIL_MESSAGE = 'Invalid email';
+
+/** The page sign-up's names copy (`signup/email/+server.ts`). */
+export const MISSING_NAME_MESSAGE = 'First and last name are required';
+
 /** Password signup with a blank field (`passwordSignup.ts:71`). */
 export const SIGNUP_FIELDS_REQUIRED_MESSAGE = 'All fields are required';
 
 /** Password signup/reset under 8 characters (`passwordSignup.ts:74`). */
 export const PASSWORD_TOO_SHORT_MESSAGE = 'Password must be at least 8 characters';
+
+/** Web password sign-in's one refusal (`login/password/+server.ts:36`). */
+export const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password';
+
+/** A passwordless account at the password door (`login/password/+server.ts:37`). */
+export const EMAIL_LOGIN_REQUIRED_MESSAGE = 'Please use email login for this account';
 
 /** A registered person cannot claim (already has an email) (`claimRequest.ts:54`). */
 export const CLAIM_ACCOUNT_HAS_EMAIL_MESSAGE = 'Account already has an email';

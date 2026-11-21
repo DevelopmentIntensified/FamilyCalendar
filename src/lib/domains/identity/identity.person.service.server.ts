@@ -13,6 +13,7 @@
  *
  * Doc: ./README.md#public-interface
  */
+import { encodeHexLowerCase } from '@oslojs/encoding';
 import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { withTx } from '$lib/kernel/db/database.server';
@@ -29,14 +30,19 @@ import {
 	zoneFromStored
 } from './identity.person.rules';
 import {
+	claimPersonEmail as claimPersonEmailRow,
 	deletePersonRow,
+	findAccountBinding,
 	findPersonByEmail,
 	findPersonById,
 	findSettingsByPerson,
+	insertAccountBinding,
 	insertPasswordCredential,
 	insertPerson,
 	insertSettings,
 	listPersonNamesByIds,
+	markPersonEmailVerified as markPersonEmailVerifiedRow,
+	setPersonPasswordHash as setPersonPasswordHashRow,
 	touchPersonLastActive,
 	updatePersonNames
 } from './identity.repo.server';
@@ -67,6 +73,15 @@ export type CreatePersonWithPasswordInput = {
 /** Exact, case-sensitive match; a miss is null. */
 export async function getPersonByEmail(ctx: Ctx, email: string): Promise<UserRow | null> {
 	return await findPersonByEmail(ctx.db, email);
+}
+
+/**
+ * One person row by id, raw (the placeholder email included): the read access'
+ * account flows make after proving the caller with a session, a code or a
+ * signed token. A miss is null, never a thrown 404.
+ */
+export async function getPersonById(ctx: Ctx, personId: string): Promise<UserRow | null> {
+	return await findPersonById(ctx.db, personId);
 }
 
 /** The sign-up and invite guards: is this address already an account? */
@@ -156,6 +171,88 @@ export async function createPersonWithPassword(
 	});
 }
 
+/** The magic-link / mobile sign-up person: what its two doors collect. */
+export type CreateEmailPersonInput = {
+	readonly email: string;
+	readonly firstName: string;
+	readonly lastName: string;
+};
+
+/**
+ * The email-verified sign-up person (legacy `createNewUser.ts:8-32`): the users
+ * row, its `email` provider binding and a random-colour settings row in ONE
+ * transaction. The personal calendar is the caller's composition — calendar
+ * owns `calendars`.
+ */
+export async function createEmailPerson(
+	ctx: Ctx,
+	input: CreateEmailPersonInput
+): Promise<UserRow> {
+	return await withTx(ctx, async (txCtx) => {
+		const now = txCtx.clock.now();
+		const person = await insertPerson(
+			txCtx.db,
+			{
+				id: txCtx.ids.id(),
+				email: input.email,
+				firstName: input.firstName,
+				lastName: input.lastName,
+				emailVerified: true,
+				roles: []
+			},
+			now
+		);
+		await insertAccountBinding(txCtx.db, {
+			userId: person.id,
+			provider: 'email',
+			providerAccountId: input.email
+		});
+		// falso's legacy `randHex()`: `#` plus up to six lowercase hex digits.
+		await insertSettings(
+			txCtx.db,
+			{ userId: person.id, color: `#${encodeHexLowerCase(txCtx.ids.random(3))}` },
+			now
+		);
+		return person;
+	});
+}
+
+/**
+ * What an email sign-in resolves to. `bound` says an `accounts` row exists for
+ * the address — sign-up suppresses on it even when its person row is gone,
+ * exactly as the legacy `getAccount(email) || getUserByEmail(email)` did.
+ */
+export type SignInPersonLookup = {
+	readonly bound: boolean;
+	readonly person: UserRow | null;
+};
+
+/**
+ * The person an email sign-in resolves to, in the legacy order: the `email`
+ * provider binding first (`getAccount(email)` → `getUser(account.userId)`), the
+ * `users` row by address only when there is no binding. A binding whose person
+ * row is gone answers `{bound:true, person:null}` — it never falls back to the
+ * address, because the legacy doors did not.
+ */
+export async function findPersonForSignIn(
+	ctx: Ctx,
+	email: string
+): Promise<SignInPersonLookup> {
+	const binding = await findAccountBinding(ctx.db, email);
+	if (binding) return { bound: true, person: await findPersonById(ctx.db, binding.userId) };
+	return { bound: false, person: await findPersonByEmail(ctx.db, email) };
+}
+
+/**
+ * The sparse settings row every sign-in writes when none exists:
+ * `timeZone: 'UTC'`, the legacy `createUserSettings({userId, timeZone:'UTC'})`
+ * in the Android password door and the Claim backfill. Idempotent.
+ */
+export async function ensurePersonSettings(ctx: Ctx, userId: string): Promise<void> {
+	if (await findSettingsByPerson(ctx.db, userId)) return;
+	await insertSettings(ctx.db, { userId, timeZone: SIGN_UP_TIME_ZONE }, ctx.clock.now());
+}
+
 /**
  * One Anonymous Account: the id-derived placeholder email, `Guest`, no roles,
  * plus the `timeZone:'UTC'` settings row every sign-up path writes, in one
@@ -205,6 +302,46 @@ export async function getTimeZone(ctx: Ctx, userId: string): Promise<string | un
  */
 export async function deletePerson(ctx: Ctx, actor: Actor): Promise<boolean> {
 	return await deletePersonRow(ctx.db, actor.id);
+}
+
+/**
+ * Flips `emailVerified` for the person a redeemed code was minted for (access'
+ * password-signup verify flow). Takes the id, not an Actor, because the caller
+ * proved ownership with the code itself; a missing row answers `false`.
+ */
+export async function verifyPersonEmail(ctx: Ctx, personId: string): Promise<boolean> {
+	const row = await markPersonEmailVerifiedRow(ctx.db, personId, ctx.clock.now());
+	return row !== null;
+}
+
+/**
+ * Applies a verified email change: the caller's own row gets the NEW address
+ * already verified (`claimPersonEmail`'s write). The caller decided the address
+ * — access checks the pending code, its binding and the unique-email guard
+ * before this; the Actor scopes the write to the caller (no other id is read).
+ */
+export async function setPersonEmail(
+	ctx: Ctx,
+	actor: Actor,
+	input: { readonly email: string }
+): Promise<void> {
+	await claimPersonEmailRow(ctx.db, actor.id, input.email, ctx.clock.now());
+}
+
+/**
+ * Replaces `users.passwordHash` with the bcrypt hash of `password` — access'
+ * reset, after it verified the signed token for this person. Never touches the
+ * `auth_account` credential column (Q-104). Takes the id because reset's caller
+ * has no session: the token is the proof.
+ */
+export async function setPersonPassword(
+	ctx: Ctx,
+	personId: string,
+	input: { readonly password: string }
+): Promise<boolean> {
+	const passwordHash = await hashPassword(input.password);
+	const row = await setPersonPasswordHashRow(ctx.db, personId, passwordHash, ctx.clock.now());
+	return row !== null;
 }
 
 function personView(row: UserRow): PersonView {

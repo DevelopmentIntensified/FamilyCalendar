@@ -45,6 +45,7 @@ export {
 	type CalendarEventWriteResult,
 	type CalendarEventDetail
 } from './calendar.events.service.server';
+export { moveGuestEvents, type MoveGuestEventsInput } from './calendar.guest.service.server';
 export {
 	getEventAttendance,
 	rsvpEvent,

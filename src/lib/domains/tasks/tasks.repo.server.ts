@@ -502,3 +502,20 @@ export async function listPinnableTasks(
 			)
 		);
 }
+
+/**
+ * Moves every Task one person owns to another — the guest merge
+ * (`guestMergeService.ts:74-77`). Ids, tags, completions and assignments are
+ * untouched: only the owner column changes.
+ */
+export async function moveTasksOwnedBy(
+	db: Db,
+	input: { readonly from: string; readonly to: string }
+): Promise<number> {
+	const moved = await db
+		.update(tasks)
+		.set({ userId: input.to })
+		.where(eq(tasks.userId, input.from))
+		.returning({ id: tasks.id });
+	return moved.length;
+}
