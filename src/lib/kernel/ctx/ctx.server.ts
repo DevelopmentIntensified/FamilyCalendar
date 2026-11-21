@@ -14,10 +14,13 @@
  *
  * Doc: src/lib/kernel/README.md#ctx-and-actor
  */
+import type { Ai } from '../ai/ai';
 import type { Db } from '../db/database.server';
+import type { Http } from '../http/outboundHttp';
 import type { Ids } from '../ids/ids';
 import type { Log } from '../log/jsonLog';
 import type { Mailer } from '../mail/mailer';
+import type { Push } from '../push/push';
 import type { RateLimiter } from '../ratelimit/rateLimiter';
 import type { Clock } from '../time/clock';
 
@@ -44,6 +47,20 @@ export type AppConfig = {
 	readonly production: boolean;
 	/** Default module-mail sender (`NOREPLYEMAIL`), for a service that must pass `from` explicitly. */
 	readonly mailFrom: string;
+	/** Web Push public key (`VAPID_PUBLIC_KEY`) — also what `GET /api/push/public-key` answers. */
+	readonly vapidPublicKey: string | null;
+	/** Web Push private key (`VAPID_PRIVATE_KEY`); the transport stays off unless both halves are set. */
+	readonly vapidPrivateKey: string | null;
+	/** VAPID contact (`VAPID_SUBJECT`, the legacy `mailto:` default). */
+	readonly vapidSubject: string;
+	/** FCM service-account key (`FCM_SERVICE_ACCOUNT_JSON`), raw JSON or base64 of it. Null = no device push. */
+	readonly fcmServiceAccount: string | null;
+	/** Cerebras API key (`CEREBRAS_API_KEY`). Null = no cloud parse; `/api/parse-event` uses its regex parser. */
+	readonly cerebrasApiKey: string | null;
+	/** Cerebras model id (`CEREBRAS_MODEL`, legacy default `gpt-oss-120b`). */
+	readonly cerebrasModel: string;
+	/** `User-Agent` for outbound calls (the legacy Nominatim literal). */
+	readonly userAgent: string;
 };
 
 export type Ctx = {
@@ -53,6 +70,9 @@ export type Ctx = {
 	readonly log: Log;
 	readonly limiter: RateLimiter;
 	readonly mail: Mailer;
+	readonly push: Push;
+	readonly ai: Ai;
+	readonly http: Http;
 	readonly faults: FaultReporter;
 	readonly config: AppConfig;
 };
