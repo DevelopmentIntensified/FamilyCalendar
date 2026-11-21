@@ -6,6 +6,15 @@ import { join } from 'node:path';
  * #287: /fdroid/** is plain static files on Vercel. The F-Droid client needs the
  * index to be fresh (short cache) and the APK served as an APK; an APK name is
  * versioned (com.familyplanz.app_<versionCode>.apk) so it may be cached forever.
+ *
+ * It lives in `app` because it pins the DEPLOYMENT surface, not a module's
+ * behaviour: `vercel.json` header rules (app owns that file — the cron schedule
+ * invariant cites it), `static/service-worker.js`'s bypass, and the absence of
+ * a route that would shadow the static path. Moved here from the unowned
+ * `src/lib/fdroid/serving.test.ts` when the legacy vitest projects were deleted
+ * (the file would otherwise belong to no project and never run). The publish
+ * record stays at `src/lib/fdroid/published.json` — R15 allows no JSON inside a
+ * module folder and the release script writes that path.
  */
 const root = process.cwd();
 type Rule = { source: string; headers: { key: string; value: string }[] };
