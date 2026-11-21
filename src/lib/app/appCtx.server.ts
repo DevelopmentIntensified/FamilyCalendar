@@ -15,17 +15,21 @@
  * - limiter  legacy module-level buckets: web and mobile sign-in must share
  *            buckets until `access` is ported (issue 288). Swap to
  *            createMemoryRateLimiter(systemClock) in task APP-02.
- * - faults   legacy auto-bug-report builder + throttle + insert; the
- *            `feedback` port (M-feedback) replaces it with its service.
  * - log      legacy JSON logger; identical line format to createJsonLog.
+ *
+ * `faults` is not a bridge any more: it is `feedback`'s `fileAutoBugReport`
+ * through the module's public entry, so `endpoint()`'s 5xx filing reaches one
+ * service that owns the #153 skip, the 10-minute throttle and its own catch.
+ * `hooks.handleError` still files with the legacy builder until APP-03 moves
+ * the session pipeline; the cleanup cron still calls the legacy prunes until
+ * APP-01's `runRetention` calls `pruneFeedbackOlderThan`.
  *
  * Doc: src/lib/app/README.md
  */
-import { createBugReport } from '$lib/server/db/actions/bugReports';
 import { db } from '$lib/server/db';
-import { buildAutoBugReport, shouldFileAutoReport } from '$lib/server/services/autoBugReport';
 import { logEvent } from '$lib/server/services/logger';
 import { rateLimit } from '$lib/server/utils/rateLimit';
+import { fileAutoBugReport } from '$lib/domains/feedback/index.server';
 import type { Ctx, Fault } from '$lib/kernel/ctx/ctx.server';
 import { systemIds } from '$lib/kernel/ids/ids';
 import { createResendMailer } from '$lib/kernel/mail/resendMailer.server';
@@ -33,20 +37,6 @@ import { systemClock } from '$lib/kernel/time/clock';
 import { wirePorts } from './ports.server';
 
 const mailFrom = process.env.NOREPLYEMAIL ?? '';
-
-function fileFault(fault: Fault): void {
-	try {
-		const report = buildAutoBugReport(fault);
-		if (
-			report &&
-			shouldFileAutoReport(`${report.area}:${fault.path}:${fault.message.slice(0, 120)}`)
-		) {
-			void createBugReport(report).catch(() => {});
-		}
-	} catch {
-		// Filing is best-effort by design: it must never break the error response.
-	}
-}
 
 export const appCtx = wirePorts({
 	db,
@@ -59,6 +49,12 @@ export const appCtx = wirePorts({
 	},
 	limiter: { allow: (key, limit, windowMs) => rateLimit(key, limit, windowMs) },
 	mail: createResendMailer({ apiKey: process.env.RESEND_API_KEY ?? '', from: mailFrom }),
-	faults: { report: fileFault },
+	faults: {
+		// Fire-and-forget by design: `fileAutoBugReport` catches its own failures
+		// (and skips anonymous callers, #153), so a failed auto-report can never
+		// break the error response; the extra `catch` keeps a future regression
+		// from turning a fault into an unhandled rejection.
+		report: (fault: Fault) => void fileAutoBugReport(appCtx, fault).catch(() => {})
+	},
 	config: { cronSecret: process.env.CRON_SECRET ?? null, mailFrom }
 } satisfies Ctx);

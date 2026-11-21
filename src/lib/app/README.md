@@ -16,7 +16,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 
 | file | role | what it does, and why it exists | tested by |
 |---|---|---|---|
-| [appCtx.server.ts](appCtx.server.ts) | composition | Builds the process-wide `Ctx`. Each bridge to legacy code is listed with the ledger task that removes it: the limiter must keep sharing legacy buckets until `access` is ported, and fault filing moves to the `feedback` service. It also builds the real mail adapter (`createResendMailer`) from `RESEND_API_KEY`/`NOREPLYEMAIL`, the only code allowed to read the environment (R6). | `src/hooks.server.test.ts` (legacy suite) runs the hooks that install it |
+| [appCtx.server.ts](appCtx.server.ts) | composition | Builds the process-wide `Ctx`. Each bridge to legacy code is listed with the ledger task that removes it: the limiter must keep sharing legacy buckets until `access` is ported. `faults` is no longer a bridge: it calls `feedback`'s `fileAutoBugReport` through the module's public entry. It also builds the real mail adapter (`createResendMailer`) from `RESEND_API_KEY`/`NOREPLYEMAIL`, the only code allowed to read the environment (R6). | `src/hooks.server.test.ts` (legacy suite) runs the hooks that install it |
 | [ports.server.ts](ports.server.ts) | composition | `wirePorts(ctx)` is the ONE place a domain's cross-module port is attached to a ctx: a domain declares the port in its `index.server.ts` and the owning module exports the adapter (family's and identity's planned first). `AppPorts` is empty today; each owning module's S5 adds its adapter here. | exercised through `goldenCtx` and the goldens that read a ported handler's effect |
 | [testing/goldenCtx.server.ts](testing/goldenCtx.server.ts) | test harness | `goldenCtx(overrides)` = `testCtx` plus the real adapters, so a frozen `/api` golden sees the rows the other module writes. S5 service tests keep `testCtx` with memory fakes. | `src/lib/{domains,screens}/*/*.http.db.test.ts` (the goldens) |
 
@@ -34,6 +34,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 - `locals.ctx` and `locals.actor` are set on every request, before route code runs. `locals.actor` always mirrors `locals.user`: a bearer token gives `via: 'token'`, a cookie or anonymous account gives `via: 'session'`.
 - Hook order stays: security headers, then API origin check, then session. Hooks are composed by hand, not with `sequence()`, so they can be invoked directly in tests (see the comment in `src/hooks.server.ts`).
 - `process.env` is read here and nowhere else in `src/lib` (R6): `CRON_SECRET` for cron endpoints, `RESEND_API_KEY` and `NOREPLYEMAIL` for `ctx.mail`. The kernel adapters receive those values as parameters, so a kernel or module test never touches the environment.
+- The fault path is fail-safe: `ctx.faults.report` calls `feedback`'s `fileAutoBugReport`, which never throws (it skips anonymous callers, throttles itself and catches/logs a failed insert), so a failed auto-report can never change the response. `src/hooks.server.ts`'s `handleError` still files with the legacy builder until APP-03, and the cleanup cron still calls the legacy prunes until APP-01's `runRetention` calls `pruneFeedbackOlderThan`.
 
 ## Depends on
 

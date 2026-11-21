@@ -52,12 +52,26 @@ export function isUnmatchedSource(source: string): source is UnmatchedSource {
 	return UNMATCHED_SOURCES.some((candidate) => candidate === source);
 }
 
+/** Lowercase, collapse whitespace runs, trim — the text the 280 cap applies to. */
+function normalizedText(phrase: string): string {
+	return phrase.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Deduplication key for a reported phrase: lowercase, collapse whitespace
  * runs, trim, then cap at 280. Empty means "nothing to store".
  */
 export function normalizePhrase(phrase: string): string {
-	return phrase.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, MAX_PHRASE);
+	return normalizedText(phrase).slice(0, MAX_PHRASE);
+}
+
+/**
+ * Whether a phrase is too long AFTER normalizing (Q-006 answer B): the cap
+ * applies to the text that would be stored, so `a` + 280 spaces + `b` fits
+ * (it stores `a b`) while 281 letters do not.
+ */
+export function isPhraseOverCap(phrase: string): boolean {
+	return normalizedText(phrase).length > MAX_PHRASE;
 }
 
 /** The deduplicated write shape of a reported phrase. */

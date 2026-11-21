@@ -17,6 +17,7 @@ import {
 	bugReportDraft,
 	buildAutoBugReport,
 	isBugArea,
+	isPhraseOverCap,
 	isUnmatchedSource,
 	normalizePhrase,
 	reportBugHref,
@@ -89,6 +90,18 @@ describe('normalizePhrase', () => {
 
 	it('caps the normalized phrase at 280 characters', () => {
 		expect(normalizePhrase('x'.repeat(300))).toHaveLength(280);
+	});
+});
+
+describe('isPhraseOverCap', () => {
+	// Q-006 answer B: the cap applies to the normalized text, not the raw phrase.
+	it.each<[string, boolean]>([
+		['a'.repeat(280), false],
+		['a'.repeat(281), true],
+		[`a${' '.repeat(280)}b`, false],
+		['   ', false]
+	])('isPhraseOverCap(%j) → %s', (phrase, expected) => {
+		expect(isPhraseOverCap(phrase)).toBe(expected);
 	});
 });
 
