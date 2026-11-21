@@ -1,4 +1,4 @@
 {
-	"_comment": "svelte-check ERROR count outside v2 code. Only ever lowered by npm run typecheck -- --ratchet.",
+	"_comment": "Temporary: svelte-check ERROR count outside v2 code (the old count baseline). `npm run typecheck -- --init` replaces this file with the { file, message } list once a run matches this count; after that only `--ratchet` lowers it.",
 	"legacyErrors": 89
 }
