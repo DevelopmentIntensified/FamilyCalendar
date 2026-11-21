@@ -1,4 +1,4 @@
-# Playbook: kernel tasks (K-04 … K-14)
+# Playbook: kernel tasks (K-04 … K-19)
 
 Kernel tasks build shared pieces once, before the modules that need them. Each new kernel file gets a test and a row in the [kernel README](../../../src/lib/kernel/README.md) Files table, in the same commit.
 
@@ -227,5 +227,16 @@ Baseline and check must run on the same day, because pages show today's date. If
 7. Bridges: [ports.server.ts](../../../src/lib/app/ports.server.ts) gains `AppPorts` (= identity's `IdentityPorts`) and legacy adapters for `CalendarAccessPort` (`getAccessibleCalendarIds`) and `AdConsentPort` (`getAdConsentRecords`, `recordAdConsentChange`); each is a TRANSITION BRIDGE naming the S5 that replaces it. `goldenCtx` gets both through `wirePorts`.
 8. Tests: the memory adapters' recording and scripting, `testCtx`'s new ports and config, the Cerebras request/body and its refusals, the fetch timeout signal/method/body/status, and the push transport's web payload + VAPID details + `dead` mapping + FCM result mapping.
 9. Docs: the kernel README Files table rows plus the "Push", "AI" and "Outbound HTTP" notes under Ctx and actor, and the app README bridge and env lines.
+
+**Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.
+
+## k-19
+
+**K-19: query first value and array keys.** `endpoint()` built its query object with `Object.fromEntries(url.searchParams)`, which keeps the LAST value of a repeated key; legacy handlers read the FIRST (`searchParams.get(k)`) or every value (`getAll(k)`, family's member-search `exclude`). Needed before family's S6.
+
+1. A scalar query key receives its FIRST value, the one legacy `get(k)` read. An absent key stays absent; `?key=` is `''`.
+2. Add one `endpoint()` option, `queryArrays`, naming the keys legacy read with `getAll(k)`. Such a key receives every value in order, and `[]` when absent (`getAll` semantics), so its schema field is `z.array(...)`, usually `.default([])`. The keys are a plain `readonly string[]`; list only keys whose `query` field is an array. A legacy `.filter(Boolean)` stays in the module (member-search has one), so `?exclude=` still reaches it and is dropped there.
+3. Typed `it.each` tests: a repeated scalar key keeps the first value; an array key with 0/1/2 values; absent keys; an empty value stays present as `''`. Repeated keys go through `invoke`'s `path`, because its `query` option sets one value per key.
+4. Document the option in the kernel README (HTTP notes and Invariants).
 
 **Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.
