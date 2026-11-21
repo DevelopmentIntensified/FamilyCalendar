@@ -82,10 +82,12 @@ export {
 	type MintedApiToken
 } from './identity.token.service.server';
 export {
+	getCalendarPreferences,
 	getCalendarSettings,
 	updateCalendarSettings,
 	setHiddenDashboardModules,
-	type CalendarSettingsResult
+	type CalendarSettingsResult,
+	type StoredCalendarPreferences
 } from './identity.settings.service.server';
 export {
 	hashPassword,

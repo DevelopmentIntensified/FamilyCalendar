@@ -45,7 +45,9 @@ import {
 import {
 	countOpenFamilyTasks,
 	findFamilyById,
+	findMembershipFamilyId,
 	insertFamilyWithRoster,
+	listMembershipFamilyIds,
 	listMemberships,
 	listRecentFamilyActivity,
 	listRosterForFamilies,
@@ -117,6 +119,27 @@ export async function listFamilies(ctx: Ctx, actor: Actor): Promise<FamilyListPa
 		activeInvites,
 		plan: { used: familyIds.length, limit: limits.familyLimit }
 	};
+}
+
+/**
+ * The family a person lands in when nobody names one: the OLDEST family they
+ * belong to (owner answer Q-024 B). Null when they have no family.
+ *
+ * A read keyed by person, not by actor: `calendar` needs it to label a
+ * calendar picker and the module cannot read `familyMembers` (R1/R3). It names
+ * no family of anyone else's, and the caller already holds the id.
+ */
+export async function resolveMembershipFamilyId(ctx: Ctx, userId: string): Promise<string | null> {
+	return await findMembershipFamilyId(ctx.db, userId);
+}
+
+/**
+ * EVERY family id a person belongs to, oldest first — the read behind
+ * calendar visibility (#098: personal calendars plus every family's). Same
+ * keying rule as `resolveMembershipFamilyId` (a person id the caller holds).
+ */
+export async function listPersonFamilyIds(ctx: Ctx, userId: string): Promise<string[]> {
+	return await listMembershipFamilyIds(ctx.db, userId);
 }
 
 /**

@@ -109,6 +109,8 @@ export {
 	createFamily,
 	getFamily,
 	listFamilies,
+	listPersonFamilyIds,
+	resolveMembershipFamilyId,
 	updateFamily,
 	type FamilyListPayload
 } from './family.families.service.server';

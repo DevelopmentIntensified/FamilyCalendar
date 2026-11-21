@@ -26,6 +26,7 @@ import {
 	type EventAttendanceRow,
 	type EventExceptionRow,
 	type EventRow,
+	type NewCalendarRow,
 	type NewEventRow
 } from '$lib/kernel/db/tables.server';
 import { toInstantString } from '$lib/kernel/time/dates';
@@ -112,6 +113,25 @@ export async function findCalendar(db: Db, calendarId: string): Promise<Calendar
 	return row ?? null;
 }
 
+/** The calendars behind a set of ids (the `events_changed` audience read). */
+export async function findCalendars(
+	db: Db,
+	calendarIds: readonly string[]
+): Promise<CalendarRow[]> {
+	if (calendarIds.length === 0) return [];
+	return await db.select().from(calendars).where(inArray(calendars.id, [...calendarIds]));
+}
+
+/** Insert one calendar row (family creation goes through the family port). */
+export async function insertCalendarRow(
+	db: Db,
+	values: NewCalendarRow
+): Promise<CalendarRow> {
+	const [row] = await db.insert(calendars).values(values).returning();
+	if (!row) throw new Error('insertCalendarRow: insert returned no row');
+	return row;
+}
+
 /** Every calendar owned by the viewer (the import picker's personal rows). */
 export async function listOwnedCalendars(db: Db, userId: string): Promise<CalendarRow[]> {
 	return await db.select().from(calendars).where(eq(calendars.ownerId, userId));
@@ -166,9 +186,58 @@ export async function findWindowEventRows(db: Db, query: WindowQuery): Promise<E
 		.orderBy(events.start);
 }
 
+/**
+ * Ids among `eventIds` the viewer may read: their own Events plus Events on a
+ * calendar they can see (the bulk edit's editable set).
+ */
+export async function findAccessibleEventIds(
+	db: Db,
+	eventIds: readonly string[],
+	userId: string,
+	accessibleCalendarIds: readonly string[]
+): Promise<string[]> {
+	if (eventIds.length === 0) return [];
+	const access = or(
+		eq(events.ownerId, userId),
+		accessibleCalendarIds.length > 0
+			? inArray(events.calendarId, [...accessibleCalendarIds])
+			: sql`false`
+	);
+	const rows = await db
+		.select({ id: events.id })
+		.from(events)
+		.where(and(inArray(events.id, [...eventIds]), access));
+	return rows.map((row) => row.id);
+}
+
 /** One calendar's events in start order (the printable month's read). */
 export async function listEventsByCalendar(db: Db, calendarId: string): Promise<EventRow[]> {
 	return await db.select().from(events).where(eq(events.calendarId, calendarId)).orderBy(events.start);
+}
+
+/** The fields the smart bulk planner reads off each selected Event. */
+export interface EventPlannerRow {
+	readonly id: string;
+	readonly title: string;
+	readonly start: string;
+	readonly location: string | null;
+}
+
+/** The planner's per-event summary rows, in the caller's id order. */
+export async function listEventPlannerRows(
+	db: Db,
+	eventIds: readonly string[]
+): Promise<EventPlannerRow[]> {
+	if (eventIds.length === 0) return [];
+	return await db
+		.select({
+			id: events.id,
+			title: events.title,
+			start: events.start,
+			location: events.location
+		})
+		.from(events)
+		.where(inArray(events.id, [...eventIds]));
 }
 
 export async function insertEventRow(db: Db, values: NewEventRow): Promise<EventRow> {
@@ -200,6 +269,15 @@ export async function deleteMirrorRows(db: Db, masterId: string): Promise<number
 		.where(eq(events.mirrorOf, masterId))
 		.returning({ id: events.id });
 	return removed.length;
+}
+
+/** Apply a master edit's fixed field set to every mirror row (no calendar move). */
+export async function updateMirrorRows(
+	db: Db,
+	masterId: string,
+	patch: Partial<NewEventRow>
+): Promise<void> {
+	await db.update(events).set(patch).where(eq(events.mirrorOf, masterId));
 }
 
 // --- Exception Overrides ----------------------------------------------------

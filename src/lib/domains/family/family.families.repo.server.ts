@@ -186,6 +186,24 @@ export async function findMembershipFamilyId(db: Db, userId: string): Promise<st
 	return row?.familyId ?? null;
 }
 
+/**
+ * Every family id the person holds a membership in, oldest first (`createdAt`,
+ * then id) — the same order `findMembershipFamilyId` picks its first row from,
+ * so `[0]` and that function always agree. An empty list, never null.
+ */
+export async function listMembershipFamilyIds(
+	db: Db,
+	userId: string
+): Promise<string[]> {
+	const rows = await db
+		.select({ familyId: familyMembers.familyId })
+		.from(familyMembers)
+		.innerJoin(families, eq(families.id, familyMembers.familyId))
+		.where(eq(familyMembers.userId, userId))
+		.orderBy(asc(families.createdAt), asc(families.id));
+	return rows.map((row) => row.familyId);
+}
+
 /** One recent-activity line the family detail page shows: who did what, when. */
 export type FamilyActivityRow = {
 	readonly kind: 'completed' | 'assigned';
