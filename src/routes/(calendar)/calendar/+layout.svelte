@@ -33,8 +33,8 @@
 			}
 			const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 			if (clientTz && clientTz !== 'UTC') {
-				fetch('/calendar/setUserDefaultTimeZone', {
-					method: 'POST',
+				fetch('/api/me/settings', {
+					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ timeZone: clientTz }),
 					keepalive: true
