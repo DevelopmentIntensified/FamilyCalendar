@@ -168,7 +168,7 @@ export function parseEventQuickAdd(input: string, options: EventQuickAddOptions)
 	const times = createEventTimeState();
 	times.startTime = result.startTime;
 	times.endTime = result.endTime;
-	for (const increment of readEventTimeRanges(input, stripSpans, times)) confidence += increment;
+	for (const increment of readEventTimeRanges(nonUrlText, stripSpans, times)) confidence += increment;
 	result.startTime = times.startTime;
 	result.endTime = times.endTime;
 
@@ -212,7 +212,7 @@ export function parseEventQuickAdd(input: string, options: EventQuickAddOptions)
 	// ===== SINGLE TIMES, END CUES, DURATIONS =====
 	times.startTime = result.startTime;
 	times.endTime = result.endTime;
-	for (const increment of readEventTimes(input, nonUrlText, claims, stripSpans, times)) {
+	for (const increment of readEventTimes(nonUrlText, claims, stripSpans, times)) {
 		confidence += increment;
 	}
 	result.startTime = times.startTime;

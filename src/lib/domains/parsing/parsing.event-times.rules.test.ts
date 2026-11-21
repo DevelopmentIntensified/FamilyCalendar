@@ -91,8 +91,12 @@ describe('single times', () => {
 		expect(parsed('standup 2026-08-30 1830').startTime).toBe('18:30');
 	});
 
-	it('a URL clock sets a start time (Q-010, ported as-is)', () => {
-		expect(parsed('standup https://meet.example.com/standup-5:30pm').startTime).toBe('17:30');
+	it('a clock inside a URL never sets a start time (Q-010 B)', () => {
+		expect(parsed('standup https://meet.example.com/standup-5:30pm').startTime).toBeUndefined();
+	});
+
+	it('a stated time outside the URL still reads (Q-010 B)', () => {
+		expect(parsed('https://meet.example.com/standup-5:30pm standup at 9am').startTime).toBe('09:00');
 	});
 });
 
@@ -141,7 +145,6 @@ describe('readEventTimes — state and increments', () => {
 	it('a found start time gates the later start rules', () => {
 		const times = createEventTimeState();
 		const confidence = readEventTimes(
-			'meet at 6 PM',
 			'meet at 6 PM',
 			createClaimBook(),
 			[],

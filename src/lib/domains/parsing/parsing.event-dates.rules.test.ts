@@ -80,8 +80,14 @@ describe('date chain — first match wins', () => {
 		expect(result.endTime).toBe('09:00');
 	});
 
-	it('an impossible MM/DD writes the literal "Invalid DateTime" (Q-009, ported as-is)', () => {
-		expect(parsed('party 31/12').date).toBe('Invalid DateTime');
+	// Q-009 B: an impossible MM/DD is unmatched, so the date falls back to
+	// today — never the literal "Invalid DateTime".
+	const impossibleNumericRows: string[] = ['party 31/12', 'party 13/13', 'party 00/10', 'party 05/32'];
+
+	it.each(impossibleNumericRows)('%s falls back to today (Q-009 B)', (phrase) => {
+		const result = parsed(phrase);
+		expect(result.date).toBe('2026-07-15');
+		expect(result.title).toBe(phrase);
 	});
 });
 
