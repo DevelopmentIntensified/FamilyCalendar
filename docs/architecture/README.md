@@ -3,6 +3,7 @@
 How the website and server are organised after the rewrite. Covers the design choices, where code lives, how a request flows, and where to read next. The Android app (`apps/android`) is outside this design; it is a client of the `/api` contract described here.
 
 - Rules enforced by `npm run arch`: [rules.md](rules.md)
+- No auth downgrade when a route is rewired: `node scripts/arch/auth-audit.mjs` ([testing.md](testing.md#gates))
 - Naming, signatures, errors, UI patterns, and the "one home per concept" table: [conventions.md](conventions.md)
 - Tests and gates: [testing.md](testing.md)
 - Module catalog (generated): [modules.md](modules.md)
