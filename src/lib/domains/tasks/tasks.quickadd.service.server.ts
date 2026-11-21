@@ -63,8 +63,11 @@ function endOfDayIso(zone: string, now: Date): string {
  * at 23:59 there), then runs parsing's grammar — never a second copy of it.
  *
  * `400 Unknown member @x — …` for an ambiguous/unknown `@handle`;
- * `400 @family needs a family — you're not in one yet.` for `@family` without
- * a family; `400 Invalid dueDate` when the picker's fallback is not a date.
+ * `400 @family needs a family — you're not in one yet.` when the roster has
+ * members but the caller has no family (legacy's defensive guard — the parser
+ * only reads `@family` with a roster, so a family-less caller keeps the token
+ * as title text, exactly as legacy did); `400 Invalid dueDate` when the
+ * picker's fallback is not a date.
  */
 export async function resolveTaskQuickAdd(
 	ctx: Ctx,

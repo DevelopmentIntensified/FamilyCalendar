@@ -108,6 +108,7 @@ export type FamilyDetailCtx = FamilyCtx & IdentityPorts;
 export {
 	createFamily,
 	getFamily,
+	getFamilyCreatePage,
 	listFamilies,
 	listPersonFamilyIds,
 	resolveMembershipFamilyId,
@@ -118,6 +119,7 @@ export {
 	addChildMember,
 	addMemberDirectly,
 	changeMember,
+	getAddMemberPage,
 	mintFamilyInviteLink,
 	removeFamilyMember,
 	sendFamilyInvite,
@@ -128,6 +130,7 @@ export {
 	type MemberRemovalInput
 } from './family.members.service.server';
 export {
+	getInvitationsPage,
 	joinFamily,
 	listInvites,
 	mintInvite,
@@ -161,4 +164,15 @@ export {
 	searchFamilyEndpoint,
 	sendInviteEmailEndpoint,
 	updateFamilyEndpoint
+} from './family.http.server';
+
+// --- Page handlers ------------------------------------------------------------
+
+export {
+	familyAddMemberPageLoad,
+	familyCreateAction,
+	familyCreatePageLoad,
+	familyHomePageLoad,
+	familyInvitationsPageLoad,
+	familyJoinPageLoad
 } from './family.http.server';

@@ -78,15 +78,22 @@ describe('resolveTaskQuickAdd', () => {
 		expect(draft.body.familyId).toBe(family?.id);
 	});
 
-	rollbackTest('refuses @family without a family, with the legacy copy', async (db) => {
+	rollbackTest('leaves @family as title text when the caller has no roster', async (db) => {
 		const { actor } = await caller(db);
 
-		await expect(
-			resolveTaskQuickAdd(testCtx({ db, now: NOW }), actor, { text: '@family clean the garage' })
-		).rejects.toMatchObject({
-			status: 400,
-			message: "@family needs a family — you're not in one yet."
+		const draft = await resolveTaskQuickAdd(testCtx({ db, now: NOW }), actor, {
+			text: '@family clean the garage'
 		});
+
+		// Legacy reads `@family` only when the roster has members
+		// (`66a11131:src/lib/utils/taskQuickAdd.ts:538-545`) and a family-less
+		// caller's roster is empty (`66a11131:src/lib/server/services/userScope.ts:11-24`),
+		// so the token stays in the title and the Task is personal. The 400 copy
+		// is the legacy client's defensive guard for the roster-without-family
+		// shape only.
+		expect(draft.title).toBe('@family clean the garage');
+		expect(draft.body.title).toBe('@family clean the garage');
+		expect(draft.body.familyId).toBeNull();
 	});
 
 	rollbackTest('refuses an unknown @member instead of dropping it', async (db) => {

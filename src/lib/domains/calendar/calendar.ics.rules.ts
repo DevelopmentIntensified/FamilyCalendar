@@ -15,9 +15,9 @@
  * hour; an all-day exclusive DTEND is stored as inclusive end-of-day; the
  * title is trimmed to 200 chars; at most 500 rows.
  *
- * The parser keeps its own ordinal guard (Q-045): it strips the ordinal and
- * then requires the stripped list to equal the raw BYDAY, so ONE ordinal day
- * drops the whole BYDAY. `sanitizeRecurrenceByDay` deliberately does not.
+ * The parser strips any RRULE ordinal per BYDAY item and keeps the plain
+ * weekday codes (Q-045: `2TU,TH` -> `TU,TH`), the same rule
+ * `sanitizeRecurrenceByDay` applies to writes.
  *
  * Doc: ./README.md#invariants
  */
@@ -443,15 +443,15 @@ function buildDraft(props: Record<string, IcsProp[]>): IcsEventDraft | null {
 			? Math.max(1, Number.isNaN(interval) ? 1 : interval)
 			: null;
 
-		// Q-045: strip any ordinal prefix, then require the stripped list to
-		// equal the raw value; one ordinal day drops the WHOLE BYDAY.
+		// Q-045: strip any ordinal prefix PER ITEM and keep the plain codes
+		// (`2TU,4TH` -> `TU,TH`), the same rule writes apply.
 		const rawDays = parts['BYDAY'];
 		if (rawDays && recurrenceFrequency) {
 			const days = rawDays
 				.split(',')
 				.map((day) => day.replace(/^[+-]?\d+/, ''))
 				.filter((day) => WEEKDAYS.has(day));
-			if (days.length > 0 && days.join(',') === rawDays) recurrenceByDay = days;
+			if (days.length > 0) recurrenceByDay = days;
 		}
 
 		const count = parseInt(parts['COUNT'] ?? '');

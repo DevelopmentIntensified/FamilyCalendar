@@ -158,7 +158,9 @@ describe('findInvitableUsers', () => {
 		expect(ids(split)).toEqual([ann.id]);
 	});
 
-	rollbackTest('today\'s legs (the whole query against both name columns) find only a twin name', async (db) => {
+	// The repo matches each term exactly; splitting a full name is the service's
+	// job (Q-028 B), so an unsplit "Ann Lee" term matches nobody here.
+	rollbackTest('matches each term exactly: a one-token twin matches, an unsplit full name finds nobody', async (db) => {
 		const twin = await seedUser(db, { firstName: 'Lee', lastName: 'Lee', email: 'twin@x.test' });
 		await seedUser(db, { firstName: 'Ann', lastName: 'Lee', email: 'ann@x.test' });
 		await seedFamily('fam-a', {}, db);

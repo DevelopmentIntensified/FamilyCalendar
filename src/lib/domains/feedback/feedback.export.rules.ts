@@ -13,12 +13,7 @@
  */
 import { dayKey, formatDateTimeMinute } from '$lib/kernel/time/dates';
 import type { BugReportWithReporter, UnmatchedPhraseView } from './feedback.contract';
-import {
-	BUG_AREA_LABEL,
-	isBugArea,
-	isUnmatchedSource,
-	UNMATCHED_SOURCE_LABEL
-} from './feedback.rules';
+import { bugAreaLabel, unmatchedSourceLabel } from './feedback.rules';
 
 const RULE = '='.repeat(60);
 
@@ -110,7 +105,7 @@ export function formatUnmatchedPhrasesExport(
 	lines.push('');
 
 	for (const [source, phrases] of groupBy(open, (phrase) => phrase.source)) {
-		const label = isUnmatchedSource(source) ? UNMATCHED_SOURCE_LABEL[source] : source;
+		const label = unmatchedSourceLabel(source);
 		lines.push(`## ${label} (${phrases.length})`);
 		for (const phrase of phrases) {
 			const matched = matchedSummary(phrase.matched);
@@ -146,7 +141,7 @@ export function formatBugReportsExport(
 	if (open.length > 0) {
 		lines.push('## Open');
 		for (const report of open) {
-			const area = isBugArea(report.area) ? BUG_AREA_LABEL[report.area] : report.area;
+			const area = bugAreaLabel(report.area);
 			const description = report.description.replace(/\s*\n+/g, ' ').trim();
 			const page = report.url ? `page: ${report.url}` : 'page: n/a';
 			const date = formatDateTimeMinute(report.createdAt, zone);

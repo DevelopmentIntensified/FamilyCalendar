@@ -297,7 +297,7 @@ describe('phone focus sessions', () => {
 		const archived = await seedTask(db, {
 			title: 'Archived',
 			userId: actor.id,
-			archivedAt: at('2026-02-01T00:00:00.000Z')
+			archivedAt: '2026-02-01 00:00:00+00'
 		});
 		const personal = await seedTask(db, { title: 'Sam`s own', userId: sam.id });
 		const testCtxValue = testCtx({ db, now: NOW });

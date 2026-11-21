@@ -33,6 +33,13 @@ describe('ADMIN_SECTIONS', () => {
 			'bg-slate-200 text-slate-600'
 		]);
 	});
+
+	it('carries the legacy index-card icon and blurb for each section', () => {
+		expect(ADMIN_SECTIONS.map((section) => [section.icon, section.blurb])).toEqual([
+			['🐞', "User-submitted reports, newest first. Resolve what's fixed."],
+			['💬', "Instructions the parsers couldn't handle. Add patterns for frequent ones."]
+		]);
+	});
 });
 
 describe('isAdminSectionActive', () => {

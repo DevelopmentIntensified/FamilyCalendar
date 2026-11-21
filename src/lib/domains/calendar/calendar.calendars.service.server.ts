@@ -41,6 +41,7 @@ import {
 	type PrintSourceItem,
 	type WeekStart
 } from './calendar.print.rules';
+import { eventRangeWindow } from './calendar.range.rules';
 import {
 	ensurePersonalCalendarRow,
 	findAccessibleCalendarIds,
@@ -139,15 +140,6 @@ export async function listCalendars(
 	return { calendars };
 }
 
-/** The legacy expansion window: "now" ± 2×365 days (Q-049). */
-function legacyExpansionWindow(now: Date): { readonly start: Date; readonly end: Date } {
-	const oneDayMs = 24 * 60 * 60 * 1000;
-	return {
-		start: new Date(now.getTime() - 2 * 365 * oneDayMs),
-		end: new Date(now.getTime() + 2 * 365 * oneDayMs)
-	};
-}
-
 /**
  * The printable month. `year`/`month` are the raw query values: missing or
  * unparseable reads as the viewer's current month, and the month clamps into
@@ -193,7 +185,20 @@ export async function getPrintMonth(
 		...personalRows.map((row) => row.id),
 		...familyRows.map((row) => row.id)
 	]);
-	const bounds = legacyExpansionWindow(now);
+	// Q-049: the printed month plus a grid week of padding, like every other
+	// read — never the legacy ±2 years, whose 500-occurrence cap could fill
+	// before the month and drop rows from the sheet.
+	const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+	const monthPrefix = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
+	const range = eventRangeWindow({
+		from: `${monthPrefix}-01`,
+		to: `${monthPrefix}-${String(daysInMonth).padStart(2, '0')}`
+	});
+	// A year `Date.parse` cannot read (5+ digits, negative) matches no stored
+	// Event; an empty window keeps the expansion finite instead of NaN.
+	const bounds = Number.isFinite(range.start.getTime())
+		? range
+		: { start: new Date(0), end: new Date(0) };
 	const expand = (rows: typeof personalRows) =>
 		splitEventsByDay(expandEventOccurrences(rows, exceptions, bounds, viewerZone), viewerZone);
 

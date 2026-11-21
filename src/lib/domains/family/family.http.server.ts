@@ -19,12 +19,16 @@
  * Doc: ./README.md#public-interface
  */
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
+import { isAppError } from '$lib/kernel/errors/appError';
 import { created, endpoint, ok, reply } from '$lib/kernel/http/endpoint.server';
+import { LOGIN_PATH, formAction, pageLoad } from '$lib/kernel/http/pageHandlers.server';
 import { toInstantString } from '$lib/kernel/time/dates';
+import { fail, redirect } from '@sveltejs/kit';
 import {
 	AddChildBody,
 	AddDirectBody,
 	CreateFamilyBody,
+	CreateFamilyFormBody,
 	FamilyDoorParams,
 	FamilyMemberParams,
 	FamilyParams,
@@ -39,10 +43,15 @@ import {
 	UpdateFamilyBody,
 	type ChildAddedResponse,
 	type CreateFamilyResponse,
+	type FamilyAddMemberPage,
 	type FamilyCardResponse,
 	type FamilyCardView,
+	type FamilyCreateFormEcho,
+	type FamilyCreatePage,
 	type FamilyDetailResponse,
 	type FamilyDetailView,
+	type FamilyInvitationsPage,
+	type FamilyJoinPage,
 	type FamilyOverviewResponse,
 	type FamilyResponse,
 	type FamilyRosterRowResponse,
@@ -64,11 +73,13 @@ import {
 import {
 	createFamily,
 	getFamily,
+	getFamilyCreatePage,
 	listFamilies,
 	updateFamily,
 	type FamilyListPayload
 } from './family.families.service.server';
 import {
+	getInvitationsPage,
 	joinFamily,
 	listInvites,
 	mintInvite,
@@ -80,6 +91,7 @@ import {
 	addChildMember,
 	addMemberDirectly,
 	changeMember,
+	getAddMemberPage,
 	mintFamilyInviteLink,
 	removeFamilyMember,
 	sendFamilyInvite
@@ -544,5 +556,95 @@ export const searchFamilyEndpoint = endpoint({
 		});
 		const response: FamilySearchResponse = { users };
 		return ok(response);
+	}
+});
+
+// --- Page loads and actions --------------------------------------------------
+//
+// The five `(family)` pages that belong to this module: the list, create, the
+// invitations manager, the add-member tabs and the join card. Their data is
+// internal (S7 designs it), so only the create form's action is a fixed shape;
+// the routes below are wiring only (`export const load = …`).
+
+/** `load` for `/family`: signed in only (302 `/login`), the same payload `GET /api/families` answers. */
+export const familyHomePageLoad = pageLoad({
+	auth: 'user',
+	handle: async ({ ctx, actor }): Promise<FamilyListPayload> => listFamilies(ctx, actor)
+});
+
+/** `load` for `/family/create`: the plan gate and both limits, before any form is drawn. */
+export const familyCreatePageLoad = pageLoad({
+	auth: 'user',
+	handle: async ({ ctx, actor }): Promise<FamilyCreatePage> => getFamilyCreatePage(ctx, actor)
+});
+
+/**
+ * The `/family/create` submit. Legacy order: a signed-out POST goes to
+ * `/login` (the page's own gate, not the kernel's 401), then the shared create
+ * use-case runs — the plan gate before the form is read, the same copy and
+ * `upgradeRequired` on refusal — and success redirects into the new family.
+ * A refusal echoes the typed name and colour so the form does not lose them.
+ */
+export const familyCreateAction = formAction({
+	auth: 'optional',
+	form: CreateFamilyFormBody,
+	handle: async ({ ctx, actor, form }) => {
+		if (!actor) redirect(302, LOGIN_PATH);
+		try {
+			const family = await createFamily(familyCtx(ctx), actor, {
+				name: form.name,
+				color: form.color,
+				memberIds: form.memberIds
+			});
+			redirect(302, `/family/${family.id}`);
+		} catch (cause) {
+			if (!isAppError(cause)) throw cause;
+			const echo: FamilyCreateFormEcho = cause.extra.upgradeRequired
+				? { error: cause.message, upgradeRequired: true }
+				: { error: cause.message, name: form.name, color: form.color };
+			return fail(cause.status, { success: false, ...echo });
+		}
+	}
+});
+
+/** `load` for `/family/invitations`: `?familyId=` when it is the caller's, else the oldest (issue 098). */
+export const familyInvitationsPageLoad = pageLoad({
+	auth: 'user',
+	handle: async ({ ctx, actor, event }): Promise<FamilyInvitationsPage> =>
+		getInvitationsPage(ctx, actor, event.url.searchParams.get('familyId'))
+});
+
+/** `load` for `/family/[familyId]/members/add`: the family's name and the invite tab's gate. */
+export const familyAddMemberPageLoad = pageLoad({
+	auth: 'user',
+	handle: async ({ ctx, actor, event }): Promise<FamilyAddMemberPage> =>
+		getAddMemberPage(ctx, actor, event.params.familyId ?? '')
+});
+
+/**
+ * `load` for `/family/join/[code]`: an unusable code (unknown, expired, spent,
+ * already a member) is answered in place, never redirected (issue 124).
+ */
+export const familyJoinPageLoad = pageLoad({
+	auth: 'optional',
+	handle: async ({ ctx, actor, event }): Promise<FamilyJoinPage> => {
+		const code = event.params.code ?? '';
+		const isLoggedIn = actor !== null;
+		try {
+			const preview = await previewInvite(ctx, actor, code);
+			return {
+				invalid: false,
+				family: {
+					id: preview.family.id,
+					name: preview.family.name,
+					color: preview.family.color
+				},
+				code,
+				isLoggedIn
+			};
+		} catch (cause) {
+			if (!isAppError(cause)) throw cause;
+			return { invalid: true, family: null, code, isLoggedIn };
+		}
 	}
 });

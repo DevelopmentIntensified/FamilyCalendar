@@ -42,9 +42,9 @@ function textOrEmpty(value: unknown): string {
 // --- `/api/me/api-tokens` ---------------------------------------------------
 
 /**
- * `POST /api/me/api-tokens`. The name is trimmed, refused when blank and cut
- * at 60 UTF-16 units (`apiTokenName`; Q-109 moves the cut to code points after
- * S6). A non-object body is "Invalid JSON"; an empty body reads as `{}`.
+ * `POST /api/me/api-tokens`. The name is cut at 60 code points and then
+ * trimmed (`apiTokenName`, Q-109 B) and refused when blank. A non-object body
+ * is "Invalid JSON"; an empty body reads as `{}`.
  */
 export const ApiTokenCreateBody = z.object(
 	{
@@ -115,7 +115,7 @@ export const ApiTokenListingResponse = z.object({
 });
 export type ApiTokenListingResponse = z.infer<typeof ApiTokenListingResponse>;
 
-/** `GET /api/me/api-tokens`. The order is not part of the contract (Q-110). */
+/** `GET /api/me/api-tokens`, newest first (`createdAt DESC, id` — Q-110 B). */
 export const ApiTokensResponse = z.object({ tokens: z.array(ApiTokenListingResponse) });
 export type ApiTokensResponse = z.infer<typeof ApiTokensResponse>;
 
@@ -262,13 +262,18 @@ export type StoredCalendarSettingsView = Omit<StoredCalendarSettings, 'verseTran
 /** What a person with no settings row sees. */
 export type AccountSettingsDefaults = typeof ACCOUNT_SETTINGS_DEFAULTS;
 
-/** The settings card's data: the stored row, or the defaults when there is none. */
+/**
+ * The settings card's data: the stored row with null page columns answered as
+ * the defaults, or the defaults when there is no row (one merged view).
+ */
 export type CalendarSettingsView = StoredCalendarSettingsView | AccountSettingsDefaults;
 
 /**
- * The full set a calendar-settings save writes (legacy `CalendarSettingsInput`).
- * `showDailyVerse` is optional because the /account form never posts it, so a
- * form save leaves the stored value alone; the PATCH merge always fills it.
+ * The full set a calendar-settings save CREATES when the person has no row
+ * (`newCalendarSettings`); a PATCH on an existing row writes only the fields
+ * it sent (Q-108 B). `showDailyVerse` is optional because the /account form
+ * never posts it, so a form save leaves the stored value alone; the new-row
+ * builder fills it.
  */
 export type CalendarSettingsInput = {
 	readonly weekStart: string;

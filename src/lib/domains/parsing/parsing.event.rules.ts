@@ -104,7 +104,12 @@ function summarizeEvent(parsed: Partial<ParsedEvent>): { hasInfo: boolean; summa
 		parsed.reminderMinutes !== undefined ||
 		parsed.allDay === true;
 	if (!hasInfo) return { hasInfo: false, summaryLabel: null };
-	return { hasInfo, summaryLabel: parts.length > 0 ? `${parsed.date} · ${parts.join(' · ')}` : parsed.date };
+	// `applyEventDefaults` always lands a date before this runs; `?? null`
+	// only satisfies the declared `string | null` for a caller that skipped it.
+	return {
+		hasInfo,
+		summaryLabel: parts.length > 0 ? `${parsed.date} · ${parts.join(' · ')}` : (parsed.date ?? null)
+	};
 }
 
 /**
@@ -168,7 +173,7 @@ export function parseEventQuickAdd(input: string, options: EventQuickAddOptions)
 	const times = createEventTimeState();
 	times.startTime = result.startTime;
 	times.endTime = result.endTime;
-	for (const increment of readEventTimeRanges(input, stripSpans, times)) confidence += increment;
+	for (const increment of readEventTimeRanges(nonUrlText, stripSpans, times)) confidence += increment;
 	result.startTime = times.startTime;
 	result.endTime = times.endTime;
 
@@ -212,7 +217,7 @@ export function parseEventQuickAdd(input: string, options: EventQuickAddOptions)
 	// ===== SINGLE TIMES, END CUES, DURATIONS =====
 	times.startTime = result.startTime;
 	times.endTime = result.endTime;
-	for (const increment of readEventTimes(input, nonUrlText, claims, stripSpans, times)) {
+	for (const increment of readEventTimes(nonUrlText, claims, stripSpans, times)) {
 		confidence += increment;
 	}
 	result.startTime = times.startTime;

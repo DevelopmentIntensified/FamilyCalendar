@@ -243,13 +243,13 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
   - The 429 AI cap and the plan-aware short-window fallback are not drivable from the db project: the cap needs `llmConfigured()` (a `CEREBRAS_API_KEY`) and the free-tier overflow is deliberately indistinguishable from a normal regex answer (issue 317: silent fallback, never a 429). Both are pinned today by `src/routes/api/parse-event/server.test.ts` and will be pinned in S5 (`parsing.service.db.test.ts`) through `testCtx` plus seeded billing rows, with the vendor call behind a ctx port.
   - The `useCloud:false` and shortcut-ordering claims are NOT proven by the goldens: `llmConfigured()` is false without `CEREBRAS_API_KEY` (`llm.ts:7`), so both paths answer `regex` either way. S5 pins the branch. What the goldens do pin is `useCloud` as truthiness (`null` is false), and a JSON `null` body / malformed JSON as rejected requests (no 400 shape).
   - There is no 401: the route is anonymous-allowed by design (Must survive).
-- **Wire-visible accidents, pinned as they are (Q-008…Q-013):** each is a golden or an S5 assertion now, so an approved fix changes the golden and the rule together in its own `fix(parsing): Q-NNN …` commit.
-  - Any weekday token ending in "s" reads plural, so "tues"/"thurs" turn one event weekly (`:1120,1126`) — golden "reads the singular abbreviation \"tues\" as a plural weekday…" (Q-008).
-  - `31/12` writes the literal `"Invalid DateTime"` into `date` (`:765-771`: `withRolloverYear` returns `DateTime.invalid`, `.toFormat` stringifies it) although the sweep guards `isValid` — golden (Q-009).
-  - Time rules scan the raw input, URLs included, so a clock-like substring in a link can set `startTime` (`:948-1608` vs `:483-487`) — golden (Q-010).
-  - The catch-all answers `200 {…, method:"regex-fallback"}` when the throw happens AFTER a successful parse (a `canUseAiFeature` or `recordAiUsage` throw; the cloud result is discarded and the usage record lost); a thrown parse re-runs `parseEventInput` in the catch and answers 500 (`+server.ts:135-137`) — S5 (Q-011).
+- **Wire-visible accidents, answered by the owner (Q-008…Q-013) — each flip changed the golden and the rule together in its own `fix(parsing): Q-NNN …` commit:**
+  - ~~Any weekday token ending in "s" reads plural, so "tues"/"thurs" turn one event weekly (`:1120,1126`)~~ — Q-008 ANSWERED B and LANDED (2026-11-21): only a full weekday name plus "s" is plural ("tuesdays", "thursdays"); the singular abbreviations stay one-off. Golden `"keeps the singular abbreviation \"tues\" singular, so one event stays a one-off (Q-008 B)"`; rule `canonicalPluralDay` in `parsing.event-recurrence.rules.ts`. No `shared/parse-vectors.json` row names "tues"/"thurs", so the Android lockstep is untouched here.
+  - ~~`31/12` writes the literal `"Invalid DateTime"` into `date` (`:765-771`) although the sweep guards `isValid`~~ — Q-009 ANSWERED B and LANDED: the primary MM/DD rule guards `isValid`, so an impossible month-day is unmatched and the date falls back to today. Golden `"falls back to today for an impossible MM/DD (\"party 31/12\") (Q-009 B)"`; rule in `parsing.event-dates.rules.ts`.
+  - ~~Time rules scan the raw input, URLs included, so a clock-like substring in a link can set `startTime` (`:948-1608` vs `:483-487`)~~ — Q-010 ANSWERED B and LANDED: `readEventTimeRanges`/`readEventTimes` read the URL-free text (`nonUrlText`), like the date rules. Golden `"ignores a clock-like time inside a URL: time rules read URL-free text (Q-010 B)"`.
+  - The catch-all answers `200 {…, method:"regex-fallback"}` when the throw happens AFTER a successful parse (a `canUseAiFeature` or `recordAiUsage` throw; the cloud result is discarded and the usage record lost); a thrown parse re-runs `parseEventInput` in the catch and answers 500 (`+server.ts:135-137`) — S5 (Q-011 A, recorded default; keep).
   - ~~`await request.json()` sits before the `try`, so a malformed body (and a JSON `null` body) escapes as a rejected request instead of the 400 shape (`+server.ts:67,96`)~~ — Q-012 ANSWERED B and LANDED: both answer `400 {"error":"Input required"}` (`bodyMode: 'lenient'`), golden rows flipped first.
-  - The multi-event shortcut runs before the cloud path, so a signed-in multi-event phrase never spends vendor money (`+server.ts:99-104`) — golden (Q-013).
+  - The multi-event shortcut runs before the cloud path, so a signed-in multi-event phrase never spends vendor money (`+server.ts:99-104`) — golden (Q-013 A, recorded default; keep).
   - NOT accidental (the old premise was wrong): "birthday" sets `allDay`, but a stated time is KEPT — "birthday party at 6pm" stays 18:00; the 09:00–17:00 default applies only when no start time was found (`:2027-2030`) — golden.
 - **Dropped as internal (no owner question):** the claim book is consulted only by some consumers (`:505-526`; recurrence/count/reminder/time read the unmasked text). That is ticket [#112](../../archive/issues/112-parser-claims-cannot-overlap.md)'s known gap, carried as STRUCTURE work after this port, not a wire behaviour. Likewise the three duplicated date/unit tables (`dateParsing`, `taskQuickAdd`, NLP) fold into `parsing.vocabulary.rules.ts` per review #1/#5.
 
@@ -257,12 +257,12 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
 
 All still-valid questions from S1 were filed in [questions.md](../questions.md) on 2026-11-12:
 
-- Q-008 — singular weekday abbreviations read as plurals ("tues"/"thurs" ⇒ weekly).
-- Q-009 — `MM/DD` with an impossible month writes `"Invalid DateTime"` into `date`.
-- Q-010 — time rules scan the raw input, URLs included.
-- Q-011 — the 200 `regex-fallback` wire shape (and the 500 a thrown parse answers).
+- ~~Q-008 — singular weekday abbreviations read as plurals ("tues"/"thurs" ⇒ weekly).~~ ANSWERED B and landed: only full names and canonical plurals read plural (see the Notes).
+- ~~Q-009 — `MM/DD` with an impossible month writes `"Invalid DateTime"` into `date`.~~ ANSWERED B and landed: unmatched, the date falls back to today.
+- ~~Q-010 — time rules scan the raw input, URLs included.~~ ANSWERED B and landed: time rules read the URL-free text.
+- ~~Q-011 — the 200 `regex-fallback` wire shape (and the 500 a thrown parse answers).~~ ANSWERED A (recorded default): keep the 200 wire, report through `ctx.faults`.
 - ~~Q-012 — malformed/`null` JSON escapes the error boundary.~~ ANSWERED B and landed: bad bodies answer the contract's 400 copy (see the S5+S6 notes).
-- Q-013 — the multi-event shortcut runs before the cloud path.
+- ~~Q-013 — the multi-event shortcut runs before the cloud path.~~ ANSWERED A (recorded default): keep the shortcut first.
 
 The old question 1 ("birthday at 6pm loses its time") was a FALSE PREMISE and is dropped: the stated time is kept (18:00); only `allDay` is set by the noun cue, and the 09:00–17:00 default applies only when no start time was found (`naturalLanguageService.ts:2027-2030`). The golden pins the kept time.
 

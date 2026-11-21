@@ -4,7 +4,7 @@ import { conflict, notFound } from '../errors/appError';
 import { invoke } from '../testing/invokeHandlers.server';
 import { testCtx } from '../testing/testCtx.server';
 import { z } from '../validation/validators';
-import { created, endpoint, ok } from './endpoint.server';
+import { created, endpoint, ok, type BodyMode, type MalformedBody } from './endpoint.server';
 
 const member = actorFromUser({ id: 'u1', email: 'u1@example.test', roles: [] }, 'session');
 const admin = actorFromUser({ id: 'a1', email: 'a1@example.test', roles: ['admin'] }, 'token');
@@ -277,6 +277,121 @@ describe('endpoint body modes', () => {
 		const res = await invoke(echo.handler, { ctx: testCtx(), rawBody });
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ got: expected });
+	});
+});
+
+describe('endpoint malformed body copy', () => {
+	// 'Bad a' comes from the field, 'Bad body' from the object itself.
+	const schema = z.object({ a: z.string({ error: 'Bad a' }) }, { error: 'Bad body' });
+	const pinned: MalformedBody = { status: 422, error: 'Invalid JSON body' };
+	const copyOnly: MalformedBody = { error: 'Invalid JSON body' };
+
+	type Row = {
+		readonly mode: BodyMode | undefined;
+		readonly copy: MalformedBody | undefined;
+		readonly name: string;
+		readonly rawBody: string;
+		readonly want: { readonly status: number; readonly body: { readonly [key: string]: string } };
+	};
+	const build = (mode: BodyMode | undefined, copy: MalformedBody | undefined) =>
+		endpoint({
+			auth: 'public',
+			body: schema,
+			...(mode ? { bodyMode: mode } : {}),
+			...(copy ? { malformedBody: copy } : {}),
+			handle: async ({ body }) => ok({ a: body.a })
+		});
+	const cases: readonly Row[] = [
+		{
+			mode: undefined,
+			copy: undefined,
+			name: 'default reader: malformed JSON keeps the house copy',
+			rawBody: '{"a":',
+			want: { status: 400, body: { error: 'Invalid JSON' } }
+		},
+		{
+			mode: 'json',
+			copy: undefined,
+			name: 'json mode: an empty body is still {} for the schema',
+			rawBody: '',
+			want: { status: 400, body: { error: 'Bad a' } }
+		},
+		{
+			mode: undefined,
+			copy: undefined,
+			name: 'default reader: a valid object is untouched',
+			rawBody: '{"a":"ok"}',
+			want: { status: 200, body: { a: 'ok' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: malformed JSON',
+			rawBody: '{"a":',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: an empty body (legacy request.json() threw)',
+			rawBody: '',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: a whitespace body',
+			rawBody: ' \n\t ',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: a valid object is untouched',
+			rawBody: '{"a":"ok"}',
+			want: { status: 200, body: { a: 'ok' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: the literal null parses, so the schema answers',
+			rawBody: 'null',
+			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: an array parses, so the schema answers',
+			rawBody: '[1]',
+			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		{
+			mode: 'json',
+			copy: copyOnly,
+			name: 'custom copy without a status answers 400',
+			rawBody: '{"a":',
+			want: { status: 400, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'lenient',
+			copy: pinned,
+			name: 'lenient mode ignores the copy: the schema decides malformed JSON',
+			rawBody: '{"a":',
+			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		{
+			mode: 'lenient',
+			copy: pinned,
+			name: 'lenient mode ignores the copy: the schema decides an empty body',
+			rawBody: '',
+			want: { status: 400, body: { error: 'Bad body' } }
+		}
+	];
+
+	it.each(cases)('$name -> $want.status', async ({ mode, copy, rawBody, want }) => {
+		const res = await invoke(build(mode, copy).handler, { ctx: testCtx(), rawBody });
+		expect(res.status).toBe(want.status);
+		expect(res.body).toEqual(want.body);
 	});
 });
 

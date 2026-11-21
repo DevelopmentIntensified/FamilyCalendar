@@ -12,7 +12,9 @@ import {
 	ALERT_PAGE_SIZE,
 	alertCounts,
 	filterAlerts,
-	groupAlerts
+	groupAlerts,
+	isPlainAlertClick,
+	type AlertClickEvent
 } from './alerts.feed.rules';
 import type { AlertFilter, AlertRow } from './alerts.contract';
 
@@ -151,5 +153,31 @@ describe('alertCounts: the filter chips', () => {
 			needsYou: 1,
 			unread: 0
 		});
+	});
+});
+
+describe('isPlainAlertClick: which clicks a row takes', () => {
+	const plain = {
+		defaultPrevented: false,
+		button: 0,
+		metaKey: false,
+		ctrlKey: false,
+		shiftKey: false,
+		altKey: false
+	};
+
+	it('takes an unmodified left click', () => {
+		expect(isPlainAlertClick(plain)).toBe(true);
+	});
+
+	it.each<[string, Partial<AlertClickEvent>]>([
+		['a modified click', { metaKey: true }],
+		['a ctrl click', { ctrlKey: true }],
+		['a shift click', { shiftKey: true }],
+		['an alt click', { altKey: true }],
+		['a middle-button click', { button: 1 }],
+		['an already handled click', { defaultPrevented: true }]
+	])('leaves %s to the browser', (_name, override) => {
+		expect(isPlainAlertClick({ ...plain, ...override })).toBe(false);
 	});
 });

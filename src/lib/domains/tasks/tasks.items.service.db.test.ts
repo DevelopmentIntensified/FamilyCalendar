@@ -19,7 +19,7 @@ import { events, notifications, tasks } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
-import { TaskCreateBody, TaskUpdateBody } from './tasks.contract';
+import { TASK_COMPLETED_AT_DIRECT, TaskCreateBody, TaskUpdateBody } from './tasks.contract';
 import {
 	addMember,
 	seedTask,
@@ -630,7 +630,7 @@ describe('updateTask field patch', () => {
 		).toMatchObject({ focusMinutes: 45 });
 	});
 
-	rollbackTest('sets and clears the category, and writes a raw completedAt directly', async (db) => {
+	rollbackTest('sets and clears the category, and refuses a raw completedAt (Q-051 B)', async (db) => {
 		const { mia } = await seedHousehold(db);
 		const task = await seedTask(db, { title: 'Report', userId: mia.id });
 		const ctx = testCtx({ db, now: NOW });
@@ -638,12 +638,22 @@ describe('updateTask field patch', () => {
 
 		const set = await updateTask(ctx, actor, {
 			taskId: task.id,
-			body: TaskUpdateBody.parse({ category: 'Work', completedAt: '2026-02-01T10:00:00.000Z' })
+			body: TaskUpdateBody.parse({ category: 'Work' })
 		});
 		expect(set.category).toBe('Work');
 		expect((set as TaskWithTagsRow).tags).toEqual([]);
+
+		// Q-051 B: the completion stamp has ONE writer (the toggle and its
+		// undo), so the contract refuses a raw value — the patch never runs and
+		// the row keeps its null stamp.
+		const refused = TaskUpdateBody.safeParse({
+			category: 'Home',
+			completedAt: '2026-02-01T10:00:00.000Z'
+		});
+		const refusals = refused.success ? [] : refused.error.issues.map((issue) => issue.message);
+		expect(refusals).toContain(TASK_COMPLETED_AT_DIRECT);
 		const rows = await db.select().from(tasks).where(eq(tasks.id, task.id));
-		expect(rows[0].completedAt).toBe('2026-02-01 10:00:00+00');
+		expect(rows[0].completedAt).toBeNull();
 
 		expect(
 			await updateTask(ctx, actor, {

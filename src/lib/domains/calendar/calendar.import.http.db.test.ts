@@ -270,11 +270,10 @@ describe('POST /api/import/preview', () => {
 		});
 	});
 
-	// Q-045 (flip-ready): the importer strips each ordinal prefix and then
-	// requires the stripped list to equal the RAW value, so a day written `2TU`
-	// is dropped entirely — BYDAY ends up null and the series expands on its
-	// anchor weekday (icsImportService.ts:244). The fix keeps TU,TH.
-	it('drops BYDAY entirely when a weekday carries an ordinal (Q-045)', async () => {
+	// Q-045: the importer strips each ordinal prefix and keeps the plain codes,
+	// so `2TU,TH` lands on TU,TH (the write sanitizer's rule) and the label
+	// names both weekdays.
+	it('strips the ordinal from BYDAY and keeps the weekday codes (Q-045)', async () => {
 		const user = await seedViewer();
 		const ics = [
 			'BEGIN:VCALENDAR',
@@ -305,10 +304,10 @@ describe('POST /api/import/preview', () => {
 						...DRAFT,
 						recurrenceFrequency: 'weekly',
 						recurrenceInterval: 1,
-						recurrenceByDay: null,
+						recurrenceByDay: ['TU', 'TH'],
 						key: 'e0',
 						fileName: 'kids.ics',
-						whenText: 'Tue, Sep 29, 2026 · 2:00 PM–3:30 PM · every week',
+						whenText: 'Tue, Sep 29, 2026 · 2:00 PM–3:30 PM · every week on Tue, Thu',
 						duplicate: false,
 						duplicateReason: null
 					}

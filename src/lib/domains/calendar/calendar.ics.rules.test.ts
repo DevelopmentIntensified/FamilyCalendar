@@ -316,7 +316,7 @@ describe('parseIcs', () => {
 		expect(events[0]?.recurrenceInterval).toBe(interval);
 	});
 
-	it('keeps a plain BYDAY list but drops the whole list when a day carries an ordinal (Q-045)', () => {
+	it('strips BYDAY ordinals per item and keeps the plain weekday codes (Q-045)', () => {
 		const plain = parseIcs(
 			ics([
 				'BEGIN:VEVENT',
@@ -338,7 +338,7 @@ describe('parseIcs', () => {
 				'END:VEVENT'
 			])
 		);
-		expect(ordinal[0]?.recurrenceByDay).toBeNull();
+		expect(ordinal[0]?.recurrenceByDay).toEqual(['TU', 'TH']);
 	});
 
 	it('parses UNTIL in both forms', () => {

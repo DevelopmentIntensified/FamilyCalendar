@@ -254,9 +254,9 @@ export type CalendarEventCreatedResponse = z.infer<typeof CalendarEventCreatedRe
 
 /**
  * `PUT /api/events/[id]`. Every field is optional: an omitted key keeps the
- * stored value and an explicit null/'' clears it (#228). Recurrence is the
- * exception — `normalizeEventRecurrence(body)` runs on every PUT, so an omitted
- * recurrence clears the series (Q-047, pinned).
+ * stored value and an explicit null/'' clears it (#228). `recurrenceFrequency`
+ * follows the same rule (Q-047): absent leaves the series untouched, an
+ * explicit null (or an unknown value) clears every recurrence column.
  */
 export const CalendarEventUpdateBody = CalendarEventCreateBody.extend({
 	scope: z.unknown().optional(),

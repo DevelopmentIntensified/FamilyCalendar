@@ -105,6 +105,8 @@ export { resolveSessionSecret } from './identity.session.rules';
 
 /** The untrimmed stored full name (`first + ' ' + last`), the legacy stats shape. */
 export { personFullName } from './identity.person.rules';
+/** The app resolves the fail-closed email-code pepper once at boot (Q-117). */
+export { CODE_PEPPER_PLACEHOLDER, resolveCodePepper } from './identity.code.rules';
 export type { PersonView } from './identity.contract';
 
 // --- HTTP handlers ------------------------------------------------------------

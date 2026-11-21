@@ -29,6 +29,22 @@ export {
 } from './calendar.chips.rules';
 export { createCalendarApi, type CalendarApi } from './calendar.api';
 export {
+	calendarAttendancePeople,
+	calendarAttendanceSplit,
+	calendarAttendanceStatus,
+	calendarContactColor,
+	calendarDeleteScopes,
+	calendarNameForEvent,
+	calendarPersonName,
+	calendarSeriesFacts,
+	type CalendarAttendanceRow,
+	type CalendarAttendanceSplit,
+	type CalendarAttendanceStatus,
+	type CalendarEventView,
+	type CalendarGuestRow,
+	type CalendarPerson
+} from './calendar.eventView.rules';
+export {
 	BULK_OP_TYPES,
 	CALENDAR_COPY,
 	CALENDAR_KINDS,

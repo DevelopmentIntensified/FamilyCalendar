@@ -169,7 +169,8 @@ describe('touchDue', () => {
 });
 
 describe('zoneFromStored', () => {
-	// userTimezone.test.ts:5-14, plus the Luxon pseudo-zones (Q-107 is post-S6).
+	// userTimezone.test.ts:5-14, plus the Luxon pseudo-zones: Q-107 narrows the
+	// PATCH validator, never how an ALREADY stored zone resolves.
 	it.each<[string | null | undefined, string | undefined]>([
 		['America/Chicago', 'America/Chicago'],
 		['UTC', 'UTC'],

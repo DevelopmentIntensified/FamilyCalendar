@@ -45,14 +45,15 @@ export function planPricing(): PlanPricing {
 }
 
 /**
- * The family-size discount: 40% from four memberships up (`>= 4`), today's
- * legacy rule, which its own copy described as "5+ members". The count is the
- * caller's. Q-017 (owner, B) decided the post-S6 fix: count the members of one
- * family and start at five; that fix changes this rule's tests, so S3+S4 keep it.
- * The 40 is a literal: the family discount row's `discountRate` is never read.
+ * The family-size discount: 40% from five members of one family up (`>= 5`).
+ * Q-017 (owner, B): the count is one family's member count — the fullest
+ * family's when the person belongs to several — never the caller's
+ * family-membership rows (the legacy rule counted those and started at four).
+ * The caller supplies the count; billing reads no family table. The 40 is a
+ * literal: the family discount row's `discountRate` is never read.
  */
-export function familyDiscountRate(membershipCount: number): number {
-	return membershipCount >= 4 ? 40 : 0;
+export function familyDiscountRate(familyMemberCount: number): number {
+	return familyMemberCount >= 5 ? 40 : 0;
 }
 
 /** A discount row as far as "does this person hold the lifetime discount" reads it. */
