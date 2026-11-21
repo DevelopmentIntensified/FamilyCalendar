@@ -207,7 +207,7 @@ export const PushUnsubscribeBody = z.object(
 );
 export type PushUnsubscribeBody = z.infer<typeof PushUnsubscribeBody>;
 
-/** `GET /api/push/public-key`: the raw configured key, or `null` when it is unset. */
+/** `GET /api/push/public-key`: the configured public key, or `null` unless both VAPID halves are set (Q-020). */
 export const PushPublicKeyResponse = z.object({ publicKey: z.string().nullable() });
 export type PushPublicKeyResponse = z.infer<typeof PushPublicKeyResponse>;
 

@@ -9,7 +9,10 @@
 			per: '/month',
 			features: [
 				'1 family calendar',
-				'Up to 5 family members',
+				// 6 is the free policy's memberLimit (FREE_PLAN_LIMITS, billing); this
+				// legacy page cannot read a module constant (R8) until marketing's S7
+				// port, which must render FREE_PLAN_LIMITS.memberLimit here. Q-018 B.
+				'Up to 6 family members',
 				'Smart paste event import',
 				'RSVP to family events',
 				'10 smart algorithm event creations/month',

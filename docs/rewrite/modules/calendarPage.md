@@ -11,9 +11,9 @@ The main calendar page: month/week/day/list views, toolbar and filters, selectio
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: n/a (no `/api` route; see Notes)
-- [ ] S3 contract + rules
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: n/a (no `/api` route; see Notes)
+- [x] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
@@ -297,6 +297,14 @@ Kept as-is because they are already right: the ads gate returns before its read 
 No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`); the text rule is pure. It is not a catalog page (it never renders), so it has no perf entry.
 
 ## Notes
+
+### S3 (2026-11-19): what landed, and the two deviations
+
+- Eight rule files + `calendarPage.contract.ts` landed with their table tests; `index.ts` now exports the two designed types (`CalendarPageModel`, `CalendarView`). No repo, no `/api` route, no golden.
+- `grid.rules` does NOT yet carry `chipRowOf`: the chip vocabulary is calendar's, and calendar's entry exports nothing until its own S3/S7. A local copy would be the second home the conventions forbid; S7 adds it on calendar's `chipShell`.
+- `select.rules` keeps a PRIVATE copy of the 15-minute snap / `yToMinutes` / `normalizeRange` math, because calendar's `eventMove` has no v2 export yet. S7 must import calendar's move math and delete the private copy (noted in the file header).
+- The window is the exact matrix (4–6 rows depending on month and week start), so February 2026 asks for 28 days, not legacy's fixed ±7-day padding. The README's "(five or six week rows)" is a wording slip: a Sunday-start February 2026 genuinely draws four rows.
+- The contract has no bulk or phrase-report schemas: those bodies are calendar's `POST /api/events/bulk` and feedback's `POST /api/report-phrase`, pinned by their own goldens. The screen's state classes pass those bodies through.
 
 ### Surprises and decisions (why the design differs from the draft)
 

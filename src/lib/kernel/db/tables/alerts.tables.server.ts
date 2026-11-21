@@ -24,9 +24,10 @@ export const notifications = pgTable('notifications', {
 	userId: text('userId')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
-	// The closed set lives in src/lib/utils/notificationTypes.ts — this comment
-	// is a pointer, not a second copy. It was missing 'added_to_family', which
-	// family/[familyId]/members/add/direct/+server.ts really does write.
+	// The closed set lives in src/lib/domains/alerts/alerts.vocabulary.rules.ts —
+	// this comment is a pointer, not a second copy. It was missing
+	// 'added_to_family', which family/[familyId]/members/add/direct/+server.ts
+	// really does write.
 	type: text('type').notNull(),
 	actorName: text('actorName').notNull(),
 	message: text('message').notNull(),

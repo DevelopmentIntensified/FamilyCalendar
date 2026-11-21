@@ -82,10 +82,12 @@ export {
 	type MintedApiToken
 } from './identity.token.service.server';
 export {
+	getCalendarPreferences,
 	getCalendarSettings,
 	updateCalendarSettings,
 	setHiddenDashboardModules,
-	type CalendarSettingsResult
+	type CalendarSettingsResult,
+	type StoredCalendarPreferences
 } from './identity.settings.service.server';
 export {
 	hashPassword,
@@ -98,6 +100,8 @@ export {
 
 /** The app resolves the fail-closed signing secret once at boot. */
 export { resolveSessionSecret } from './identity.session.rules';
+/** The app resolves the fail-closed email-code pepper once at boot (Q-117). */
+export { CODE_PEPPER_PLACEHOLDER, resolveCodePepper } from './identity.code.rules';
 export type { PersonView } from './identity.contract';
 
 // --- HTTP handlers ------------------------------------------------------------

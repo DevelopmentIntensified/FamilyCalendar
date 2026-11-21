@@ -47,7 +47,9 @@ import {
 	countOpenFamilyTasks,
 	findFamilyById,
 	findFirstFamilyIdForUser,
+	findMembershipFamilyId,
 	insertFamilyWithRoster,
+	listMembershipFamilyIds,
 	listMemberships,
 	listRecentFamilyActivity,
 	updateFamilyRow
@@ -123,6 +125,27 @@ export async function listFamilies(ctx: Ctx, actor: Actor): Promise<FamilyListPa
  */
 export async function familyIdForActor(ctx: Ctx, actor: Actor): Promise<string | null> {
 	return await findFirstFamilyIdForUser(ctx.db, actor.id);
+}
+
+/**
+ * The family a person lands in when nobody names one: the OLDEST family they
+ * belong to (owner answer Q-024 B). Null when they have no family.
+ *
+ * A read keyed by person, not by actor: `calendar` needs it to label a
+ * calendar picker and the module cannot read `familyMembers` (R1/R3). It names
+ * no family of anyone else's, and the caller already holds the id.
+ */
+export async function resolveMembershipFamilyId(ctx: Ctx, userId: string): Promise<string | null> {
+	return await findMembershipFamilyId(ctx.db, userId);
+}
+
+/**
+ * EVERY family id a person belongs to, oldest first — the read behind
+ * calendar visibility (#098: personal calendars plus every family's). Same
+ * keying rule as `resolveMembershipFamilyId` (a person id the caller holds).
+ */
+export async function listPersonFamilyIds(ctx: Ctx, userId: string): Promise<string[]> {
+	return await listMembershipFamilyIds(ctx.db, userId);
 }
 
 /**
@@ -229,9 +252,9 @@ export async function getFamily(
  * and the day-one member cap. The family and its roster are written in one
  * transaction.
  *
- * The family calendar row is the last step, through `ports.calendar`: the
- * transition bridge cannot join this transaction (calendar owns the table), so
- * calendar's S5 adapter moves it back inside `withTx`.
+ * The family calendar row is written inside the same transaction, through
+ * `ports.calendar`: calendar's adapter inserts it through whatever ctx it is
+ * handed, so the family and its calendar commit or roll back together.
  */
 export async function createFamily(
 	ctx: FamilyCtx,
@@ -260,18 +283,20 @@ export async function createFamily(
 	}
 
 	const familyId = ctx.ids.id();
-	const family = await withTx(ctx, (txCtx) =>
-		insertFamilyWithRoster(txCtx.db, {
+	return await withTx(ctx, async (txCtx) => {
+		const family = await insertFamilyWithRoster(txCtx.db, {
 			id: familyId,
 			name: draft.draft.name,
 			color: draft.draft.color,
 			creatorId: actor.id,
 			memberIds: picked,
 			now: txCtx.clock.now()
-		})
-	);
-	await ctx.calendar.createFamilyCalendar(ctx, familyId);
-	return family;
+		});
+		// calendar's adapter writes through the ctx it is handed, so passing the
+		// transaction ctx commits the family and its calendar together.
+		await ctx.calendar.createFamilyCalendar(txCtx, familyId);
+		return family;
+	});
 }
 
 /**

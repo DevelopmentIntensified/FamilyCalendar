@@ -72,15 +72,16 @@ describe('apiTokenName', () => {
 		expect(API_TOKEN_NAME_MAX).toBe(60);
 	});
 
-	// accountData.ts:429-443: `name.trim()` then `.slice(0, 60)`, so the cut
-	// counts UTF-16 units (Q-109 moves it to code points after S6).
+	// Q-109 B: cut at 60 CODE POINTS, then trim (accountData.ts:429-443 had
+	// `name.trim().slice(0, 60)` on UTF-16 units).
 	it.each<[string, string, string]>([
 		['trims both ends', '  My phone  ', 'My phone'],
 		['keeps a short name', 'Phone', 'Phone'],
 		['keeps 60 characters', 'x'.repeat(60), 'x'.repeat(60)],
 		['cuts at 60', 'x'.repeat(70), 'x'.repeat(60)],
-		['splits an emoji straddling unit 60', `${'a'.repeat(59)}😀tail`, `${'a'.repeat(59)}\uD83D`],
-		['keeps whitespace before the cut', `${'w'.repeat(58)}   more`, `${'w'.repeat(58)}  `],
+		['keeps an emoji straddling unit 60 whole', `${'a'.repeat(59)}😀tail`, `${'a'.repeat(59)}😀`],
+		['trims the whitespace the cut leaves', `${'w'.repeat(58)}   more`, `${'w'.repeat(58)}`],
+		['cuts before trimming, so leading spaces eat into the cap', `  ${'a'.repeat(60)}`, 'a'.repeat(58)],
 		['is empty for a blank name', '   ', '']
 	])('%s', (_label, raw, expected) => {
 		expect(apiTokenName(raw)).toBe(expected);

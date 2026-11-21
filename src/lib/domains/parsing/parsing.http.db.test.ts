@@ -426,7 +426,7 @@ describe("POST /api/parse-event — today's accidental behaviours, pinned as the
 		});
 	});
 
-	it('reads the singular abbreviation "tues" as a plural weekday, so one event becomes weekly', async () => {
+	it('keeps the singular abbreviation "tues" singular, so one event stays a one-off (Q-008 B)', async () => {
 		const res = await invoke(postParseEvent, {
 			ctx: ctx(),
 			path: PATH,
@@ -437,16 +437,14 @@ describe("POST /api/parse-event — today's accidental behaviours, pinned as the
 			parsed: {
 				allDay: false,
 				date: nextWeekday(2, DateTime.now()),
-				title: 'lunch ',
-				recurring: 'weekly',
-				recurringByDay: ['TU']
+				title: 'lunch'
 			},
-			confidence: 0.4,
+			confidence: 0.35,
 			method: 'regex'
 		});
 	});
 
-	it('writes the literal "Invalid DateTime" for an impossible MM/DD ("party 31/12")', async () => {
+	it('falls back to today for an impossible MM/DD ("party 31/12") (Q-009 B)', async () => {
 		const res = await invoke(postParseEvent, {
 			ctx: ctx(),
 			path: PATH,
@@ -454,13 +452,13 @@ describe("POST /api/parse-event — today's accidental behaviours, pinned as the
 		});
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({
-			parsed: { allDay: false, date: 'Invalid DateTime', title: 'party 31/12' },
-			confidence: 0.5,
+			parsed: { allDay: false, date: today(DateTime.now()), title: 'party 31/12' },
+			confidence: 0.2,
 			method: 'regex'
 		});
 	});
 
-	it('reads a clock-like time inside a URL, even though the URL is excluded from title and date scans', async () => {
+	it('ignores a clock-like time inside a URL: time rules read URL-free text (Q-010 B)', async () => {
 		const url = 'https://meet.example.com/standup-5:30pm';
 		const res = await invoke(postParseEvent, {
 			ctx: ctx(),
@@ -472,11 +470,10 @@ describe("POST /api/parse-event — today's accidental behaviours, pinned as the
 			parsed: {
 				allDay: false,
 				date: today(DateTime.now()),
-				startTime: '17:30',
 				title: 'standup',
 				description: url
 			},
-			confidence: 0.45,
+			confidence: 0.2,
 			method: 'regex'
 		});
 	});
@@ -495,17 +492,22 @@ describe("POST /api/parse-event — today's accidental behaviours, pinned as the
 		});
 	});
 
-	it('lets malformed JSON escape the error boundary instead of answering the 400 shape', async () => {
-		// `await request.json()` runs before the `try` (`+server.ts:67,96`).
-		await expect(
-			invoke(postParseEvent, { ctx: ctx(), path: PATH, rawBody: '{"input": ' })
-		).rejects.toThrow(SyntaxError);
+	it('answers 400 "Input required" for malformed JSON (Q-012 B)', async () => {
+		// Legacy read the body before its `try`; Q-012 B moves bad bodies inside
+		// the boundary, so the contract's one 400 copy answers them.
+		const res = await invoke(postParseEvent, {
+			ctx: ctx(),
+			path: PATH,
+			rawBody: '{"input": '
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'Input required' });
 	});
 
-	it('lets a JSON null body throw before the error boundary instead of answering 400', async () => {
-		await expect(invoke(postParseEvent, { ctx: ctx(), path: PATH, body: null })).rejects.toThrow(
-			TypeError
-		);
+	it('answers 400 "Input required" for a JSON null body (Q-012 B)', async () => {
+		const res = await invoke(postParseEvent, { ctx: ctx(), path: PATH, body: null });
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'Input required' });
 	});
 });
 

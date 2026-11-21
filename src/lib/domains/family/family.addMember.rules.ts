@@ -27,10 +27,17 @@ export function familyVisibleAddTabs(canInviteByEmail: boolean): FamilyAddTab[] 
 	return FAMILY_ADD_TABS.filter((tab) => tab !== 'invite' || canInviteByEmail);
 }
 
-/** What an add-member response refuses with, or `null` when it succeeded. */
+/**
+ * What an add-member response refuses with, or `null` when it succeeded. A
+ * success body carries door-specific keys (`{ users }` from a search), so the
+ * parameter admits anything and only `error`/`message` are read.
+ */
 export function familyAddFailure(
 	ok: boolean,
-	payload: { readonly error?: unknown; readonly message?: unknown } | null | undefined
+	payload:
+		| { readonly error?: unknown; readonly message?: unknown; readonly [key: string]: unknown }
+		| null
+		| undefined
 ): string | null {
 	if (payload?.error) return String(payload.error);
 	if (!ok) {

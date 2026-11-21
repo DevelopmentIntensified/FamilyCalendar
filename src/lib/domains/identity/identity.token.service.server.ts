@@ -36,17 +36,17 @@ export type MintedApiToken = {
 	readonly record: ApiTokenRecord;
 };
 
-/** The person's tokens, safe columns only, no order (Q-110 orders them after S6). */
+/** The person's tokens, safe columns only, newest first (Q-110 B). */
 export async function listApiTokens(ctx: Ctx, actor: Actor): Promise<ApiTokenListing[]> {
 	return await listApiTokensForPerson(ctx.db, actor.id);
 }
 
 /**
  * Mints one token from the validated name (`ApiTokenCreateBody` has already
- * trimmed it and cut it at 60 UTF-16 units — trimming again would eat the
- * whitespace that golden pins before the cut). A blank name keeps the legacy
- * 400 for any non-HTTP caller; the plaintext is `fp_` + 32 random bytes
- * base64url and only its SHA-256 reaches the database.
+ * cut it at 60 code points and trimmed it — repeating that here would be the
+ * same string). A blank name keeps the legacy 400 for any non-HTTP caller;
+ * the plaintext is `fp_` + 32 random bytes base64url and only its SHA-256
+ * reaches the database.
  */
 export async function mintApiToken(
 	ctx: Ctx,

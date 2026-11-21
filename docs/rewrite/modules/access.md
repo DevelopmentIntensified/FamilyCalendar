@@ -11,10 +11,10 @@ Sign-in flows: login, signup, magic links, password reset, Claiming, Claim Confl
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
-- [ ] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S3 contract + rules
+- [x] S4 repo (+ fixtures)
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
@@ -154,16 +154,19 @@ Three kernel seams do not exist yet; they are planned here, not written in this 
 | `access.contract.ts` | contract | Zod schemas for every `/api` request/response in this module (mobile bodies, `{email}`, `{code}`, `{token,password}`) plus the exact legacy error copy as constants; internal page/action inputs designed fresh. |
 | `access.email.rules.ts` | rules | Magic-link payload shape (kind/email/names/code/redirect), `code`/`email` pairing, the 15-minute TTL and the 8-digit shape; pure, and every TTL rule takes `now` as a parameter (never `Date.now()`). |
 | `access.redirect.rules.ts` | rules | `authRedirectTarget`: path-only same-origin landing (`safeRedirectPath` logic), fallbacks `/calendar/` and `/calendar`. |
-| `access.password.rules.ts` | rules | Signup/password validation (four required fields, at least 8 characters) and the token name rule. No email rule here: each route keeps exactly its own legacy check (Decision 2 in Notes). |
+| `access.password.rules.ts` | rules | Signup/password validation (four required fields, at least 8 characters), the reset form's order (both fields, then the length) and the `used:<hash>` single-use marker key. No email rule here: each route keeps exactly its own legacy check (Decision 2 in Notes). The `mobileTokenName` rule lives in `access.device.rules.ts`, not here (the sheet's first draft said "token name", meaning the reset marker). |
 | `access.password.rules.test.ts` | rules test | Tables of input → message/valid. |
 | `access.device.rules.ts` | rules | `mobileTokenName` (`Android — <deviceName>`, trimmed, 60-char cap, `Android` default) and the `toMobileUser` mask. |
 | `access.device.rules.test.ts` | rules test | Device-name tables (empty, padded, 60/61/70 chars) and the guest email mask. |
 | `access.claim.rules.ts` | rules | Claim-token shape (32 random bytes hex, 15-minute TTL — `now` passed in), the guests-only rule and the uniform answer. |
 | `access.claim.rules.test.ts` | rules test | Token/email validation and the no-oracle answer. |
+| `access.person.rules.ts` | rules | The Anonymous Account predicate access branches on (`isGuestPerson`, `isRegisteredPerson`, `maskGuestEmail`). Interim: identity owns the canonical predicate but its `index.ts` exports nothing yet, so S5 must switch these call sites to identity and delete this file. |
+| `access.person.rules.test.ts` | rules test | The placeholder-domain table and the guest-safe mask (from `src/lib/utils/anonymous.test.ts:5-21`). |
+| `access.contract.test.ts` | contract test | Every request schema's coercion/refusal order, the response shapes and the exact legacy copy table. |
 | `access.email.rules.test.ts`, `access.redirect.rules.test.ts` | rules test | Kind-mismatch/legacy-token tables and the unsafe-redirect table (from the legacy `magicLink` unit tests). |
 | `access.repo.server.ts` | repo | Claim-token queries only (access owns `claimTokens`): insert, peek by hash, atomic `DELETE … RETURNING`, delete expired. |
-| `access.fixtures.server.ts` | fixtures | Written in the S2 fix-forward. `seedAccessGuest`, `seedAccessPasswordUser`, `seedAccessApiToken`, `seedAccessEmailCode` (hashed kinds, `expiresAt` overridable), `seedAccessProviderAccount`, `seedAccessSession`, `seedAccessAuthAccount`, plus `ACCESS_ANON_DOMAIN` and `ACCESS_PASSWORD_HASH`. Every name carries the `Access` noun: the module seeds foreign rows (user, provider account, session, credential row), the `seedTaskFamily` precedent. |
-| `access.repo.db.test.ts` | repo test | A `rollbackTest` per query (peek does not burn, consume is exactly once, expired is gone). |
+| `access.fixtures.server.ts` | fixtures | Written in the S2 fix-forward. `seedAccessGuest`, `seedAccessPasswordUser`, `seedAccessApiToken`, `seedAccessEmailCode` (hashed kinds, `expiresAt` overridable), `seedAccessProviderAccount`, `seedAccessSession`, `seedAccessAuthAccount`, plus `ACCESS_ANON_DOMAIN` and `ACCESS_PASSWORD_HASH`. S4 added `seedAccessClaimToken(db, …)` — the one builder that takes `db`, because it seeds this module's own table inside `rollbackTest`. Every name carries the `Access` noun: the module seeds foreign rows (user, provider account, session, credential row), the `seedTaskFamily` precedent. |
+| `access.repo.db.test.ts` | repo test | A `rollbackTest` per query and edge: insert stamps the caller's `createdAt`; peek does not burn and refuses an expired row (the exact-`now` boundary is live); consume is exactly once and still deletes an expired row; retention removes `< now` and counts. |
 | `access.email.service.server.ts` | service | `startEmailLink` (validation → gate and suppression → mint → email → code row), `completeEmailLink`, `verifySignupCode`, `resendSignupCode`. |
 | `access.password.service.server.ts` | service | `signInWithPassword` (dummy-compare defence, generic 401, shared by web and Android), `signUpWithPassword`, `requestPasswordReset`, `resetPassword` (single-use marker, revoke sessions + tokens). |
 | `access.claim.service.server.ts` | service | `requestClaim` (guests only, 10/15 per IP + 3/15 per address, uniform answer) and `confirmClaim` (peek → ownership → atomic consume → claim or Claim Conflict merge). |
@@ -252,6 +255,58 @@ The owner answered seven of the questions the S1+S2 review raised. Each keeps to
 | Q-065 | **B** | Email-change codes are hashed at rest and looked up by digest like every other kind (`accountData.ts:375-383`, `account/verify-email/+page.server.ts:111,135`). | `POST /api/me/email — mails a code to the NEW address and answers the message` swaps its plaintext assertion for a digest. |
 | Q-066 | **B** | The 10 / 15 min reset throttle moves from the mobile wrapper into the shared service, so the web form gains it too (`api/mobile/auth/reset/+server.ts:11-31`). | None: the mobile 429 golden keeps its limit, message and burst. Exactly one limiter — the wrapper's copy goes, or the burst fills the bucket twice as fast. |
 
+
+### S3/S4 decisions (landed with the port)
+
+- **The Anonymous Account predicate is duplicated for one step.** identity owns
+  `isAnonymousAccount` / `isRegisteredAccount` (`identity.person.rules.ts:18-42`)
+  and its README lists them on `index.ts`, but that entry is still `export {}`.
+  R2 forbids importing another module's rules file, so access's S3 carries
+  `access.person.rules.ts` (`isGuestPerson`, `isRegisteredPerson`,
+  `maskGuestEmail`). **S5 must switch the call sites to identity's entry and
+  delete the file**; it is the only cross-module duplication in this slice.
+- **`access.password.rules.ts` holds the reset marker, not the device name.**
+  The plan row's "token name rule" is `used:<sha256(token)>`
+  (`reset/+server.ts:101`); `mobileTokenName` is `access.device.rules.ts`'s.
+- **`MobileAuthUserResponse` / `ClaimTokenOwner` are server view types in the
+  contract,** so `access.device.rules.ts` can return the wire user shape without
+  a second definition and the repo can answer `{userId,email}` without a row type.
+- **The `seedAccessClaimToken` fixture takes `db`.** Every other access fixture
+  writes through `testDb()` because the S2 goldens run committed; a Claim seed
+  used by a `rollbackTest` would land outside the transaction. The file says so
+  in place.
+- **Q-104 C is honoured by construction.** The repo and rules never read or write
+  `authAccount.password`; the skipped reset golden keeps the stale-credential
+  assertion (`access.http.db.test.ts:2032-2097`), and the S6 reset service writes
+  only `users.passwordHash` (via identity's `setPersonPasswordHash`), so the
+  column drops at the schema cleanup without an access change.
+- **S6 needs three body details the schemas cannot express alone.** `endpoint()`'s
+  `json` mode answers the house `Invalid JSON` and maps an empty body to `{}`;
+  `lenient` maps an empty body AND a literal `null` to `null`. The frozen goldens
+  need: `mobile/auth/guest` empty body → 200 but literal `null` → 400;
+  `mobile/auth/forgot`/`reset` malformed (and empty) body → their 500 copy;
+  every other mobile route malformed → `Request body must be JSON`. The contract
+  documents this and owns the copy; the mapping is S6's.
+- **One unpinned legacy defect is not reproduced.** `forgot-password/+server.ts`
+  calls `email.toLowerCase()` on the raw body value, so a truthy non-string
+  (`{email:123}`) throws and lands in its 500. The sheet already lists that as a
+  defect and does not pin it; the contract reads a non-string as `''`, so the
+  port answers `400 Email is required`. Wire-identical for every JSON string,
+  and no golden covers the numeric case — flagging it rather than blessing the
+  TypeError.
+- **The seven post-S6 owner fixes are NOT in this slice.** Q-102 (purpose claim)
+  is absent from `access.email.rules.ts`'s reset reader; Q-103's narrower delete
+  is an S5 query change; Q-064 keeps both membership sentences as constants
+  (the generic copy is `VERIFY_GENERIC_ERROR_MESSAGE`, ready for the flip);
+  Q-065 still implies a plaintext email-change code (S5 writes it); Q-066's
+  limiter is service state. Each lands after S6 with its golden changed first.
+- **Identity calls at S5.** This slice needs no `FOREIGN_READS` entry: the repo
+  touches only `claimTokens`. S5 will need identity's services (person by
+  email/id, session create/invalidate, `fp_` token mint/revoke, email-code
+  insert/find/delete, password hashing, `setPersonPasswordHash`,
+  `claimPersonEmail`, `deleteEmailCodesForEmail`) through `identity/index.server.ts`,
+  which today exports only the two ports and `IdentityCtx`; those service
+  functions must be added there by identity's S5 before access's S5 can compile.
 
 ### Still unpinned until S5 (service tests on the fake mail port)
 

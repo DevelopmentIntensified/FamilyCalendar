@@ -21,7 +21,7 @@ function api(
 ): FamilyApi {
 	return {
 		searchMembers: async (q, exclude) => {
-			const answer = await search(q, exclude);
+			const answer = await search(q, exclude ?? []);
 			return answer
 				? { ok: true, data: { users: answer.users } }
 				: { ok: false, status: 0, error: 'Network problem. Try again.' };
