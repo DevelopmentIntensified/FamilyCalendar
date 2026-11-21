@@ -1,21 +1,18 @@
-import { test, expect, type Page } from '@playwright/test';
-import { getUser } from '../../src/lib/server/db/actions/users';
-import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { db } from '../../src/lib/server/db';
+import { test, expect } from '@playwright/test';
 import {
-	calendars,
-	users,
-	sessions,
-	userSettings,
-	events,
 	accounts,
-	familyMembers,
-	subscriptions,
-	codes
-} from '../../src/lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '../../src/lib/server/utils/createNewUser';
-import { lucia } from '$lib/server/auth';
+	authSession,
+	calendars,
+	codes,
+	createNewUser,
+	db,
+	eq,
+	events,
+	getUser,
+	loginWithSession,
+	teardownTestUser,
+	userSettings
+} from '../testUtils';
 
 const firstName = 'test';
 const lastName = 'delete';
@@ -23,58 +20,16 @@ const email = `delivered+delete${Date.now()}@resend.dev`;
 
 let uid = '';
 
-async function loginWithSession(page: Page, email: string) {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (!user[0]) throw new Error('User not found');
-	const session = await lucia.createSession(user[0].id, {});
-	const cookie = lucia.createSessionCookie(session.id);
-	await page.context().addCookies([
-		{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}
-	]);
-}
-
 test.beforeEach(async () => {
-	await cleanupExistingUser();
+	await teardownTestUser({ email });
 	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 	await db.delete(codes).where(eq(codes.email, email));
 });
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (user[0]) {
-		await cleanupUserData(user[0].id);
-		await db.delete(users).where(eq(users.id, user[0].id));
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 });
-
-async function cleanupExistingUser() {
-	const existingUser = await db.select().from(users).where(eq(users.email, email));
-	if (existingUser[0]) {
-		await cleanupUserData(existingUser[0].id);
-		await db.delete(users).where(eq(users.id, existingUser[0].id));
-		await deleteCodesByEmail(email);
-	}
-}
-
-async function cleanupUserData(userId: string) {
-	await db.delete(events).where(eq(events.ownerId, userId));
-	await db.delete(calendars).where(eq(calendars.ownerId, userId));
-	await db.delete(userSettings).where(eq(userSettings.userId, userId));
-	await db.delete(sessions).where(eq(sessions.userId, userId));
-	await db.delete(familyMembers).where(eq(familyMembers.userId, userId));
-	await db.delete(subscriptions).where(eq(subscriptions.userId, userId));
-	await db.delete(accounts).where(eq(accounts.userId, userId));
-}
 
 test('Account deletion removes user and all related data', async ({ page }) => {
 	test.setTimeout(60000);
@@ -114,7 +69,10 @@ test('Account deletion removes user and all related data', async ({ page }) => {
 	});
 
 	await test.step('Verify related data is cleaned up', async () => {
-		const relatedSessions = await db.select().from(sessions).where(eq(sessions.userId, uid));
+		const relatedSessions = await db
+			.select()
+			.from(authSession)
+			.where(eq(authSession.userId, uid));
 		expect(relatedSessions).toHaveLength(0);
 
 		const relatedAccounts = await db.select().from(accounts).where(eq(accounts.userId, uid));

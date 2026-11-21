@@ -1760,18 +1760,6 @@
 			"layer": "model",
 			"loc": 168
 		},
-		"src/lib/data/categories.test.ts": {
-			"module": "bills",
-			"kind": "test",
-			"loc": 188,
-			"subject": "src/lib/data/categories.ts"
-		},
-		"src/lib/data/categories.ts": {
-			"module": "bills",
-			"kind": "source",
-			"layer": "model",
-			"loc": 175
-		},
 		"src/lib/data/changelog.ts": {
 			"module": "marketing",
 			"kind": "source",

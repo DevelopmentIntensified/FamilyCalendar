@@ -41,7 +41,7 @@ describe('requestClaim', () => {
 		const ctx = ctxFor(db);
 		const guest = await seedAccessGuest();
 
-		const result = await requestClaim(ctx, actorFromUser(guest), {
+		const result = await requestClaim(ctx, actorFromUser(guest, 'session'), {
 			email: '  Fresh.Claim@Example.Test ',
 			clientIp: '10.23.0.1'
 		});
@@ -70,7 +70,7 @@ describe('requestClaim', () => {
 		await seedUser(db, { email });
 
 		expect(
-			await requestClaim(ctx, actorFromUser(guest), { email, clientIp: '10.23.0.2' })
+			await requestClaim(ctx, actorFromUser(guest, 'session'), { email, clientIp: '10.23.0.2' })
 		).toEqual({ sent: true });
 		expect((await claimRows(db, guest.id)).map((row) => row.email)).toEqual([email]);
 		expect(ctx.mail.outbox[0].subject).toBe(
@@ -83,7 +83,7 @@ describe('requestClaim', () => {
 		const ctx = ctxFor(db);
 		const registered = await seedUser(db, { email: 'claim-owner@example.test' });
 		await expect(
-			requestClaim(ctx, actorFromUser(registered), {
+			requestClaim(ctx, actorFromUser(registered, 'session'), {
 				email: 'anything@example.test',
 				clientIp: '10.23.0.3'
 			})
@@ -94,7 +94,7 @@ describe('requestClaim', () => {
 
 		const guest = await seedAccessGuest();
 		await expect(
-			requestClaim(ctx, actorFromUser(guest), { email: 'nope', clientIp: '10.23.0.4' })
+			requestClaim(ctx, actorFromUser(guest, 'session'), { email: 'nope', clientIp: '10.23.0.4' })
 		).rejects.toMatchObject({
 			code: 'invalid',
 			message: 'Please enter a valid email address'
@@ -106,7 +106,7 @@ describe('requestClaim', () => {
 		const ctx = ctxFor(db);
 		const guest = await seedAccessGuest();
 		const send = (clientIp: string, email: string) =>
-			requestClaim(ctx, actorFromUser(guest), { email, clientIp });
+			requestClaim(ctx, actorFromUser(guest, 'session'), { email, clientIp });
 
 		for (let index = 0; index < 3; index += 1) {
 			expect((await send('10.23.1.1', 'claim-429@example.test')).sent).toBe(true);
@@ -134,10 +134,10 @@ describe('confirmClaim', () => {
 		const ctx = ctxFor(db);
 		const guest = await seedAccessGuest();
 		const email = 'claim-save@example.test';
-		await requestClaim(ctx, actorFromUser(guest), { email, clientIp: '10.23.2.1' });
+		await requestClaim(ctx, actorFromUser(guest, 'session'), { email, clientIp: '10.23.2.1' });
 		const token = mailedClaimToken(ctx);
 
-		expect(await confirmClaim(ctx, actorFromUser(guest), { token })).toEqual({
+		expect(await confirmClaim(ctx, actorFromUser(guest, 'session'), { token })).toEqual({
 			outcome: 'claimed'
 		});
 
@@ -152,7 +152,7 @@ describe('confirmClaim', () => {
 		expect(await claimRows(db, guest.id)).toEqual([]);
 
 		// Consumed exactly once: the second click is invalid.
-		expect(await confirmClaim(ctx, actorFromUser(guest), { token })).toEqual({
+		expect(await confirmClaim(ctx, actorFromUser(guest, 'session'), { token })).toEqual({
 			outcome: 'invalid'
 		});
 	});
@@ -161,13 +161,13 @@ describe('confirmClaim', () => {
 		const ctx = ctxFor(db);
 		const owner = await seedAccessGuest();
 		const other = await seedAccessGuest();
-		await requestClaim(ctx, actorFromUser(owner), {
+		await requestClaim(ctx, actorFromUser(owner, 'session'), {
 			email: 'claim-owner-only@example.test',
 			clientIp: '10.23.2.2'
 		});
 		const token = mailedClaimToken(ctx);
 
-		expect(await confirmClaim(ctx, actorFromUser(other), { token })).toEqual({
+		expect(await confirmClaim(ctx, actorFromUser(other, 'session'), { token })).toEqual({
 			outcome: 'invalid'
 		});
 		expect(await claimRows(db, owner.id)).toHaveLength(1);
@@ -178,13 +178,13 @@ describe('confirmClaim', () => {
 		const guest = await seedAccessGuest();
 		const target = await seedUser(db, { email: 'claim-conflict@example.test' });
 
-		await requestClaim(ctx, actorFromUser(guest), {
+		await requestClaim(ctx, actorFromUser(guest, 'session'), {
 			email: target.email,
 			clientIp: '10.23.2.3'
 		});
 		const token = mailedClaimToken(ctx);
 
-		const result = await confirmClaim(ctx, actorFromUser(guest), { token });
+		const result = await confirmClaim(ctx, actorFromUser(guest, 'session'), { token });
 		expect(result.outcome).toBe('merged');
 		if (result.outcome !== 'merged') throw new Error('expected a merged session');
 		expect(result.cookie.value).toContain('.');

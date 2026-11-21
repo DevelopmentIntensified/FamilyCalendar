@@ -1,13 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { getAccount } from '../../src/lib/server/db/actions/accounts';
-import { getUser } from '../../src/lib/server/db/actions/users';
-import { createCode, getCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { db } from '../../src/lib/server/db';
-import { users } from '../../src/lib/server/db/schema';
 import { SignUpPage } from '../pageObjects/signup';
-import { eq } from 'drizzle-orm';
-import { teardownTestUser } from '../testUtils';
-import type { TestUser } from '../testUtils';
+import {
+	SESSION_COOKIE,
+	createVerificationCode,
+	db,
+	eq,
+	getAccount,
+	getUser,
+	teardownTestUser,
+	users,
+	type TestUser
+} from '../testUtils';
 
 let testUser: TestUser;
 
@@ -19,6 +22,7 @@ test.afterEach(async () => {
 
 test('Email Sign Up With Code', async ({ page }) => {
 	const signUpPage = new SignUpPage(page);
+	let verificationCode = '';
 	const uniqueEmail = `delivered+signupcode${Date.now()}@resend.dev`;
 	const firstName = 'test';
 	const lastName = 'signupcode';
@@ -37,21 +41,12 @@ test('Email Sign Up With Code', async ({ page }) => {
 	});
 
 	await test.step('Create verification code in DB (email sending mocked)', async () => {
-		const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-		await createCode({
-			code: uniqueCode,
-			expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-			email: uniqueEmail,
-			firstName,
-			lastName,
-			emailId: 'test-email-id'
-		});
+		verificationCode = await createVerificationCode(uniqueEmail, firstName, lastName, 'signup');
 	});
 
 	await test.step('Enter verification code and verify', async () => {
 		await signUpPage.verificationInput.waitFor({ state: 'visible', timeout: 10000 });
-		const codes = await getCodesByEmail(uniqueEmail);
-		await signUpPage.verificationInput.fill(codes[0].code);
+		await signUpPage.verificationInput.fill(verificationCode);
 		await signUpPage.verificationCodeButton.click();
 		await page.waitForURL('/calendar', { timeout: 15000 });
 	});
@@ -70,18 +65,18 @@ test('Email Sign Up With Code', async ({ page }) => {
 	await test.step('Verify that the user was created', async () => {
 		const account = await getAccount(uniqueEmail);
 		expect(account).not.toBeNull();
-		expect(account.provider).toBe('email');
+		expect(account?.provider).toBe('email');
 
-		const user = await getUser(account.userId);
-		expect(user.firstName).toBe(firstName);
-		expect(user.lastName).toBe(lastName);
-		expect(user.email).toBe(uniqueEmail);
-		expect(user.emailVerified).toBe(true);
+		const user = account ? await getUser(account.userId) : undefined;
+		expect(user?.firstName).toBe(firstName);
+		expect(user?.lastName).toBe(lastName);
+		expect(user?.email).toBe(uniqueEmail);
+		expect(user?.emailVerified).toBe(true);
 	});
 
 	await test.step('Verify that the user was logged In', async () => {
 		const cookies = await page.context().cookies();
-		const authCookie = cookies.find((e) => e.name === 'auth_session');
+		const authCookie = cookies.find((e) => e.name === SESSION_COOKIE);
 		expect(authCookie).not.toBeFalsy();
 	});
 });
