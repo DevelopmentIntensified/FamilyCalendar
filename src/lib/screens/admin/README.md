@@ -26,6 +26,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [ui/index.ts](ui/index.ts) | entry | Public components: `AdminShell` (the frame) and `AdminHome` (the index cards). | — |
 | [admin.http.db.test.ts](admin.http.db.test.ts) | test | Golden contract for `GET /api/admin`: the full body, both refusals for cookie and Bearer callers, and a failing count leg degrading to 0. Written against the legacy handler, so it runs unchanged after the port. | itself (db project, committed mode) |
 | [admin.pages.http.db.test.ts](admin.pages.http.db.test.ts) | test | The `(admin)` layout load through `invokeLoad`: an admin gets the counts, plus the two legacy redirects (`302 /login`, `302 /calendar`). Not a golden — page data is internal (S2). | itself |
+| [admin.counts.http.db.test.ts](admin.counts.http.db.test.ts) | test | `GET /api/admin`'s gate against the ported handler: `401 {"error":"Unauthorized"}` without a session, `403 {"error":"Forbidden"}` for a signed-in non-admin, `200` with the open counts for an admin. Replaces the deleted legacy route test as the gate's pin. | itself |
 
 ## Public interface
 
@@ -50,6 +51,7 @@ Designed in S1, before the code. `AdminCounts`, `ADMIN_SECTIONS` and `getAdminCo
 - Database + services: `admin.service.db.test.ts` using `rollbackTest` and `testCtx({ db })` (needs Postgres: `docker start familycalendar-db`).
 - HTTP contract: `admin.http.db.test.ts` pins status + body of `GET /api/admin` (golden tests, committed mode because the legacy handler writes through the legacy `db` singleton) and stays unchanged after the port.
 - Page wiring: `admin.pages.http.db.test.ts` calls `adminLayoutLoad` through `invokeLoad`: an admin gets the counts, and the two legacy redirects (`302 /login`, `302 /calendar`) still hold.
+- Endpoint gate: `admin.counts.http.db.test.ts` calls `adminCountsEndpoint.handler` through `invoke`: 401 / 403 / the counts, independent of the golden.
 - UI: `ui/*.svelte.test.ts` render with props; the shell's active-section rule is tested without a DOM in `admin.sections.rules.test.ts`.
 - Fixtures: none — the screen owns no rows, so db tests seed `feedback`'s `bugReports` / `unmatchedPhrases` rows directly.
 
@@ -58,8 +60,8 @@ Designed in S1, before the code. `AdminCounts`, `ADMIN_SECTIONS` and `getAdminCo
 Behaviour that must not change, each with the test that pins it (`file › test title`):
 
 - `GET /api/admin` answers `200 { openBugs, openPhrases }` for an admin, counting only open rows: bug reports with `resolvedAt` null and phrases with `resolved:false`; resolved rows never count — evidence `src/lib/server/services/adminData.ts:33-40`, `src/lib/server/db/actions/bugReports.ts:89-95`, `src/lib/server/db/actions/unmatchedPhrases.ts:103-109` · `admin.http.db.test.ts › returns the open badge counts for an admin`, `admin.service.db.test.ts › counts open rows only, per register`.
-- `GET /api/admin` answers `401 {"error":"Unauthorized"}` with no session and no token — evidence `src/lib/server/services/adminData.ts:24-26` · `admin.http.db.test.ts › answers 401 …`.
-- `GET /api/admin` answers `403 {"error":"Forbidden"}` for a signed-in non-admin, whether the caller used the session cookie or a Bearer token, before any count is read — evidence `src/lib/server/services/adminData.ts:20-31`; Bearer bypasses the hook gate at `src/hooks.server.ts:47-61`, so the route itself must check · `admin.http.db.test.ts › answers 403 … (cookie)` and `› … (Bearer)`.
+- `GET /api/admin` answers `401 {"error":"Unauthorized"}` with no session and no token — evidence `src/lib/server/services/adminData.ts:24-26` · `admin.http.db.test.ts › answers 401 …`, `admin.counts.http.db.test.ts › answers 401 {"error":"Unauthorized"} without a session`.
+- `GET /api/admin` answers `403 {"error":"Forbidden"}` for a signed-in non-admin, whether the caller used the session cookie or a Bearer token, before any count is read — evidence `src/lib/server/services/adminData.ts:20-31`; Bearer bypasses the hook gate at `src/hooks.server.ts:47-61`, so the route itself must check · `admin.http.db.test.ts › answers 403 … (cookie)` and `› … (Bearer)`, `admin.counts.http.db.test.ts › answers 403 {"error":"Forbidden"} for a signed-in non-admin`.
 - A Bearer token owned by an admin reads the counts; the route, not the hook, decides — evidence `src/lib/server/services/adminData.ts:24-31`, `src/hooks.server.ts:47-61` · `admin.http.db.test.ts › lets an admin Bearer token read the counts`.
 - A failing count leg yields 0 and the call still answers 200; one broken leg never takes the other down — evidence `src/lib/server/services/adminData.ts:33-40`, `src/lib/server/utils/guard.ts:14-22` · `admin.http.db.test.ts › degrades a failing count leg to 0 instead of 500ing the badges`, `admin.service.db.test.ts › degrades a failing leg to 0 and logs admin_count_failed`.
 - Admin means the global `admin` role on the user row and nothing else (a Family Member's membership role `admin` is a different word) — evidence `src/lib/server/services/adminData.ts:15-18`; one home is kernel `ADMIN_ROLE`/`actor.isAdmin` · `admin.http.db.test.ts › answers 403 … (cookie)`.
