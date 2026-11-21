@@ -12,6 +12,8 @@
  *   body          JSON; bodyMode 'json' (default): empty body = {}, malformed -> 400 {"error":"Invalid JSON"}
  *                 malformedBody {status?, error} replaces that refusal with the route's own copy
  *                 bodyMode 'lenient': malformed, empty or unreadable body = null, so the schema refuses it
+ *                 bodyMode 'strict': an empty/whitespace body is refused like malformed JSON
+ *                                   (with `malformedBody`'s copy when set); the rest as 'json'
  *   AppError      -> its status + {"error", ...extra}
  *   anything else -> logged, filed via ctx.faults, 500 {"error": failMessage}
  *
@@ -63,7 +65,7 @@ export type RateLimitRule = {
 };
 
 /** See `EndpointSpec.bodyMode`. */
-export type BodyMode = 'json' | 'lenient';
+export type BodyMode = 'json' | 'lenient' | 'strict' | 'empty-object';
 
 /** The refusal copy for a body the route could not parse. See `EndpointSpec.malformedBody`. */
 export type MalformedBody = {
@@ -115,18 +117,28 @@ export type EndpointSpec<
 	 * `null`; a body that parses (including a literal `null`, a string, a number, an array) reaches
 	 * it as parsed. Use it when a legacy route refused such bodies with its own sentence (usually
 	 * the one it gives a non-object body) that a frozen golden pins: the contract then decides
-	 * the refusal and its wording. Opt in per endpoint, never by default.
+	 * the refusal and its wording. `'strict'`: an empty or whitespace-only body is refused with
+	 * `400 {"error":"Invalid JSON"}` — or the `malformedBody` copy when the route gives one —
+	 * exactly like malformed JSON; every other behaviour is `'json'`. Legacy `request.json()`
+	 * throws on an empty body, so a route whose golden pins `Invalid JSON` for both malformed and
+	 * empty bodies opts into this mode.
+	 * `'empty-object'`: an empty/whitespace-only body reads as `{}` (like `'json'`), while a
+	 * malformed, unreadable or non-object body reaches the schema as `null`, so the schema owns
+	 * the refusal. Use it for a legacy parser that allowed a missing body but answered its own
+	 * sentence for junk (the mobile guest route).
+	 * Opt in per endpoint, never by default.
 	 */
 	readonly bodyMode?: BodyMode;
 	/**
 	 * The refusal this route gave a body it could not parse, replacing the default
 	 * `400 {"error":"Invalid JSON"}`. Set it when the route's own copy is pinned (groceries and
-	 * the focus sessions answer `Invalid JSON body`). It covers the whole non-lenient reader: a
-	 * malformed, unreadable **and empty/whitespace-only** body, because legacy `request.json()`
-	 * threw on all three; an endpoint with this option therefore no longer reads an empty body
-	 * as `{}`. Bodies that parse (including the literal `null`, a string, an array) are untouched
-	 * and still reach the schema. Ignored with `bodyMode: 'lenient'`, where the schema decides
-	 * every non-JSON body, and when `body` is not set.
+	 * the focus sessions answer `Invalid JSON body`). It covers the whole refusing reader —
+	 * `'json'` and `'strict'` alike: a malformed, unreadable **and empty/whitespace-only** body,
+	 * because legacy `request.json()` threw on all three; an endpoint with this option therefore
+	 * no longer reads an empty body as `{}`. Bodies that parse (including the literal `null`, a
+	 * string, an array) are untouched and still reach the schema. Ignored with
+	 * `bodyMode: 'lenient'` and `'empty-object'`, where the schema decides every non-JSON body
+	 * and there is no read refusal to rename, and when `body` is not set.
 	 */
 	readonly malformedBody?: MalformedBody;
 	readonly params?: P;
@@ -282,7 +294,9 @@ async function readJsonBody(
 	mode: BodyMode,
 	malformed: MalformedBody | undefined
 ): Promise<BodyRead> {
-	const lenient = mode === 'lenient';
+	// 'lenient' hands every body it cannot parse to the schema; 'empty-object' does the same for a
+	// malformed one but still reads an empty body as {}. Neither has a read refusal to rename.
+	const lenient = mode === 'lenient' || mode === 'empty-object';
 	const refuse = (): BodyRead => ({
 		refusal: reply(malformed?.status ?? 400, { error: malformed?.error ?? INVALID_JSON_MESSAGE })
 	});
@@ -293,9 +307,12 @@ async function readJsonBody(
 		return lenient ? { value: null } : refuse();
 	}
 	if (!text.trim()) {
-		if (lenient) return { value: null };
-		// Default: an empty body is {}. A route that pins its own copy threw on it too, so it refuses.
-		return malformed ? refuse() : { value: {} };
+		// 'strict' refuses an empty/whitespace body exactly like malformed JSON. 'json' reads it as
+		// {} — unless the route pinned its own copy, whose legacy reader threw on an empty body too.
+		// 'empty-object' always reads {} and leaves junk to the schema.
+		if (mode === 'lenient') return { value: null };
+		if (mode === 'strict' || (mode === 'json' && malformed)) return refuse();
+		return { value: {} };
 	}
 	try {
 		// SAFETY: JSON.parse only ever produces JsonValue-shaped data.

@@ -10,13 +10,15 @@
  * adapters meet a ctx: `appCtx` for production and `goldenCtx`
  * (./testing/goldenCtx.server.ts) for the `/api` goldens.
  *
- * TRANSITION BRIDGES (K-15): identity's two ports are backed by the legacy
- * functions until their owning modules port, because W1 (identity's S5+S6)
- * runs before calendar's and sponsored's S5:
+ * TRANSITION BRIDGES (K-15; each names the module whose S5 replaces it):
+ * identity's two ports are backed by the legacy functions until their owning
+ * modules port, because identity's S5+S6 ran before calendar's and sponsored's:
  * - `calendarAccess` → legacy `getAccessibleCalendarIds` (db/actions/calendarScope).
  *   `calendar`'s S5 exports the real adapter and replaces this block.
  * - `adConsent` → legacy `getAdConsentRecords`/`recordAdConsentChange`
  *   (services/adConsentService). `sponsored`'s S5 exports the real adapter.
+ * Both must keep reading today's rows so the frozen identity goldens see the
+ * calendars and consent records another module owns.
  *
  * Doc: docs/rewrite/playbooks/add-a-port.md#domain-ports
  */

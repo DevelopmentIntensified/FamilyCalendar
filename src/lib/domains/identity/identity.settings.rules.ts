@@ -1,14 +1,13 @@
 /**
  * identity settings rules: the calendar-settings vocabularies, the page
- * defaults, the `PATCH /api/me/settings` validator, the merge onto the stored
- * row, the default-calendar decision, the client view and the write allowlist.
+ * defaults, the `PATCH /api/me/settings` validator, the new-row builder, the
+ * default-calendar decision, the client view and the write allowlist.
  *
  * Nothing here reads the clock, the environment or the database (R4/R5). The
  * zone check takes no "now": a zone's validity does not depend on the instant.
  *
  * Doc: ./README.md#invariants
  */
-import { DateTime } from 'luxon';
 import type {
 	CalendarSettingsInput,
 	CalendarSettingsPatch,
@@ -80,17 +79,33 @@ export const ACCOUNT_SETTINGS_DEFAULTS = {
 
 const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
+/**
+ * An IANA identifier shape: a name, optionally path-like, never a bare fixed
+ * offset (`+05:00`, which ICU accepts as a zone but no calendar reader does).
+ */
+const IANA_ZONE_PATTERN = /^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+)*$/;
+
 type SettingsPatchField = (typeof SETTINGS_PATCH_FIELDS)[number];
 type SettingsWritableField = (typeof SETTINGS_WRITABLE_FIELDS)[number];
 
 /**
- * A zone is valid when Luxon can set it (legacy `DateTime.local().setZone(z).isValid`).
- * That is not IANA membership: `local`, `system`, `default`, `UTC+5` and `gmt`
- * all pass and are stored verbatim (Q-107 narrows this after S6). The base
- * instant is fixed because validity never depends on it.
+ * A zone is valid when it is an IANA name (aliases and `Etc/…` included) or
+ * `UTC`, whatever the casing (Q-107 B): ICU's `timeZone` set is the tz
+ * database, and it refuses Luxon's server-relative pseudo-zones (`local`,
+ * `system`, `default`) and its fixed-offset forms (`UTC+5`). Legacy accepted
+ * those through `DateTime.local().setZone(z).isValid` and stored them verbatim,
+ * so `local` followed the server's zone instead of the person's; they now get
+ * the same `400 Invalid timeZone` as an unknown name. `gmt` stays accepted on
+ * purpose: ICU resolves it to GMT/UTC, never to the server's zone (sheet Note).
  */
-export function isLuxonTimeZone(zone: string): boolean {
-	return DateTime.fromMillis(0).setZone(zone).isValid;
+export function isIanaTimeZone(zone: string): boolean {
+	if (!IANA_ZONE_PATTERN.test(zone)) return false;
+	try {
+		new Intl.DateTimeFormat('en-US', { timeZone: zone });
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /** The outcome of validating a PATCH body: the patch, or the legacy 400 copy. */
@@ -122,7 +137,7 @@ export function calendarSettingsPatch(body: unknown): CalendarSettingsPatchResul
 	}
 	if ('timeZone' in body) {
 		const value = body.timeZone;
-		if (typeof value !== 'string' || !isLuxonTimeZone(value)) return refuse('Invalid timeZone');
+		if (typeof value !== 'string' || !isIanaTimeZone(value)) return refuse('Invalid timeZone');
 		patch.timeZone = value;
 	}
 	if ('color' in body) {
@@ -153,28 +168,25 @@ export function calendarSettingsPatch(body: unknown): CalendarSettingsPatchResul
 }
 
 /**
- * The full set a PATCH saves: the stored row (or the page defaults when there
- * is none) with every null backfilled from the defaults, then the patch on top
- * (`settings/+server.ts:102-115`). A sparse sign-up row therefore gets its
- * `color` and `syncEventsToFamilyCalendar` filled by its first PATCH (Q-108
- * changes that after S6). `autoParseEventDetails` / `showDailyVerse` fall back
- * to their column defaults, which are not page defaults.
+ * The row a save CREATES when the person had none: the page defaults (plus the
+ * two column defaults the page does not offer), then the patch on top. Only
+ * the insert path needs a full row — required columns such as `weekStart` and
+ * `timeZone` have no database default of their own. A PATCH on an existing row
+ * writes only the keys it sent (Q-108 B), so it never backfills a sparse
+ * sign-up row's nulls.
  */
-export function mergeCalendarSettings(
-	stored: StoredCalendarSettings | null,
-	patch: CalendarSettingsPatch
-): CalendarSettingsInput {
+export function newCalendarSettings(patch: CalendarSettingsPatch): CalendarSettingsInput {
 	return {
-		weekStart: stored?.weekStart ?? ACCOUNT_SETTINGS_DEFAULTS.weekStart,
-		timeZone: stored?.timeZone ?? ACCOUNT_SETTINGS_DEFAULTS.timeZone,
-		color: stored?.color ?? ACCOUNT_SETTINGS_DEFAULTS.color,
-		defaultView: stored?.defaultView ?? ACCOUNT_SETTINGS_DEFAULTS.defaultView,
-		defaultCalendarId: stored?.defaultCalendarId ?? null,
-		syncEventsToFamilyCalendar: stored?.syncEventsToFamilyCalendar ?? false,
-		autoParseEventDetails: stored?.autoParseEventDetails ?? true,
-		showDailyVerse: stored?.showDailyVerse ?? false,
-		showAdsAsEvents: stored?.showAdsAsEvents ?? false,
-		...patch
+		weekStart: patch.weekStart ?? ACCOUNT_SETTINGS_DEFAULTS.weekStart,
+		timeZone: patch.timeZone ?? ACCOUNT_SETTINGS_DEFAULTS.timeZone,
+		color: patch.color ?? ACCOUNT_SETTINGS_DEFAULTS.color,
+		defaultView: patch.defaultView ?? ACCOUNT_SETTINGS_DEFAULTS.defaultView,
+		defaultCalendarId: patch.defaultCalendarId ?? null,
+		syncEventsToFamilyCalendar:
+			patch.syncEventsToFamilyCalendar ?? ACCOUNT_SETTINGS_DEFAULTS.syncEventsToFamilyCalendar,
+		autoParseEventDetails: patch.autoParseEventDetails ?? true,
+		showDailyVerse: patch.showDailyVerse ?? false,
+		showAdsAsEvents: patch.showAdsAsEvents ?? ACCOUNT_SETTINGS_DEFAULTS.showAdsAsEvents
 	};
 }
 
@@ -190,14 +202,30 @@ export function defaultCalendarToCheck(patch: CalendarSettingsPatch): string | n
 }
 
 /**
- * What a client sees: the page defaults for no row, else the row without
- * `verseTranslation` (no reader since Q-031/Q-032; the column stays).
+ * What a client sees (Q-108 B): the page defaults when there is no row, else
+ * the row without `verseTranslation` (no reader since Q-031/Q-032; the column
+ * stays) and with every null page column answered as its default. A sign-up
+ * row `{userId, timeZone}` therefore answers `color:'#3b82f6'` and
+ * `syncEventsToFamilyCalendar:false`, exactly like a person with no row —
+ * one merged view, not two answers for "never set". Columns the page does not
+ * offer (`autoParseEventDetails`, `showDailyVerse`,
+ * `hiddenDashboardModules`) are echoed as stored.
  */
 export function calendarSettingsView(stored: StoredCalendarSettings | null): CalendarSettingsView {
 	if (!stored) return ACCOUNT_SETTINGS_DEFAULTS;
 	const { verseTranslation: _stripped, ...view } = stored;
 	void _stripped;
-	return view;
+	return {
+		...view,
+		weekStart: view.weekStart ?? ACCOUNT_SETTINGS_DEFAULTS.weekStart,
+		timeZone: view.timeZone ?? ACCOUNT_SETTINGS_DEFAULTS.timeZone,
+		color: view.color ?? ACCOUNT_SETTINGS_DEFAULTS.color,
+		defaultView: view.defaultView ?? ACCOUNT_SETTINGS_DEFAULTS.defaultView,
+		defaultCalendarId: view.defaultCalendarId ?? ACCOUNT_SETTINGS_DEFAULTS.defaultCalendarId,
+		syncEventsToFamilyCalendar:
+			view.syncEventsToFamilyCalendar ?? ACCOUNT_SETTINGS_DEFAULTS.syncEventsToFamilyCalendar,
+		showAdsAsEvents: view.showAdsAsEvents ?? ACCOUNT_SETTINGS_DEFAULTS.showAdsAsEvents
+	};
 }
 
 /** The subset of a settings write the allowlist lets through. */

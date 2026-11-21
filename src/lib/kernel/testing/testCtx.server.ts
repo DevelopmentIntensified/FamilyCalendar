@@ -47,10 +47,16 @@ export type TestCtx = Ctx & {
 	readonly http: MemoryHttp;
 };
 
+/** The pepper `testCtx()` hashes email codes with; tests that seed a digest use it too. */
+export const TEST_CODE_PEPPER = 'test-code-pepper';
+
 export type TestCtxOverrides = {
 	readonly db?: Db;
 	readonly now?: string;
 	readonly cronSecret?: string | null;
+	readonly sessionSecret?: string;
+	readonly codePepper?: string;
+	readonly production?: boolean;
 };
 
 export function testCtx(overrides: TestCtxOverrides = {}): TestCtx {
@@ -70,8 +76,10 @@ export function testCtx(overrides: TestCtxOverrides = {}): TestCtx {
 		faults: memoryFaults(),
 		config: {
 			cronSecret: overrides.cronSecret ?? 'test-cron-secret',
+			sessionSecret: overrides.sessionSecret ?? 'test-session-secret',
+			codePepper: overrides.codePepper ?? TEST_CODE_PEPPER,
+			production: overrides.production ?? false,
 			mailFrom: 'noReply@familyplanz.com',
-			sessionSecret: 'test-session-secret',
 			vapidPublicKey: null,
 			vapidPrivateKey: null,
 			vapidSubject: 'mailto:admin@familyplanz.com',

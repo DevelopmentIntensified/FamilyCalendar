@@ -18,7 +18,7 @@ export const API_TOKEN_PREFIX = 'fp_';
 /** Random bytes per token: 256 bits, 43 base64url characters. */
 export const API_TOKEN_BYTES = 32;
 
-/** The longest name `POST /api/me/api-tokens` keeps, in UTF-16 units (Q-109). */
+/** The longest name `POST /api/me/api-tokens` keeps, in code points (Q-109). */
 export const API_TOKEN_NAME_MAX = 60;
 
 /** The plaintext for `API_TOKEN_BYTES` random bytes: `fp_` + unpadded base64url. */
@@ -35,12 +35,13 @@ export function isApiTokenFormat(token: string): boolean {
 }
 
 /**
- * The name a token is stored under: trimmed, then cut at 60 UTF-16 units
- * (`name.trim().slice(0, 60)`, `accountData.ts:429-443`). The cut can split an
- * emoji (Postgres stores the lone half as U+FFFD) and keeps whitespace that
- * sits before it; Q-109 moves it to code points after S6. `''` means blank,
- * which the wire refuses.
+ * The name a token is stored under: cut at 60 CODE POINTS, then trimmed
+ * (Q-109 B). Legacy did `name.trim().slice(0, 60)` on UTF-16 units
+ * (`accountData.ts:429-443`), which split an emoji straddling unit 60 (Postgres
+ * stored the lone half as U+FFFD) and kept whitespace that sat before the cut;
+ * a code-point cut never splits a character, and the trim after it drops the
+ * whitespace the cut left at the end. `''` means blank, which the wire refuses.
  */
 export function apiTokenName(raw: string): string {
-	return raw.trim().slice(0, API_TOKEN_NAME_MAX);
+	return Array.from(raw).slice(0, API_TOKEN_NAME_MAX).join('').trim();
 }

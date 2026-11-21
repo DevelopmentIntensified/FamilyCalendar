@@ -9,7 +9,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { isLuxonTimeZone } from './identity.settings.rules';
+import { DateTime } from 'luxon';
 
 /**
  * Guests are user rows whose email is a generated placeholder at this
@@ -106,10 +106,14 @@ export function touchDue(lastActiveAt: Date | null | undefined, now: Date): bool
 }
 
 /**
- * The stored zone when Luxon accepts it, else `undefined` (= server-local, a
- * transitional fallback). Feeds every cursor pin (#214).
+ * The stored zone when Luxon can resolve it, else `undefined` (= server-local,
+ * a transitional fallback). Feeds every cursor pin (#214).
+ *
+ * Deliberately permissive, unlike `isIanaTimeZone` (Q-107): rows written
+ * before that fix may hold `local`, `system`, `default` or `UTC+5`, and every
+ * reader must resolve them exactly as before rather than dropping the zone.
  */
 export function zoneFromStored(timeZone: string | null | undefined): string | undefined {
-	if (!timeZone || !isLuxonTimeZone(timeZone)) return undefined;
-	return timeZone;
+	if (!timeZone) return undefined;
+	return DateTime.fromMillis(0).setZone(timeZone).isValid ? timeZone : undefined;
 }

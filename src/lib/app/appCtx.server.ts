@@ -35,30 +35,23 @@ import { createFetchOutboundHttp } from '$lib/kernel/http/fetchOutboundHttp.serv
 import { systemIds } from '$lib/kernel/ids/ids';
 import { createResendMailer } from '$lib/kernel/mail/resendMailer.server';
 import { systemClock } from '$lib/kernel/time/clock';
+import { resolveCodePepper, resolveSessionSecret } from '$lib/domains/identity/index.server';
 import { wirePorts } from './ports.server';
 import { createPushTransport } from './pushTransport.server';
+
+const production = process.env.NODE_ENV === 'production';
+
+/** Production without `BETTER_AUTH_SECRET` refuses to boot (identity's rule). */
+const sessionSecret = resolveSessionSecret(process.env.BETTER_AUTH_SECRET, production);
+
+/** Production without `EMAILSECRET` refuses to boot (identity's Q-117 rule). */
+const codePepper = resolveCodePepper(process.env.EMAILSECRET, production);
 
 const mailFrom = process.env.NOREPLYEMAIL ?? '';
 const vapidSubject = process.env.VAPID_SUBJECT ?? 'mailto:admin@familyplanz.com';
 const cerebrasModel = process.env.CEREBRAS_MODEL || 'gpt-oss-120b';
 /** The legacy geocoder's `User-Agent`, unchanged (`api/location-search/+server.ts`). */
 const userAgent = 'FamilyPlanz/1.0 (test@familyplanz.com)';
-const DEV_FALLBACK_SECRET = 'better-auth-placeholder-secret-change-me';
-
-/**
- * `BETTER_AUTH_SECRET` with the legacy `auth.ts` contract: a production cold
- * start without one fails loudly instead of signing forgeable cookies; every
- * other environment keeps the placeholder secret so zero-env builds run.
- */
-function sessionSecret(): string {
-	const secret = process.env.BETTER_AUTH_SECRET;
-	if (!secret && process.env.NODE_ENV === 'production') {
-		throw new Error(
-			'BETTER_AUTH_SECRET is required in production — refusing to sign sessions with the placeholder key.'
-		);
-	}
-	return secret ?? DEV_FALLBACK_SECRET;
-}
 
 function fileFault(fault: Fault): void {
 	try {
@@ -100,8 +93,10 @@ export const appCtx = wirePorts({
 	faults: { report: fileFault },
 	config: {
 		cronSecret: process.env.CRON_SECRET ?? null,
+		sessionSecret,
+		codePepper,
+		production,
 		mailFrom,
-		sessionSecret: sessionSecret(),
 		vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
 		vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? null,
 		vapidSubject,
