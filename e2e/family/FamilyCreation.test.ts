@@ -1,21 +1,14 @@
-import { test, expect, type Page } from '@playwright/test';
-import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { db } from '../../src/lib/server/db';
+import { test, expect } from '@playwright/test';
 import {
-	calendars,
-	users,
-	sessions,
-	userSettings,
-	events,
+	codes,
+	createNewUser,
+	db,
+	eq,
 	families,
 	familyMembers,
-	accounts,
-	subscriptions,
-	codes
-} from '../../src/lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '../../src/lib/server/utils/createNewUser';
-import { lucia } from '$lib/server/auth';
+	loginWithUserIdSession,
+	teardownTestUser
+} from '../testUtils';
 
 const firstName = 'test';
 const lastName = 'createfamily';
@@ -33,24 +26,9 @@ const memberEmail = `delivered+nanaray${Date.now()}@resend.dev`;
 let uid = '';
 let memberUid = '';
 
-async function loginWithSession(page: Page, userId: string) {
-	const session = await lucia.createSession(userId, {});
-	const cookie = lucia.createSessionCookie(session.id);
-	await page.context().addCookies([
-		{
-			name: cookie.name,
-			value: cookie.value,
-			domain: 'localhost',
-			path: '/',
-			httpOnly: cookie.attributes.httpOnly,
-			secure: cookie.attributes.secure,
-			sameSite: 'Lax'
-		}
-	]);
-}
-
 test.beforeEach(async () => {
-	await cleanupExistingUser();
+	await teardownTestUser({ email });
+	await teardownTestUser({ email: memberEmail });
 	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 	await db.delete(codes).where(eq(codes.email, email));
@@ -62,47 +40,12 @@ test.beforeEach(async () => {
 });
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (user[0]) {
-		await cleanupUserData(user[0].id);
-		await db.delete(users).where(eq(users.id, user[0].id));
-		await deleteCodesByEmail(email);
-	}
-	const member = await db.select().from(users).where(eq(users.email, memberEmail));
-	if (member[0]) {
-		await cleanupUserData(member[0].id);
-		await db.delete(users).where(eq(users.id, member[0].id));
-		await deleteCodesByEmail(memberEmail);
-	}
+	await teardownTestUser({ email });
+	await teardownTestUser({ email: memberEmail });
 });
 
-async function cleanupExistingUser() {
-	const existingUser = await db.select().from(users).where(eq(users.email, email));
-	if (existingUser[0]) {
-		await cleanupUserData(existingUser[0].id);
-		await db.delete(users).where(eq(users.id, existingUser[0].id));
-		await deleteCodesByEmail(email);
-	}
-	const existingMember = await db.select().from(users).where(eq(users.email, memberEmail));
-	if (existingMember[0]) {
-		await cleanupUserData(existingMember[0].id);
-		await db.delete(users).where(eq(users.id, existingMember[0].id));
-		await deleteCodesByEmail(memberEmail);
-	}
-}
-
-async function cleanupUserData(userId: string) {
-	await db.delete(events).where(eq(events.ownerId, userId));
-	await db.delete(calendars).where(eq(calendars.ownerId, userId));
-	await db.delete(userSettings).where(eq(userSettings.userId, userId));
-	await db.delete(sessions).where(eq(sessions.userId, userId));
-	await db.delete(familyMembers).where(eq(familyMembers.userId, userId));
-	await db.delete(subscriptions).where(eq(subscriptions.userId, userId));
-	await db.delete(accounts).where(eq(accounts.userId, userId));
-}
-
 test('Create family page loads', async ({ page }) => {
-	await loginWithSession(page, uid);
+	await loginWithUserIdSession(page, uid);
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 
@@ -112,7 +55,7 @@ test('Create family page loads', async ({ page }) => {
 });
 
 test('Create family page previews the family and counts the plan usage', async ({ page }) => {
-	await loginWithSession(page, uid);
+	await loginWithUserIdSession(page, uid);
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 
@@ -131,7 +74,7 @@ test('Create family page previews the family and counts the plan usage', async (
 });
 
 test('Create family form validation', async ({ page }) => {
-	await loginWithSession(page, uid);
+	await loginWithUserIdSession(page, uid);
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 
@@ -140,7 +83,7 @@ test('Create family form validation', async ({ page }) => {
 });
 
 test('Create family with name only', async ({ page }) => {
-	await loginWithSession(page, uid);
+	await loginWithUserIdSession(page, uid);
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 
@@ -155,7 +98,7 @@ test('Create family with name only', async ({ page }) => {
 });
 
 test('Create family with the default color', async ({ page }) => {
-	await loginWithSession(page, uid);
+	await loginWithUserIdSession(page, uid);
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 
@@ -172,7 +115,7 @@ test('Create family with the default color', async ({ page }) => {
 });
 
 test('Create family with custom color', async ({ page }) => {
-	await loginWithSession(page, uid);
+	await loginWithUserIdSession(page, uid);
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 
@@ -190,7 +133,7 @@ test('Create family with custom color', async ({ page }) => {
 });
 
 test('Create family with members picked before the finish line', async ({ page }) => {
-	await loginWithSession(page, uid);
+	await loginWithUserIdSession(page, uid);
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 
@@ -224,7 +167,7 @@ test('Create family with members picked before the finish line', async ({ page }
 });
 
 test('Cancel returns to family list', async ({ page }) => {
-	await loginWithSession(page, uid);
+	await loginWithUserIdSession(page, uid);
 	await page.goto('/family/create');
 	await page.waitForLoadState('networkidle');
 

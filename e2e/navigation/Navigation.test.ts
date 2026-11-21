@@ -1,52 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { db } from '$lib/server/db';
-import { sessions, users, calendars, events, userSettings } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '$lib/server/utils/createNewUser';
-import { deleteAccount } from '$lib/server/db/actions/accounts';
-import { deleteUser } from '$lib/server/db/actions/users';
-import { deleteCodesByEmail } from '$lib/server/db/actions/codes';
-import { lucia } from '$lib/server/auth';
+import { createNewUser, getSessionCookie, teardownTestUser } from '../testUtils';
 
 const testEmail = 'delivered+navtest' + Date.now() + '@resend.dev';
 
-async function getSessionCookie(email: string) {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (!user[0]) throw new Error('User not found');
-	const userSessions = await db.select().from(sessions).where(eq(sessions.userId, user[0].id));
-	if (userSessions.length === 0) {
-		const session = await lucia.createSession(user[0].id, {});
-		return lucia.createSessionCookie(session.id);
-	}
-	return lucia.createSessionCookie(userSessions[0].id);
-}
-
 test.describe('Profile Dropdown', () => {
 	test.beforeAll(async () => {
-		const existing = await db.select().from(users).where(eq(users.email, testEmail));
-		if (existing[0]) {
-			await db.delete(events).where(eq(events.ownerId, existing[0].id));
-			await db.delete(calendars).where(eq(calendars.ownerId, existing[0].id));
-			await db.delete(userSettings).where(eq(userSettings.userId, existing[0].id));
-			await db.delete(sessions).where(eq(sessions.userId, existing[0].id));
-			await deleteCodesByEmail(testEmail);
-			await deleteAccount(testEmail);
-			await deleteUser(existing[0].id);
-		}
+		await teardownTestUser({ email: testEmail });
 		await createNewUser('Nav', 'Test', testEmail);
 	});
 
 	test.afterAll(async () => {
-		const user = await db.select().from(users).where(eq(users.email, testEmail));
-		if (user[0]) {
-			await db.delete(events).where(eq(events.ownerId, user[0].id));
-			await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-			await db.delete(userSettings).where(eq(userSettings.userId, user[0].id));
-			await db.delete(sessions).where(eq(sessions.userId, user[0].id));
-			await deleteCodesByEmail(testEmail);
-			await deleteAccount(testEmail);
-			await deleteUser(user[0].id);
-		}
+		await teardownTestUser({ email: testEmail });
 	});
 
 	test('Profile dropdown opens on click', async ({ page }) => {

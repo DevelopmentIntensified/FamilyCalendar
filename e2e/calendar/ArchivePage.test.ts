@@ -1,7 +1,4 @@
-import { test, expect, loginWithSession } from '../testUtils';
-import { db } from '$lib/server/db';
-import { calendars, events } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
+import { test, expect, calendars, db, eq, events, loginWithSession } from '../testUtils';
 
 function daysAgo(n: number) {
 	return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();

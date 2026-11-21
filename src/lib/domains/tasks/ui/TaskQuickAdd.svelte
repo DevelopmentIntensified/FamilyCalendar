@@ -25,15 +25,15 @@
 		categories: readonly string[];
 	}
 
-	let { state, categories }: Props = $props();
+	let { state: quickAdd, categories }: Props = $props();
 
 	let helpOpen = $state(false);
 
 	const previewDue = $derived(
-		state.quick?.dueDate
-			? formatTaskDue(state.quick.dueDate)
-			: state.dueDate
-				? formatTaskDue(`${state.dueDate}T23:59:00`)
+		quickAdd.quick?.dueDate
+			? formatTaskDue(quickAdd.quick.dueDate)
+			: quickAdd.dueDate
+				? formatTaskDue(`${quickAdd.dueDate}T23:59:00`)
 				: null
 	);
 	const categoriesMeta = $derived(
@@ -46,7 +46,7 @@
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
-		void state.add();
+		void quickAdd.add();
 	}
 </script>
 
@@ -116,8 +116,8 @@
 
 	<form onsubmit={submit} class="mt-3 space-y-2">
 		<MentionInput
-			value={state.title}
-			people={state.roster.map((member) => ({
+			value={quickAdd.title}
+			people={quickAdd.roster.map((member) => ({
 				id: member.userId,
 				firstName: member.firstName,
 				lastName: member.lastName
@@ -129,45 +129,45 @@
 				handle: '@family · the whole family',
 				glyph: '👪'
 			}}
-			onchange={(value) => state.setTitle(value)}
-			onsubmit={() => void state.add()}
+			onchange={(value) => quickAdd.setTitle(value)}
+			onsubmit={() => void quickAdd.add()}
 			placeholder="Buy milk tomorrow @maya  ·  or paste a list"
 			aria-label="New task"
 		/>
 
-		{#if !state.isBulk && state.quick}
+		{#if !quickAdd.isBulk && quickAdd.quick}
 			<p class="text-xs text-slate-500" aria-live="polite">
-				<span class="font-medium text-slate-700">{state.quick.title}</span>
+				<span class="font-medium text-slate-700">{quickAdd.quick.title}</span>
 				{#if previewDue}<span> · due {previewDue}</span>{/if}
-				{#if state.category.trim()}<span> · {state.category.trim()}</span>{/if}
+				{#if quickAdd.category.trim()}<span> · {quickAdd.category.trim()}</span>{/if}
 			</p>
-			{#if state.quick.hasInfo}
+			{#if quickAdd.quick.hasInfo}
 				<div class="flex flex-wrap items-center gap-1">
-					{#if state.quick.dueDate}<Pill tone="neutral" size="compact">due {formatTaskDue(state.quick.dueDate)}</Pill>{/if}
-					{#if state.quick.priority !== 'normal'}
-						<Pill tone="warning" size="compact">{state.quick.priority}</Pill>
+					{#if quickAdd.quick.dueDate}<Pill tone="neutral" size="compact">due {formatTaskDue(quickAdd.quick.dueDate)}</Pill>{/if}
+					{#if quickAdd.quick.priority !== 'normal'}
+						<Pill tone="warning" size="compact">{quickAdd.quick.priority}</Pill>
 					{/if}
-					{#if state.quick.assignedTo}
-						<Pill tone="accent" size="compact">for {state.memberName(state.quick.assignedTo)}</Pill>
+					{#if quickAdd.quick.assignedTo}
+						<Pill tone="accent" size="compact">for {quickAdd.memberName(quickAdd.quick.assignedTo)}</Pill>
 					{/if}
-					{#each state.quick.tags as tag (tag)}
+					{#each quickAdd.quick.tags as tag (tag)}
 						<Pill tone="accent" size="compact">#{tag}</Pill>
 					{/each}
-					{#if state.quick.recurrenceFrequency}
-						<Pill tone="neutral" size="compact">↻ every {state.quick.recurrenceFrequency}</Pill>
+					{#if quickAdd.quick.recurrenceFrequency}
+						<Pill tone="neutral" size="compact">↻ every {quickAdd.quick.recurrenceFrequency}</Pill>
 					{/if}
-					{#if state.quick.visibilityExplicit}
-						<Pill tone="neutral" size="compact">{state.quick.visibility}</Pill>
+					{#if quickAdd.quick.visibilityExplicit}
+						<Pill tone="neutral" size="compact">{quickAdd.quick.visibility}</Pill>
 					{/if}
-					{#if state.quick.familyTask}<Pill tone="family" size="compact">Family</Pill>{/if}
+					{#if quickAdd.quick.familyTask}<Pill tone="family" size="compact">Family</Pill>{/if}
 				</div>
 			{/if}
 		{/if}
 
-		{#if state.isBulk}
+		{#if quickAdd.isBulk}
 			<p class="text-xs text-slate-500" aria-live="polite">
-				{state.activeRows.length}
-				{state.activeRows.length === 1 ? 'task' : 'tasks'} parsed{state.bulkConfirming
+				{quickAdd.activeRows.length}
+				{quickAdd.activeRows.length === 1 ? 'task' : 'tasks'} parsed{quickAdd.bulkConfirming
 					? ' — press Confirm to add'
 					: ''}
 			</p>
@@ -175,13 +175,13 @@
 				class="max-h-48 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/80 p-1.5"
 				aria-live="polite"
 			>
-				{#each state.bulkRows as { record, parsed } (record.text)}
-					{@const skipped = state.skippedKeys.includes(record.text)}
+				{#each quickAdd.bulkRows as { record, parsed } (record.text)}
+					{@const skipped = quickAdd.skippedKeys.includes(record.text)}
 					<li class="flex items-start gap-2 rounded-lg px-1.5 py-1 {skipped ? 'opacity-40' : ''}">
 						<input
 							type="checkbox"
 							checked={!skipped}
-							onchange={() => state.toggleSkip(record.text)}
+							onchange={() => quickAdd.toggleSkip(record.text)}
 							aria-label={skipped ? `Include ${parsed.title}` : `Skip ${parsed.title}`}
 							class="mt-1 h-4 w-4 shrink-0 accent-primary-600"
 						/>
@@ -204,17 +204,17 @@
 						<div class="flex shrink-0 items-center gap-1">
 							<button
 								type="button"
-								onclick={() => state.createRow(record.text, record.text)}
-								disabled={state.rowBusyKey === record.text || !!parsed.unknownMember}
+								onclick={() => quickAdd.createRow(record.text, record.text)}
+								disabled={quickAdd.rowBusyKey === record.text || !!parsed.unknownMember}
 								aria-label={`Create task ${parsed.title}`}
 								title="Create this task"
 								class="rounded-md px-2 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-50 disabled:opacity-40"
 							>
-								{state.rowBusyKey === record.text ? '…' : 'Create'}
+								{quickAdd.rowBusyKey === record.text ? '…' : 'Create'}
 							</button>
 							<button
 								type="button"
-								onclick={() => state.removeRowLines(record.text)}
+								onclick={() => quickAdd.removeRowLines(record.text)}
 								aria-label={`Remove ${parsed.title} from the list`}
 								title="Remove from the list"
 								class="rounded-md px-1.5 py-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-600"
@@ -231,7 +231,7 @@
 			{#each [{ days: 0, label: 'Today' }, { days: 1, label: 'Tomorrow' }, { days: 7, label: 'Next week' }] as shortcut (shortcut.label)}
 				<button
 					type="button"
-					onclick={() => state.setQuickDate(shortcut.days)}
+					onclick={() => quickAdd.setQuickDate(shortcut.days)}
 					class="rounded-full px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
 				>
 					{shortcut.label}
@@ -239,24 +239,24 @@
 			{/each}
 			<input
 				type="date"
-				value={state.dueDate}
-				oninput={(event) => state.setDueDate(event.currentTarget.value)}
+				value={quickAdd.dueDate}
+				oninput={(event) => quickAdd.setDueDate(event.currentTarget.value)}
 				aria-label="Due date"
 				class="min-h-[32px] w-[9.5rem] rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600 focus:border-primary-500 focus:outline-none"
 			/>
 			<button
 				type="button"
-				onclick={() => state.toggleShowMore()}
-				aria-expanded={state.showMore}
+				onclick={() => quickAdd.toggleShowMore()}
+				aria-expanded={quickAdd.showMore}
 				class="text-xs text-slate-400 hover:text-slate-600"
 			>
-				{state.showMore ? 'Less' : 'More'}
+				{quickAdd.showMore ? 'Less' : 'More'}
 			</button>
 			<div class="ml-auto flex items-center gap-1.5">
-				{#if state.bulkConfirming && state.isBulk}
+				{#if quickAdd.bulkConfirming && quickAdd.isBulk}
 					<button
 						type="button"
-						onclick={() => state.cancelBulkConfirm()}
+						onclick={() => quickAdd.cancelBulkConfirm()}
 						class="min-h-[36px] rounded-lg px-3 text-xs font-medium text-slate-600 hover:bg-slate-100"
 					>
 						Back
@@ -264,36 +264,36 @@
 				{/if}
 				<button
 					type="submit"
-					disabled={state.adding || state.bulkAdding || !state.title.trim() || (state.isBulk && !!state.bulkBlocked)}
+					disabled={quickAdd.adding || quickAdd.bulkAdding || !quickAdd.title.trim() || (quickAdd.isBulk && !!quickAdd.bulkBlocked)}
 					class="min-h-[36px] rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
 				>
-					{state.bulkAdding
-						? `Adding… ${state.bulkDone}/${state.activeRows.length}`
-						: state.isBulk
-							? state.bulkConfirming
-								? `Confirm ${state.activeRows.length}`
-								: `Add ${state.activeRows.length}`
+					{quickAdd.bulkAdding
+						? `Adding… ${quickAdd.bulkDone}/${quickAdd.activeRows.length}`
+						: quickAdd.isBulk
+							? quickAdd.bulkConfirming
+								? `Confirm ${quickAdd.activeRows.length}`
+								: `Add ${quickAdd.activeRows.length}`
 							: 'Add'}
 				</button>
 			</div>
 		</div>
 
-		{#if state.showMore}
+		{#if quickAdd.showMore}
 			<div class="mt-2 max-w-xs">
 				<TaskCategoryField
 					id="add-task-category"
-					value={state.category}
+					value={quickAdd.category}
 					{categories}
 					compact
-					onchange={(value) => state.setCategory(value)}
+					onchange={(value) => quickAdd.setCategory(value)}
 				/>
 			</div>
 			<label class="mt-2 flex items-center gap-2 text-xs text-slate-500">
 				Who can see this
 				<select
-					value={state.visibility}
+					value={quickAdd.visibility}
 					onchange={(event) =>
-						state.setVisibility(event.currentTarget.value === 'public' ? 'public' : 'private')}
+						quickAdd.setVisibility(event.currentTarget.value === 'public' ? 'public' : 'private')}
 					aria-label="Who can see this task"
 					class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-primary-500 focus:outline-none"
 				>
@@ -303,14 +303,14 @@
 			</label>
 		{/if}
 
-		{#if state.bulkBlocked && state.isBulk}
+		{#if quickAdd.bulkBlocked && quickAdd.isBulk}
 			<p class="mt-2 text-xs font-medium text-red-600" role="alert">
-				Unknown member {state.bulkBlocked} — fix the spelling before adding.
+				Unknown member {quickAdd.bulkBlocked} — fix the spelling before adding.
 			</p>
 		{/if}
-		{#if state.quickUnknownMember && !state.isBulk}
+		{#if quickAdd.quickUnknownMember && !quickAdd.isBulk}
 			<p class="mt-2 text-xs font-medium text-red-600" role="alert">
-				Unknown member {state.quickUnknownMember} — check the spelling or pick someone from your family.
+				Unknown member {quickAdd.quickUnknownMember} — check the spelling or pick someone from your family.
 			</p>
 		{/if}
 	</form>
@@ -345,9 +345,9 @@
 						{#each category.templates as template (template.id)}
 							<button
 								type="button"
-								onclick={() => state.addSmartTask(template)}
-								disabled={state.busyTemplateId === template.id}
-								title={state.cadenceNote(template)}
+								onclick={() => quickAdd.addSmartTask(template)}
+								disabled={quickAdd.busyTemplateId === template.id}
+								title={quickAdd.cadenceNote(template)}
 								class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-50 {category
 									.meta.color}"
 							>

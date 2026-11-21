@@ -89,6 +89,7 @@ Everything other modules and routes may use, grouped by entry file. One line eac
 - `index.ts`:
   - `TaskWire`, `TaskWithTagsWire`, `TaskCategoryWire`, `FocusCommandWire`, `FocusSessionWire` — the `/api` shapes (absent-vs-null documented per field).
   - `TaskCreateBody`, `TaskUpdateBody`, `TaskCategoryNameBody`, `FocusCommandBody`, `FocusSessionStartBody`, `FocusSessionEndBody` — zod schemas for every request body, with the legacy error wording.
+  - `TaskCreatePayload`, `TaskUpdatePayload` — what a CALLER sends to those two routes (`Partial<z.input>` of the schema): the browser sets only the fields it has, and the schema refines or refuses the rest.
   - `normalizeTags`, `normalizeTaskVisibility` — the tag and visibility rules.
   - `normalizeTaskPriority` — returns parsing's `QuickAddPriority` (the quick-add result's own type; the tone map stays with the pill in `kernel/ui`), so a Task's priority and a parsed title's priority are ONE concept.
   - the recurrence frequency has NO home here: it is kernel/time's `RecurrenceFrequency` (`scheduleStep`'s closed set), the one type calendar and parsing use too — a Task's `recurrenceFrequency`, an Event's and a parsed cadence are one vocabulary.

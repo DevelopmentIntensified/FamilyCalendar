@@ -9,7 +9,7 @@
  * editor; the legacy copy stays for `/family/tasks` until familyHub is ported).
  */
 
-import type { TaskUpdateBody } from './tasks.contract';
+import type { TaskUpdatePayload } from './tasks.contract';
 
 /** What the editor form holds, one field per control. */
 export type TaskEditDraft = {
@@ -88,12 +88,12 @@ export function buildTaskEditPayload(
 	target: TaskEditTarget,
 	draft: TaskEditDraft,
 	currentUserId: string | undefined
-): TaskUpdateBody {
+): TaskUpdatePayload {
 	const previousAssignee = target.assignedTo ?? '';
 	const assignedTo: string | null = draft.assignedTo || null;
 	const assigneeChanged = (assignedTo ?? '') !== previousAssignee;
 
-	const payload: TaskUpdateBody = {
+	const payload: TaskUpdatePayload = {
 		title: draft.title.trim(),
 		notes: draft.notes.trim() || null,
 		dueDate: taskInputToIso(draft.due),

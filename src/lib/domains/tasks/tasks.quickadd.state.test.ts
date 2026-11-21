@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import { memoryToasts } from '$lib/kernel/client/toasts.svelte';
 import type { TasksApi } from './tasks.api';
-import type { TaskPageRow, TaskWire } from './tasks.contract';
+import type { TaskPageRow, TaskWithTagsWire } from './tasks.contract';
 import { TaskQuickAddState } from './tasks.quickadd.state.svelte';
 import { buildTaskRow } from './tasks.ui.fixtures';
 
 const NOW = new Date(2026, 8, 15, 12, 0, 0, 0);
 const AT = '2026-09-01T10:00:00.000Z';
 
-function wireTask(overrides: Partial<TaskWire> = {}): TaskWire {
+function wireTask(overrides: Partial<TaskWithTagsWire> = {}): TaskWithTagsWire {
 	return {
 		id: 'new-1',
 		title: 'Buy milk',
@@ -30,6 +30,7 @@ function wireTask(overrides: Partial<TaskWire> = {}): TaskWire {
 		focusStartedAt: null,
 		category: null,
 		createdAt: AT,
+		tags: [],
 		...overrides
 	};
 }
@@ -72,7 +73,7 @@ function buildState(options: { api?: TasksApi; familyId?: string | null; onError
 
 describe('TaskQuickAddState — one task', () => {
 	it('parses the title, posts the body and toasts the parsed title', async () => {
-		const create = vi.fn(async () => ({ ok: true as const, data: { success: true as const, task: wireTask() } }));
+		const create = vi.fn<TasksApi['create']>(async () => ({ ok: true as const, data: { success: true as const, task: wireTask() } }));
 		const added: TaskPageRow[] = [];
 		const { state, toasts } = buildState({ api: fakeApi({ create }), onAdded: (row) => added.push(row) });
 		state.setTitle('Buy milk @maya');
@@ -121,7 +122,7 @@ describe('TaskQuickAddState — one task', () => {
 	});
 
 	it('sends the picker date and a named category', async () => {
-		const create = vi.fn(async () => ({ ok: true as const, data: { success: true as const, task: wireTask() } }));
+		const create = vi.fn<TasksApi['create']>(async () => ({ ok: true as const, data: { success: true as const, task: wireTask() } }));
 		const { state } = buildState({ api: fakeApi({ create }) });
 		state.setTitle('Buy milk');
 		state.setDueDate('2026-09-20');
@@ -174,7 +175,7 @@ describe('TaskQuickAddState — paste a list', () => {
 	});
 
 	it('creates one row and drops its line', async () => {
-		const create = vi.fn(async () => ({ ok: true as const, data: { success: true as const, task: wireTask() } }));
+		const create = vi.fn<TasksApi['create']>(async () => ({ ok: true as const, data: { success: true as const, task: wireTask() } }));
 		const { state, toasts } = buildState({ api: fakeApi({ create }) });
 		state.setTitle(twoLines);
 		await state.createRow('Buy milk', 'Buy milk');
@@ -195,7 +196,7 @@ describe('TaskQuickAddState — paste a list', () => {
 
 describe('TaskQuickAddState — smart tasks', () => {
 	it('posts the template cadence with a due date at the end of today', async () => {
-		const create = vi.fn(async () => ({ ok: true as const, data: { success: true as const, task: wireTask() } }));
+		const create = vi.fn<TasksApi['create']>(async () => ({ ok: true as const, data: { success: true as const, task: wireTask() } }));
 		const { state, toasts } = buildState({ api: fakeApi({ create }) });
 		await state.addSmartTask({
 			id: 'car-oil',

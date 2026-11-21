@@ -255,7 +255,7 @@ export async function signUpWithPassword(
 	// resend path is the recovery. The address stays out of the log line.
 	try {
 		const mailed = await sendSignupVerificationCode(ctx, {
-			email: user.email,
+			email: input.email,
 			firstName: user.firstName,
 			lastName: user.lastName,
 			clientIp: input.clientIp,

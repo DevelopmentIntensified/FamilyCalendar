@@ -224,7 +224,7 @@ describe('resendSignupCode', () => {
 			lastName: 'Lovelace'
 		});
 
-		expect(await resendSignupCode(ctx, actorFromUser(person), { clientIp: '10.21.2.1' })).toEqual({
+		expect(await resendSignupCode(ctx, actorFromUser(person, 'session'), { clientIp: '10.21.2.1' })).toEqual({
 			sent: true
 		});
 		const rows = await codesFor(db, email);
@@ -235,7 +235,7 @@ describe('resendSignupCode', () => {
 
 		const verified = await seedUser(db, { email: 'verified@example.test', emailVerified: true });
 		expect(
-			await resendSignupCode(ctx, actorFromUser(verified), { clientIp: '10.21.2.2' })
+			await resendSignupCode(ctx, actorFromUser(verified, 'session'), { clientIp: '10.21.2.2' })
 		).toEqual({ sent: true });
 		expect(ctx.mail.outbox).toHaveLength(1);
 
@@ -246,18 +246,18 @@ describe('resendSignupCode', () => {
 			emailVerified: false
 		});
 		await expect(
-			resendSignupCode(ctx, actorFromUser(guest), { clientIp: '10.21.2.3' })
+			resendSignupCode(ctx, actorFromUser(guest, 'session'), { clientIp: '10.21.2.3' })
 		).rejects.toMatchObject({ code: 'unauthorized', message: 'Unauthorized' });
 
 		// 5 / 15 min per person + IP, and the IP budget does not block a new client.
 		for (let index = 0; index < 5; index += 1) {
-			await resendSignupCode(ctx, actorFromUser(person), { clientIp: '10.21.2.4' });
+			await resendSignupCode(ctx, actorFromUser(person, 'session'), { clientIp: '10.21.2.4' });
 		}
 		await expect(
-			resendSignupCode(ctx, actorFromUser(person), { clientIp: '10.21.2.4' })
+			resendSignupCode(ctx, actorFromUser(person, 'session'), { clientIp: '10.21.2.4' })
 		).rejects.toMatchObject({ code: 'tooMany' });
 		expect(
-			await resendSignupCode(ctx, actorFromUser(person), { clientIp: '10.21.2.5' })
+			await resendSignupCode(ctx, actorFromUser(person, 'session'), { clientIp: '10.21.2.5' })
 		).toEqual({ sent: true });
 	});
 });
@@ -497,7 +497,7 @@ describe('completeEmailSignupLink', () => {
 
 		// A registered signed-in person lands on the calendar untouched.
 		expect(
-			await completeEmailSignupLink(ctx, { token: 'anything', actor: actorFromUser(person) })
+			await completeEmailSignupLink(ctx, { token: 'anything', actor: actorFromUser(person, 'session') })
 		).toEqual({ outcome: 'already-signed-in', redirectTo: '/calendar/' });
 
 		// A LOGIN link can never be consumed as a sign-up link (kind tag).
