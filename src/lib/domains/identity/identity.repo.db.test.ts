@@ -687,6 +687,16 @@ describe('email codes', () => {
 		expect((await db.select().from(codes)).map((row) => row.code)).toEqual(['c']);
 	});
 
+	// Q-103: an email-change request replaces only its own kind, so the durable
+	// `reset_used` marker (and anything else) survives.
+	rollbackTest('deleteEmailCodesForEmail with a type clears that kind only', async (db) => {
+		await seedIdentityEmailCode({ code: 'a', email: 'mia@example.com', type: 'email_change' }, db);
+		await seedIdentityEmailCode({ code: 'b', email: 'mia@example.com', type: 'reset_used' }, db);
+		await seedIdentityEmailCode({ code: 'c', email: 'eve@example.com', type: 'email_change' }, db);
+		await deleteEmailCodesForEmail(db, 'mia@example.com', 'email_change');
+		expect((await db.select().from(codes)).map((row) => row.code).sort()).toEqual(['b', 'c']);
+	});
+
 	rollbackTest('deleteExpiredEmailCodes removes codes expired strictly before now', async (db) => {
 		await seedIdentityEmailCode(
 			{ code: 'expired', email: 'a@example.com', expiresAt: new Date('2026-04-01T11:59:59.999Z') },

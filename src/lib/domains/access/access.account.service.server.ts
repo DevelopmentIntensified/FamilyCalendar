@@ -151,8 +151,9 @@ export async function requestEmailChange(
 		html: `<h1>Your verification code is: ${code}</h1>
 <p>Or click this link to verify: <a href="${verifyUrl.toString()}">Verify Email</a></p>`
 	});
-	// A new request replaces the address's pending codes (legacy `deleteCodesByEmail`).
-	await discardEmailCodes(ctx, person.email);
+	// A new request replaces this address's pending change codes only (Q-103):
+	// `deleteCodesByEmail` took the reset marker with it, which revived a used link.
+	await discardEmailCodes(ctx, person.email, EMAIL_CHANGE_CODE_TYPE);
 	await issueEmailCode(ctx, {
 		code,
 		email: person.email,

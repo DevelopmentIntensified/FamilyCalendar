@@ -93,9 +93,11 @@ export async function findEmailCode(
  * Every code bound to one address, gone — an email-change request replaces the
  * address's pending codes (legacy `deleteCodesByEmail`). Takes the address, not
  * a key, because the request must clear codes of every kind it minted for it.
+ * Q-103: `type` narrows it to one kind, so an email-change request leaves the
+ * durable `reset_used` marker (and any sign-in code) alone.
  */
-export async function discardEmailCodes(ctx: Ctx, email: string): Promise<void> {
-	await deleteEmailCodesForEmail(ctx.db, email);
+export async function discardEmailCodes(ctx: Ctx, email: string, type?: string): Promise<void> {
+	await deleteEmailCodesForEmail(ctx.db, email, type);
 }
 
 /**

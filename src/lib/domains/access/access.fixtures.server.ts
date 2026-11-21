@@ -14,7 +14,6 @@ import type { Db } from '$lib/kernel/db/database.server';
 import {
 	accounts,
 	apiTokens,
-	authAccount,
 	authSession,
 	claimTokens,
 	codes
@@ -110,20 +109,6 @@ export async function seedAccessSession(
 		})
 		.returning();
 	return row;
-}
-
-/**
- * A Better Auth credential row, seeded from `users.passwordHash` by migration
- * 018. No sign-in path reads it today (Q-104), so nothing keeps it in step.
- */
-export async function seedAccessAuthAccount(userId: string, password: string) {
-	await testDb().insert(authAccount).values({
-		id: `auth-account-${uniqueSuffix()}`,
-		userId,
-		providerId: 'credential',
-		accountId: userId,
-		password
-	});
 }
 
 /** What a test controls when it seeds a Claim row. */

@@ -9,11 +9,12 @@
  *   then 5 sends / 15 min per `reset:<address>` + IP, then the lookup. An
  *   unknown or Anonymous Account address gets the same `{sent:true}` a real
  *   send returns — no enumeration oracle (#245).
- * - Reset: both fields, then the ≥8 length, then the HS256 signature, then the
- *   `email` claim, then the durable `used:<sha256(token)>` marker (a used link
- *   stays used until the token expires), then the account, then the marker
- *   write, the new hash, and "log out everywhere" (every session and every
- *   `fp_` token).
+ * - Reset: the 10 / 15 min per-IP cap (Q-066, both doors share it), both
+ *   fields, then the ≥8 length, then the HS256 signature, then the
+ *   `purpose` claim (Q-102: only a reset link passes) and the `email` claim,
+ *   then the durable `used:<sha256(token)>` marker (a used link stays used
+ *   until the token expires), then the account, then the marker write, the new
+ *   hash, and "log out everywhere" (every session and every `fp_` token).
  *
  * The signed-token seam is here because recovery is the flow that mints and
  * verifies the reset JWT; the email-change service reuses the two helpers. The
@@ -50,13 +51,28 @@ import {
 	RESET_INVALID_TOKEN_MESSAGE,
 	RESET_USED_MESSAGE
 } from './access.contract';
-import { readResetTokenPayload, resetTokenExpiry, RESET_LINK_TTL_MS } from './access.email.rules';
+import {
+	readResetTokenPayload,
+	resetTokenExpiry,
+	RESET_LINK_TTL_MS,
+	RESET_TOKEN_PURPOSE
+} from './access.email.rules';
 import { passwordResetRefusal, resetUsedMarker } from './access.password.rules';
 import { isRegisteredPerson } from './access.person.rules';
 
 /** 5 reset mails per address + IP inside 15 minutes (`forgot-password/+server.ts:54`). */
 export const RESET_REQUEST_LIMIT = 5;
 export const RESET_REQUEST_WINDOW_MS = 15 * 60 * 1000;
+
+/** 10 reset attempts per IP inside 15 minutes — both doors, one bucket (Q-066). */
+export const RESET_ATTEMPT_LIMIT = 10;
+export const RESET_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+/**
+ * The bucket both reset doors key on: the client address alone, no body
+ * dimension (`api/mobile/auth/reset/+server.ts:21-28`). The endpoints build the
+ * key with `clientKeyOf(request, RESET_ATTEMPT_SCOPE)`, exactly once.
+ */
+export const RESET_ATTEMPT_SCOPE = 'pw-reset-ip';
 
 /** The marker's kind: its own `codes.type`, so no sign-in code can stand in for it. */
 const RESET_MARKER_TYPE = 'reset_used';
@@ -147,7 +163,9 @@ export async function requestPasswordReset(
 
 	const token = await signEmailToken(
 		ctx,
-		{ email: input.email },
+		// Q-102: the purpose claim is what makes this token a reset token and no
+		// other `EMAILSECRET` JWT one.
+		{ email: input.email, purpose: RESET_TOKEN_PURPOSE },
 		new TimeSpan(RESET_LINK_TTL_MS / 60_000, 'm')
 	);
 	await ctx.mail.send({
@@ -164,18 +182,25 @@ export async function requestPasswordReset(
 export type ResetPasswordInput = {
 	readonly token: string;
 	readonly password: string;
+	/** `clientKeyOf(request, RESET_ATTEMPT_SCOPE)` — the caller builds it. */
+	readonly clientKey: string;
 };
 
 /**
- * `POST /api/mobile/auth/reset`: single-use, and a success ends every session
- * and every `fp_` token the account holds. The IP throttle the mobile wrapper
- * adds stays in that wrapper (Q-066: one limiter, moved here after S6) so this
- * service does not spend a second bucket.
+ * `POST /api/mobile/auth/reset` and the web `/forgot-password/reset`: single
+ * use, and a success ends every session and every `fp_` token the account
+ * holds. The 10 / 15 min per-IP cap lives here (Q-066) so both doors spend the
+ * same bucket, and it runs before the field checks exactly as the mobile
+ * wrapper did.
  */
 export async function resetPassword(
 	ctx: Ctx,
 	input: ResetPasswordInput
 ): Promise<{ success: true }> {
+	if (!ctx.limiter.allow(input.clientKey, RESET_ATTEMPT_LIMIT, RESET_ATTEMPT_WINDOW_MS)) {
+		throw tooMany(RATE_LIMIT_MESSAGE);
+	}
+
 	const refusal = passwordResetRefusal(input);
 	if (refusal === 'missing-fields') throw invalid(RESET_FIELDS_REQUIRED_MESSAGE);
 	if (refusal === 'short-password') throw invalid(PASSWORD_TOO_SHORT_MESSAGE);

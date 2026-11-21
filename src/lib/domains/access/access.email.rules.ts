@@ -28,6 +28,12 @@ export const LINK_CODE_TTL_MS = 15 * 60 * 1000;
 /** A password-reset link lives 60 minutes (`forgot-password/+server.ts:67-72`). */
 export const RESET_LINK_TTL_MS = 60 * 60 * 1000;
 
+/**
+ * The purpose claim every reset link carries (Q-102). No other `EMAILSECRET`
+ * JWT has it, so a sign-in link can never stand in for a reset link.
+ */
+export const RESET_TOKEN_PURPOSE = 'password_reset';
+
 /** The emailed code is always this many digits (`magicLink.ts:205`). */
 export const EMAIL_CODE_LENGTH = 8;
 
@@ -91,7 +97,7 @@ const MagicLinkBag = z.object({
 	redirectTo: z.unknown().optional()
 });
 
-const ResetTokenBag = z.object({ email: z.unknown().optional() });
+const ResetTokenBag = z.object({ purpose: z.unknown().optional(), email: z.unknown().optional() });
 
 function isMagicLinkKind(value: unknown): value is MagicLinkKind {
 	return MAGIC_LINK_KINDS.some((kind) => kind === value);
@@ -134,13 +140,15 @@ export function readMagicLinkPayload(payload: unknown, kind: MagicLinkKind): Mag
 }
 
 /**
- * Reads a password-reset JWT's payload. Legacy `isResetPayload`
- * (`reset/+server.ts:29-36`) asks only for an object with a string `email`:
- * an empty claim passes the shape and is refused later by the account lookup.
+ * Reads a password-reset JWT's payload. Q-102: the token must carry the reset
+ * purpose claim, so a sign-in link — same secret, same `email` claim — is not a
+ * reset token. An empty `email` claim still passes the shape and is refused
+ * later by the account lookup (legacy `isResetPayload`).
  */
 export function readResetTokenPayload(payload: unknown): { email: string } | null {
 	const bag = ResetTokenBag.safeParse(payload);
 	if (!bag.success) return null;
+	if (bag.data.purpose !== RESET_TOKEN_PURPOSE) return null;
 	const email: unknown = bag.data.email;
 	return typeof email === 'string' ? { email } : null;
 }

@@ -14,11 +14,12 @@
  *   malformed body is their own `Request body must be JSON` sentence, an empty
  *   body is refused the same way (`'lenient'`), and only the guest door treats
  *   a missing body as `{}` (`'empty-object'`);
- * - `forgot` and `reset` parse inside the legacy handler's own `try`, so a
- *   malformed body is their 500 copy, not a validation error (Q-062's answered
- *   fix changes these two with the golden first, after S6);
+ * - `forgot` and `reset` answer the house `400 {"error":"Invalid JSON"}` for a
+ *   body they cannot read (Q-062 B, `'strict'`): the legacy handlers parsed
+ *   inside their own `try`, and the 500 send copy they answered then is gone;
  * - the two page-code endpoints answer `{success:false,error}` — never the
- *   house `{error}` — because the sign-in screens read that envelope.
+ *   house `{error}` — because the sign-in screens read that envelope, and both
+ *   say the one generic `Unexpected error, please try again` (Q-064 B).
  *
  * The web-forwarded routes (`/login/*`, `/signup/*`, `/forgot-password*`) keep
  * their `{success:false,error}` envelopes where legacy did and answer the house
@@ -28,13 +29,12 @@
  *
  * Doc: ./README.md#public-interface
  */
-import { redirect } from '@sveltejs/kit';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { isAppError } from '$lib/kernel/errors/appError';
 import { endpoint, ok, reply } from '$lib/kernel/http/endpoint.server';
 import { clientKeyOf } from '$lib/kernel/ratelimit/rateLimiter';
 import type { JsonValue } from '$lib/kernel/validation/validators';
-import type { SessionCookie } from '$lib/domains/identity/index.server';
+import { blankSessionCookie, type SessionCookie } from '$lib/domains/identity/index.server';
 import {
 	CLAIM_SEND_FAILED_MESSAGE,
 	ChangeEmailBody,
@@ -52,9 +52,6 @@ import {
 	MobilePasswordBody,
 	MobileSignupBody,
 	MobileVerifyBody,
-	PAGE_LOGIN_ORPHAN_MESSAGE,
-	PAGE_SIGNUP_TAKEN_MESSAGE,
-	RATE_LIMIT_MESSAGE,
 	RESEND_FAILED_MESSAGE,
 	RESET_FAILED_MESSAGE,
 	ResetPasswordBody,
@@ -84,7 +81,11 @@ import {
 import { requestClaim } from './access.claim.service.server';
 import { requestEmailChange, signOut } from './access.account.service.server';
 import { stashGuestFromCookies } from './access.guestMerge.service.server';
-import { requestPasswordReset, resetPassword } from './access.recovery.service.server';
+import {
+	requestPasswordReset,
+	RESET_ATTEMPT_SCOPE,
+	resetPassword
+} from './access.recovery.service.server';
 
 // --- Boundary helpers -------------------------------------------------------
 
@@ -179,12 +180,21 @@ async function emailLinkAction(
 
 // --- `/api/logout` and the mobile door --------------------------------------
 
-/** `POST /api/logout` — 302 `/` whether or not a session existed; no cookie (Q-105). */
+/** `POST /api/logout` — 302 `/` whether or not a session existed, cookie cleared (Q-105). */
 export const logoutEndpoint = endpoint({
 	auth: 'optional',
 	handle: async ({ ctx, actor, event }) => {
 		if (actor) await signOut(ctx, actor, { sessionId: event.locals.session?.id ?? null });
-		throw redirect(302, LOGOUT_REDIRECT_PATH);
+		// Q-105 B: an explicit 302 rather than kit's thrown redirect, because only a
+		// response can carry the clearing `Set-Cookie` the browser needs.
+		return new Response(null, {
+			status: 302,
+			headers: {
+				location: LOGOUT_REDIRECT_PATH,
+				// identity's one expireCookie shape: empty value, `Max-Age=0`, epoch expiry.
+				'Set-Cookie': sessionCookieHeader(blankSessionCookie(ctx))
+			}
+		});
 	}
 });
 
@@ -392,20 +402,18 @@ export const mobileSignupEndpoint = endpoint({
 
 /**
  * `POST /api/mobile/auth/forgot {email}` — the web reset mail, `{sent:true}`.
- * A body the legacy `request.json()` could not read is its 500 copy (Q-062's
- * answered fix changes that after S6, golden first).
+ * Q-062 B: a body the legacy `request.json()` could not read (malformed or
+ * empty) is the house `400 Invalid JSON`, not the 500 send copy.
  */
 export const mobileForgotEndpoint = endpoint({
 	auth: 'public',
+	body: ForgotPasswordBody,
+	bodyMode: 'strict',
 	failMessage: FORGOT_SEND_FAILED_MESSAGE,
-	handle: async ({ ctx, event }) => {
-		const body = await readJsonRecord(event.request);
-		if (body === null) return reply(500, { error: FORGOT_SEND_FAILED_MESSAGE });
-		const parsed = ForgotPasswordBody.safeParse(body);
-		if (!parsed.success) return reply(500, { error: FORGOT_SEND_FAILED_MESSAGE });
+	handle: async ({ ctx, body, event }) => {
 		await requestPasswordReset(ctx, {
-			email: parsed.data.email,
-			clientKey: clientKeyOf(event.request, `reset:${parsed.data.email.toLowerCase()}`),
+			email: body.email,
+			clientKey: clientKeyOf(event.request, `reset:${body.email.toLowerCase()}`),
 			siteUrl: ctx.config.siteUrl
 		});
 		return ok({ sent: true });
@@ -413,26 +421,23 @@ export const mobileForgotEndpoint = endpoint({
 });
 
 /**
- * `POST /api/mobile/auth/reset {token,password}` — the shared reset, under the
- * wrapper's 10 / 15 min per-IP cap. Q-066's answered fix moves the cap into the
- * service after S6, and the wrapper's copy must go with it (one limiter only).
+ * `POST /api/mobile/auth/reset {token,password}` — the shared reset. Q-062 B
+ * gives an unreadable body the house 400, and the 10 / 15 min per-IP cap lives
+ * in `resetPassword` itself (Q-066), so this door and the web form share one
+ * bucket and there is exactly one limiter.
  */
 export const mobileResetEndpoint = endpoint({
 	auth: 'public',
-	rateLimit: {
-		scope: 'pw-reset-ip',
-		limit: 10,
-		windowMs: 15 * 60 * 1000,
-		message: RATE_LIMIT_MESSAGE
-	},
+	body: ResetPasswordBody,
+	bodyMode: 'strict',
 	failMessage: RESET_FAILED_MESSAGE,
-	handle: async ({ ctx, event }) => {
-		const body = await readJsonRecord(event.request);
-		if (body === null) return reply(500, { error: RESET_FAILED_MESSAGE });
-		const parsed = ResetPasswordBody.safeParse(body);
-		if (!parsed.success) return reply(500, { error: RESET_FAILED_MESSAGE });
-		return ok(await resetPassword(ctx, parsed.data));
-	}
+	handle: async ({ ctx, body, event }) =>
+		ok(
+			await resetPassword(ctx, {
+				...body,
+				clientKey: clientKeyOf(event.request, RESET_ATTEMPT_SCOPE)
+			})
+		)
 });
 
 // --- Page-group JSON endpoints ---------------------------------------------
@@ -454,8 +459,9 @@ export const loginCodeEndpoint = endpoint({
 			clientIp: clientIpOf(event.request)
 		});
 		if (result.outcome === 'signed-in') return signedInResponse(result.cookie);
+		// Q-064 B: an orphaned login code answers the generic copy, never its state.
 		if (result.outcome === 'no-account') {
-			return codeFailure(500, PAGE_LOGIN_ORPHAN_MESSAGE);
+			return codeFailure(500, VERIFY_GENERIC_ERROR_MESSAGE);
 		}
 		return codeFailure(400, VERIFY_GENERIC_ERROR_MESSAGE);
 	}
@@ -474,7 +480,8 @@ export const signupCodeEndpoint = endpoint({
 			clientIp: clientIpOf(event.request)
 		});
 		if (result.outcome === 'signed-in') return signedInResponse(result.cookie);
-		if (result.outcome === 'taken') return codeFailure(500, PAGE_SIGNUP_TAKEN_MESSAGE);
+		// Q-064 B: a taken address answers the generic copy, never the membership.
+		if (result.outcome === 'taken') return codeFailure(500, VERIFY_GENERIC_ERROR_MESSAGE);
 		if (result.outcome === 'broken-row') return codeFailure(500, VERIFY_GENERIC_ERROR_MESSAGE);
 		return codeFailure(400, VERIFY_GENERIC_ERROR_MESSAGE);
 	}
@@ -625,33 +632,39 @@ export const passwordVerifyAction = endpoint({
 	}
 });
 
-/** `POST /forgot-password {email}` — `{success:true}` for everyone. */
+/**
+ * `POST /forgot-password {email}` — `{success:true}` for everyone. Q-062 B: an
+ * unreadable body is the house `400 Invalid JSON` on this form too.
+ */
 export const forgotPasswordAction = endpoint({
 	auth: 'public',
+	body: ForgotPasswordBody,
+	bodyMode: 'strict',
 	failMessage: FORGOT_SEND_FAILED_MESSAGE,
-	handle: async ({ ctx, event }) => {
-		const body = await readJsonRecord(event.request);
-		if (body === null) return reply(500, { error: FORGOT_SEND_FAILED_MESSAGE });
-		const parsed = ForgotPasswordBody.safeParse(body);
-		if (!parsed.success) return reply(500, { error: FORGOT_SEND_FAILED_MESSAGE });
+	handle: async ({ ctx, body, event }) => {
 		await requestPasswordReset(ctx, {
-			email: parsed.data.email,
-			clientKey: clientKeyOf(event.request, `reset:${parsed.data.email.toLowerCase()}`),
+			email: body.email,
+			clientKey: clientKeyOf(event.request, `reset:${body.email.toLowerCase()}`),
 			siteUrl: ctx.config.siteUrl
 		});
 		return ok({ success: true });
 	}
 });
 
-/** `POST /forgot-password/reset {token,password}` — the web reset form. */
+/**
+ * `POST /forgot-password/reset {token,password}` — the web reset form, under the
+ * same 10 / 15 min per-IP cap as the mobile door (Q-066: the service owns it).
+ */
 export const resetPasswordAction = endpoint({
 	auth: 'public',
+	body: ResetPasswordBody,
+	bodyMode: 'strict',
 	failMessage: RESET_FAILED_MESSAGE,
-	handle: async ({ ctx, event }) => {
-		const body = await readJsonRecord(event.request);
-		if (body === null) return reply(500, { error: RESET_FAILED_MESSAGE });
-		const parsed = ResetPasswordBody.safeParse(body);
-		if (!parsed.success) return reply(500, { error: RESET_FAILED_MESSAGE });
-		return ok(await resetPassword(ctx, parsed.data));
-	}
+	handle: async ({ ctx, body, event }) =>
+		ok(
+			await resetPassword(ctx, {
+				...body,
+				clientKey: clientKeyOf(event.request, RESET_ATTEMPT_SCOPE)
+			})
+		)
 });

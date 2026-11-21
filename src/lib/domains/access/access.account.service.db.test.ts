@@ -94,7 +94,8 @@ describe('requestEmailChange', () => {
 	rollbackTest('mails the NEW address and binds the row to the current one', async (db) => {
 		const ctx = testCtx({ db, now: NOW });
 		const person = await seedUser(db, { email: 'change-ok@example.test' });
-		// A pending code for the current address is replaced by the new request.
+		// Q-103 B: the request replaces this address's `email_change` codes only, so
+		// the durable reset marker written here survives it.
 		await issueEmailCode(ctx, {
 			code: 'used:marker',
 			email: 'change-ok@example.test',
@@ -116,10 +117,10 @@ describe('requestEmailChange', () => {
 		expect(mail?.html).toContain('/account/verify-email?token=');
 
 		const rows = await db.select().from(codes).where(eq(codes.email, 'change-ok@example.test'));
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.type).toBe('email_change');
-		expect(rows[0]?.pendingEmail).toBe('brand-new@example.test');
-		expect(rows[0]?.expiresAt).toEqual(new Date(new Date(NOW).getTime() + 15 * 60 * 1000));
+		expect(rows.map((row) => row.type).sort()).toEqual(['email_change', 'reset_used']);
+		const changeRow = rows.find((row) => row.type === 'email_change');
+		expect(changeRow?.pendingEmail).toBe('brand-new@example.test');
+		expect(changeRow?.expiresAt).toEqual(new Date(new Date(NOW).getTime() + 15 * 60 * 1000));
 		// The row is keyed on the plaintext code, hashed by identity.
 		const found = await findEmailCode(ctx, {
 			code,
