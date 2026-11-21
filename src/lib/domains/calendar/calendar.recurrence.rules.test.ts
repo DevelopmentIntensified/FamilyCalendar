@@ -219,7 +219,10 @@ describe('non-recurring events that overlap the window (recurrenceService.test.t
 		start,
 		end,
 		recurrenceFrequency: null,
-		recurrenceInterval: null
+		recurrenceInterval: null,
+		recurrenceByDay: null,
+		recurrenceCount: null,
+		recurrenceUntil: null
 	});
 
 	it.each([

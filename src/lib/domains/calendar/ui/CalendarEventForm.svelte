@@ -5,14 +5,16 @@
 	adds the read-only RSVP list; a caller may pass a checklist snippet (tasks
 	owns that region, so it arrives from the screen).
 
-	All values live in `CalendarEventFormState`; this component owns only which
-	sections are open.
+	The draft lives in `CalendarEventFormState`; the RSVP rows arrive as a prop
+	(the modal's state owns them). This component owns only which sections are
+	open.
 
 	Doc: ../../README.md#public-interface
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { CalendarApi } from '../calendar.api';
+	import type { CalendarAttendanceRow } from '../calendar.eventView.rules';
 	import type {
 		CalendarEventFormState,
 		CalendarSaveOutcome
@@ -28,6 +30,8 @@
 	interface Props {
 		state: CalendarEventFormState;
 		api: CalendarApi;
+		/** The event's attendance rows: the edit form's read-only RSVP list. */
+		attendees?: readonly CalendarAttendanceRow[];
 		/** A DELETE is in flight (the modal's state owns the flag). */
 		deleting?: boolean;
 		attachedTaskCount?: number;
@@ -41,8 +45,9 @@
 	}
 
 	let {
-		state,
+		state: form,
 		api,
+		attendees = [],
 		deleting = false,
 		attachedTaskCount = 0,
 		onclose,
@@ -53,36 +58,36 @@
 		checklist
 	}: Props = $props();
 
-	let showMore = $state(!!state.fields.date);
+	let showMore = $state(!!form.fields.date);
 	/** "Show Less" hides parser-detected fields until a fresh parse re-detects. */
 	let nlpCollapsed = $state(false);
 	let showDeleteConfirm = $state(false);
 	/** Which half of a series an edit saves to (this occurrence is the default). */
 	let editScope = $state<'this' | 'all'>('this');
 
-	const isEdit = $derived(state.isEdit);
+	const isEdit = $derived(form.isEdit);
 	const showDetected = $derived(
 		!nlpCollapsed &&
-			(state.isDetected('date') ||
-				state.isDetected('startTime') ||
-				state.isDetected('location') ||
-				state.isDetected('attendants'))
+			(form.isDetected('date') ||
+				form.isDetected('startTime') ||
+				form.isDetected('location') ||
+				form.isDetected('attendants'))
 	);
 	const showDetails = $derived(isEdit || showMore || showDetected);
 
 	// The parse site reveals what it found: detected fields must be visible for
 	// the user to correct them (MODALS_SPEC: "Show More" on detection).
 	$effect(() => {
-		if (!isEdit && !showMore && state.lastParse && showDetected) showMore = true;
+		if (!isEdit && !showMore && form.lastParse && showDetected) showMore = true;
 	});
 
 	const submitBlockedReason = $derived(
-		state.endBeforeStart || state.endDateBeforeStart ? 'End must be after start' : undefined
+		form.endBeforeStart || form.endDateBeforeStart ? 'End must be after start' : undefined
 	);
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
-		const outcome = await state.save(editScope);
+		const outcome = await form.save(editScope);
 		if (outcome) onsave(outcome);
 	}
 </script>
@@ -95,15 +100,15 @@
 >
 	<div class="space-y-3 p-5">
 		{#if !isEdit}
-			<CalendarEventQuickAdd {state} {oncreateall} {onreportphrase} />
+			<CalendarEventQuickAdd state={form} {oncreateall} {onreportphrase} />
 		{/if}
 
 		<CalendarEventTitleFields
-			fields={state.fields}
+			fields={form.fields}
 			{isEdit}
 			{showMore}
-			detected={state.isDetected.bind(state)}
-			onpatch={state.patch.bind(state)}
+			detected={form.isDetected.bind(form)}
+			onpatch={form.patch.bind(form)}
 			onshowmore={() => {
 				showMore = true;
 				nlpCollapsed = false;
@@ -113,27 +118,27 @@
 		{#if showDetails}
 			{#if showMore || isEdit}
 				<CalendarEventDateTimeFields
-					fields={state.fields}
-					detected={state.isDetected.bind(state)}
-					isRecurringOccurrence={state.isRecurringOccurrence}
+					fields={form.fields}
+					detected={form.isDetected.bind(form)}
+					isRecurringOccurrence={form.isRecurringOccurrence}
 					{editScope}
-					onpatch={state.patch.bind(state)}
+					onpatch={form.patch.bind(form)}
 					onscopeselect={(scope) => (editScope = scope)}
 				/>
 			{/if}
 			<CalendarEventMetaFields
-				fields={state.fields}
-				detected={state.isDetected.bind(state)}
+				fields={form.fields}
+				detected={form.isDetected.bind(form)}
 				{isEdit}
 				{showMore}
-				showAttendees={isEdit || showMore || state.isDetected('attendants')}
-				members={[...state.invitedUsers, ...state.members]}
-				recent={state.recentAttendants}
-				calendars={state.calendars}
+				showAttendees={isEdit || showMore || form.isDetected('attendants')}
+				members={[...form.invitedUsers, ...form.members]}
+				recent={form.recentAttendants}
+				calendars={form.calendars}
 				{api}
-				onpatch={state.patch.bind(state)}
-				ontoggleattendee={state.toggleAttendant.bind(state)}
-				oninvitetype={state.setInviteType.bind(state)}
+				onpatch={form.patch.bind(form)}
+				ontoggleattendee={form.toggleAttendant.bind(form)}
+				oninvitetype={form.setInviteType.bind(form)}
 			/>
 		{/if}
 	</div>
@@ -163,16 +168,16 @@
 	{/if}
 
 	{#if isEdit}
-		<CalendarEventRsvpList rows={state.attendees} />
+		<CalendarEventRsvpList rows={attendees} />
 	{/if}
 
 	{#if checklist}
-		{@render checklist({ eventId: isEdit ? state.masterId : null })}
+		{@render checklist({ eventId: isEdit ? form.masterId : null })}
 	{/if}
 
 	{#if showDeleteConfirm}
 		<CalendarEventDeleteConfirm
-			isRecurringOccurrence={state.isRecurringOccurrence}
+			isRecurringOccurrence={form.isRecurringOccurrence}
 			{attachedTaskCount}
 			deleting={deleting}
 			ondeleteoccurrence={() => ondeletescope('this')}
@@ -182,22 +187,22 @@
 		/>
 	{/if}
 
-	{#if state.error}
+	{#if form.error}
 		<div class="px-5 pb-3">
-			<p role="alert" class="text-sm text-red-600">{state.error}</p>
+			<p role="alert" class="text-sm text-red-600">{form.error}</p>
 		</div>
 	{/if}
 </form>
 
 <CalendarEventActionBar
 	{isEdit}
-	submitting={state.saving}
-	canSubmit={state.canSubmit}
+	submitting={form.saving}
+	canSubmit={form.canSubmit}
 	{submitBlockedReason}
 	ondelete={() => (showDeleteConfirm = true)}
 	onclose={() => {
 		showDeleteConfirm = false;
 		onclose();
 	}}
-	onclear={() => state.reset()}
+	onclear={() => form.reset()}
 />

@@ -64,7 +64,7 @@ function fakeApi(overrides: Partial<CalendarApi> = {}): { api: CalendarApi; call
 			calls.guests.push({ id, guest });
 			return { ok: true as const, data: { success: true as const, attendance: [] } };
 		},
-		createEvent: async (body: unknown) => {
+		createEvent: async (body: CalendarEventBody) => {
 			calls.create.push(body);
 			return { ok: true as const, data: { success: true as const, event: { id: 'copy' } } };
 		},

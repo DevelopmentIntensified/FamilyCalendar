@@ -276,6 +276,7 @@ describe('updateGroceryItem', () => {
 
 	rollbackTest('moving a Family item to Mine re-owns it to the mover', async (db) => {
 		const { user, actor, familyId } = await seedViewer(db, true);
+		if (!familyId) throw new Error('seedViewer(db, true) seeds a family');
 		const other = await seedUser(db);
 		await seedGroceryMembership(db, other.id, familyId);
 		const item = await seedGroceryItem(db, { userId: other.id, name: 'Milk', familyId });
@@ -496,6 +497,7 @@ describe('setGroceryStoreColour', () => {
 
 	rollbackTest('auto clears the family row only when the scope is family', async (db) => {
 		const { user, actor, familyId } = await seedViewer(db, true);
+		if (!familyId) throw new Error('seedViewer(db, true) seeds a family');
 		const other = await seedUser(db);
 		await seedGroceryMembership(db, other.id, familyId);
 		await seedGroceryColour(db, { userId: user.id, storeKey: 'aldi', color: 'sky' });

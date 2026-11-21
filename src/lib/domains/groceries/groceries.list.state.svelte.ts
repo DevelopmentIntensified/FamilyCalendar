@@ -105,10 +105,18 @@ export class GroceriesListState {
 	overrides = $state<ColourOverrides>({});
 
 	/** Whether the viewer has a family at all: the add form's Family option. */
-	readonly hasFamily: boolean;
-	/** The viewer a colour resolves for — the same shape as a scope. */
-	readonly viewer: GroceryScope;
+	get hasFamily(): boolean {
+		return this.familyKnown;
+	}
 
+	/** The viewer a colour resolves for — the same shape as a scope. */
+	get viewer(): GroceryScope {
+		return this.colourViewer;
+	}
+
+	/** Backing fields for the two getters above: the derived rules read them. */
+	private readonly familyKnown: boolean;
+	private readonly colourViewer: GroceryScope;
 	private readonly api: GroceryApi;
 	private readonly toasts: Toasts;
 	private readonly schedule: Scheduler;
@@ -163,8 +171,8 @@ export class GroceriesListState {
 		this.api = api;
 		this.toasts = toasts;
 		this.schedule = options.schedule ?? systemScheduler;
-		this.hasFamily = data.hasFamily;
-		this.viewer = { userId: data.userId, familyId: data.familyId };
+		this.familyKnown = data.hasFamily;
+		this.colourViewer = { userId: data.userId, familyId: data.familyId };
 		this.mine = [...data.mine];
 		this.family = [...data.family];
 		this.colourRows = [...data.colours];

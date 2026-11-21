@@ -75,14 +75,15 @@ describe('POST /checkout?/purchase', () => {
 
 	it('refuses a missing or unknown plan and a missing price', async () => {
 		const invalid = { success: false, error: 'Invalid purchase data' };
-
-		for (const form of [
+		const forms: ReadonlyArray<Record<string, string>> = [
 			{ finalPrice: '9' },
 			{ planType: 'Weekly', finalPrice: '9' },
 			{ planType: 'monthly' },
 			{ planType: 'monthly', finalPrice: '0' },
 			{ planType: 'monthly', finalPrice: '' }
-		] satisfies ReadonlyArray<Record<string, string>>) {
+		];
+
+		for (const form of forms) {
 			const result = await invokeAction(checkoutPurchaseAction, {
 				ctx: testCtx(),
 				path: '/checkout',

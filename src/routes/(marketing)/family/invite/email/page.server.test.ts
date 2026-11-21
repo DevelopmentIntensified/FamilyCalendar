@@ -9,7 +9,9 @@ import { actions, type InviteEmailAcceptDeps } from './+page.server';
 // replayed/revoked/over-cap link cannot join, and an existing account is
 // never signed in from an invite link.
 
-const deps = {
+// The action takes the deps interface (plain function types), so the mocks keep
+// their own identity for `mockResolvedValue`; the action receives the same object.
+const mocks = {
 	getAccount: vi.fn(),
 	createNewUser: vi.fn(),
 	acceptInvite: vi.fn(),
@@ -17,7 +19,8 @@ const deps = {
 	setPasswordHash: vi.fn(),
 	startSession: vi.fn(),
 	hashPassword: vi.fn()
-} as unknown as InviteEmailAcceptDeps;
+};
+const deps = mocks as unknown as InviteEmailAcceptDeps;
 
 const payload = {
 	email: 'guest@x.com',
@@ -47,19 +50,19 @@ function event(form: Record<string, string>) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	deps.getAccount.mockResolvedValue(undefined);
-	deps.acceptInvite.mockResolvedValue({ accepted: true });
-	deps.verifyInviteCode.mockResolvedValue({
+	mocks.getAccount.mockResolvedValue(undefined);
+	mocks.acceptInvite.mockResolvedValue({ accepted: true });
+	mocks.verifyInviteCode.mockResolvedValue({
 		family: { id: 'fam-1' },
 		inviteCode: { code: 'code-1' }
 	});
-	deps.createNewUser.mockResolvedValue({ id: 'new-1' });
-	deps.hashPassword.mockResolvedValue('hashed-pw');
+	mocks.createNewUser.mockResolvedValue({ id: 'new-1' });
+	mocks.hashPassword.mockResolvedValue('hashed-pw');
 });
 
 describe('invite/email actions', () => {
 	it('joins an existing account without starting a session', async () => {
-		deps.getAccount.mockResolvedValue({ userId: 'u1' });
+		mocks.getAccount.mockResolvedValue({ userId: 'u1' });
 
 		let thrown: unknown;
 		try {
@@ -72,13 +75,13 @@ describe('invite/email actions', () => {
 		expect((thrown as { location: string }).location).toContain('/login');
 		// #246: success travels as ?notice= (green), never ?error=.
 		expect((thrown as { location: string }).location).toMatch(/^\/login\?notice=/);
-		expect(deps.acceptInvite).toHaveBeenCalledWith('u1', 'code-1');
-		expect(deps.startSession).not.toHaveBeenCalled();
+		expect(mocks.acceptInvite).toHaveBeenCalledWith('u1', 'code-1');
+		expect(mocks.startSession).not.toHaveBeenCalled();
 	});
 
 	it('refuses a replayed, revoked, or used-up invite without joining', async () => {
-		deps.getAccount.mockResolvedValue({ userId: 'u1' });
-		deps.acceptInvite.mockResolvedValue({ accepted: false });
+		mocks.getAccount.mockResolvedValue({ userId: 'u1' });
+		mocks.acceptInvite.mockResolvedValue({ accepted: false });
 
 		let thrown: unknown;
 		try {
@@ -90,7 +93,7 @@ describe('invite/email actions', () => {
 		expect(isRedirect(thrown)).toBe(true);
 		expect((thrown as { location: string }).location).toContain('/login');
 		expect((thrown as { location: string }).location).toMatch(/^\/login\?error=/);
-		expect(deps.startSession).not.toHaveBeenCalled();
+		expect(mocks.startSession).not.toHaveBeenCalled();
 	});
 
 	it('creates, joins, and signs in a brand-new account via skip', async () => {
@@ -102,9 +105,9 @@ describe('invite/email actions', () => {
 		}
 
 		expect(isRedirect(thrown)).toBe(true);
-		expect(deps.createNewUser).toHaveBeenCalledWith('Guest', 'User', 'guest@x.com');
-		expect(deps.acceptInvite).toHaveBeenCalledWith('new-1', 'code-1');
-		expect(deps.startSession).toHaveBeenCalledWith(expect.anything(), 'new-1');
+		expect(mocks.createNewUser).toHaveBeenCalledWith('Guest', 'User', 'guest@x.com');
+		expect(mocks.acceptInvite).toHaveBeenCalledWith('new-1', 'code-1');
+		expect(mocks.startSession).toHaveBeenCalledWith(expect.anything(), 'new-1');
 		expect((thrown as { location: string }).location).toBe('/family/fam-1');
 	});
 
@@ -125,8 +128,8 @@ describe('invite/email actions', () => {
 		}
 
 		expect(isRedirect(thrown)).toBe(true);
-		expect(deps.setPasswordHash).toHaveBeenCalledWith('new-1', 'hashed-pw');
-		expect(deps.startSession).toHaveBeenCalledWith(expect.anything(), 'new-1');
+		expect(mocks.setPasswordHash).toHaveBeenCalledWith('new-1', 'hashed-pw');
+		expect(mocks.startSession).toHaveBeenCalledWith(expect.anything(), 'new-1');
 	});
 
 	it('keeps the signup password floor at 8 characters', async () => {
@@ -144,7 +147,7 @@ describe('invite/email actions', () => {
 
 		expect(res?.status).toBe(400);
 		expect(body.error).toContain('8 characters');
-		expect(deps.createNewUser).not.toHaveBeenCalled();
+		expect(mocks.createNewUser).not.toHaveBeenCalled();
 	});
 
 	it('rejects legacy tokens without an embedded invite row', async () => {
@@ -159,12 +162,12 @@ describe('invite/email actions', () => {
 
 		expect(isRedirect(thrown)).toBe(true);
 		expect((thrown as { location: string }).location).toContain('/login');
-		expect(deps.acceptInvite).not.toHaveBeenCalled();
-		expect(deps.createNewUser).not.toHaveBeenCalled();
+		expect(mocks.acceptInvite).not.toHaveBeenCalled();
+		expect(mocks.createNewUser).not.toHaveBeenCalled();
 	});
 
 	it('refuses a dead invite row before creating the new account', async () => {
-		deps.verifyInviteCode.mockResolvedValue(null);
+		mocks.verifyInviteCode.mockResolvedValue(null);
 
 		let thrown: unknown;
 		try {
@@ -175,6 +178,6 @@ describe('invite/email actions', () => {
 
 		expect(isRedirect(thrown)).toBe(true);
 		expect((thrown as { location: string }).location).toContain('/login');
-		expect(deps.createNewUser).not.toHaveBeenCalled();
+		expect(mocks.createNewUser).not.toHaveBeenCalled();
 	});
 });
