@@ -16,7 +16,12 @@
  *
  * Doc: ./README.md#invariants
  */
-import { formList, isoInstant, z } from '$lib/kernel/validation/validators';
+import {
+	formList,
+	INVALID_JSON_MESSAGE,
+	isoInstant,
+	z
+} from '$lib/kernel/validation/validators';
 
 /** The one 400 for a `memberIds` field that is present but not a list. */
 export const MEMBER_IDS_NOT_ARRAY_MESSAGE = 'memberIds must be an array';
@@ -48,6 +53,20 @@ const wirePresentText = z.preprocess(
 
 /** The child form's checkbox: only a literal `true` consents. */
 const wireConsent = z.preprocess((value) => value === true, z.boolean());
+
+/**
+ * A body the legacy doors read by destructuring (`const { code } = body`):
+ * a literal `null`, an array, a string or a number yielded `undefined` for
+ * every field, so the door answered its own missing-field sentence. Mapping
+ * every non-object to `{}` reproduces that, and the endpoint's `'lenient'`
+ * body mode maps a malformed or unreadable body to the same place.
+ */
+function wireObject<S extends z.ZodType>(schema: S) {
+	return z.preprocess(
+		(value) => (typeof value === 'object' && value !== null && !Array.isArray(value) ? value : {}),
+		schema
+	);
+}
 
 // --- `/api/families` (list) -------------------------------------------------
 
@@ -118,11 +137,14 @@ export type FamilyOverviewResponse = z.infer<typeof FamilyOverviewResponse>;
  * rule owns "required"/"50 chars"/"palette"); `memberIds` is the one field the
  * legacy route refused before the plan gate ran.
  */
-export const CreateFamilyBody = z.object({
-	name: wireText,
-	color: wireText,
-	memberIds: z.array(z.json(), { error: MEMBER_IDS_NOT_ARRAY_MESSAGE }).optional()
-});
+export const CreateFamilyBody = z.object(
+	{
+		name: wireText,
+		color: wireText,
+		memberIds: z.array(z.json(), { error: MEMBER_IDS_NOT_ARRAY_MESSAGE }).optional()
+	},
+	{ error: INVALID_JSON_MESSAGE }
+);
 export type CreateFamilyBody = z.infer<typeof CreateFamilyBody>;
 
 /**
@@ -215,13 +237,20 @@ export type FamilyParams = z.infer<typeof FamilyParams>;
  * a present non-hex colour is refused with its own copy (the legacy route
  * validated the body before the role check).
  */
-export const UpdateFamilyBody = z.object({
-	name: z.string({ error: 'Invalid name' }).trim().min(1, { error: 'Invalid name' }).optional(),
-	color: z
-		.string({ error: 'Invalid color' })
-		.regex(/^#[0-9a-fA-F]{6}$/, { error: 'Invalid color' })
-		.optional()
-});
+export const UpdateFamilyBody = z.object(
+	{
+		name: z
+			.string({ error: 'Invalid name' })
+			.trim()
+			.min(1, { error: 'Invalid name' })
+			.optional(),
+		color: z
+			.string({ error: 'Invalid color' })
+			.regex(/^#[0-9a-fA-F]{6}$/, { error: 'Invalid color' })
+			.optional()
+	},
+	{ error: INVALID_JSON_MESSAGE }
+);
 export type UpdateFamilyBody = z.infer<typeof UpdateFamilyBody>;
 
 /** `200 {success, family}`. */
@@ -256,11 +285,26 @@ export type InviteCodesResponse = z.infer<typeof InviteCodesResponse>;
 export const FamilyMemberParams = z.object({ id: z.string(), userId: z.string() });
 export type FamilyMemberParams = z.infer<typeof FamilyMemberParams>;
 
-/** `PATCH .../members/{userId}`: either field may be absent; null is not absent. */
-export const MemberPatchBody = z.object({
-	role: wireOptionalText,
-	memberType: wireOptionalText
+/**
+ * The four member-add doors are reachable through TWO paths: family's own
+ * `/family/{familyId}/members/add/…` handler and the `/api/families/{id}/…`
+ * twin the installed clients call. The endpoint is shared, so the schema
+ * accepts either parameter name and the handler resolves `id ?? familyId`.
+ */
+export const FamilyDoorParams = z.object({
+	id: z.string().optional(),
+	familyId: z.string().optional()
 });
+export type FamilyDoorParams = z.infer<typeof FamilyDoorParams>;
+
+/** `PATCH .../members/{userId}`: either field may be absent; null is not absent. */
+export const MemberPatchBody = z.object(
+	{
+		role: wireOptionalText,
+		memberType: wireOptionalText
+	},
+	{ error: INVALID_JSON_MESSAGE }
+);
 export type MemberPatchBody = z.infer<typeof MemberPatchBody>;
 
 /** `200 {success:true}`, shared by the member PATCH and DELETE. */
@@ -270,7 +314,7 @@ export type MemberUpdatedResponse = z.infer<typeof MemberUpdatedResponse>;
 // --- `/api/families/{id}/members/direct` ----------------------------------
 
 /** `POST .../members/direct`; non-string means "no user id". */
-export const AddDirectBody = z.object({ userId: wireOptionalText });
+export const AddDirectBody = wireObject(z.object({ userId: wireOptionalText }));
 export type AddDirectBody = z.infer<typeof AddDirectBody>;
 
 // --- `/api/families/{id}/members/child` -----------------------------------
@@ -280,12 +324,14 @@ export type AddDirectBody = z.infer<typeof AddDirectBody>;
  * check membership and the plan first, exactly as the legacy route did; the
  * field refusals live in `childDetailsRefusal`.
  */
-export const AddChildBody = z.object({
-	firstName: wireText,
-	lastName: wireText,
-	email: wireText,
-	consentAcknowledged: wireConsent
-});
+export const AddChildBody = wireObject(
+	z.object({
+		firstName: wireText,
+		lastName: wireText,
+		email: wireText,
+		consentAcknowledged: wireConsent
+	})
+);
 export type AddChildBody = z.infer<typeof AddChildBody>;
 
 /** `200 {success, user}`; the child's account already exists, with an email. */
@@ -303,11 +349,13 @@ export type ChildAddedResponse = z.infer<typeof ChildAddedResponse>;
 // --- `/api/families/{id}/members/email` and `.../email/link` --------------
 
 /** The emailed invite and invite-link body: an address and both names. */
-export const InviteTargetBody = z.object({
-	email: wireText,
-	firstName: wireText,
-	lastName: wireText
-});
+export const InviteTargetBody = wireObject(
+	z.object({
+		email: wireText,
+		firstName: wireText,
+		lastName: wireText
+	})
+);
 export type InviteTargetBody = z.infer<typeof InviteTargetBody>;
 
 /** `200 {success:true}` for an emailed invite. */
@@ -332,11 +380,13 @@ export type InviteEmailErrorResponse = z.infer<typeof InviteEmailErrorResponse>;
 // --- `/api/family/invite` --------------------------------------------------
 
 /** `POST /api/family/invite`: the family, plus the two clamped counts. */
-export const MintInviteBody = z.object({
-	familyId: wireText,
-	expiresInDays: z.json().optional(),
-	maxUses: z.json().optional()
-});
+export const MintInviteBody = wireObject(
+	z.object({
+		familyId: wireText,
+		expiresInDays: z.json().optional(),
+		maxUses: z.json().optional()
+	})
+);
 export type MintInviteBody = z.infer<typeof MintInviteBody>;
 
 /** `200 {code, expiresAt, inviteUrl}`. */
@@ -363,7 +413,7 @@ export const InvitePreviewResponse = z.object({
 export type InvitePreviewResponse = z.infer<typeof InvitePreviewResponse>;
 
 /** `DELETE /api/family/invite` and `POST /api/family/join` share one body. */
-export const InviteCodeBody = z.object({ code: wireText });
+export const InviteCodeBody = wireObject(z.object({ code: wireText }));
 export type InviteCodeBody = z.infer<typeof InviteCodeBody>;
 
 // --- `/api/family/member-search` ------------------------------------------
@@ -529,3 +579,80 @@ export type MemberSearchHit = {
 
 /** One invite-flow hit, with the full address. */
 export type InvitableUser = MemberSearchHit;
+
+// --- Page data (internal: these pages are not a wire contract) ---------------
+
+/**
+ * One live join code on the `/family` list, as that page's rail carries it.
+ * A real `Date`, like every server-side row type at the bottom of this file.
+ */
+export type FamilyActiveInvite = {
+	readonly familyId: string;
+	readonly code: string;
+	readonly useCount: number | null;
+	readonly maxUses: number | null;
+	readonly expiresAt: Date;
+};
+
+/**
+ * `load` for `/family`: every card the viewer may open, the rail's roster for
+ * all of them, their live codes and the plan usage the hero pill prints.
+ */
+export type FamilyListPayload = {
+	readonly families: FamilyCardView[];
+	readonly roster: FamilyRosterRowView[];
+	readonly activeInvites: FamilyActiveInvite[];
+	readonly plan: { readonly used: number; readonly limit: number };
+};
+
+/** `load` for `/family/create`: the plan's two limits and the usage line. */
+export type FamilyCreatePage = {
+	readonly familyLimit: number;
+	readonly familyLimitReached: boolean;
+	readonly familyUsed: number;
+	readonly memberLimit: number;
+};
+
+/** What the create action echoes back on a refusal, so the page keeps the typed name and colour. */
+export type FamilyCreateFormEcho = {
+	readonly error?: string;
+	readonly upgradeRequired?: boolean;
+	readonly name?: string;
+	readonly color?: string;
+} | null;
+
+/** `load` for `/family/invitations`: the chosen family, its codes and the family switcher. */
+export type FamilyInvitationsPage = {
+	readonly family: FamilyView | null;
+	readonly invitations: InviteCodeView[];
+	readonly canManageInvites: boolean;
+	/** The load's instant, so "which code is live" is decided against the server's clock (R5). */
+	readonly now: string;
+	readonly memberships: {
+		readonly id: string;
+		readonly name: string;
+		readonly canManageInvites: boolean;
+	}[];
+};
+
+/** `load` for `/family/[familyId]/members/add`: the family's name and whether the invite tab shows. */
+export type FamilyAddMemberPage = {
+	readonly familyId: string;
+	readonly familyName: string;
+	readonly canInviteByEmail: boolean;
+};
+
+/**
+ * `load` for `/family/join/[code]`: an unusable link is a value, never a
+ * redirect (issue 124), and the code is echoed so the page can name it.
+ */
+export type FamilyJoinPage = {
+	readonly invalid: boolean;
+	readonly family: {
+		readonly id: string;
+		readonly name: string;
+		readonly color: string | null;
+	} | null;
+	readonly code: string;
+	readonly isLoggedIn: boolean;
+};

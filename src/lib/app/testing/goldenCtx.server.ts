@@ -27,6 +27,7 @@
  */
 import { wirePorts, type AppPorts } from '$lib/app/ports.server';
 import { systemIds, type Ids } from '$lib/kernel/ids/ids';
+import { createMemoryPush } from '$lib/kernel/push/push';
 import { testCtx, type TestCtx, type TestCtxOverrides } from '$lib/kernel/testing/testCtx.server';
 import { systemClock, type Clock } from '$lib/kernel/time/clock';
 
@@ -41,6 +42,14 @@ export function goldenCtx(overrides: TestCtxOverrides = {}): GoldenCtx {
 	return wirePorts({
 		...ctx,
 		clock: overrides.now === undefined ? systemClock : ctx.clock,
-		ids: systemIds
+		ids: systemIds,
+		// This file IS the app's composition root for goldens, so it owns the one
+		// environment read: the legacy VAPID route answered `VAPID_PUBLIC_KEY` at
+		// request time and the frozen alerts golden sets it before building the
+		// ctx. Device push stays off (no golden route sends push).
+		push: createMemoryPush({
+			webPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
+			devicesConfigured: false
+		})
 	});
 }
