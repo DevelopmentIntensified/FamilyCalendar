@@ -1,9 +1,18 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { db } from '../../src/lib/server/db';
-import { calendars, events, familyMembers, families } from '../../src/lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { setupTestUser, teardownTestUser, getSessionCookie, type TestUser } from '../testUtils';
-import { createEvent, getEvent } from '../../src/lib/server/db/actions/events';
+import {
+	calendars,
+	createEvent,
+	db,
+	eq,
+	events,
+	families,
+	familyMembers,
+	getEvent,
+	getSessionCookie,
+	setupTestUser,
+	teardownTestUser,
+	type TestUser
+} from '../testUtils';
 
 /**
  * Regression: editing a NON-recurring event and changing its calendar returned

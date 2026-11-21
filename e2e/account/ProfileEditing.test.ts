@@ -1,15 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
-import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
 import {
-	deleteCodesByEmail,
-	getCodesByEmail,
-	createCode
-} from '../../src/lib/server/db/actions/codes';
-import { db } from '../../src/lib/server/db';
-import { calendars, users, sessions, userSettings, events } from '../../src/lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { createNewUser } from '../../src/lib/server/utils/createNewUser';
+	createNewUser,
+	createVerificationCode,
+	getUser,
+	teardownTestUser
+} from '../testUtils';
 import { LoginPage } from '../pageObjects/login';
 
 const firstName = 'test';
@@ -19,30 +14,13 @@ const email = `delivered+profileedit${Date.now()}@resend.dev`;
 let uid = '';
 
 test.beforeEach(async () => {
-	const existingUser = await db.select().from(users).where(eq(users.email, email));
-	if (existingUser[0]) {
-		await db.delete(events).where(eq(events.ownerId, existingUser[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, existingUser[0].id));
-		await db.delete(userSettings).where(eq(userSettings.userId, existingUser[0].id));
-		await db.delete(sessions).where(eq(sessions.userId, existingUser[0].id));
-		await deleteAccount(email);
-		await deleteUser(existingUser[0].id);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 	const user = await createNewUser(firstName, lastName, email);
 	uid = user.id;
 });
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (user[0]) {
-		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-		await db.delete(userSettings).where(eq(userSettings.userId, user[0].id));
-		await db.delete(sessions).where(eq(sessions.userId, user[0].id));
-		await deleteAccount(email);
-		await deleteUser(uid);
-		await deleteCodesByEmail(email);
-	}
+	await teardownTestUser({ email });
 });
 
 async function loginAndNavigateToAccount(page: import('@playwright/test').Page) {
@@ -54,18 +32,9 @@ async function loginAndNavigateToAccount(page: import('@playwright/test').Page) 
 	await loginPage.loginButton.click();
 	await page.waitForTimeout(3000);
 
-	const uniqueCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-	await createCode({
-		code: uniqueCode,
-		expiresAt: new Date(Date.now() + 1000 * 60 * 15),
-		email,
-		firstName,
-		lastName,
-		emailId: 'test-email-id'
-	});
+	const uniqueCode = await createVerificationCode(email, firstName, lastName, 'login');
 
-	const codes = await getCodesByEmail(email);
-	await loginPage.verificationInput.fill(codes[0].code);
+	await loginPage.verificationInput.fill(uniqueCode);
 	await loginPage.verificationCodeButton.click();
 	await page.waitForURL('/calendar', { timeout: 20000 });
 	await page.waitForLoadState('networkidle');
