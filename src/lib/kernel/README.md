@@ -65,8 +65,8 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [http/outboundHttp.test.ts](http/outboundHttp.test.ts) | test | recorded request order, scripted body/status, a replaced reply, an unscripted URL | — |
 | [http/pageHandlers.server.ts](http/pageHandlers.server.ts) | infra | `pageLoad` (redirects to /login or /calendar) and `formAction` (`fail(...)` with `{ success: false, error }`), `formFields`. | [pageHandlers.test.ts](http/pageHandlers.test.ts) |
 | [http/pageHandlers.test.ts](http/pageHandlers.test.ts) | test | redirect rules, legacy `requireUserAction` failure shape, AppError mapping, fault filing | — |
-| [ids/ids.ts](ids/ids.ts) | infra | `Ids` port (`id(length?)`, `random(count)`), `systemIds` (the existing 15-char row-id format, `crypto.getRandomValues` bytes), `sequentialIds` for tests (counter bytes on their own counter), `sha256Hex`, the one hash for stored secrets. | [ids.test.ts](ids/ids.test.ts) |
-| [ids/ids.test.ts](ids/ids.test.ts) | test | id format, random draw length/independence, deterministic test bytes, FIPS vector, byte-equality with the legacy node:crypto hashes | — |
+| [ids/ids.ts](ids/ids.ts) | infra | `Ids` port (`id(length?)`, `random(count)`), `systemIds` (the existing 15-char row-id format, `crypto.getRandomValues` bytes), `sequentialIds` for tests (counter bytes on their own counter), `sha256Hex`, the one hash for stored secrets, and `hmacSha256Hex(key, text)`, its keyed sibling for short codes (Q-117). | [ids.test.ts](ids/ids.test.ts) |
+| [ids/ids.test.ts](ids/ids.test.ts) | test | id format, random draw length/independence, deterministic test bytes, FIPS vector, byte-equality with the legacy node:crypto hashes, RFC 4231 HMAC-SHA-256 vectors (cases 1 and 2) | — |
 | [log/jsonLog.ts](log/jsonLog.ts) | infra | `Log` port + JSON-lines adapter (same line format as the legacy logger, so Vercel log search keeps working). | [jsonLog.test.ts](log/jsonLog.test.ts) |
 | [log/jsonLog.test.ts](log/jsonLog.test.ts) | test | line shape | — |
 | [mail/mailer.ts](mail/mailer.ts) | infra | `MailMessage`, the `Mailer` port (`send` one message: resolves when the provider accepted it, rejects when it did not) and `createMemoryMailer()` recording into `outbox`. Services reach it through `ctx.mail`, so no module imports Resend. | [mailer.test.ts](mail/mailer.test.ts) |
@@ -80,7 +80,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [testing/invokeHandlers.server.ts](testing/invokeHandlers.server.ts) | test infra | `invoke`, `invokeLoad`, `invokeAction`: call route handlers without a server; sets `locals.user` (legacy) and `locals.actor` (v2), so one golden test covers both. | used by every http test |
 | [testing/manualScheduler.ts](testing/manualScheduler.ts) | test infra | `manualScheduler()`: a `Scheduler` that records its callbacks and a `fireAll()` the test calls, so no unit test waits on real timers. One copy for every kernel client/time test. | used by [toasts.test.ts](client/toasts.test.ts), [searchBox.test.ts](client/searchBox.test.ts), [ticker.test.ts](time/ticker.test.ts) |
 | [testing/seedRows.server.ts](testing/seedRows.server.ts) | test infra | `seedUser`, `uniqueSuffix`. Module-specific builders live in `<module>.fixtures.server.ts`. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
-| [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret?, sessionSecret?, production? })`: fixed clock, sequential ids, memory log/faults/limiter/mail/push/ai/http; no-db guard. | [testCtx.test.ts](testing/testCtx.test.ts) |
+| [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret?, sessionSecret?, codePepper?, production? })`: fixed clock, sequential ids, memory log/faults/limiter/mail/push/ai/http; no-db guard. `TEST_CODE_PEPPER` is the default pepper every code test seeds digests with. | [testCtx.test.ts](testing/testCtx.test.ts) |
 | [testing/testCtx.test.ts](testing/testCtx.test.ts) | test | the memory mailer, push, AI and HTTP ports on `ctx`; `config` carries the legacy default sender, VAPID subject, model and user agent, and push/AI start unconfigured | — |
 | [testing/testDb.server.ts](testing/testDb.server.ts) | test infra | `rollbackTest` (default: one rolled-back transaction per test), `inRollback`, `testDb`, `truncateAll` (committed mode: one transaction, FK triggers off, one `DELETE FROM` per table in one batch — a few ms idle, 70–110 ms measured on a saturated machine), lane guard. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [testing/testDb.db.test.ts](testing/testDb.db.test.ts) | test | migrations applied, rollback isolation, savepoints, truncate, reset under 250 ms, FKs enforced after a reset, `timestamptz` rendered in UTC | — |
@@ -165,7 +165,8 @@ Every function parses strings by one rule (shared by the formatters and `toInsta
 
 - `ctx.ids.id()` for new rows.
 - `ctx.ids.random(count)` for the bytes a token, email code or claim link is built from (`crypto.getRandomValues`; the caller formats them).
-- `sha256Hex(text)` for any stored secret (API token, email code, claim token).
+- `sha256Hex(text)` for any stored secret (API token, session token, claim token).
+- `hmacSha256Hex(key, text)` when the value is guessable offline — a 6–8 digit email code (Q-117): HMAC-SHA-256 with the server pepper (`ctx.config.codePepper`), never a bare digest.
 
 ### Rate limits
 

@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { ROW_ID_LENGTH, sequentialIds, sha256Hex, systemIds } from './ids';
+import { hmacSha256Hex, ROW_ID_LENGTH, sequentialIds, sha256Hex, systemIds } from './ids';
 
 describe('systemIds', () => {
 	it('keeps the existing row-id format: 15 chars of a-z0-9', () => {
@@ -47,5 +47,45 @@ describe('sha256Hex', () => {
 		for (const text of ['fp_abc', 'é', '123456', 'Family Planz 👪']) {
 			expect(sha256Hex(text)).toBe(createHash('sha256').update(text, 'utf8').digest('hex'));
 		}
+	});
+});
+
+describe('hmacSha256Hex', () => {
+	// RFC 4231 §4.2/4.3, HMAC-SHA-256. Expected hex is the RFC's, not this
+	// code's output. Case 1's key is twenty 0x0b bytes; every byte is ASCII, so
+	// its UTF-8 string form is the same twenty bytes. Byte vectors whose key or
+	// data is >= 0x80 (cases 3-7) have no plain UTF-8 string form here.
+	it.each<[string, string, string, string]>([
+		[
+			'case 1 — key 0x0b x20, data "Hi There"',
+			'\x0b'.repeat(20),
+			'Hi There',
+			'b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7'
+		],
+		[
+			'case 2 — key "Jefe", data "what do ya want for nothing?"',
+			'Jefe',
+			'what do ya want for nothing?',
+			'5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843'
+		]
+	])('matches RFC 4231 %s', (_label, key, text, expected) => {
+		expect(hmacSha256Hex(key, text)).toBe(expected);
+	});
+
+	it('hashes UTF-8 bytes of key and text exactly like node:crypto', () => {
+		for (const [key, text] of [
+			['test-code-pepper', '24681357'],
+			['pépper', 'é'],
+			['Family Planz 👪', '123456']
+		] as const) {
+			expect(hmacSha256Hex(key, text)).toBe(
+				createHmac('sha256', key).update(text, 'utf8').digest('hex')
+			);
+		}
+	});
+
+	it('answers a keyed digest, never the bare SHA-256 of the text', () => {
+		expect(hmacSha256Hex('pepper-a', '24681357')).not.toBe(sha256Hex('24681357'));
+		expect(hmacSha256Hex('pepper-a', '24681357')).not.toBe(hmacSha256Hex('pepper-b', '24681357'));
 	});
 });

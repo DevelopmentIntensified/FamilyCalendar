@@ -19,6 +19,7 @@ import {
 } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
+import { TEST_CODE_PEPPER } from '$lib/kernel/testing/testCtx.server';
 import { emailCodeKey } from './identity.code.rules';
 import {
 	IDENTITY_SEEDED_AT,
@@ -35,7 +36,6 @@ import {
 	deleteApiToken,
 	deleteApiTokenByHash,
 	deleteApiTokensForPerson,
-	deleteEmailCode,
 	deleteEmailCodeByKey,
 	deleteEmailCodesForEmail,
 	deleteExpiredEmailCodes,
@@ -45,7 +45,6 @@ import {
 	deleteSessionsForPerson,
 	findAccountBinding,
 	findApiTokenHolder,
-	findEmailCode,
 	findEmailCodeByKey,
 	findPersonByEmail,
 	findPersonById,
@@ -584,7 +583,10 @@ describe('api tokens', () => {
 
 describe('email codes', () => {
 	rollbackTest('insertEmailCode stores the row as given', async (db) => {
-		const key = emailCodeKey({ code: '24681357', email: 'mia@example.com', type: 'login' });
+		const key = emailCodeKey(
+			{ code: '24681357', email: 'mia@example.com', type: 'login' },
+			TEST_CODE_PEPPER
+		);
 		const row = await insertEmailCode(db, {
 			code: key.codeHash,
 			email: key.email,
@@ -609,7 +611,10 @@ describe('email codes', () => {
 	rollbackTest(
 		'findEmailCodeByKey needs the digest, the email AND the type to match',
 		async (db) => {
-			const key = emailCodeKey({ code: '24681357', email: 'mia@example.com', type: 'login' });
+			const key = emailCodeKey(
+				{ code: '24681357', email: 'mia@example.com', type: 'login' },
+				TEST_CODE_PEPPER
+			);
 			await seedIdentityEmailCode({ code: key.codeHash, email: key.email, type: key.type }, db);
 
 			expect((await findEmailCodeByKey(db, key))?.email).toBe('mia@example.com');
@@ -618,14 +623,20 @@ describe('email codes', () => {
 			expect(
 				await findEmailCodeByKey(
 					db,
-					emailCodeKey({ code: '11111111', email: 'mia@example.com', type: 'login' })
+					emailCodeKey(
+						{ code: '11111111', email: 'mia@example.com', type: 'login' },
+						TEST_CODE_PEPPER
+					)
 				)
 			).toBeNull();
 		}
 	);
 
 	rollbackTest('deleteEmailCodeByKey deletes only the fully matching row', async (db) => {
-		const key = emailCodeKey({ code: '24681357', email: 'mia@example.com', type: 'login' });
+		const key = emailCodeKey(
+			{ code: '24681357', email: 'mia@example.com', type: 'login' },
+			TEST_CODE_PEPPER
+		);
 		await seedIdentityEmailCode({ code: key.codeHash, email: key.email, type: key.type }, db);
 		await seedIdentityEmailCode({ code: 'other-digest', email: key.email, type: 'login' }, db);
 
@@ -635,20 +646,37 @@ describe('email codes', () => {
 		expect((await db.select().from(codes)).map((row) => row.code)).toEqual(['other-digest']);
 	});
 
-	rollbackTest('findEmailCode / deleteEmailCode match the stored value as-is', async (db) => {
-		await seedIdentityEmailCode(
+	rollbackTest('finds the email-change code and the reset marker by their digests', async (db) => {
+		const change = emailCodeKey(
 			{
 				code: '12345678',
 				email: 'mia@example.com',
-				type: 'email_change',
+				type: 'email_change'
+			},
+			TEST_CODE_PEPPER
+		);
+		const marker = emailCodeKey(
+			{ code: 'used:abc', email: 'mia@example.com', type: 'reset_used' },
+			TEST_CODE_PEPPER
+		);
+		await seedIdentityEmailCode(
+			{
+				code: change.codeHash,
+				email: change.email,
+				type: change.type,
 				pendingEmail: 'new@example.com'
 			},
 			db
 		);
-		expect((await findEmailCode(db, '12345678'))?.pendingEmail).toBe('new@example.com');
-		expect(await findEmailCode(db, '87654321')).toBeNull();
-		await deleteEmailCode(db, '12345678');
-		expect(await findEmailCode(db, '12345678')).toBeNull();
+		await seedIdentityEmailCode(
+			{ code: marker.codeHash, email: marker.email, type: marker.type },
+			db
+		);
+
+		expect((await findEmailCodeByKey(db, change))?.pendingEmail).toBe('new@example.com');
+		expect((await findEmailCodeByKey(db, marker))?.type).toBe('reset_used');
+		// Q-116: the plaintext is not what the table holds, so it matches nothing.
+		expect(await findEmailCodeByKey(db, { ...change, codeHash: '12345678' })).toBeNull();
 	});
 
 	rollbackTest('deleteEmailCodesForEmail clears every code of that address only', async (db) => {

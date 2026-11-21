@@ -2,12 +2,13 @@
  * identity credentials service: bcrypt password hashing, and the email-code
  * issue/redeem use-cases.
  *
- * Sign-in codes are stored as their SHA-256 hex, never the plaintext (#162);
- * every hashed lookup binds `(hash, email, type)` so a digest match alone
- * cannot redeem (#154). The email-change code and the reset marker keep their
- * value in `codes.code`, as legacy wrote them; their redemption binds the same
- * email and type. Expected refusals answer `null` — the wording of a wrong or
- * expired code belongs to the flow that owns it (access), not here.
+ * Every email code is stored as `HMAC-SHA-256(pepper, code)` hex with the
+ * server pepper (`ctx.config.codePepper`), never the plaintext and never a bare
+ * SHA-256 a 6–8 digit code cannot defend — the three sign-in kinds, the
+ * email-change code and the reset marker alike (#162, Q-116, Q-117) — and every
+ * lookup binds `(hash, email, type)` so a digest match alone cannot redeem
+ * (#154). Expected refusals answer `null` — the wording of a wrong or expired
+ * code belongs to the flow that owns it (access), not here.
  *
  * Passwords stay bcrypt, cost 10 (no forced reset).
  *
@@ -16,17 +17,9 @@
 import bcrypt from 'bcryptjs';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import type { CodeRow, NewCodeRow } from '$lib/kernel/db/tables.server';
-import { sha256Hex } from '$lib/kernel/ids/ids';
+import { emailCodeExpiresAt, emailCodeKey, isEmailCodeExpired } from './identity.code.rules';
 import {
-	emailCodeExpiresAt,
-	emailCodeKey,
-	isEmailCodeExpired,
-	isHashedEmailCodeType
-} from './identity.code.rules';
-import {
-	deleteEmailCode,
 	deleteEmailCodeByKey,
-	findEmailCode,
 	findEmailCodeByKey,
 	insertEmailCode
 } from './identity.repo.server';
@@ -42,7 +35,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 	return bcrypt.compare(password, hash);
 }
 
-/** One code to store: the digest/plaintext split and the TTL are decided here. */
+/** One code to store: the digest and the TTL are decided here. */
 export type IssueEmailCodeInput = {
 	readonly code: string;
 	readonly email: string;
@@ -56,15 +49,14 @@ export type IssueEmailCodeInput = {
 };
 
 /**
- * Stores one code for `type`: a hashed kind keeps only the SHA-256 hex, every
- * other kind keeps its value. The expiry defaults to the 15-minute TTL.
+ * Stores one code for `type` as its keyed digest — every kind, so the
+ * email-change code and the reset marker never sit in `codes.code` readable
+ * (Q-116), and the pepper keeps an offline dump from reversing the 6–8 digits
+ * (Q-117). The expiry defaults to the 15-minute TTL.
  */
-export async function issueEmailCode(
-	ctx: Ctx,
-	input: IssueEmailCodeInput
-): Promise<CodeRow> {
+export async function issueEmailCode(ctx: Ctx, input: IssueEmailCodeInput): Promise<CodeRow> {
 	const values: NewCodeRow = {
-		code: isHashedEmailCodeType(input.type) ? sha256Hex(input.code) : input.code,
+		code: emailCodeKey(input, ctx.config.codePepper).codeHash,
 		expiresAt: input.expiresAt ?? emailCodeExpiresAt(ctx.clock.now()),
 		email: input.email,
 		type: input.type,
@@ -84,35 +76,23 @@ export type RedeemEmailCodeInput = {
 };
 
 /**
- * Redeems (and consumes) one code. A hashed kind looks up by
- * `(hash, email, type)`; a plain kind by value, then checks the same email and
- * type. A miss, an expired row or a mismatched email/type answers `null` and
- * consumes nothing; a hit deletes exactly that row and returns it, so the
- * caller can read `pendingEmail`/names.
+ * Redeems (and consumes) one code by its `(digest, email, type)` key: a miss,
+ * a mismatched email/type, a wrong code or an expired row answers `null`. A
+ * live row is deleted exactly as matched and returned, so the caller can read
+ * `pendingEmail`/names.
  */
 export async function redeemEmailCode(
 	ctx: Ctx,
 	input: RedeemEmailCodeInput
 ): Promise<CodeRow | null> {
 	const now = ctx.clock.now();
-	if (isHashedEmailCodeType(input.type)) {
-		const key = emailCodeKey(input);
-		const row = await findEmailCodeByKey(ctx.db, key);
-		if (!row) return null;
-		if (isEmailCodeExpired(row.expiresAt, now)) {
-			await deleteEmailCodeByKey(ctx.db, key);
-			return null;
-		}
-		await deleteEmailCodeByKey(ctx.db, key);
-		return row;
-	}
-
-	const row = await findEmailCode(ctx.db, input.code);
-	if (!row || row.email !== input.email || row.type !== input.type) return null;
+	const key = emailCodeKey(input, ctx.config.codePepper);
+	const row = await findEmailCodeByKey(ctx.db, key);
+	if (!row) return null;
 	if (isEmailCodeExpired(row.expiresAt, now)) {
-		await deleteEmailCode(ctx.db, input.code);
+		await deleteEmailCodeByKey(ctx.db, key);
 		return null;
 	}
-	await deleteEmailCode(ctx.db, input.code);
+	await deleteEmailCodeByKey(ctx.db, key);
 	return row;
 }

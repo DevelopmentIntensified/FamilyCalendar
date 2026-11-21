@@ -979,6 +979,18 @@ Recommendation: B, as its own commit after identity's S6 (`fix(identity): Q-116 
 
 Answer (owner, 2026-11-18): **B.** `email_change` codes and the `reset_used` marker are stored as SHA-256 digests like the three sign-in kinds. No `/api` response changes; lands after identity's S6 as `fix(identity): Q-116 …`.
 
+## Q-117 Email codes are hashed without a secret (security, 2026-11-21; modules: identity, access)
+
+Context: `codes.code` holds a 64-hex SHA-256 digest for every kind (Q-116), but nothing keys the digest. The codes are 6–8 digits, so a bare SHA-256 is reversed from a copy of the table — a leaked backup or a read-only credential — in seconds: hash every candidate number and match. A live row is then usable until its 15 minutes run out (the `reset_used` marker until the reset token expires), which is enough to finish whichever flow it belongs to (a sign-in, an email change, a password reset). No golden and no `/api` response reads the stored value.
+
+Options:
+A. Keep the bare SHA-256.
+B. Store `HMAC-SHA-256(pepper, code)` with a server pepper read from `EMAILSECRET`. Cost: production must set `EMAILSECRET` (the boot fails closed like `BETTER_AUTH_SECRET`), and codes issued before the deploy stop redeeming — they expire within 15 minutes; no `/api` response changes.
+
+Recommendation: B. Applied default until answered: A.
+
+Answer (owner, 2026-11-21): **B.** Every email-code kind is stored as `HMAC-SHA-256(pepper, code)` with the `EMAILSECRET` pepper (kernel `hmacSha256Hex`); a row hashed with another pepper or with a bare SHA-256 never redeems. API tokens and session tokens keep their bare SHA-256 — they are long random values, not 6–8 digits.
+
 ## Recorded defaults (the sheets recommend keeping legacy)
 
 Every row below is a question the module sheets raised and answered themselves: keep today's behaviour. The owner has not overridden any of them except Q-030, now a port (2026-11-20), so each other row stands as `A (recorded default)` and the sheet may cite its id. Each is filed with its own id so a later sheet or ticket can point at it, and the owner may reverse any of them.
