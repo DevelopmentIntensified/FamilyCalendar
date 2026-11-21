@@ -17,8 +17,8 @@ Calendars, Events, Recurring Event expansion, Exception Overrides, family mirror
 - [ ] S4 repo (+ fixtures)
 - [x] S5 service
 - [x] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check
+- [x] S8 rewire importers, delete legacy code and legacy tests
 - [ ] S9 README final, census --write, gate:push, ledger done
 
 ## Must survive
@@ -311,7 +311,27 @@ Two more gaps are pinned as today's behaviour, not as intent (no owner ticket ye
 - `src/lib/utils/ics.ts` has three legacy importers (`EventExportMenu.svelte`, `/calendar/event/[id]/+page.server.ts`, the ics route) — it dies at S8 with them.
 - `src/lib/server/services/archiveData.ts`, `src/lib/components/archive/archiveMonths.ts` and `src/lib/data/smartEventTemplates.ts` travel with the archive/calendar screens, not with this module.
 - `src/lib/types.ts` has 29 importers across unported modules; it dies at APP-05, and each module takes the types it owns (calendar takes `RSVPStatus`, `EventAttendanceSummary` and the display shapes into `calendar.contract.ts`).
-- The cloud-AI bulk fallback (`chatJson`) is dropped from this module: it needs a provider port on `ctx` and its own consent/settings story. Until that port exists, `smart` bulk edits use the deterministic planner only, and the endpoint's `422 Could not match that instruction…` is the honest answer. (Q-050) Flagged for the owner in Q-list terms if they want it back.
+
+## Notes (S7–S9)
+
+**S7 — event UI rebuilt** in `src/lib/domains/calendar/ui/` on the kernel `Sheet`, with the module's own rules (`calendar.eventView.rules.ts`, `calendar.eventForm.rules.ts`) and two state classes (`calendar.eventForm.state.svelte.ts`, `calendar.eventModal.state.svelte.ts`). Ported (component → legacy source): `CalendarEventModal` ← `EventModal.svelte` + `EventModalShell`/`BottomSheetHandle` (folded into kernel `Sheet`, K-08) + `EventModalHeader`; `CalendarEventForm` ← `EventFormModal.svelte` (form half) + `EventFormModel.svelte.ts`; `CalendarEventDetail` ← `EventDetailList.svelte`; `CalendarEventSeriesCard` ← `EventRecurrenceCard.svelte`; `CalendarEventRsvpRow`/`RsvpList` ← `EventRsvpRow.svelte`/`EventRsvpList.svelte`; `CalendarEventAttendeeGroups` ← `EventAttendeeGroups.svelte`; `CalendarEventModalBar` ← `EventModalBar.svelte`; `CalendarEventActionBar` ← `EventActionBar.svelte`; `CalendarEventDeleteConfirm` ← `EventDeleteConfirm.svelte`; `CalendarEventQuickAdd` ← `EventQuickAdd.svelte`; the field groups ← `EventTitleFields`/`EventDateTimeFields`/`EventRecurrenceFields`/`EventMetaFields`; `CalendarEventAttendantPicker` ← `AttendantPicker.svelte`; `CalendarEventLocationSearch` ← `LocationSearch.svelte`; `CalendarEventGuestNote` ← `EventGuestNote.svelte`; `CalendarEventExportMenu` ← `EventExportMenu.svelte`; `CalendarEventChipMark` ← `ChipKindMark.svelte`; `CalendarAttendanceBadge` ← `AttendanceBadge.svelte`; `CalendarCreatorBadge` ← `CreatorBadge.svelte`.
+
+**Not ported here (owned elsewhere, by design):** the view chrome — `Calendar.svelte`, `CalendarToolbar`, `MonthView`/`MonthDays`/`MonthDayCell`, `WeekView`/`WeekHourGrid`/`WeekAllDayRow`/`WeekHeader`, `DayView`/`DayHourGrid`/`DayAllDayList`/`DayHeader`, `ListView`, `CalendarKey`, `CalendarSelector`, `DayActionSheet`, `DayEventsModal`, `BulkEditBar`, `ExitSelectionAsk`, `EmptyState`, `FirstRunCard`, `calendarView.ts`, `bottomSheetSwipe.ts` — belongs to the `calendarPage` screen (its sheet's S7). `ChecklistSection`, `TaskDetailBar`, `TaskDetailModal`, `EventTaskFields` and the modal's Task tab belong to `tasks`: calendar may not import tasks (port order), so the sheet takes the checklist as a `checklist?: Snippet<[{ eventId }]>` prop and the create form is Event-only; the tasks screen passes its checklist in. `EventModal`'s `entryType='task'` tab and `submitTask` are therefore intentionally absent.
+
+**Decisions / deviations (all in README Invariants with their tests):**
+
+- The parser is a prop (`CalendarParseEvent`), not a second client: `/api/parse-event` is `parsing`'s endpoint, so the screen wires it in and the state class stays testable in node.
+- `POST …/rsvp` answers the raw attendance ROWS (Q-046, pinned), so the RSVP row shows the viewer's own row's status rather than assigning the array to a string (the legacy component's `data.rsvpStatus || next` was wrong once the wire carried rows); the observable answer after `invalidateAll` is the same.
+- The location search has no `AbortController` in the api client: a request token drops a stale answer, which is the same observable rule (issue 263).
+- Every delete sends a scope (`all` when no occurrence is open). Legacy sent no body for a one-off; the server reads `{}` as the whole series, so this is the same behaviour with one code path.
+- The series card takes the viewer's clock as a required prop (R5: no ambient time in `src/lib/domains`); the screen passes `new Date()`.
+
+**S8 — deletions** (nothing unported imported them; verified with `git grep` before deleting): `src/lib/server/services/eventRange.ts`(+`.test.ts`), `eventRecurrence.ts`(+`.test.ts`), `icsImportApi.ts`, `bulkAiService.ts`(+`.test.ts`), `bulkApplyService.ts`, `src/lib/server/utils/eventInvites.ts`(+`.test.ts`), and the dead `src/lib/components/calendar/__diag2.svelte.test.ts`.
+
+**Kept for unported importers** (legacy screens/components still import them; they die with those screens at S8 of `calendarPage`): `src/lib/server/services/calendarData.ts`, `eventDisplayService.ts`, `eventsChangedNudge.ts`, `icsImportFlow.ts`, `icsImportPreview.ts`, `icsImportService.ts`; `src/lib/server/db/actions/calendar.ts`, `calendarScope.ts`, `events.ts`; `src/lib/server/utils/eventIds.ts`; `src/lib/utils/ics.ts`, `attendance.ts`, `eventDuplicate.ts`, `actionError.ts`, `eventDisplay.ts`, `eventChip.ts`, `chipVocabulary.ts`, `eventRoster.ts`, `eventMove.ts`, `rangeSelect.ts`, `bulkPlan.ts`, `calendarMatch.ts`, `shareTarget.ts`, `dayOverlap.ts`; and the legacy `src/lib/components/calendar/**` + their tests.
+
+**S9 — left to the orchestrator:** the README is final (Files table, Invariants, this section) and both allowed checks print OK; `npm run census -- --write`, `npm run gate:push`, the visual/perf checks and the ledger row need npm, which this agent may not run.
+
 
 
 
