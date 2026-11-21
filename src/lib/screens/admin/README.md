@@ -17,6 +17,9 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 |---|---|---|---|
 | [index.ts](index.ts) | entry | Public isomorphic interface: `AdminCounts` and the closed, ordered section list (`ADMIN_SECTIONS`) that the shell and the index cards both render, so the destinations cannot drift apart. | — |
 | [index.server.ts](index.server.ts) | entry | Public server interface: `getAdminCounts` (the per-leg-degrading composition), `adminCountsEndpoint` (`GET /api/admin`) and `adminLayoutLoad`. | — |
+| [admin.contract.ts](admin.contract.ts) | contract | The one wire shape of the badge counts: `AdminCounts` — `openBugs` and `openPhrases` as whole numbers >= 0 — shared by the `/api/admin` body and the `(admin)` layout data, so the nav and the JSON cannot disagree. | through `admin.http.db.test.ts` |
+| [admin.sections.rules.ts](admin.sections.rules.ts) | rules | `ADMIN_SECTIONS` (the closed, ordered two-tab list: href, label, count key, badge colours) and `isAdminSectionActive` (exact path or child path) — one home for destinations the legacy layout and index page each hard-coded. | `admin.sections.rules.test.ts` |
+| [admin.sections.rules.test.ts](admin.sections.rules.test.ts) | test | Tables for the list's order, hrefs, count keys and badge colours, and for the active-path rule (exact, child, sibling prefix). | itself |
 | [ui/index.ts](ui/index.ts) | entry | Public components: `AdminShell` (the frame) and `AdminHome` (the index cards). | — |
 | [admin.http.db.test.ts](admin.http.db.test.ts) | test | Golden contract for `GET /api/admin`: the full body, both refusals for cookie and Bearer callers, and a failing count leg degrading to 0. Written against the legacy handler, so it runs unchanged after the port. | itself (db project, committed mode) |
 
@@ -27,6 +30,7 @@ Designed in S1, before the code. `AdminCounts`, `ADMIN_SECTIONS` and `getAdminCo
 - `index.ts`:
   - `AdminCounts` — `{ openBugs: number; openPhrases: number }` (from `admin.contract.ts`). The layout model, the shell badges and the `/api/admin` body share this one shape, so the nav and the JSON cannot disagree.
   - `ADMIN_SECTIONS` — the closed, ordered list of admin sections: href, label, which count key feeds its badge, and the badge colours. Bug Reports (red, `openBugs`) first, Unmatched Phrases (slate, `openPhrases`) second. One home for the destinations the legacy layout and index page each hard-coded.
+  - `isAdminSectionActive(pathname, href)` — the shell's active rule: a tab is active on its exact path or any child path; a sibling that merely shares the prefix (`/admin/nlpx`) is not.
 - `index.server.ts`:
   - `getAdminCounts(ctx)` → `AdminCounts` — reads `feedback`'s two open counts in parallel; each leg independently degrades to 0 and logs a warning. The single composition behind both the layout data and `/api/admin`.
   - `adminCountsEndpoint` — `GET /api/admin`: `endpoint` with auth `admin`, no input, body `AdminCounts`.

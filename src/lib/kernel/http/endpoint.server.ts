@@ -7,6 +7,8 @@
  *                 admin not admin   -> 403 {"error":"Forbidden"}
  *   rate limit    429 {"error": rule.message}   (checked after auth)
  *   query/params  zod-parsed; failure -> 400 {"error": first issue message}
+ *                 query: a scalar key keeps its FIRST value (legacy `get`), a key listed in
+ *                 `queryArrays` keeps every value (legacy `getAll`), absent array keys are []
  *   body          JSON; bodyMode 'json' (default): empty body = {}, malformed -> 400 {"error":"Invalid JSON"}
  *                 bodyMode 'lenient': malformed, empty or unreadable body = null, so the schema refuses it
  *                 bodyMode 'strict': an empty/whitespace body is refused like malformed JSON; the rest as 'json'
@@ -89,6 +91,14 @@ export type EndpointSpec<
 > = {
 	readonly auth: A;
 	readonly query?: Q;
+	/**
+	 * Query keys legacy handlers read with `searchParams.getAll(k)` instead of `get(k)`.
+	 * Every other key receives its FIRST value (`?id=a&id=b` -> `'a'`), which is what legacy
+	 * `get(k)` saw. A listed key receives every value in order, and `[]` when it is absent —
+	 * `getAll(k)` semantics — so its schema field is an array (`z.array(...)`, usually with a
+	 * default). List only keys whose `query` field is an array.
+	 */
+	readonly queryArrays?: readonly string[];
 	readonly body?: B;
 	/**
 	 * How the request body is read before `body` runs. Default `'json'`: an empty body is `{}` and
@@ -158,7 +168,7 @@ async function runEndpoint<
 	try {
 		const actor = authorize(spec.auth, event, ctx);
 		if (spec.rateLimit) enforceRateLimit(ctx, event.request, spec.rateLimit);
-		const query = parseInput(spec.query, Object.fromEntries(event.url.searchParams));
+		const query = parseInput(spec.query, queryInput(event.url, spec.queryArrays ?? []));
 		const params = parseInput(spec.params, event.params);
 		const body = spec.body
 			? parseInput(spec.body, await readJsonBody(event.request, spec.bodyMode ?? 'json'))
@@ -215,9 +225,32 @@ function enforceRateLimit(ctx: Ctx, request: Request, rule: RateLimitRule): void
 	}
 }
 
-type BoundaryInput = JsonValue | Readonly<Record<string, string>>;
+/**
+ * The query object the schema parses. A scalar key keeps its FIRST value, because that is what
+ * legacy `searchParams.get(k)` read (`Object.fromEntries` kept the LAST); a key listed in
+ * `queryArrays` gets every value, like legacy `searchParams.getAll(k)`, and `[]` when absent.
+ * `?key=` (present, empty) still yields `''`, for scalars and arrays alike.
+ */
+function queryInput(
+	url: URL,
+	arrayKeys: readonly string[]
+): Readonly<Record<string, string | readonly string[]>> {
+	// A Map plus Object.fromEntries: a query key named `__proto__` becomes an own property, as it
+	// did through Object.fromEntries before, instead of touching the object's prototype.
+	const entries = new Map<string, string | readonly string[]>();
+	for (const [key, value] of url.searchParams) {
+		if (entries.has(key)) continue; // the first occurrence wins, like get(k)
+		entries.set(key, arrayKeys.includes(key) ? url.searchParams.getAll(key) : value);
+	}
+	// getAll(k) is [] for an absent key; declare the same for listed keys so the schema always
+	// sees the array it declares.
+	for (const key of arrayKeys) {
+		if (!entries.has(key)) entries.set(key, []);
+	}
+	return Object.fromEntries(entries);
+}
 
-function parseInput<S extends Schema>(schema: S, input: BoundaryInput): Parsed<S> | undefined {
+function parseInput<S extends Schema>(schema: S, input: JsonValue): Parsed<S> | undefined {
 	if (!schema) return undefined;
 	const result = schema.safeParse(input);
 	if (!result.success) throw invalid(firstIssueMessage(result.error));
