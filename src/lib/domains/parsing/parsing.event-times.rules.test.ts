@@ -20,7 +20,12 @@ describe('time ranges — matched before single times', () => {
 		['gym 5:30-6:30pm', '17:30', '18:30'],
 		['gym 6:00PM - 8:00PM', '18:00', '20:00'],
 		['class from 2-4pm', '14:00', '16:00'],
-		['shift from 9 to 5 pm', '09:00', '17:00'],
+		// Legacy accident, pinned: the `from … to …` form is consumed by the
+		// short-range rule first, whose start hour INHERITS the end meridiem —
+		// `applyPeriod(9, 'pm')` is 21:00 (naturalLanguageService.ts:972-989 at
+		// 66a11131). The later "from 9 AM to 5 PM" rule (`:1430-1450`) never
+		// runs because this one already set `foundTime`.
+		['shift from 9 to 5 pm', '21:00', '17:00'],
 		['meeting between 2 and 4 PM', '14:00', '16:00'],
 		['drinks 6-8pm', '18:00', '20:00'],
 		['drinks 6 to 8pm', '18:00', '20:00'],
@@ -86,8 +91,12 @@ describe('single times', () => {
 		expect(parsed('standup 2026-08-30 1830').startTime).toBe('18:30');
 	});
 
-	it('a URL clock sets a start time (Q-010, ported as-is)', () => {
-		expect(parsed('standup https://meet.example.com/standup-5:30pm').startTime).toBe('17:30');
+	it('a clock inside a URL never sets a start time (Q-010 B)', () => {
+		expect(parsed('standup https://meet.example.com/standup-5:30pm').startTime).toBeUndefined();
+	});
+
+	it('a stated time outside the URL still reads (Q-010 B)', () => {
+		expect(parsed('https://meet.example.com/standup-5:30pm standup at 9am').startTime).toBe('09:00');
 	});
 });
 
@@ -136,7 +145,6 @@ describe('readEventTimes — state and increments', () => {
 	it('a found start time gates the later start rules', () => {
 		const times = createEventTimeState();
 		const confidence = readEventTimes(
-			'meet at 6 PM',
 			'meet at 6 PM',
 			createClaimBook(),
 			[],

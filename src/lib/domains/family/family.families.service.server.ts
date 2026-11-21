@@ -24,9 +24,10 @@ import { getPlanLimits, getSubscriptionSummary } from '$lib/domains/billing/inde
 import { getCalendarSettings } from '$lib/domains/identity/index.server';
 import type {
 	CreateFamilyBody,
-	FamilyCardView,
+	FamilyActiveInvite,
+	FamilyCreatePage,
 	FamilyDetailView,
-	FamilyRosterRowView,
+	FamilyListPayload,
 	FamilyView,
 	InviteCodeView,
 	UpdateFamilyBody
@@ -71,22 +72,8 @@ import type { FamilyCtx, FamilyDetailCtx } from './index.server';
 /** The zone the card's "Created" label prints in (legacy: the server's UTC). */
 const CARD_ZONE = 'UTC';
 
-/** One `/family` card's live code, as the list carries it. */
-type FamilyListInvite = {
-	readonly familyId: string;
-	readonly code: string;
-	readonly useCount: number | null;
-	readonly maxUses: number | null;
-	readonly expiresAt: Date;
-};
-
 /** `GET /api/families`: the cards, the side-rail roster, the live codes and the plan usage. */
-export type FamilyListPayload = {
-	readonly families: FamilyCardView[];
-	readonly roster: FamilyRosterRowView[];
-	readonly activeInvites: FamilyListInvite[];
-	readonly plan: { readonly used: number; readonly limit: number };
-};
+export type { FamilyListPayload } from './family.contract';
 
 /**
  * The `/family` list: every family the caller belongs to, oldest first, with
@@ -105,7 +92,7 @@ export async function listFamilies(ctx: Ctx, actor: Actor): Promise<FamilyListPa
 	const limits = await getPlanLimits(ctx, actor);
 
 	const now = ctx.clock.now();
-	const activeInvites: FamilyListInvite[] = codes
+	const activeInvites: FamilyActiveInvite[] = codes
 		.filter((invite) => isInviteUsable(invite, now))
 		.map((invite) => ({
 			familyId: invite.familyId,
@@ -117,7 +104,7 @@ export async function listFamilies(ctx: Ctx, actor: Actor): Promise<FamilyListPa
 
 	return {
 		families: memberships.map((membership) =>
-			buildFamilyCard(membership, openTasks.get(membership.family.id) ?? 0, roster, CARD_ZONE)
+			buildFamilyCard(membership, openTasks.get(membership.family.id) ?? 0, CARD_ZONE)
 		),
 		roster,
 		activeInvites,
@@ -144,6 +131,22 @@ export async function resolveMembershipFamilyId(ctx: Ctx, userId: string): Promi
  */
 export async function listPersonFamilyIds(ctx: Ctx, userId: string): Promise<string[]> {
 	return await listMembershipFamilyIds(ctx.db, userId);
+}
+
+/**
+ * `load` for `/family/create`: the plan gate's answer, the two numbers the
+ * banner and the usage line print, and the member limit the picker counts
+ * against (issue 076). One read of the limits and one of the memberships.
+ */
+export async function getFamilyCreatePage(ctx: Ctx, actor: Actor): Promise<FamilyCreatePage> {
+	const limits = await getPlanLimits(ctx, actor);
+	const used = (await listMemberships(ctx.db, actor.id)).length;
+	return {
+		familyLimit: limits.familyLimit,
+		familyLimitReached: familyCreationRefusal(limits, used) !== null,
+		familyUsed: used,
+		memberLimit: limits.memberLimit
+	};
 }
 
 /**
@@ -188,6 +191,10 @@ export async function getFamily(
 	const activity = await listRecentFamilyActivity(ctx.db, familyId);
 	const moduleSwitches = await ctx.moduleSwitches.listFamilyModuleSwitches(ctx, familyId);
 	const { settings } = await getCalendarSettings(ctx, actor);
+	// The defaults object has no `hiddenDashboardModules` key; a person with no
+	// settings row hides nothing.
+	const hiddenDashboardModules =
+		'hiddenDashboardModules' in settings ? (settings.hiddenDashboardModules ?? []) : [];
 	const invites = await listInviteCodes(ctx.db, familyId);
 	const activeInvite = firstUsableInvite(invites, ctx.clock.now());
 	const summary = await getSubscriptionSummary(ctx, actor);
@@ -200,7 +207,7 @@ export async function getFamily(
 		currentUserId: actor.id,
 		activity,
 		moduleSwitches,
-		hiddenDashboardModules: settings.hiddenDashboardModules ?? [],
+		hiddenDashboardModules,
 		activeInvite: activeInvite
 			? {
 					code: activeInvite.code,
@@ -291,7 +298,9 @@ export async function updateFamily(
 	const roleRefusal = requireRole(await findMemberRole(ctx.db, actor.id, familyId), 'admin');
 	if (roleRefusal) throw forbidden(roleRefusal.message);
 
-	const patch = familyPatch(body.name ?? '', body.color ?? '');
+	// The HTTP contract already trims; a direct service caller (or the legacy
+	// shape's untrimmed body) is trimmed here too so the wire copy matches.
+	const patch = familyPatch((body.name ?? '').trim(), body.color ?? '');
 	if (patch) await updateFamilyRow(ctx.db, familyId, patch);
 	const family = await findFamilyById(ctx.db, familyId);
 	// The role check above proves a membership row; a family that vanished

@@ -78,8 +78,8 @@ export function ordinalWeekdayOfMonth(
  * The one rollover rule, through kernel/time: an explicit year wins;
  * otherwise this year, rolling +1 only when the month-day sits strictly
  * before today (today stays today); a clamped day ("feb 30") never rolls.
- * An impossible month-day is an invalid DateTime the caller's `.toFormat`
- * turns into `"Invalid DateTime"` — the legacy wire accident (Q-009).
+ * An impossible month-day returns an invalid DateTime; callers guard
+ * `isValid` so it is skipped (Q-009 B), never written as "Invalid DateTime".
  */
 export function withRolloverYear(
 	month: number,
@@ -365,14 +365,18 @@ export function readEventDates(
 	}
 
 	// Numeric date: "05/03", "12/25" (MM/DD). Same rollover rule as every
-	// other spelling — and, as in the legacy chain, no validity guard here
-	// (Q-009 pins the resulting "Invalid DateTime").
+	// other spelling. Q-009 B: an impossible month-day (month outside 1–12,
+	// e.g. "31/12") is unmatched, so the date defaults to today — never the
+	// literal "Invalid DateTime" the legacy `.toFormat` wrote.
 	const numericDateMatch = dateInput.match(/\b(\d{1,2})\/(\d{1,2})\b/);
 	if (numericDateMatch && !reading.date) {
 		const month = parseInt(numericDateMatch[1]);
 		const day = parseInt(numericDateMatch[2]);
-		setDate(withRolloverYear(month, day, null, now).toFormat('yyyy-MM-dd'));
-		reading.confidence.push(0.3);
+		const target = withRolloverYear(month, day, null, now);
+		if (target.isValid) {
+			setDate(target.toFormat('yyyy-MM-dd'));
+			reading.confidence.push(0.3);
+		}
 	}
 
 	// Explicit-date sweep (multi-date + title spans): every calendar date

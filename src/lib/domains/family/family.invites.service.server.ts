@@ -7,7 +7,9 @@
  * session). The accept runs ONE transaction that takes `SELECT … FOR UPDATE` on
  * the invite row, then checks expiry, the use cap, duplicate membership and the
  * family-size cap, and bumps `use_count` DB-side (#155). Time comes from
- * `ctx.clock` and codes from `ctx.ids`, so nothing here reads a clock.
+ * `ctx.clock` and the code from the kernel's `systemIds` (the legacy
+ * `generateId(10)` shape the frozen golden pins: 10 chars of a-z0-9), so
+ * nothing here reads a clock or invents a second alphabet.
  *
  * Doc: ./README.md#public-interface
  */
@@ -15,8 +17,14 @@ import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { withTx } from '$lib/kernel/db/database.server';
 import { invalid, notFound } from '$lib/kernel/errors/appError';
-import type { FamilyView, InviteCodeView, MintInviteBody } from './family.contract';
-import { findFamilyById } from './family.families.repo.server';
+import { systemIds } from '$lib/kernel/ids/ids';
+import type {
+	FamilyInvitationsPage,
+	FamilyView,
+	InviteCodeView,
+	MintInviteBody
+} from './family.contract';
+import { findFamilyById, listMemberships } from './family.families.repo.server';
 import { familyMemberLimitRefusal } from './family.families.service.server';
 import {
 	INVITE_CODE_LENGTH,
@@ -83,7 +91,7 @@ export async function mintFamilyInviteCode(
 	plan: InviteMintPlan,
 	createdBy: string
 ): Promise<MintedInviteCode> {
-	const code = ctx.ids.id(INVITE_CODE_LENGTH);
+	const code = systemIds.id(INVITE_CODE_LENGTH);
 	const expiresAt = inviteExpiresAt(ctx.clock.now(), plan.days);
 	await insertInviteCode(ctx.db, { code, familyId, expiresAt, maxUses: plan.maxUses, createdBy });
 	return { code, expiresAt };
@@ -106,6 +114,45 @@ export async function listInvites(
 	return {
 		canManageInvites: allowed,
 		codes: allowed ? await listInviteCodes(ctx.db, familyId) : []
+	};
+}
+
+/**
+ * `load` for `/family/invitations`: the family named by `?familyId=` when the
+ * caller belongs to it, otherwise the OLDEST one (issue 098); a plain member
+ * gets the explanatory notice with no codes, and the switcher carries every
+ * family with its own permission. No family at all answers an empty page.
+ */
+export async function getInvitationsPage(
+	ctx: Ctx,
+	actor: Actor,
+	requestedFamilyId: string | null
+): Promise<FamilyInvitationsPage> {
+	const memberships = await listMemberships(ctx.db, actor.id);
+	const chosen =
+		memberships.find((membership) => membership.family.id === requestedFamilyId) ??
+		memberships[0] ??
+		null;
+	if (!chosen) {
+		return {
+			invitations: [],
+			canManageInvites: false,
+			family: null,
+			now: ctx.clock.now().toISOString(),
+			memberships: []
+		};
+	}
+	const allowed = canManageInvites(chosen.role);
+	return {
+		invitations: allowed ? await listInviteCodes(ctx.db, chosen.family.id) : [],
+		canManageInvites: allowed,
+		family: chosen.family,
+		now: ctx.clock.now().toISOString(),
+		memberships: memberships.map((membership) => ({
+			id: membership.family.id,
+			name: membership.family.name,
+			canManageInvites: canManageInvites(membership.role)
+		}))
 	};
 }
 

@@ -15,19 +15,18 @@
  * through the kernel `ai` port (`ctx.ai`), so no test leaves the process and no
  * module imports Cerebras.
  *
- * `now` for the parse is the PROCESS clock (`systemClock`, kernel/time), not
- * `ctx.clock`: the frozen golden derives its expected dates from
- * `DateTime.now()` (`parsing.http.db.test.ts`), so the endpoint must resolve
- * relative dates against the same real clock the legacy route read (R5 still
- * holds — the read goes through kernel/time, never `DateTime.now()` here).
- * Billing's period and the free tier's short window still follow `ctx.clock`.
+ * `now` for the parse is `ctx.clock.now()`, like every other service (R5):
+ * the frozen golden derives its expected dates from `DateTime.now()`
+ * (`parsing.http.db.test.ts`) and `goldenCtx` hands it the real `systemClock`
+ * as `ctx.clock`, so relative dates resolve against the same instant the
+ * legacy route read. Billing's period and the free tier's short window follow
+ * the same clock.
  *
  * Doc: ./README.md#public-interface
  */
 import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { isAppError } from '$lib/kernel/errors/appError';
-import { systemClock } from '$lib/kernel/time/clock';
 import {
 	assertAiAvailable,
 	isPaidCaller,
@@ -123,7 +122,7 @@ export async function parseEventRequest(
 	// resolve in the caller's stored zone, else UTC (what production's
 	// server-local clock is), so the rule always gets a zone (R5).
 	const storedZone = actor ? await getTimeZone(ctx, actor.id) : undefined;
-	const options: EventQuickAddOptions = { now: systemClock.now(), zone: storedZone ?? 'UTC' };
+	const options: EventQuickAddOptions = { now: ctx.clock.now(), zone: storedZone ?? 'UTC' };
 
 	// The tier lookup runs only for a signed-in caller that asked for cloud
 	// parsing, so anonymous and opt-out requests add no query. The window is

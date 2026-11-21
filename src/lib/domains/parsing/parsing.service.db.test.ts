@@ -6,9 +6,9 @@
  * The vendor call is the `ctx.ai` port, so a test scripts the model's answer
  * and reads `ctx.ai.calls` — no test leaves the process and no module is
  * mocked (R9). Billing rows come from billing's fixtures, settings rows from
- * identity's; the parse's "now" is the process clock (the frozen golden's
- * choice), so a date assertion is built from `DateTime.now()` the way
- * `parsing.http.db.test.ts` does it.
+ * identity's; the parse's "now" is `ctx.clock.now()`, so a date assertion is
+ * built from the ctx clock (`NOW`) the way the frozen golden builds its own
+ * from `DateTime.now()` under `goldenCtx`'s real clock.
  *
  * Doc: ./README.md#how-to-test
  */
@@ -33,9 +33,9 @@ const NOW = '2026-06-01T00:00:00.000Z';
 /** The bucket `clientKeyOf(request, 'parse-event')` builds for a local caller. */
 const CLIENT_KEY = 'parse-event:local';
 
-/** Today, plus `days`, in a zone — the golden's own date arithmetic. */
+/** Today on the ctx clock (`NOW`), plus `days`, in a zone. */
 function dayIn(zone: string, days = 0): string {
-	return DateTime.now().setZone(zone).plus({ days }).toFormat('yyyy-MM-dd');
+	return DateTime.fromJSDate(new Date(NOW), { zone }).plus({ days }).toFormat('yyyy-MM-dd');
 }
 
 /** Narrow an answer to the single-parse shape (a list answer has no `parsed`). */

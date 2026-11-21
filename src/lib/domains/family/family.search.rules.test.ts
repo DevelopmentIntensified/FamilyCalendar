@@ -19,6 +19,7 @@ import {
 	MEMBER_SEARCH_MIN_QUERY,
 	MEMBER_SEARCH_ROW_CAP,
 	searchTermProblem,
+	splitInviteName,
 	type SearchCandidate
 } from './family.search.rules';
 
@@ -134,6 +135,7 @@ describe('the invite flow matches exactly, never a prefix or a substring', () =>
 	const twin: SearchCandidate = { firstName: 'Lee', lastName: 'Lee', email: 'twin@x.com' };
 
 	// Legacy families.test.ts:237-266 and the golden "matches an exact email only".
+	// Q-028 B (answered 2026-11-12): a full name is split into its two columns.
 	it.each<[string, SearchCandidate, string, boolean]>([
 		['the exact email', ann, 'ann@x.com', true],
 		['the exact email in another case', ann, 'ANN@X.COM', true],
@@ -142,7 +144,12 @@ describe('the invite flow matches exactly, never a prefix or a substring', () =>
 		['an email substring', ann, 'nn@x', false],
 		['a first name alone', ann, 'Ann', false],
 		['a last name alone', ann, 'Lee', false],
-		['a full name (both columns compared to the whole query)', ann, 'Ann Lee', false],
+		['a full name split into first and last', ann, 'Ann Lee', true],
+		['a full name in another case', ann, 'ANN lee', true],
+		['a full name with padding around the pair', ann, '  Ann Lee ', true],
+		['a full name with the halves reversed', ann, 'Lee Ann', false],
+		['a full name whose halves do not match', ann, 'Ann Park', false],
+		['a full name with a multi-word surname', { firstName: 'Ann', lastName: 'van der Berg', email: null }, 'Ann van der Berg', true],
 		['a person whose first and last names both equal the query', twin, 'lee', true],
 		['a wildcard', ann, '%', false],
 		['an underscore standing in for a letter', ann, 'an_@x.com', false]
@@ -154,5 +161,19 @@ describe('the invite flow matches exactly, never a prefix or a substring', () =>
 		const ann2: SearchCandidate = { firstName: 'Ann', lastName: 'Lee', email: 'ann@x.com' };
 		expect(isPickerMatch(ann2, 'an')).toBe(true);
 		expect(isInviteFlowMatch(ann2, 'an')).toBe(false);
+	});
+});
+
+describe('splitInviteName: the invite flow\'s two name terms (Q-028 B)', () => {
+	it.each<[string, string, { firstName: string; lastName: string }]>([
+		['a full name', 'Ann Lee', { firstName: 'Ann', lastName: 'Lee' }],
+		['a full name with padding', '  Ann Lee  ', { firstName: 'Ann', lastName: 'Lee' }],
+		['a full name with a wide gap', 'Ann \t Lee', { firstName: 'Ann', lastName: 'Lee' }],
+		['one token, which keeps the legacy both-columns leg', 'Sam', { firstName: 'Sam', lastName: 'Sam' }],
+		['a multi-word surname kept whole', 'Ann van der Berg', { firstName: 'Ann', lastName: 'van der Berg' }],
+		['an empty query', '', { firstName: '', lastName: '' }],
+		['a whitespace-only query', '   ', { firstName: '', lastName: '' }]
+	])('%s', (_what, query, expected) => {
+		expect(splitInviteName(query)).toEqual(expected);
 	});
 });
