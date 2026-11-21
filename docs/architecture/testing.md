@@ -80,7 +80,7 @@ Golden tests build their ctx with `goldenCtx` from `$lib/app/testing/goldenCtx.s
 ## Test doubles
 
 - **Database:** real Postgres, never a query-builder stub (rule R9 bans `vi.mock`).
-- **Clock, ids, log, faults, limiter:** `testCtx()` fakes. Inspect `ctx.log.entries`, `ctx.faults.reports`, and move time with `ctx.clock.set()` / `advanceMs()`.
+- **Clock, ids, log, faults, limiter, mail:** `testCtx()` fakes. Inspect `ctx.log.entries`, `ctx.faults.reports`, `ctx.mail.outbox`, and move time with `ctx.clock.set()` / `advanceMs()`.
 - **Outbound effects** (mail, push, AI, HTTP): add a port with a memory adapter ([add-a-port.md](../rewrite/playbooks/add-a-port.md)) and assert on its outbox.
 - **Browser API calls:** pass a fake api object into state classes or components. Don't stub global `fetch` in v2 tests.
 
