@@ -1,4 +1,4 @@
-# Playbook: kernel tasks (K-04 … K-14)
+# Playbook: kernel tasks (K-04 … K-20)
 
 Kernel tasks build shared pieces once, before the modules that need them. Each new kernel file gets a test and a row in the [kernel README](../../../src/lib/kernel/README.md) Files table, in the same commit.
 
@@ -227,5 +227,32 @@ Baseline and check must run on the same day, because pages show today's date. If
 7. Bridges: [ports.server.ts](../../../src/lib/app/ports.server.ts) gains `AppPorts` (= identity's `IdentityPorts`) and legacy adapters for `CalendarAccessPort` (`getAccessibleCalendarIds`) and `AdConsentPort` (`getAdConsentRecords`, `recordAdConsentChange`); each is a TRANSITION BRIDGE naming the S5 that replaces it. `goldenCtx` gets both through `wirePorts`.
 8. Tests: the memory adapters' recording and scripting, `testCtx`'s new ports and config, the Cerebras request/body and its refusals, the fetch timeout signal/method/body/status, and the push transport's web payload + VAPID details + `dead` mapping + FCM result mapping.
 9. Docs: the kernel README Files table rows plus the "Push", "AI" and "Outbound HTTP" notes under Ctx and actor, and the app README bridge and env lines.
+
+**Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.
+
+## k-19
+
+**K-19: query first value and array keys.** `endpoint()` built its query object with `Object.fromEntries(url.searchParams)`, which keeps the LAST value of a repeated key; legacy handlers read the FIRST (`searchParams.get(k)`) or every value (`getAll(k)`, family's member-search `exclude`). Needed before family's S6.
+
+1. A scalar query key receives its FIRST value, the one legacy `get(k)` read. An absent key stays absent; `?key=` is `''`.
+2. Add one `endpoint()` option, `queryArrays`, naming the keys legacy read with `getAll(k)`. Such a key receives every value in order, and `[]` when absent (`getAll` semantics), so its schema field is `z.array(...)`, usually `.default([])`. The keys are a plain `readonly string[]`; list only keys whose `query` field is an array. A legacy `.filter(Boolean)` stays in the module (member-search has one), so `?exclude=` still reaches it and is dropped there.
+3. Typed `it.each` tests: a repeated scalar key keeps the first value; an array key with 0/1/2 values; absent keys; an empty value stays present as `''`. Repeated keys go through `invoke`'s `path`, because its `query` option sets one value per key.
+4. Document the option in the kernel README (HTTP notes and Invariants).
+## k-20
+
+**K-20: `endpoint()` malformed-body copy.** `bodyMode` has two shapes for an unparsable body — the house `400 Invalid JSON` (json mode) or the module's schema refusal (lenient) — but several legacy routes answer their OWN sentence and the frozen goldens pin it: groceries' four handlers (`Invalid JSON body`) and the two focus-session routes (`Invalid JSON body`). So the modules re-parse `request.text()` themselves (groceries' `groceryJsonBody`), duplicating what `endpoint()` is supposed to own.
+
+1. Add one `endpoint()` option, `malformedBody: { status?: number; error: string }`. Every legacy `request.json()` catch answered `400 {"error":"Invalid JSON body"}`, so `status` defaults to 400 and only the copy is required.
+2. Semantics, exactly the legacy reader:
+   - it replaces the refusal for **every** refusing read failure (`'json'` and `'strict'`): malformed JSON, an unreadable body, and an **empty/whitespace-only** body — `request.json()` threw on all three;
+   - an endpoint that sets it therefore no longer reads an empty body as `{}` (that is why it is not just a copy swap);
+   - a body that parses — including the JSON literal `null`, a string, a number or an array — is NOT "malformed": it reaches the contract's `body` schema as parsed, so a route that also refused non-objects with the same sentence puts that sentence on the schema's object-level error;
+   - `bodyMode: 'strict'` (identity's `PATCH /api/me/settings`) refuses an empty body as well, and with the option set it answers this copy there too — the copy owns every refusing read, strict included;
+   - `bodyMode: 'lenient'` ignores it (there the schema decides every non-JSON body), and so does `'empty-object'` (no read refusal there); it is also unused when `body` is not set.
+3. Every existing caller stays byte-identical: with no `malformedBody`, json mode keeps `{}` for an empty body and `400 {"error":"Invalid JSON"}` for a malformed one; lenient mode is untouched.
+4. Typed `it.each` tests in `endpoint.test.ts` under `endpoint malformed body copy`: default copy unchanged, malformed/empty/whitespace under a custom copy and status, a copy without a status (400), a valid object untouched, the literal `null` and an array still reaching the schema, lenient + copy ignoring the copy, and strict + copy answering it for the empty body too.
+5. Docs: the kernel README "HTTP" note and the `endpoint.server.ts` Files row.
+
+**Do not rewire a module now.** Groceries and tasks set the option at their own S6, which is where their duplicated body parser goes.
 
 **Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.
