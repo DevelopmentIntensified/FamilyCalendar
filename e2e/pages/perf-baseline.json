@@ -1,0 +1,1482 @@
+{
+  "generatedAt": "2026-11-21T15:58:51.353Z",
+  "runs": 5,
+  "pages": {
+    "admin/admin-home": {
+      "module": "admin",
+      "name": "admin-home",
+      "path": "/admin",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 248,
+            "lcp": 304,
+            "ttfb": 29.799999997019768,
+            "js": 63085,
+            "html": 4217,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 106.79999999701977,
+            "lcp": 116
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 768.1999999880791,
+            "lcp": 816,
+            "ttfb": 25.099999994039536,
+            "js": 63085,
+            "html": 4217,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 242.40000000596046,
+            "lcp": 260
+          }
+        }
+      },
+      "ceiling": 63085
+    },
+    "feedback/admin-bugs": {
+      "module": "feedback",
+      "name": "admin-bugs",
+      "path": "/admin/bugs",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 167.3999999910593,
+            "lcp": 200,
+            "ttfb": 28.19999998807907,
+            "js": 67719,
+            "html": 4825,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 90.20000000298023,
+            "lcp": 100
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 754.3000000119209,
+            "lcp": 780,
+            "ttfb": 23.900000005960464,
+            "js": 68343,
+            "html": 4825,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 267.1000000089407,
+            "lcp": 292
+          }
+        }
+      },
+      "ceiling": 68343
+    },
+    "feedback/admin-nlp": {
+      "module": "feedback",
+      "name": "admin-nlp",
+      "path": "/admin/nlp",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 233.90000000596046,
+            "lcp": 272,
+            "ttfb": 27.599999994039536,
+            "js": 68726,
+            "html": 4929,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 80.70000000298023,
+            "lcp": 92
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 870.2999999970198,
+            "lcp": 900,
+            "ttfb": 49.099999994039536,
+            "js": 65370,
+            "html": 4929,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 544.2000000029802,
+            "lcp": 588
+          }
+        }
+      },
+      "ceiling": 68726
+    },
+    "feedback/report-bug": {
+      "module": "feedback",
+      "name": "report-bug",
+      "path": "/report-bug",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 173.1000000089407,
+            "lcp": 192,
+            "ttfb": 28.599999994039536,
+            "js": 50596,
+            "html": 4182,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 81.5,
+            "lcp": 96
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 651.5,
+            "lcp": 680,
+            "ttfb": 29.700000002980232,
+            "js": 62792,
+            "html": 4182,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 316.79999999701977,
+            "lcp": 328
+          }
+        }
+      },
+      "ceiling": 62792
+    },
+    "account/account-settings": {
+      "module": "account",
+      "name": "account-settings",
+      "path": "/account",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 302.70000000298023,
+            "lcp": 356,
+            "ttfb": 98.20000000298023,
+            "js": 64143,
+            "html": 8611,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 148.40000000596046,
+            "lcp": 168
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1204.7000000029802,
+            "lcp": 1288,
+            "ttfb": 77.79999999701977,
+            "js": 119575,
+            "html": 8611,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 535.3000000119209,
+            "lcp": 572
+          }
+        }
+      },
+      "ceiling": 119575
+    },
+    "access/verify-email": {
+      "module": "access",
+      "name": "verify-email",
+      "path": "/account/verify-email",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 288.29999999701977,
+            "lcp": 320,
+            "ttfb": 33.70000000298023,
+            "js": 40266,
+            "html": 6470,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 104.19999998807907,
+            "lcp": 124
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 798.6999999880791,
+            "lcp": 820,
+            "ttfb": 27.100000008940697,
+            "js": 106301,
+            "html": 6470,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 446,
+            "lcp": 476
+          }
+        }
+      },
+      "ceiling": 106301
+    },
+    "access/claim": {
+      "module": "access",
+      "name": "claim",
+      "path": "/claim",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 181.59999999403954,
+            "lcp": 208,
+            "ttfb": 20.399999991059303,
+            "js": 55876,
+            "html": 3923,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 91.79999999701977,
+            "lcp": 100
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 583,
+            "lcp": 596,
+            "ttfb": 24.099999994039536,
+            "js": 57111,
+            "html": 3923,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 305,
+            "lcp": 312
+          }
+        }
+      },
+      "ceiling": 57111
+    },
+    "access/merge-guest": {
+      "module": "access",
+      "name": "merge-guest",
+      "path": "/merge-guest",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 196,
+            "lcp": 216,
+            "ttfb": 43.900000005960464,
+            "js": 44394,
+            "html": 3856,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 82.8999999910593,
+            "lcp": 96
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 609.5,
+            "lcp": 640,
+            "ttfb": 39.70000000298023,
+            "js": 59962,
+            "html": 3856,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 278.70000000298023,
+            "lcp": 296
+          }
+        }
+      },
+      "ceiling": 59962
+    },
+    "access/invite-email": {
+      "module": "access",
+      "name": "invite-email",
+      "path": "/family/invite/email?token=[token]",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 514,
+            "lcp": 540,
+            "ttfb": 18.700000002980232,
+            "js": 102307,
+            "html": 4364,
+            "data": 1055
+          },
+          "repeat": {
+            "ready": 172.90000000596046,
+            "lcp": 192
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1899.4000000059605,
+            "lcp": 1920,
+            "ttfb": 8.600000008940697,
+            "js": 102307,
+            "html": 4364,
+            "data": 1055
+          },
+          "repeat": {
+            "ready": 730.6000000089407,
+            "lcp": 744
+          }
+        }
+      },
+      "ceiling": 102307
+    },
+    "access/forgot-password": {
+      "module": "access",
+      "name": "forgot-password",
+      "path": "/forgot-password",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 501.40000000596046,
+            "lcp": 532,
+            "ttfb": 6.700000002980232,
+            "js": 104038,
+            "html": 4353,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 186.70000000298023,
+            "lcp": 204
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1422.7000000029802,
+            "lcp": 1440,
+            "ttfb": 7.299999997019768,
+            "js": 104038,
+            "html": 4353,
+            "data": 608
+          },
+          "repeat": {
+            "ready": 533.5,
+            "lcp": 548
+          }
+        }
+      },
+      "ceiling": 104038
+    },
+    "access/reset-password": {
+      "module": "access",
+      "name": "reset-password",
+      "path": "/forgot-password/reset?token=x",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 447.69999998807907,
+            "lcp": 488,
+            "ttfb": 7.300000011920929,
+            "js": 104276,
+            "html": 4397,
+            "data": 614
+          },
+          "repeat": {
+            "ready": 153.19999998807907,
+            "lcp": 184
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1735.7999999970198,
+            "lcp": 1764,
+            "ttfb": 9.5,
+            "js": 104276,
+            "html": 4397,
+            "data": 614
+          },
+          "repeat": {
+            "ready": 839.9000000059605,
+            "lcp": 860
+          }
+        }
+      },
+      "ceiling": 104276
+    },
+    "access/login": {
+      "module": "access",
+      "name": "login",
+      "path": "/login",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 716,
+            "lcp": 760,
+            "ttfb": 8,
+            "js": 108359,
+            "html": 4475,
+            "data": 703
+          },
+          "repeat": {
+            "ready": 175.3999999910593,
+            "lcp": 192
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1367.7000000029802,
+            "lcp": 1392,
+            "ttfb": 6.5,
+            "js": 108359,
+            "html": 4475,
+            "data": 703
+          },
+          "repeat": {
+            "ready": 589.4000000059605,
+            "lcp": 604
+          }
+        }
+      },
+      "ceiling": 108359
+    },
+    "access/signup": {
+      "module": "access",
+      "name": "signup",
+      "path": "/signup",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 462.19999998807907,
+            "lcp": 480,
+            "ttfb": 6.299999997019768,
+            "js": 107944,
+            "html": 4407,
+            "data": 682
+          },
+          "repeat": {
+            "ready": 142.29999999701977,
+            "lcp": 164
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1391.7999999970198,
+            "lcp": 1416,
+            "ttfb": 5.5999999940395355,
+            "js": 107944,
+            "html": 4407,
+            "data": 682
+          },
+          "repeat": {
+            "ready": 613,
+            "lcp": 628
+          }
+        }
+      },
+      "ceiling": 107944
+    },
+    "calendarPage/calendar-month": {
+      "module": "calendarPage",
+      "name": "calendar-month",
+      "path": "/calendar",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 639.8999999910593,
+            "lcp": 180,
+            "ttfb": 34.20000000298023,
+            "js": 201457,
+            "html": 9083,
+            "data": 2173
+          },
+          "repeat": {
+            "ready": 201.3999999910593,
+            "lcp": 228
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 2446.0999999940395,
+            "lcp": 596,
+            "ttfb": 37.5,
+            "js": 201457,
+            "html": 9083,
+            "data": 2173
+          },
+          "repeat": {
+            "ready": 1134.1000000089407,
+            "lcp": 380
+          }
+        }
+      },
+      "ceiling": 201457
+    },
+    "calendarPage/share-target": {
+      "module": "calendarPage",
+      "name": "share-target",
+      "path": "/share-target?text=Book%20the%20dentist%20on%20Friday",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 811.5,
+            "lcp": 240,
+            "ttfb": 84.5,
+            "js": 201457,
+            "html": 9081,
+            "data": 5278
+          },
+          "repeat": {
+            "ready": 396.90000000596046,
+            "lcp": 188
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 3353.2000000029802,
+            "lcp": 624,
+            "ttfb": 114.70000000298023,
+            "js": 201457,
+            "html": 9081,
+            "data": 4378
+          },
+          "repeat": {
+            "ready": 1728.5,
+            "lcp": 504
+          }
+        }
+      },
+      "ceiling": 201457
+    },
+    "tasks/archive": {
+      "module": "tasks",
+      "name": "archive",
+      "path": "/calendar/archive",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 407.79999999701977,
+            "lcp": 476,
+            "ttfb": 65.6000000089407,
+            "js": 47201,
+            "html": 8672,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 184.3999999910593,
+            "lcp": 220
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 833.7000000029802,
+            "lcp": 896,
+            "ttfb": 67.79999999701977,
+            "js": 113413,
+            "html": 8672,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 563.1999999880791,
+            "lcp": 608
+          }
+        }
+      },
+      "ceiling": 113413
+    },
+    "tasks/stats": {
+      "module": "tasks",
+      "name": "stats",
+      "path": "/calendar/stats",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 367.5,
+            "lcp": 448,
+            "ttfb": 75,
+            "js": 60053,
+            "html": 8491,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 142.19999998807907,
+            "lcp": 180
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1220.5999999940395,
+            "lcp": 1268,
+            "ttfb": 107.6000000089407,
+            "js": 113753,
+            "html": 8492,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 381.5,
+            "lcp": 412
+          }
+        }
+      },
+      "ceiling": 113753
+    },
+    "tasks/tasks": {
+      "module": "tasks",
+      "name": "tasks",
+      "path": "/calendar/tasks",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 265,
+            "lcp": 312,
+            "ttfb": 59.099999994039536,
+            "js": 98053,
+            "html": 12072,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 117.5,
+            "lcp": 148
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 920.5999999940395,
+            "lcp": 964,
+            "ttfb": 62.599999994039536,
+            "js": 148847,
+            "html": 12073,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 358.5,
+            "lcp": 376
+          }
+        }
+      },
+      "ceiling": 148847
+    },
+    "dayDashboard/dashboard": {
+      "module": "dayDashboard",
+      "name": "dashboard",
+      "path": "/calendar/dashboard",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 949.2000000029802,
+            "lcp": 320,
+            "ttfb": 54.70000000298023,
+            "js": 182962,
+            "html": 10315,
+            "data": 782
+          },
+          "repeat": {
+            "ready": 297.8999999910593,
+            "lcp": 196
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 2789.7999999970198,
+            "lcp": 744,
+            "ttfb": 60.79999999701977,
+            "js": 182962,
+            "html": 10315,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 1095.4000000059605,
+            "lcp": 428
+          }
+        }
+      },
+      "ceiling": 182962
+    },
+    "calendar/event-detail": {
+      "module": "calendar",
+      "name": "event-detail",
+      "path": "/calendar/event/[id]",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 174.70000000298023,
+            "lcp": 208,
+            "ttfb": 45.29999999701977,
+            "js": 70463,
+            "html": 8639,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 111.19999998807907,
+            "lcp": 128
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 646.9000000059605,
+            "lcp": 588,
+            "ttfb": 44,
+            "js": 114253,
+            "html": 8639,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 381.29999999701977,
+            "lcp": 404
+          }
+        }
+      },
+      "ceiling": 114253
+    },
+    "calendar/import": {
+      "module": "calendar",
+      "name": "import",
+      "path": "/calendar/import",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 512.9000000059605,
+            "lcp": 552,
+            "ttfb": 120.79999999701977,
+            "js": 73277,
+            "html": 8866,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 136.1000000089407,
+            "lcp": 160
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1180.7000000029802,
+            "lcp": 1212,
+            "ttfb": 35.599999994039536,
+            "js": 119512,
+            "html": 8866,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 692.3999999910593,
+            "lcp": 620
+          }
+        }
+      },
+      "ceiling": 119512
+    },
+    "calendar/print": {
+      "module": "calendar",
+      "name": "print",
+      "path": "/calendar/print",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 249.79999999701977,
+            "lcp": 320,
+            "ttfb": 50.400000005960464,
+            "js": 100193,
+            "html": 8725,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 103.80000001192093,
+            "lcp": 132
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 782.7000000029802,
+            "lcp": 820,
+            "ttfb": 49.099999994039536,
+            "js": 111110,
+            "html": 8725,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 542.7999999970198,
+            "lcp": 480
+          }
+        }
+      },
+      "ceiling": 111110
+    },
+    "groceries/groceries": {
+      "module": "groceries",
+      "name": "groceries",
+      "path": "/calendar/groceries",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 379.6000000089407,
+            "lcp": 424,
+            "ttfb": 43.6000000089407,
+            "js": 117398,
+            "html": 9638,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 121.5,
+            "lcp": 152
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 840.2000000029802,
+            "lcp": 872,
+            "ttfb": 28.5,
+            "js": 121285,
+            "html": 9638,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 413.79999999701977,
+            "lcp": 380
+          }
+        }
+      },
+      "ceiling": 121285
+    },
+    "alerts/notifications": {
+      "module": "alerts",
+      "name": "notifications",
+      "path": "/calendar/notifications",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 233.20000000298023,
+            "lcp": 264,
+            "ttfb": 30,
+            "js": 100193,
+            "html": 8038,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 100.20000000298023,
+            "lcp": 120
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 875.6999999880791,
+            "lcp": 908,
+            "ttfb": 29,
+            "js": 114022,
+            "html": 8038,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 387.30000001192093,
+            "lcp": 408
+          }
+        }
+      },
+      "ceiling": 114022
+    },
+    "family/families": {
+      "module": "family",
+      "name": "families",
+      "path": "/family",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 247.59999999403954,
+            "lcp": 292,
+            "ttfb": 49.29999999701977,
+            "js": 95988,
+            "html": 9336,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 159.20000000298023,
+            "lcp": 188
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1018.7000000029802,
+            "lcp": 1088,
+            "ttfb": 51.70000000298023,
+            "js": 116360,
+            "html": 9336,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 576.7000000029802,
+            "lcp": 500
+          }
+        }
+      },
+      "ceiling": 116360
+    },
+    "family/family-members-add": {
+      "module": "family",
+      "name": "family-members-add",
+      "path": "/family/[familyId]/members/add",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 172.79999999701977,
+            "lcp": 196,
+            "ttfb": 30.899999991059303,
+            "js": 57730,
+            "html": 7729,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 95.79999999701977,
+            "lcp": 112
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 599.4000000059605,
+            "lcp": 624,
+            "ttfb": 26.600000008940697,
+            "js": 111785,
+            "html": 7729,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 362.1000000089407,
+            "lcp": 344
+          }
+        }
+      },
+      "ceiling": 111785
+    },
+    "family/family-create": {
+      "module": "family",
+      "name": "family-create",
+      "path": "/family/create",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 272.5,
+            "lcp": 320,
+            "ttfb": 30.5,
+            "js": 71019,
+            "html": 8657,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 89.29999999701977,
+            "lcp": 112
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 652.2999999970198,
+            "lcp": 684,
+            "ttfb": 33.3999999910593,
+            "js": 112453,
+            "html": 8657,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 353.09999999403954,
+            "lcp": 336
+          }
+        }
+      },
+      "ceiling": 112453
+    },
+    "family/family-invitations": {
+      "module": "family",
+      "name": "family-invitations",
+      "path": "/family/invitations",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 164.29999999701977,
+            "lcp": 204,
+            "ttfb": 25.299999997019768,
+            "js": 50679,
+            "html": 8313,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 79.20000000298023,
+            "lcp": 100
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 901.3000000119209,
+            "lcp": 972,
+            "ttfb": 32,
+            "js": 113446,
+            "html": 8313,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 354.20000000298023,
+            "lcp": 380
+          }
+        }
+      },
+      "ceiling": 113446
+    },
+    "family/family-join": {
+      "module": "family",
+      "name": "family-join",
+      "path": "/family/join/[code]",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 516.2999999970198,
+            "lcp": 564,
+            "ttfb": 4.799999997019768,
+            "js": 102867,
+            "html": 4364,
+            "data": 789
+          },
+          "repeat": {
+            "ready": 145.20000000298023,
+            "lcp": 160
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1663.4000000059605,
+            "lcp": 1740,
+            "ttfb": 12.399999991059303,
+            "js": 102867,
+            "html": 4364,
+            "data": 789
+          },
+          "repeat": {
+            "ready": 604.5,
+            "lcp": 620
+          }
+        }
+      },
+      "ceiling": 102867
+    },
+    "familyHub/family-hub": {
+      "module": "familyHub",
+      "name": "family-hub",
+      "path": "/family/[familyId]",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 309.79999999701977,
+            "lcp": 352,
+            "ttfb": 63.30000001192093,
+            "js": 94628,
+            "html": 10946,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 118.6000000089407,
+            "lcp": 144
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1539.5,
+            "lcp": 1660,
+            "ttfb": 67.70000000298023,
+            "js": 121820,
+            "html": 10959,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 657.2999999970198,
+            "lcp": 696
+          }
+        }
+      },
+      "ceiling": 121820
+    },
+    "familyHub/family-tasks": {
+      "module": "familyHub",
+      "name": "family-tasks",
+      "path": "/family/tasks",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 651.0999999940395,
+            "lcp": 728,
+            "ttfb": 112.69999998807907,
+            "js": 48459,
+            "html": 8516,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 196.59999999403954,
+            "lcp": 244
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 846.1999999880791,
+            "lcp": 880,
+            "ttfb": 76.5,
+            "js": 124701,
+            "html": 8516,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 508.8999999910593,
+            "lcp": 540
+          }
+        }
+      },
+      "ceiling": 124701
+    },
+    "marketing/home": {
+      "module": "marketing",
+      "name": "home",
+      "path": "/",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 621.5,
+            "lcp": 724,
+            "ttfb": 6.0999999940395355,
+            "js": 104560,
+            "html": 4203,
+            "data": 579
+          },
+          "repeat": {
+            "ready": 169.19999998807907,
+            "lcp": 248
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1879.7000000029802,
+            "lcp": 2040,
+            "ttfb": 8.900000005960464,
+            "js": 104560,
+            "html": 4203,
+            "data": 579
+          },
+          "repeat": {
+            "ready": 659.5,
+            "lcp": 752
+          }
+        }
+      },
+      "ceiling": 104560
+    },
+    "marketing/about": {
+      "module": "marketing",
+      "name": "about",
+      "path": "/about",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 501.79999999701977,
+            "lcp": 528,
+            "ttfb": 7.100000008940697,
+            "js": 102333,
+            "html": 4203,
+            "data": 584
+          },
+          "repeat": {
+            "ready": 161.59999999403954,
+            "lcp": 180
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1553.9000000059605,
+            "lcp": 1584,
+            "ttfb": 7.200000002980232,
+            "js": 102333,
+            "html": 4203,
+            "data": 584
+          },
+          "repeat": {
+            "ready": 720.5,
+            "lcp": 736
+          }
+        }
+      },
+      "ceiling": 102333
+    },
+    "marketing/android": {
+      "module": "marketing",
+      "name": "android",
+      "path": "/android",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 635.0999999940395,
+            "lcp": 792,
+            "ttfb": 20.30000001192093,
+            "js": 102756,
+            "html": 4203,
+            "data": 1242
+          },
+          "repeat": {
+            "ready": 218.70000000298023,
+            "lcp": 240
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1673.1000000089407,
+            "lcp": 1768,
+            "ttfb": 5.5,
+            "js": 102756,
+            "html": 4203,
+            "data": 1242
+          },
+          "repeat": {
+            "ready": 610.1000000089407,
+            "lcp": 628
+          }
+        }
+      },
+      "ceiling": 102756
+    },
+    "marketing/changelog": {
+      "module": "marketing",
+      "name": "changelog",
+      "path": "/changelog",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 256.59999999403954,
+            "lcp": 296,
+            "ttfb": 8.300000011920929,
+            "js": 70354,
+            "html": 4467,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 102.70000000298023,
+            "lcp": 120
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 684.5999999940395,
+            "lcp": 712,
+            "ttfb": 6,
+            "js": 103127,
+            "html": 4467,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 307,
+            "lcp": 320
+          }
+        }
+      },
+      "ceiling": 103127
+    },
+    "marketing/contact": {
+      "module": "marketing",
+      "name": "contact",
+      "path": "/contact",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 488.5,
+            "lcp": 512,
+            "ttfb": 6.899999991059303,
+            "js": 105763,
+            "html": 4339,
+            "data": 586
+          },
+          "repeat": {
+            "ready": 157.8999999910593,
+            "lcp": 176
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1610.5999999940395,
+            "lcp": 1640,
+            "ttfb": 6.299999997019768,
+            "js": 105763,
+            "html": 4339,
+            "data": 586
+          },
+          "repeat": {
+            "ready": 622.2000000029802,
+            "lcp": 640
+          }
+        }
+      },
+      "ceiling": 105763
+    },
+    "marketing/features": {
+      "module": "marketing",
+      "name": "features",
+      "path": "/features",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 551.9000000059605,
+            "lcp": 600,
+            "ttfb": 5.799999997019768,
+            "js": 107241,
+            "html": 4271,
+            "data": 587
+          },
+          "repeat": {
+            "ready": 152.29999999701977,
+            "lcp": 180
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1904.2999999970198,
+            "lcp": 1968,
+            "ttfb": 8.5,
+            "js": 107241,
+            "html": 4271,
+            "data": 587
+          },
+          "repeat": {
+            "ready": 800.5999999940395,
+            "lcp": 840
+          }
+        }
+      },
+      "ceiling": 107241
+    },
+    "marketing/privacy": {
+      "module": "marketing",
+      "name": "privacy",
+      "path": "/privacy",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 500.3999999910593,
+            "lcp": 528,
+            "ttfb": 5.100000008940697,
+            "js": 102812,
+            "html": 4203,
+            "data": 586
+          },
+          "repeat": {
+            "ready": 150.40000000596046,
+            "lcp": 168
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1775.2000000029802,
+            "lcp": 1816,
+            "ttfb": 6.9000000059604645,
+            "js": 102812,
+            "html": 4203,
+            "data": 586
+          },
+          "repeat": {
+            "ready": 634.6999999880791,
+            "lcp": 652
+          }
+        }
+      },
+      "ceiling": 102812
+    },
+    "marketing/roadmap": {
+      "module": "marketing",
+      "name": "roadmap",
+      "path": "/roadmap",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 224.79999999701977,
+            "lcp": 252,
+            "ttfb": 5,
+            "js": 68343,
+            "html": 4079,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 80.79999999701977,
+            "lcp": 100
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 637.1000000089407,
+            "lcp": 668,
+            "ttfb": 6.200000002980232,
+            "js": 102627,
+            "html": 4079,
+            "data": 0
+          },
+          "repeat": {
+            "ready": 328.90000000596046,
+            "lcp": 348
+          }
+        }
+      },
+      "ceiling": 102627
+    },
+    "billing/checkout": {
+      "module": "billing",
+      "name": "checkout",
+      "path": "/checkout?plan=monthly",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 478.70000000298023,
+            "lcp": 508,
+            "ttfb": 13.799999997019768,
+            "js": 103111,
+            "html": 4203,
+            "data": 1729
+          },
+          "repeat": {
+            "ready": 148.09999999403954,
+            "lcp": 172
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 2256.0999999940395,
+            "lcp": 2276,
+            "ttfb": 27.19999998807907,
+            "js": 103111,
+            "html": 4203,
+            "data": 965
+          },
+          "repeat": {
+            "ready": 1249.2000000029802,
+            "lcp": 1268
+          }
+        }
+      },
+      "ceiling": 103111
+    },
+    "billing/pricing": {
+      "module": "billing",
+      "name": "pricing",
+      "path": "/pricing",
+      "profiles": {
+        "desktop": {
+          "first": {
+            "ready": 485.6000000089407,
+            "lcp": 532,
+            "ttfb": 7.200000002980232,
+            "js": 103568,
+            "html": 4203,
+            "data": 1113
+          },
+          "repeat": {
+            "ready": 152.09999999403954,
+            "lcp": 176
+          }
+        },
+        "mobile": {
+          "first": {
+            "ready": 1932.8999999910593,
+            "lcp": 1968,
+            "ttfb": 6.399999991059303,
+            "js": 103568,
+            "html": 4203,
+            "data": 1113
+          },
+          "repeat": {
+            "ready": 725.3000000119209,
+            "lcp": 764
+          }
+        }
+      },
+      "ceiling": 103568
+    }
+  }
+}

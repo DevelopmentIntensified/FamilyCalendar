@@ -170,9 +170,11 @@ Baseline and check must run on the same day, because pages show today's date. If
    - mobile ready, repeat visit, above 1000 ms;
    - TTFB above 300 ms;
    - initial JS above the page's baseline ceiling.
+
+   The results file is cleared once per run, in `e2e/pages/globalSetup.ts` — never in a worker hook: Playwright replaces the worker after a failed test, so a `beforeAll` clear fires again on the retry and deletes every page the previous worker measured (2026-11-19: `28/41`, then `13/41`, the baseline never written). A page that cannot be measured fails its own test with the reason and is never skipped.
 4. npm scripts:
    - `perf:check -- <module>`;
-   - `perf:baseline`, which measures all pages and writes `e2e/pages/perf-baseline.json` plus `docs/rewrite/perf-baseline.md`: every page's numbers, slowest first, with the targets beside them.
+   - `perf:baseline`, which measures all pages and writes `e2e/pages/perf-baseline.json` plus `docs/rewrite/perf-baseline.md`: every page's numbers, slowest first, with the targets beside them. The write happens once, in `e2e/pages/globalTeardown.ts`, and only when every catalog page is recorded; if one is missing it writes nothing and **fails the run**, naming each missing page, so a short run can neither replace a good baseline nor pass for a finished one.
 5. Run `perf:baseline` on the current (legacy) code and commit both files. Legacy pages may already exceed the hard limits; that is what the rebuilds fix. Hard limits apply from each module's S7.
 6. Document it in `e2e/pages/README.md` and [testing.md](../../architecture/testing.md#gates).
 

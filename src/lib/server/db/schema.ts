@@ -5,8 +5,8 @@
  * New code imports '$lib/kernel/db/tables.server' instead (arch rule R3). This
  * file stays so the unported legacy code compiles unchanged: every table
  * object comes through the barrel, every row type is aliased back to the name
- * this module used to export, and the two domain vocabularies no table uses
- * (`BILL_CATEGORIES`, `TASK_VISIBILITIES`) are exported from here.
+ * this module used to export, and the one domain vocabulary no table uses
+ * (`TASK_VISIBILITIES`) is exported from here.
  */
 import type { EventRow } from '$lib/kernel/db/tables.server';
 
@@ -64,5 +64,3 @@ export type CalendarEvent = Omit<EventRow, 'mirrorOf'> & {
 export const TASK_VISIBILITIES = ['public', 'private'] as const;
 
 export type TaskVisibility = (typeof TASK_VISIBILITIES)[number];
-
-export { BILL_CATEGORIES, type BillCategory } from '$lib/data/categories';
