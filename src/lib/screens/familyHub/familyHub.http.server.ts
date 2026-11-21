@@ -113,92 +113,108 @@ export const familyHubPageLoad = pageLoad({
 });
 
 /**
- * The detail page's five form actions, in one object so the route stays
- * `export const actions = familyHubActions;`. Each answers `{success:true}` on
- * success and the service's `fail(status, {error})` on a refusal; the page
- * re-reads `data` afterwards, so a settled action always shows the new truth.
+ * The detail page's five form actions. Each is its own exported `formAction`
+ * (the auth audit resolves a route's actions object entry by entry, so an
+ * actions object built from imported handlers keeps every level visible). Each
+ * answers `{success:true}` on success and the service's `fail(status,
+ * {error})` on a refusal; the page re-reads `data` afterwards, so a settled
+ * action always shows the new truth.
+ *
+ * `familyHubActions` is the same five under the page's action names, for tests
+ * and callers that want the set.
  */
+export const familyHubRemoveMemberAction = formAction({
+	auth: 'user',
+	form: RemoveMemberForm,
+	handle: async ({ ctx, actor, form, event }) => {
+		try {
+			await removeFamilyMember(familyHubCtx(ctx), actor, {
+				familyId: event.params.familyId ?? '',
+				userId: form.userId
+			});
+			return { success: true };
+		} catch (cause) {
+			return refusalOf(cause);
+		}
+	}
+});
+
+export const familyHubUpdateRoleAction = formAction({
+	auth: 'user',
+	form: UpdateRoleForm,
+	handle: async ({ ctx, actor, form, event }) => {
+		try {
+			await changeMember(ctx, actor, {
+				familyId: event.params.familyId ?? '',
+				userId: form.userId,
+				role: form.role
+			});
+			return { success: true };
+		} catch (cause) {
+			return refusalOf(cause);
+		}
+	}
+});
+
+// Member Type is a profile label ('parent'|'child'|'member'), not a
+// permission — and this action is admin-only (decision 7).
+export const familyHubSetMemberTypeAction = formAction({
+	auth: 'user',
+	form: SetMemberTypeForm,
+	handle: async ({ ctx, actor, form, event }) => {
+		try {
+			await changeMember(ctx, actor, {
+				familyId: event.params.familyId ?? '',
+				userId: form.userId,
+				memberType: form.memberType
+			});
+			return { success: true };
+		} catch (cause) {
+			return refusalOf(cause);
+		}
+	}
+});
+
+export const familyHubUpdateFamilyAction = formAction({
+	auth: 'user',
+	form: UpdateFamilyForm,
+	handle: async ({ ctx, actor, form, event }) => {
+		try {
+			await updateFamily(ctx, actor, event.params.familyId ?? '', {
+				name: form.name,
+				color: form.color
+			});
+			return { success: true };
+		} catch (cause) {
+			return refusalOf(cause);
+		}
+	}
+});
+
+export const familyHubToggleModuleAction = formAction({
+	auth: 'user',
+	form: ToggleModuleForm,
+	handle: async ({ ctx, actor, form, event }) => {
+		try {
+			await setFamilyModuleSwitch(ctx, actor, {
+				familyId: event.params.familyId ?? '',
+				module: form.module,
+				enabled: form.enabled
+			});
+			return { success: true };
+		} catch (cause) {
+			return refusalOf(cause);
+		}
+	}
+});
+
+/** The five actions under the page's own names (tests and the route's object). */
 export const familyHubActions = {
-	removeMember: formAction({
-		auth: 'user',
-		form: RemoveMemberForm,
-		handle: async ({ ctx, actor, form, event }) => {
-			try {
-				await removeFamilyMember(familyHubCtx(ctx), actor, {
-					familyId: event.params.familyId ?? '',
-					userId: form.userId
-				});
-				return { success: true };
-			} catch (cause) {
-				return refusalOf(cause);
-			}
-		}
-	}),
-	updateRole: formAction({
-		auth: 'user',
-		form: UpdateRoleForm,
-		handle: async ({ ctx, actor, form, event }) => {
-			try {
-				await changeMember(ctx, actor, {
-					familyId: event.params.familyId ?? '',
-					userId: form.userId,
-					role: form.role
-				});
-				return { success: true };
-			} catch (cause) {
-				return refusalOf(cause);
-			}
-		}
-	}),
-	// Member Type is a profile label ('parent'|'child'|'member'), not a
-	// permission — and this action is admin-only (decision 7).
-	setMemberType: formAction({
-		auth: 'user',
-		form: SetMemberTypeForm,
-		handle: async ({ ctx, actor, form, event }) => {
-			try {
-				await changeMember(ctx, actor, {
-					familyId: event.params.familyId ?? '',
-					userId: form.userId,
-					memberType: form.memberType
-				});
-				return { success: true };
-			} catch (cause) {
-				return refusalOf(cause);
-			}
-		}
-	}),
-	updateFamily: formAction({
-		auth: 'user',
-		form: UpdateFamilyForm,
-		handle: async ({ ctx, actor, form, event }) => {
-			try {
-				await updateFamily(ctx, actor, event.params.familyId ?? '', {
-					name: form.name,
-					color: form.color
-				});
-				return { success: true };
-			} catch (cause) {
-				return refusalOf(cause);
-			}
-		}
-	}),
-	toggleDashboardModule: formAction({
-		auth: 'user',
-		form: ToggleModuleForm,
-		handle: async ({ ctx, actor, form, event }) => {
-			try {
-				await setFamilyModuleSwitch(ctx, actor, {
-					familyId: event.params.familyId ?? '',
-					module: form.module,
-					enabled: form.enabled
-				});
-				return { success: true };
-			} catch (cause) {
-				return refusalOf(cause);
-			}
-		}
-	})
+	removeMember: familyHubRemoveMemberAction,
+	updateRole: familyHubUpdateRoleAction,
+	setMemberType: familyHubSetMemberTypeAction,
+	updateFamily: familyHubUpdateFamilyAction,
+	toggleDashboardModule: familyHubToggleModuleAction
 };
 
 // --- `/family/[familyId]/tasks` (redirect only) -----------------------------

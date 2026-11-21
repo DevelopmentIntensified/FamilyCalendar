@@ -9,6 +9,11 @@ export {
 	familyBoardPageLoad,
 	familyHubActions,
 	familyHubPageLoad,
+	familyHubRemoveMemberAction,
+	familyHubSetMemberTypeAction,
+	familyHubToggleModuleAction,
+	familyHubUpdateFamilyAction,
+	familyHubUpdateRoleAction,
 	legacyFamilyBoardPathLoad,
 	FAMILY_BOARD_COMPLETED_LIMIT
 } from './familyHub.http.server';

@@ -57,7 +57,8 @@ Everything other modules and routes may use, grouped by entry file. Nothing else
   - `FamilyBoardResponse` — the wire body of `GET /api/families/{id}/tasks`, exactly `{tasks, publicTasks, familyRoster, taskCategories}`.
 - `index.server.ts`:
   - `familyHubPageLoad` — `pageLoad` for `/family/[familyId]`; composes `FamilyHubModel` and answers `notFound('Family not found')` for a non-member and a missing family alike.
-  - `familyHubActions` — the detail page's form actions in one object: `removeMember`, `updateRole`, `setMemberType`, `updateFamily`, `toggleDashboardModule`. One entry, five handlers, so the route stays `export const actions = familyHubActions;`.
+  - `familyHubRemoveMemberAction`, `familyHubUpdateRoleAction`, `familyHubSetMemberTypeAction`, `familyHubUpdateFamilyAction`, `familyHubToggleModuleAction` — the five form actions as individual handlers, so the route's `actions` object names each imported handler and the auth audit resolves every level.
+  - `familyHubActions` — the same five under the page's names (`removeMember`, `updateRole`, `setMemberType`, `updateFamily`, `toggleDashboardModule`), for tests and callers that want the set.
   - `familyBoardPageLoad` — `pageLoad` for `/family/tasks`; picks the family (`?familyId=` else the oldest) and redirects to `/family` when the viewer has none.
   - `familyBoardEndpoint` — `endpoint` for `GET /api/families/{id}/tasks`; the board composition as JSON from the same service the page load uses. The wire keeps every row; the page's load passes the completed-window limit (see the sheet's Plan).
   - `legacyFamilyBoardPathLoad` — the redirect-only loader for `/family/[familyId]/tasks`: 302 to `/login` signed out, 308 to `/family/tasks` signed in.
