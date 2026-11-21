@@ -132,7 +132,11 @@ describe('exportedAccountRow', () => {
 	});
 
 	it('leaves a row that never had a hash alone', () => {
-		expect(exportedAccountRow({ id: 'user-1' })).toEqual({ id: 'user-1' });
+		// Annotated, not an inline literal: the rule's generic is constrained to
+		// `{ readonly passwordHash?: unknown }`, which a bare `{ id }` literal
+		// shares no property with (excess-property / weak-type refusal).
+		const user: { id: string; passwordHash?: string } = { id: 'user-1' };
+		expect(exportedAccountRow(user)).toEqual({ id: 'user-1' });
 	});
 });
 
