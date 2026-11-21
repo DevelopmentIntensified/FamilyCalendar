@@ -104,16 +104,32 @@ function equalsIgnoringCase(value: string | null, other: string): boolean {
 }
 
 /**
- * The invite flow's matching rule, as it is today (owner question Q-028,
- * answered B for after S6): the whole trimmed query equals the email, or
- * equals BOTH the first name and the last name, case-insensitively. A full
- * name like "Ann Lee" therefore matches nobody; only an exact email, or a
- * person whose two names both equal the query, is found.
+ * The invite flow's name terms (Q-028 B): the query split at its first run of
+ * whitespace. Two tokens become a first and a last name; one token keeps the
+ * legacy leg by standing for both columns (so "Sam" still finds Sam Sam); a
+ * multi-word surname stays whole in the last term ("Ann van der Berg" is Ann +
+ * "van der Berg"). The empty query keeps the legacy both-columns comparison,
+ * which matches nobody unless a row's names are blank too.
+ */
+export function splitInviteName(query: string): { firstName: string; lastName: string } {
+	const tokens = query.trim().split(/\s+/).filter((token) => token.length > 0);
+	if (tokens.length === 0) return { firstName: '', lastName: '' };
+	if (tokens.length === 1) return { firstName: tokens[0], lastName: tokens[0] };
+	return { firstName: tokens[0], lastName: tokens.slice(1).join(' ') };
+}
+
+/**
+ * The invite flow's matching rule (Q-028 B): the whole trimmed query equals the
+ * email, or the split first and last name each equal their column exactly,
+ * case-insensitively. Exact matching is kept, so the split opens no enumeration
+ * oracle; a full name like "Ann Lee" now finds that person.
  */
 export function isInviteFlowMatch(candidate: SearchCandidate, query: string): boolean {
 	const exact = query.trim();
+	const { firstName, lastName } = splitInviteName(exact);
 	return (
 		equalsIgnoringCase(candidate.email, exact) ||
-		(equalsIgnoringCase(candidate.firstName, exact) && equalsIgnoringCase(candidate.lastName, exact))
+		(equalsIgnoringCase(candidate.firstName, firstName) &&
+			equalsIgnoringCase(candidate.lastName, lastName))
 	);
 }

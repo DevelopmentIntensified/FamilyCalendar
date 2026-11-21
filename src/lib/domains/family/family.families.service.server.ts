@@ -98,7 +98,7 @@ export async function listFamilies(ctx: Ctx, actor: Actor): Promise<FamilyListPa
 
 	return {
 		families: memberships.map((membership) =>
-			buildFamilyCard(membership, openTasks.get(membership.family.id) ?? 0, roster, CARD_ZONE)
+			buildFamilyCard(membership, openTasks.get(membership.family.id) ?? 0, CARD_ZONE)
 		),
 		roster,
 		activeInvites,

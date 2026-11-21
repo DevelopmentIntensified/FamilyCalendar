@@ -493,13 +493,20 @@ export type FamilyView = {
 	readonly createdAt: Date;
 };
 
+/**
+ * One card member: the first name its avatar prints and the real user id the
+ * avatar colours by (Q-023 B — two people who share a first name keep their
+ * own colour).
+ */
+export type FamilyCardMember = { readonly firstName: string; readonly userId: string };
+
 /** One membership read: the family, the viewer's two labels, and the roster summary. */
 export type FamilyMembershipView = {
 	readonly family: FamilyView;
 	readonly role: string | null;
 	readonly memberType: string | null;
 	readonly memberCount: number;
-	readonly firstNames: string[];
+	readonly members: FamilyCardMember[];
 };
 
 /** A roster row as the repo reads it. */
@@ -521,7 +528,7 @@ export type FamilyRosterRowView = Omit<RosterMemberView, 'email'> & {
 export type FamilyCardView = FamilyView & {
 	readonly memberCount: number;
 	readonly openTasks: number;
-	readonly members: { readonly firstName: string; readonly userId: string }[];
+	readonly members: FamilyCardMember[];
 	readonly createdLabel: string;
 	readonly canInvite: boolean;
 	readonly role: string | null;
