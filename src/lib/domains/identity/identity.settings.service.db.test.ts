@@ -16,7 +16,11 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import type { ConsentRecordView } from './identity.contract';
-import { seedIdentityCalendar, seedIdentitySettings } from './identity.fixtures.server';
+import {
+	seedIdentityCalendar,
+	seedIdentitySettings,
+	seedIdentitySparseSettings
+} from './identity.fixtures.server';
 import {
 	getCalendarSettings,
 	setHiddenDashboardModules,
@@ -130,7 +134,7 @@ describe('reading', () => {
 });
 
 describe('saving', () => {
-	rollbackTest('merges over the stored row, writes only the allowlist and answers the view', async (db) => {
+	rollbackTest('writes only the field the patch sent and answers the whole view', async (db) => {
 		const user = await seedUser(db);
 		await seedIdentitySettings(user.id, {}, db);
 		const ctx = ctxFor(db, memoryCalendar([]), memoryConsent());
@@ -151,6 +155,27 @@ describe('saving', () => {
 		const [row] = await db.select().from(userSettings).where(eq(userSettings.userId, user.id));
 		expect(row.color).toBe('#00ff00');
 		expect(row.updatedAt).toEqual(NOW);
+	});
+
+	rollbackTest('leaves a sparse sign-up row’s nulls null (Q-108 B)', async (db) => {
+		const user = await seedUser(db);
+		await seedIdentitySparseSettings(user.id, {}, db);
+		const ctx = ctxFor(db, memoryCalendar([]), memoryConsent());
+
+		const result = await updateCalendarSettings(ctx, actorFromUser(user, 'session'), {
+			timeZone: 'America/Denver'
+		});
+
+		// The view answers the defaults for the null columns ...
+		expect(result.settings).toMatchObject({
+			timeZone: 'America/Denver',
+			color: '#3b82f6',
+			syncEventsToFamilyCalendar: false
+		});
+		// ... but the row only holds what the patch sent.
+		const [row] = await db.select().from(userSettings).where(eq(userSettings.userId, user.id));
+		expect([row.color, row.syncEventsToFamilyCalendar]).toEqual([null, null]);
+		expect(row.timeZone).toBe('America/Denver');
 	});
 
 	rollbackTest('creates the row from the page defaults plus the patch when none exists', async (db) => {
