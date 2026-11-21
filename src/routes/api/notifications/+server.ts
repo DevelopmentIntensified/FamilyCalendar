@@ -1,71 +1,7 @@
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import {
-	getNotifications,
-	getUnreadCount,
-	markNotificationRead,
-	markAllNotificationsRead,
-	deleteReadNotifications,
-	NOTIFICATION_PAGE_SIZE
-} from '$lib/server/db/actions/notifications';
-import { requireUserJson } from '$lib/server/utils/requireUser';
-import { toNotificationRow } from '$lib/utils/notificationTypes';
+	listAlertsEndpoint,
+	markAlertsEndpoint
+} from '$lib/domains/alerts/index.server';
 
-export const GET: RequestHandler = async ({ locals }) => {
-	const auth = requireUserJson(locals);
-	if (auth.response) return auth.response;
-
-	// Same window as the Alerts page (issue 073), and the same guard: the bell
-	// and the page must never name a type differently or show a different feed.
-	const [rows, unreadCount] = await Promise.all([
-		getNotifications(auth.user.id, NOTIFICATION_PAGE_SIZE),
-		getUnreadCount(auth.user.id)
-	]);
-
-	return json({ notifications: rows.map(toNotificationRow), unreadCount });
-};
-
-function isNotificationBody(value: unknown): value is {
-	all?: unknown;
-	id?: unknown;
-	pruneRead?: unknown;
-} {
-	return typeof value === 'object' && value !== null;
-}
-
-function isNonEmptyString(value: unknown): value is string {
-	return typeof value === 'string' && value.length > 0;
-}
-
-export const POST: RequestHandler = async ({ request, locals }) => {
-	const auth = requireUserJson(locals);
-	if (auth.response) return auth.response;
-
-	const body: unknown = await request.json().catch(() => null);
-	if (!isNotificationBody(body)) {
-		return json({ error: 'Invalid request body' }, { status: 400 });
-	}
-
-	if (body.all === true) {
-		await markAllNotificationsRead(auth.user.id);
-		return json({ success: true });
-	}
-
-	/**
-	 * Prune the read rows. The feed has no retention policy and, until this,
-	 * no delete path either (issue 073) — so "mark all read" was the only action
-	 * on the page and it hid a feed that only ever grows. Unread rows are never
-	 * touched: an alert nobody has read is the one still asking something.
-	 */
-	if (body.pruneRead === true) {
-		const removed = await deleteReadNotifications(auth.user.id);
-		return json({ success: true, removed });
-	}
-
-	if (!isNonEmptyString(body.id)) {
-		return json({ error: 'Notification id is required' }, { status: 400 });
-	}
-
-	await markNotificationRead(auth.user.id, body.id);
-	return json({ success: true });
-};
+export const GET = listAlertsEndpoint.handler;
+export const POST = markAlertsEndpoint.handler;

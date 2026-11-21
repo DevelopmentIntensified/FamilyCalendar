@@ -221,7 +221,7 @@ describe('getCheckoutQuote', () => {
 
 		const withoutRow = await getCheckoutQuote(ctx, actorFromUser(user, 'session'), {
 			plan: 'annual',
-			membershipCount: 4
+			familyMemberCount: 5
 		});
 		expect(withoutRow).toMatchObject({
 			originalPrice: 90,
@@ -239,7 +239,7 @@ describe('getCheckoutQuote', () => {
 		});
 		const withRow = await getCheckoutQuote(ctx, actorFromUser(user, 'session'), {
 			plan: 'annual',
-			membershipCount: 4
+			familyMemberCount: 5
 		});
 		expect(withRow).toMatchObject({
 			originalPrice: 90,
@@ -270,7 +270,7 @@ describe('getCheckoutQuote', () => {
 
 		const quote = await getCheckoutQuote(ctx, actorFromUser(user, 'session'), {
 			plan: 'lifetime',
-			membershipCount: 4
+			familyMemberCount: 5
 		});
 		expect(quote).toMatchObject({
 			originalPrice: 150,
@@ -287,7 +287,7 @@ describe('getCheckoutQuote', () => {
 
 		const annual = await getCheckoutQuote(ctx, actorFromUser(user, 'session'), {
 			plan: 'annual',
-			membershipCount: 4
+			familyMemberCount: 5
 		});
 		expect(annual).toMatchObject({ discountPercentage: 40, discountAmount: 36, finalPrice: 54 });
 		expect(annual.appliedDiscounts).toHaveLength(1);
@@ -301,7 +301,7 @@ describe('listEligibleDiscounts', () => {
 		await seedDiscount(db, { discountRate: 20, appliesToLifetime: true });
 
 		expect(
-			await listEligibleDiscounts(ctx, actorFromUser(user, 'session'), { membershipCount: 4 })
+			await listEligibleDiscounts(ctx, actorFromUser(user, 'session'), { familyMemberCount: 5 })
 		).toEqual([
 			{
 				eligible: true,
@@ -318,7 +318,7 @@ describe('listEligibleDiscounts', () => {
 		]);
 
 		expect(
-			await listEligibleDiscounts(ctx, actorFromUser(user, 'session'), { membershipCount: 3 })
+			await listEligibleDiscounts(ctx, actorFromUser(user, 'session'), { familyMemberCount: 4 })
 		).toEqual([
 			{
 				eligible: true,
