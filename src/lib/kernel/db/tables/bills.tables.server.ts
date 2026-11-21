@@ -19,10 +19,9 @@ import { families } from './family.tables.server';
  * Bill — a dated amount owed, family-visible. Amounts are integer cents
  * (never float). Paid status per period; recurrence arrives in #006.
  *
- * BILL_CATEGORIES/BillCategory live in `$lib/data/categories` (arch audit
- * #4) so client modules can share the vocabulary without importing this
- * server-only schema. Only the legacy compat `src/lib/server/db/schema.ts`
- * re-exports them; this table file does not.
+ * Delete-only (owner ruling Q-002): the bill parser and the shared
+ * category vocabulary/keyword table left with the bills module, so the
+ * `category` column is plain text with no code-owned vocabulary.
  */
 export const bills = pgTable('bills', {
 	id: text('id')
