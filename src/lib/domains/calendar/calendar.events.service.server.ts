@@ -24,12 +24,12 @@ import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { withTx, type Db } from '$lib/kernel/db/database.server';
 import type { CalendarRow, EventRow, NewEventRow } from '$lib/kernel/db/tables.server';
 import { forbidden, invalid, notFound } from '$lib/kernel/errors/appError';
-import {
-	listPersonFamilyIds,
-	resolveMembershipFamilyId
-} from '$lib/domains/family/index.server';
+import { resolveMembershipFamilyId } from '$lib/domains/family/index.server';
 import { getCalendarPreferences, getTimeZone } from '$lib/domains/identity/index.server';
-import { nudgeCalendarEventsChanged } from './calendar.calendars.service.server';
+import {
+	listAccessibleCalendarIds,
+	nudgeCalendarEventsChanged
+} from './calendar.calendars.service.server';
 import { splitEventsByDay } from './calendar.chips.rules';
 import {
 	CALENDAR_COPY,
@@ -55,7 +55,6 @@ import {
 	deleteEventRow,
 	deleteMirrorRows,
 	ensurePersonalCalendarRow,
-	findAccessibleCalendarIds,
 	findCalendar,
 	findEvent,
 	findExceptions,
@@ -112,20 +111,6 @@ export interface CalendarEventDetail {
 	readonly calendar: CalendarRow | null;
 	readonly attendance: readonly CalendarAttendanceWire[];
 	readonly userRsvpStatus: string;
-}
-
-/**
- * The calendars a PERSON may see: their own plus the calendar of every family
- * they belong to (#098, never just the first). This is the read identity's
- * `CalendarAccessPort` needs — the app's adapter closes over a ctx and forwards
- * the person id here.
- */
-export async function listAccessibleCalendarIds(
-	ctx: Ctx,
-	userId: string
-): Promise<string[]> {
-	const familyIds = await listPersonFamilyIds(ctx, userId);
-	return await findAccessibleCalendarIds(ctx.db, userId, familyIds);
 }
 
 /**

@@ -14,7 +14,14 @@
  *
  * Doc: ./README.md#invariants
  */
-import { isoInstant, oneOf, optionalText, requiredText, z } from '$lib/kernel/validation/validators';
+import {
+	INVALID_JSON_MESSAGE,
+	isoInstant,
+	oneOf,
+	optionalText,
+	requiredText,
+	z
+} from '$lib/kernel/validation/validators';
 import type { DuplicateReason } from './calendar.import.rules';
 import type { EventInvite, InviteType } from './calendar.invites.rules';
 import { RECURRENCE_FREQUENCIES, type RecurrenceFrequency } from './calendar.recurrence.rules';
@@ -87,7 +94,10 @@ export const CALENDAR_COPY = {
 	selectionUnreadable: 'That selection could not be read — preview the file again.',
 	tickAtLeastOne: 'Tick at least one event before importing.',
 	nothingToUndo: 'Nothing to undo — import a file first.',
-	undoUnreadable: 'That undo could not be read — import the file again.'
+	undoUnreadable: 'That undo could not be read — import the file again.',
+	/** The JSON→upload adapter's own refusals (legacy `icsImportApi.previewForm`). */
+	importFilesNotArray: 'files must be an array',
+	importFileNeedsBase64: 'Each file needs contentBase64 (base64 text)'
 } as const;
 
 // --- Shared wire shapes -----------------------------------------------------
@@ -432,10 +442,13 @@ export type CalendarImportFileWire = z.infer<typeof CalendarImportFileWire>;
  * an array`, `Each file needs contentBase64 (base64 text)` and the choice
  * errors, so a schema here must not replace them with a generic 400.
  */
-export const CalendarImportPreviewBody = z.object({
-	calendarId: z.unknown().optional(),
-	files: z.unknown().optional()
-});
+export const CalendarImportPreviewBody = z.object(
+	{
+		calendarId: z.unknown().optional(),
+		files: z.unknown().optional()
+	},
+	{ error: INVALID_JSON_MESSAGE }
+);
 export type CalendarImportPreviewBody = z.infer<typeof CalendarImportPreviewBody>;
 
 /**
@@ -477,10 +490,13 @@ export type CalendarImportDraftWire = z.infer<typeof CalendarImportDraftWire>;
  * selection and the all-or-nothing cap; `CalendarImportDraftWire` validates
  * each row once the flow has read the array.
  */
-export const CalendarImportCommitBody = z.object({
-	calendarId: z.unknown().optional(),
-	picked: z.unknown().optional()
-});
+export const CalendarImportCommitBody = z.object(
+	{
+		calendarId: z.unknown().optional(),
+		picked: z.unknown().optional()
+	},
+	{ error: INVALID_JSON_MESSAGE }
+);
 export type CalendarImportCommitBody = z.infer<typeof CalendarImportCommitBody>;
 
 /** One preview row on the wire. */
@@ -543,10 +559,13 @@ export const CalendarImportUndoRefWire = z.object({
 export type CalendarImportUndoRefWire = z.infer<typeof CalendarImportUndoRefWire>;
 
 /** `POST /api/import/undo`: the batch is read by the flow, same errors as commit. */
-export const CalendarImportUndoBody = z.object({
-	calendarId: z.unknown().optional(),
-	batch: z.unknown().optional()
-});
+export const CalendarImportUndoBody = z.object(
+	{
+		calendarId: z.unknown().optional(),
+		batch: z.unknown().optional()
+	},
+	{ error: INVALID_JSON_MESSAGE }
+);
 export type CalendarImportUndoBody = z.infer<typeof CalendarImportUndoBody>;
 
 export const CalendarImportUndoResponse = z.object({

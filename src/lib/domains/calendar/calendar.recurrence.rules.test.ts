@@ -570,12 +570,22 @@ describe('normalizeEventRecurrence (eventRecurrence.test.ts:10-131)', () => {
 
 describe('sanitizers (eventRecurrence.test.ts:133-144)', () => {
 	it('strips ordinals, uppercases and still drops junk', () => {
-		expect(sanitizeRecurrenceByDay(['2tu,th', 'we', 'XX'])).toBeNull();
-		expect(sanitizeRecurrenceByDay(['2tu', 'we'])).toEqual(['TU', 'WE']);
+		// Legacy keeps the plain days beside a comma-joined junk entry: the
+		// sanitizer drops entries, not the whole list (eventRecurrence.ts:77-84).
+		expect(sanitizeRecurrenceByDay(['MO', 'we', 'XX', '2TU'])).toEqual(['MO', 'WE', 'TU']);
+	});
+	it('returns null for empty / non-array input', () => {
+		expect(sanitizeRecurrenceByDay([])).toBeNull();
+		expect(sanitizeRecurrenceByDay(null)).toBeNull();
 		expect(sanitizeRecurrenceByDay('MO')).toBeNull();
-		expect(sanitizeRecurrenceCount(3.9)).toBe(3);
-		expect(sanitizeRecurrenceCount(-1)).toBeNull();
-		expect(sanitizeRecurrenceCount('4')).toBeNull();
+	});
+	it('floors positive counts, rejects the rest', () => {
+		expect(sanitizeRecurrenceCount(16)).toBe(16);
+		expect(sanitizeRecurrenceCount(2.9)).toBe(2);
+		expect(sanitizeRecurrenceCount(0)).toBeNull();
+		expect(sanitizeRecurrenceCount(-3)).toBeNull();
+		expect(sanitizeRecurrenceCount('16')).toBeNull();
+		expect(sanitizeRecurrenceCount(null)).toBeNull();
 	});
 });
 

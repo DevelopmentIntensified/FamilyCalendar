@@ -306,18 +306,21 @@ export function planBulkEdits(
 
 	const affected = targets.length > 0 ? targets : events;
 
-	return affected.map((event) => {
+	return affected.map((event): BulkPlanOp => {
 		if (isDelete) return { id: event.id, delete: true };
-		const op: BulkPlanOp = { id: event.id };
-		if (date) op.date = date;
-		if (time) {
-			op.startTime = time;
-			op.endTime = DateTime.fromFormat(time, 'HH:mm')
-				.plus({ hours: 1 })
-				.toFormat('HH:mm');
-		}
-		if (calendarId) op.calendarId = calendarId;
-		return op;
+		return {
+			id: event.id,
+			...(date ? { date } : {}),
+			...(time
+				? {
+						startTime: time,
+						endTime: DateTime.fromFormat(time, 'HH:mm')
+							.plus({ hours: 1 })
+							.toFormat('HH:mm')
+					}
+				: {}),
+			...(calendarId ? { calendarId } : {})
+		};
 	});
 }
 

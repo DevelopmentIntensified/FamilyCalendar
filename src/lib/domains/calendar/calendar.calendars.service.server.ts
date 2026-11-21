@@ -84,6 +84,20 @@ export function personalCalendarColor(settings: { readonly color?: string | null
 }
 
 /**
+ * The calendars a PERSON may see: their own plus the calendar of every family
+ * they belong to (#098, never just the first). ONE home: the event services
+ * scope every read and write through it, and `createCalendarAccessPort` hands
+ * it to identity's default-calendar picker.
+ */
+export async function listAccessibleCalendarIds(
+	ctx: Ctx,
+	userId: string
+): Promise<string[]> {
+	const familyIds = await listPersonFamilyIds(ctx, userId);
+	return await findAccessibleCalendarIds(ctx.db, userId, familyIds);
+}
+
+/**
  * The calendars the viewer sees, named and coloured as the page shows them:
  * personal first (created when missing), then the family calendar when there
  * is one.
@@ -281,13 +295,12 @@ export function createFamilyCalendarPort(): FamilyCalendarPort {
 /**
  * `CalendarAccessPort`: identity's default-calendar picker needs the ids of
  * the viewer's personal calendars plus the calendar of EVERY family they
- * belong to (#098).
+ * belong to (#098) — the same read every calendar service scopes with.
  */
 export function createCalendarAccessPort(ctx: Ctx): CalendarAccessPort {
 	return {
 		async listAccessibleCalendarIds(userId: string): Promise<readonly string[]> {
-			const familyIds = await listPersonFamilyIds(ctx, userId);
-			return await findAccessibleCalendarIds(ctx.db, userId, familyIds);
+			return await listAccessibleCalendarIds(ctx, userId);
 		}
 	};
 }
