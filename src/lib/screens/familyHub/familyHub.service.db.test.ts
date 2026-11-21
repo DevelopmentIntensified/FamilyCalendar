@@ -30,7 +30,7 @@ import {
 	isActionFailure
 } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { testCtx, type TestCtx } from '$lib/kernel/testing/testCtx.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import type { IdentityPorts } from '$lib/domains/identity/index.server';
 import {
@@ -45,7 +45,7 @@ import type { FamilyHubCtx } from './index.server';
 const NOW = '2026-03-01T09:00:00.000Z';
 
 /** `family`'s five ports, as memory fakes: the switches are the only ones this screen reads. */
-function hubCtx(db: Db, switches: Record<string, boolean> = {}): FamilyHubCtx {
+function hubCtx(db: Db, switches: Record<string, boolean> = {}): FamilyHubCtx & TestCtx {
 	const identityPorts: IdentityPorts = {
 		calendarAccess: { listAccessibleCalendarIds: async () => [] },
 		adConsent: { listConsentHistory: async () => [], recordConsentChange: async () => undefined }
@@ -377,7 +377,7 @@ describe('the page handlers', () => {
 		);
 		expect(signedOut).toEqual({ status: 302, location: '/login' });
 		const signedIn = await thrownBy(
-			invokeLoad(legacyFamilyBoardPathLoad, { ctx: hubCtx(db), actor: actorFromUser(ann) })
+			invokeLoad(legacyFamilyBoardPathLoad, { ctx: hubCtx(db), actor: actorFromUser(ann, 'session') })
 		);
 		expect(signedIn).toEqual({ status: 308, location: '/family/tasks' });
 	});

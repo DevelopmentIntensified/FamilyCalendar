@@ -109,15 +109,18 @@ export async function getFamilyBoard(
 		categoryOptions(ctx, actor)
 	]);
 
-	// The compile-time bridge: `tasks`' section row is the board row before
-	// serialisation, so a column added there flows through without a cast.
-	const familyTasks: readonly FamilyBoardTask[] = board.familyTasks;
+	// `tasks`' section row is the board row before serialisation; the tag list
+	// is copied out of its readonly array so the page model owns a plain one.
+	const familyTasks: readonly FamilyBoardTask[] = board.familyTasks.map((row) => ({
+		...row,
+		tags: [...row.tags]
+	}));
 
 	return {
 		familyId,
 		userId: actor.id,
 		...windowCompletedTasks(familyTasks, input.completedLimit ?? null),
-		publicTasks: board.publicTasks,
+		publicTasks: board.publicTasks.map((row) => ({ ...row, tags: [...row.tags] })),
 		familyRoster: roster.members.map((member) => ({
 			userId: member.userId,
 			firstName: member.firstName,

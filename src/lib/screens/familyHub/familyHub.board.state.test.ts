@@ -8,10 +8,11 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { memoryToasts } from '$lib/kernel/client/toasts.svelte';
-import type { TasksApi } from '$lib/domains/tasks/index';
+import type { TaskUpdatePayload, TaskWithTagsWire, TasksApi } from '$lib/domains/tasks/index';
 import type { TaskEditDraft } from '$lib/domains/tasks/index';
 import { FamilyBoardState } from './familyHub.board.state.svelte';
 import { buildFamilyBoardModel, buildFamilyBoardTaskWire } from './familyHub.ui.fixtures';
+import type { FamilyBoardTask } from './familyHub.contract';
 
 const NOW = new Date('2026-09-30T10:00:00.000Z');
 
@@ -61,9 +62,18 @@ function buildState(options: { api?: TasksApi; model?: ReturnType<typeof buildFa
 	return { state, toasts, refresh };
 }
 
-const okUpdate = (task = buildFamilyBoardTaskWire()) => async () => ({
+/** The row as `PUT` answers it: the wire shape, dates serialised to ISO strings. */
+function wireTask(task: FamilyBoardTask): TaskWithTagsWire {
+	return {
+		...task,
+		createdAt: task.createdAt.toISOString(),
+		focusStartedAt: task.focusStartedAt ? task.focusStartedAt.toISOString() : null
+	};
+}
+
+const okUpdate = (task = buildFamilyBoardTaskWire()) => async (_id: string, _body: TaskUpdatePayload) => ({
 	ok: true as const,
-	data: { success: true as const, task }
+	data: { success: true as const, task: wireTask(task) }
 });
 
 describe('FamilyBoardState lists', () => {

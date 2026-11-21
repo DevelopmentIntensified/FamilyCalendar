@@ -14,7 +14,7 @@
  */
 import type { Toasts } from '$lib/kernel/client/toasts.svelte';
 import { systemClock } from '$lib/kernel/time/clock';
-import type { TasksApi } from '$lib/domains/tasks/index';
+import type { TasksApi, TaskUpdatePayload } from '$lib/domains/tasks/index';
 import {
 	buildTaskEditPayload,
 	formatTaskDue,
@@ -168,7 +168,8 @@ export class FamilyBoardState {
 	async toggle(task: FamilyBoardTask): Promise<void> {
 		if (this.busyId) return;
 		this.busyId = task.id;
-		const result = await this.api.update(task.id, { toggleComplete: true });
+		const payload: TaskUpdatePayload = { toggleComplete: true };
+		const result = await this.api.update(task.id, payload);
 		this.busyId = null;
 		if (!result.ok) {
 			this.toasts.error(result.error);
@@ -184,7 +185,8 @@ export class FamilyBoardState {
 	async advance(task: FamilyBoardTask): Promise<void> {
 		if (this.busyId) return;
 		this.busyId = task.id;
-		const result = await this.api.update(task.id, { advanceToNext: true });
+		const payload: TaskUpdatePayload = { advanceToNext: true };
+		const result = await this.api.update(task.id, payload);
 		this.busyId = null;
 		if (!result.ok) {
 			this.toasts.error(result.error);
@@ -198,9 +200,10 @@ export class FamilyBoardState {
 	async respond(task: FamilyBoardTask, accept: boolean): Promise<void> {
 		if (this.busyId) return;
 		this.busyId = task.id;
-		const result = await this.api.update(task.id, {
+		const payload: TaskUpdatePayload = {
 			assignmentStatus: accept ? 'accepted' : 'declined'
-		});
+		};
+		const result = await this.api.update(task.id, payload);
 		this.busyId = null;
 		if (!result.ok) {
 			this.toasts.error(result.error);

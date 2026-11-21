@@ -4,9 +4,8 @@
 	and the mobile member sheet. Layout only — every decision lives in
 	`FamilyHubState` and the components.
 
-	Legacy reference: `family/[familyId]/+page.svelte`. The page chrome
-	(breadcrumbs) belongs to the `shell` layout, so this screen does not repeat
-	it.
+	Legacy reference: `family/[familyId]/+page.svelte`. The `(family)` layout
+	provides Navbar/BottomNav/Toaster only, so the page draws its own breadcrumb.
 -->
 <script lang="ts">
 	import { createToasts } from '$lib/kernel/client/toasts.svelte';
@@ -23,7 +22,6 @@
 	import FamilySettingsBand from './FamilySettingsBand.svelte';
 	import InvitationsCard from './InvitationsCard.svelte';
 	import SideRail from './SideRail.svelte';
-	import type { FamilyHubFormEnhancer } from '../familyHub.contract';
 
 	interface Props {
 		data: FamilyHubModel;
