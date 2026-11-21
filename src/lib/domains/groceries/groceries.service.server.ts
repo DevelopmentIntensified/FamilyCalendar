@@ -302,13 +302,10 @@ export async function setGroceryStoreColour(
 		return;
 	}
 	if (!isStoreColourKey(input.color)) throw invalid(GROCERY_COLOUR_REFUSED_MESSAGE);
-	// Q-039 (owner: B, its own fix commit after S6): the legacy family upsert
-	// names no partial-index predicate, so Postgres cannot infer the arbiter and
-	// the statement faults — the route answers 500 and writes nothing. S6 is
-	// parity; `fix(groceries): Q-039` deletes this throw, calls the repo and
-	// flips that one golden row. The repo itself is fixed (it names both
-	// predicates), so the throw is the only copy of today's fault.
-	if (familyId) throw new Error('Q-039: family store colour write (partial index not inferred)');
+	// Q-039 (owner: B): the legacy family upsert named no partial-index
+	// predicate, so Postgres could not infer the arbiter and every family write
+	// faulted with a 500. The repo names the predicate on both branches, so the
+	// family write lands like the personal one.
 	await upsertGroceryColour(ctx.db, { scope, storeKey, color: input.color, now: ctx.clock.now() });
 }
 

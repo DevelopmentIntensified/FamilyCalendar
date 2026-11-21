@@ -543,13 +543,16 @@ describe('setGroceryStoreColour', () => {
 		expect(await coloursOf(db)).toEqual([]);
 	});
 
-	rollbackTest('answers today’s 500 for a family write and writes nothing (Q-039 parity; its fix commit flips this)', async (db) => {
-		const { actor } = await seedViewer(db, true);
+	rollbackTest('writes a family colour and updates it in place (Q-039 B)', async (db) => {
+		const { user, actor, familyId } = await seedViewer(db, true);
+		const ctx = ctxFor(db);
 
-		await expect(
-			setGroceryStoreColour(ctxFor(db), actor, { store: 'Aldi', color: 'sky', scope: 'family' })
-		).rejects.toThrow('Q-039');
-		expect(await coloursOf(db)).toEqual([]);
+		await setGroceryStoreColour(ctx, actor, { store: 'Aldi', color: 'sky', scope: 'family' });
+		await setGroceryStoreColour(ctx, actor, { store: 'aldi', color: 'sage', scope: 'family' });
+
+		expect(await coloursOf(db)).toEqual([
+			{ storeKey: 'aldi', color: 'sage', userId: user.id, familyId }
+		]);
 	});
 });
 
