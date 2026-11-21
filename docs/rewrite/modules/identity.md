@@ -163,7 +163,7 @@ Cross-module ports (the R8-legal seam): identity declares `CalendarAccessPort` a
 - Zone validation is `isLuxonTimeZone` in the settings rules: legacy's `DateTime.local().setZone(z).isValid` with a fixed base instant (R5 forbids `DateTime.local()` in rules; validity does not depend on the instant). Kernel `isValidZone` is IANA-only, which is Q-107's post-S6 behaviour, so it cannot be reused yet.
 - `SETTINGS_WRITABLE_FIELDS` keeps legacy's eleven columns, `verseTranslation` included, though no caller writes it since Q-031/Q-032 — dropping it is a no-op today but a legacy-list change, so it is left for the owner.
 - The repo stamps `users.updatedAt` / `userSettings.updatedAt` from the caller's `now` on every write, including `touchPersonLastActive` and an empty settings update — legacy did the same implicitly through `$onUpdate(systemClock.now())`.
-- Email-change codes and the password-reset marker are stored by value in `codes.code` today (only the three sign-in kinds are hashed); the repo keeps both lookups (`findEmailCodeByKey` for the hashed triple, `findEmailCode` by value) and `HASHED_EMAIL_CODE_TYPES` names the split. Hashing the email-change code is a security change for the owner, not this port.
+- Email-change codes and the password-reset marker are stored by value in `codes.code` today (only the three sign-in kinds are hashed); the repo keeps both lookups (`findEmailCodeByKey` for the hashed triple, `findEmailCode` by value) and `HASHED_EMAIL_CODE_TYPES` names the split. Hashing the email-change code is a security change for the owner, not this port's S3+S4: it is Q-116, answered B, and lands after S6 (below).
 
 **Decisions**
 
@@ -171,12 +171,13 @@ Cross-module ports (the R8-legal seam): identity declares `CalendarAccessPort` a
 2. **Deleting `/calendar/setUserDefaultTimeZone`.** (Q-015, decided B) The route goes at S7/S8 and its one web caller (`src/routes/(calendar)/calendar/+layout.svelte:36`) moves to `PATCH /api/me/settings` with `{timeZone}`. It is not on the `/api` contract, so no golden pins it.
 3. **Carry-overs.** (Q-016, recorded default A) #169 (token expiry + scopes, session idle timeout, PII log scrub) and #174 (email normalization) are unchanged: the goldens pin today's "tokens live until revoked" behaviour, so #169 stays a separate ticket. No action in this port.
 
-**Decided post-S6 fixes** (owner, 2026-11-12). Each lands as `fix(identity)` AFTER S6, with the golden changed first — the S2 goldens pin TODAY's behaviour, so the fix starts by rewriting the assertion:
+**Decided post-S6 fixes** (owner, 2026-11-12 and 2026-11-18). Each lands as `fix(identity)` AFTER S6, with the golden changed first — the S2 goldens pin TODAY's behaviour, so the fix starts by rewriting the assertion:
 
 - **Q-107 B** — `timeZone` accepts IANA names plus `UTC` only; the pseudo-zones (`local`, `system`, `default`, `UTC+5`, `gmt`) get `400 Invalid timeZone`. Today Luxon `setZone().isValid` passes them and they are stored verbatim (`src/routes/api/me/settings/+server.ts:53-57`; golden `› accepts the Luxon-valid zone %s and stores it as sent`).
 - **Q-108 B** — `GET /api/me/settings` answers the merged defaults for null columns (one view) and PATCH writes only the fields sent. Today a sign-up row answers `color:null`/`syncEventsToFamilyCalendar:null` and the first PATCH backfills every null from `ACCOUNT_SETTINGS_DEFAULTS` (golden `› a sparse sign-up row answers nulls, then the first PATCH fills them from the defaults`).
 - **Q-109 B** — the 60-cap cuts at 60 code points and trims after the cut. Today it is `name.trim().slice(0, 60)` on UTF-16 units, which can split an emoji and keeps whitespace before the cut (golden `› cuts the name at 60 UTF-16 units, splitting an emoji on the boundary`).
 - **Q-110 B** — the token list is ordered newest first (`createdAt DESC, id`). Today `listTokensForUser` has no `ORDER BY` and the golden compares the list order-insensitively (`› lists every token you own; the list order is not part of the contract`).
+- **Q-116 answered B (2026-11-18)** — `email_change` codes and the `reset_used` marker are stored as SHA-256 digests like the three sign-in kinds, so `HASHED_EMAIL_CODE_TYPES` covers them and the by-value lookup (`findEmailCode`) goes with it; no `/api` response changes, and codes issued before the deploy stop working but expire soon anyway. No golden pins the stored value, so there is no golden to change first. Lands after S6 as its own `fix(identity): Q-116 …` commit.
 
 ## Census
 
