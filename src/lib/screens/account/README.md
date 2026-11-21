@@ -26,6 +26,12 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [index.ts](index.ts) | entry | Public isomorphic interface: the section list, its hash rule and the contract types. | — |
 | [index.server.ts](index.server.ts) | entry | Public server interface: page load, form actions, the lazy-section endpoint and the three `/api` handlers. | — |
 | [ui/index.ts](ui/index.ts) | entry | Public components: `AccountScreen` only. | — |
+| [account.contract.ts](account.contract.ts) | contract | The wire: zod schemas and types for `GET /api/me` (`AccountMeResponse`; strict, so a credential cannot ride along), `DELETE /api/me` (`AccountDeleteBody`: every non-string confirmation is `''`; `AccountDeleteResponse`), `GET /api/account/export` (`AccountExportDocumentResponse`, with the `passwordHash` refusal and names-only family members) and the internal section `AccountSectionParam` / `AccountSectionModelResponse`. Dates are ISO strings; the legacy copy is the wire. | [account.contract.test.ts](account.contract.test.ts) |
+| [account.sections.rules.ts](account.sections.rules.ts) | rules | `ACCOUNT_SECTIONS` (moved out of `components/account/accountSections.ts`), `AccountSectionId`, `resolveAccountSection` (hash in, first section on empty/unknown; strips the first `#` as legacy did) and `accountSectionHref`. The one list the rail, the page and the endpoint read. | [account.sections.rules.test.ts](account.sections.rules.test.ts) |
+| [account.export.rules.ts](account.export.rules.ts) | rules | The export's pure part: `EXPORT_VERSION`, `ACCOUNT_EXPORT_KEYS` (legacy order), `exportFileName(now)`, `exportedAccountRow` (hash stripped), `exportedPersonNames`, `exportedFamilies` (family + my membership + other members as names only), `exportedEventIds` (attendance then tasks, each once) and `composeAccountExport` (envelope + slices in key order). | [account.export.rules.test.ts](account.export.rules.test.ts) |
+| [account.contract.test.ts](account.contract.test.ts) | test | The three `/api` bodies the golden pins (the exact `GET /api/me` bodies, the confirmation coercions, the export document and its two scope refusals) and the ten section models. | — |
+| [account.sections.rules.test.ts](account.sections.rules.test.ts) | test | The ten sections in order, every hash resolution, the fallback, and the hrefs. | — |
+| [account.export.rules.test.ts](account.export.rules.test.ts) | test | Filename format and UTC day, the key order, the composed document, the hash strip, names-only families (per family, viewer excluded) and the event-id union. | — |
 | [account.http.db.test.ts](account.http.db.test.ts) | test | Golden contract for `GET /api/me`, `DELETE /api/me` and `GET /api/account/export`: full bodies, every refusal, side effects, and the requester-only export scope. Runs committed because the legacy handlers use the `db` singleton. | — |
 
 ## Public interface
@@ -38,11 +44,16 @@ Designed at S1; implemented in the named files (see the sheet's Plan).
     without a body (the 105 bug).
   - `resolveAccountSection(hash)` — the section a hash names, or the first one when it is empty or
     unknown. One home for "which section is showing".
-  - `AccountSectionId` — the union of the ten ids.
+  - `accountSectionHref(id)` — the in-page link (`#calendar`) the rail renders; `/calendar/settings`
+    redirects to `accountSectionHref('calendar')`.
+  - `AccountSectionId` — the union of the ten ids. `AccountSectionParam` is its `z.enum` (built from
+    the same list), so the endpoint's parameter and the rail cannot disagree about which ids exist.
   - `AccountSectionModel` — the discriminated union one section's endpoint returns: only that
-    section's data, typed from each owning domain's section model and reconciled at their S1s
-    (never hand-mirrored).
-  - `AccountMe` / `AccountExportDocument` — the two `/api` response shapes.
+    section's data (`AccountSectionModelResponse` is its zod schema). The section payloads are
+    declared in `account.contract.ts` because no owning domain exports a section model through its
+    public entry yet; the S5 service maps each domain's model into these shapes.
+  - `AccountMe` / `AccountExportDocument` — the two `/api` response shapes (and their schemas,
+    `AccountMeResponse` / `AccountExportDocumentResponse`).
 - `index.server.ts`:
   - `accountPageLoad` — the `/account` load: auth guard, the signed-in-as identity and the default
     section's model. Nothing else is read on first paint.
@@ -64,7 +75,8 @@ Designed at S1; implemented in the named files (see the sheet's Plan).
 
 - Whole module: `npm run test:mod -- account` (add `--legacy` while legacy tests remain).
 - Pure rules: `account.sections.rules.test.ts` and `account.export.rules.test.ts`, plain tables of
-  input → expected output, no setup.
+  input → expected output, no setup. `account.contract.test.ts` parses the golden's exact bodies
+  against the schemas.
 - Database + services: `account.service.db.test.ts` using `rollbackTest` and `testCtx({ db })`
   (needs Postgres: `docker start familycalendar-db`).
 - HTTP contract: `account.http.db.test.ts` pins status + body of the three `/api` route-methods
@@ -85,9 +97,9 @@ exist now; `planned:` tests are written in S3–S7 against the new files in the 
   subscription ("Plan & usage"), email, security, api, danger — and the hash selects the body from
   that same list; an empty/unknown hash falls back to the first. Evidence:
   `src/lib/components/account/accountSections.ts:15-40`,
-  `src/routes/(calendar)/account/+page.svelte:30,90-125`. Pin: `planned: account.sections.rules.test.ts
-  › keeps the ten approved sections in order`, `› resolves a hash to its section and falls back to
-  the first`.
+  `src/routes/(calendar)/account/+page.svelte:30,90-125`. Pin:
+  `account.sections.rules.test.ts › keeps the ten approved sections in order`, `› resolves a hash to
+  its section and falls back to the first`.
 - `/calendar/settings` is only a 302 to `/account#calendar`. Evidence:
   `src/routes/(calendar)/calendar/settings/+page.server.ts:5-7`. Pin: `planned:
   account.http.db.test.ts › redirects /calendar/settings to /account#calendar`.

@@ -17,7 +17,7 @@ Plans, subscriptions, plan limits (family size, archive), discounts, checkout st
 - [x] S4 repo (+ fixtures)
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
+- [ ] S7 UI rebuild — **S7: none (pages owned by marketing/account)**; no page or component belongs to billing, so there is nothing to rebuild or visual-check (see Notes › S7)
 - [ ] S8 rewire importers, delete legacy code and legacy tests
 - [ ] S9 README final, census --write, gate:push, ledger done
 
@@ -101,7 +101,7 @@ contract these files deliver.
 | `billing.contract.ts` | contract | zod schemas + types for the plan card wire (`SubscriptionSummary`, `PlanTier`, `SubscriptionWindow`, `PlanLimits`, `PlanPricing`, `AiUsage`) matching the golden bodies; `PlanType` (re-exported from the pricing rules); `CheckoutPlanInput` (one `planTypeOrDefault` transform); `AiUsagePeriod` (the counter's identity, shared by `aiPeriod` and the repo). Error messages stay in rules. |
 | `billing.limits.rules.ts` | rules | `FREE_PLAN_LIMITS` (frozen), `resolvePlanLimits(row, tier)` (override merge; no row or no tier → free), the six plan refusals (legacy comparison direction: an Invalid Date or NaN is allowed) (`memberLimitRefusal`, `familyCreationRefusal`, `retentionRefusal`, `archiveRefusal`, `attachmentRefusal`, `exportImportRefusal`) with the legacy wording, `isUnlimitedLimit`. |
 | `billing.ai.rules.ts` | rules | `aiPeriod(now)` (month/year), `aiAllowance(used, limit)` (`max(0, …)`), `aiLimitRefusal`, `isPaidTier(tierName)`. |
-| `billing.pricing.rules.ts` | rules | `PLAN_TYPES`/`PlanType`, `PLAN_PRICES` (9/90/150), `planPricing()`, `isPlanType`/`planTypeOrDefault`, `familyDiscountRate(membershipCount)` (≥4 → 40), `holdsLifetimeDiscount(discounts, heldDiscountIds)` (an enabled lifetime row among the claimed ids), `lifetimeDiscountRate(configuredRate, holdsDiscount)` (20 when held), `checkoutQuote({ plan, basePrice, familyRate, lifetimeRate })` (sum, cap 100, round2, never negative) plus its `CheckoutQuote`/`CheckoutLine` types. |
+| `billing.pricing.rules.ts` | rules | `PLAN_TYPES`/`PlanType`, `PLAN_PRICES` (9/90/150), `planPricing()`, `isPlanType`/`planTypeOrDefault`, `familyDiscountRate(familyMemberCount)` (≥5 → 40; one family's members, Q-017 B), `holdsLifetimeDiscount(discounts, heldDiscountIds)` (an enabled lifetime row among the claimed ids), `lifetimeDiscountRate(configuredRate, holdsDiscount)` (20 when held), `checkoutQuote({ plan, basePrice, familyRate, lifetimeRate })` (sum, cap 100, round2, never negative) plus its `CheckoutQuote`/`CheckoutLine` types. |
 | `billing.limits.rules.test.ts`, `billing.ai.rules.test.ts`, `billing.pricing.rules.test.ts` | tests | table-driven; expected values come from the Invariants, not from running the code. |
 | `billing.contract.test.ts` | test | the worked example's contract test: the golden free/paid bodies parse, a `Date` never passes the wire schema, and the `?plan` coercion defaults to monthly. |
 
@@ -139,6 +139,17 @@ Implemented differences from the rows above, with their reasons:
 | `billing.api.ts` | api | `fetchSubscriptionSummary()` on the kernel client; typed from `billing.contract.ts`. |
 | `src/routes/api/me/subscription/+server.ts` (outside this folder) | wiring | becomes two lines re-exporting `getSubscriptionEndpoint.handler`; the S2 golden must stay byte-identical. |
 
+Implemented differences from the rows above, with their reasons:
+
+- `getPlanLimits` takes an optional `{ personId }` (default: the caller): family's member gate resolves the **creator's** limit (`getFamilySizeLimit`), not the viewer's, and limits are caps rather than personal data. The family wave passes the creator id; the README's signature is updated.
+- `deleteSubscriptionsForPerson` (wave plan §6 item 6) shipped in S5 with repo `deleteSubscriptionsByUserId`: account deletion must delete the subscription rows before the person row (`activeSubscriptions.userId` is the one user FK with `ON DELETE no action`). It runs on the caller's `ctx`, so the account composition passes its `txCtx` and the delete joins the one transaction; self-or-admin.
+- `recordAiCreation` answers the `AiUsage` allowance (`used`/`limit`/`remaining`) instead of the legacy `{ success, remaining }`; nothing on the wire reads it, and parsing only needs the remaining count.
+- `ensureBillingDefaults` has **no caller yet**: APP-01 decides whether the app seeds at boot or lazily on first read. It is tested idempotent and writes no ad events (those belong to `sponsored`).
+- The checkout stub's `Checkout is not yet available.` stays in the legacy `/checkout` action until marketing's S7 replaces that page, so the README's stub Invariant now names the legacy action as its pin; billing's service only quotes, and its test pins the quote's "matching enabled row" rule.
+- `getCheckoutQuote`/`listEligibleDiscounts` scan **all** enabled discount rows; the legacy `getDiscountByType` capped its scan at ten (and picked without `ORDER BY`). With the seed's two rows nothing changes; the sheet already drops that arbitrary pick.
+- The account export slice (Q-078 B, wave plan §6 item 7) is **not** built: the slice's document shape is the account screen's contract, and exporting raw `subscriptions`/`discounts` rows would be a table leak. The account wave must specify billing's slice; today no caller reads it.
+- `applyUserDiscount` keeps the legacy read-then-insert idempotency in one service call. Two truly concurrent claims can still race into the composite primary key (legacy had the same race); no client retries a claim.
+
 ### S7 — UI + display rules
 
 | file | role | what goes in it |
@@ -147,6 +158,12 @@ Implemented differences from the rows above, with their reasons:
 | `ui/PlanCard.svelte` | ui | the account page's plan card: tier name, period/renewal line, usage rows, "no subscription yet" state; no fetch. |
 | `ui/PlanUsageRow.svelte` | ui | one usage row (`Unlimited` when the plan says so). |
 | `ui/planCard.svelte.test.ts` | test | renders with props: free, paid, lifetime, over-cap usage. |
+
+**Implemented difference: S7: none (pages owned by marketing/account).** No page or component belongs to billing, so nothing above was built and the visual/perf checks have no subject here.
+
+- The plan card (`PlanCard`, `PlanUsageRow`) and its display copy (`formatPlanLimit`, `formatBytesLabel`, `subscriptionPeriodLabel`, `renewalDateLabel`) are the **account** screen's: the legacy files are `src/lib/components/account/AccountSubscriptionSection.svelte` and `accountSubscription.ts`, and `accountSubscription.test.ts` already pins the copy. Billing keeps only what the card reads (`getSubscriptionSummary`) and the one display rule that is policy (`isUnlimitedLimit`, 999 → "no limit").
+- The `/pricing` and `/checkout` pages are **marketing**'s S7; both stay legacy until then (the checkout stub's `Checkout is not yet available.` is still the legacy page action).
+- Consequence for this module: `ui/index.ts` stays empty (matching `sponsored`), the README's Files/Public interface/How to test record that, and the plan-card Invariant names account's test as its pin instead of a `billing.display.rules.test.ts` that no longer exists.
 
 ### Where each legacy export goes — or why it dies
 
@@ -171,9 +188,9 @@ Implemented differences from the rows above, with their reasons:
 | `checkoutService.calculateCheckoutPrice` | `getCheckoutQuote` service + `checkoutQuote` rule. |
 | `getDiscountByType` | dies: "scan the first ten enabled rows and pick by flag" is arbitrary when several match; the repo reads the row by the type flags it needs. |
 | `applyDiscountToSubscription` | `applyUserDiscount` (one discount, idempotent); the `subscriptions.updatedAt` bump dies with the checkout stub. |
-| `getUserEligibleDiscounts` | `listEligibleDiscounts(ctx, actor, { membershipCount })`, same descriptions. |
+| `getUserEligibleDiscounts` | `listEligibleDiscounts(ctx, actor, { familyMemberCount })`, same descriptions. |
 | `getBasePrice`, `getPlanPricing` | `PLAN_PRICES`, `planPricing()` — the ignored `_planType` parameter dies. |
-| `discountService.calculateFamilyMemberDiscount` | `familyDiscountRate(membershipCount)`; the count is the caller's. Today's rule (membership rows, `>= 4`) is kept in S3–S6; Q-017 B (count one family's members, threshold 5) lands after S6 (it rewrites this rule's table test). |
+| `discountService.calculateFamilyMemberDiscount` | `familyDiscountRate(familyMemberCount)`; the count is the caller's — one family's members, not the person's membership rows. Q-017 B landed after S6: threshold 5, which its own checkout copy ("5+ members") already described. |
 | `calculateLifetimeDiscount` | `lifetimeDiscountRate(configuredRate, holdsLifetimeDiscount)` + two repo reads. |
 | `calculateDiscounts` | `listEligibleDiscounts`. |
 | `getAvailableDiscounts` | repo `listEnabledDiscounts` (no export: the pages never listed them). |
@@ -182,6 +199,30 @@ Implemented differences from the rows above, with their reasons:
 | `seed.ts` (`seed()`) | `ensureBillingDefaults(ctx)` — six tiers + two discounts, idempotent; the five random ad events move to `sponsored`. |
 | `PlanTypeSelector.svelte` | dies: 0 importers and hardcoded prices that contradict `PLAN_PRICES`. |
 | `pricing/+page.server.ts`, `pricing/+page.svelte`, `checkout/+page.server.ts`, `checkout/+page.svelte` | S7 page wiring over the billing services; `marketing` owns the copy and the routes when it is ported. |
+
+### S8 — importer rewiring, and the legacy files that stay
+
+Rewiring first: nothing to rewire. No file outside `src/lib/domains/billing/` deep-imports the module (`grep -rn "domains/billing/" src` finds only the folder itself and a doc comment), and the one live caller — `src/routes/api/me/subscription/+server.ts` — is 3 lines re-exporting `getSubscriptionEndpoint` (wiring only).
+
+Deleted (`S8`, one file, 90 LOC): `src/lib/components/PlanTypeSelector.svelte` — 0 importers, hardcoded `$5/$48` and `$9/$90` contradict `PLAN_PRICES`, and its "You're on the Free plan" state is the account plan card's job.
+
+Kept, each still imported by an unported module (deleting one would break a live legacy route; `package.json` may not be edited at S8):
+
+| legacy file | imported by (owning module, still legacy) |
+|---|---|
+| `src/lib/server/services/subscriptionService.ts` | `src/lib/server/db/actions/families.ts:15`, `src/routes/(family)/family/[familyId]/members/add/{child,direct}/+server.ts:7`, `src/routes/(family)/family/create/+page.server.ts:6` (family); `src/lib/server/services/accountData.ts:22` (account); `src/lib/server/services/archiveData.ts:14` (calendar); `src/lib/server/services/familyData.ts:28` (familyHub); `src/routes/api/parse-event/+server.ts:9` (parsing); `src/routes/(marketing)/checkout/+page.server.ts:8` (marketing) |
+| `src/lib/server/services/checkoutService.ts` | `src/lib/server/services/accountData.ts:23` (account); `src/routes/(marketing)/checkout/+page.server.ts:7`, `src/routes/(marketing)/pricing/+page.server.ts:7,63` (marketing) |
+| `src/lib/server/services/discountService.ts` | `src/lib/server/services/checkoutService.ts:4` (kept above, so live through account/marketing) |
+| `src/lib/server/services/analyticsService.ts` | `src/routes/(marketing)/pricing/+page.server.ts:8` (marketing) |
+| `src/lib/server/seed.ts` | nothing in `src`, but `package.json:29`'s `db:seed` runs it and the repo README (`README.md:16`) documents that command for seeded dev users the e2e runs use; `ensureBillingDefaults` covers only billing's six tiers and two discounts, has no app caller yet (APP-01), and the seed's ad demo events belong to `sponsored`. Deleting it would leave a dangling documented npm script that S8 may not fix, so it goes when APP-01 wires the boot/lazy seed and the user/ad data find their homes |
+
+Their legacy tests stay with them: `subscriptionService.test.ts` and `discountService.test.ts` each cover a subject file the app still runs, so deleting either would drop the only pin on live code. Every behaviour they cover is already re-homed in `billing.*.test.ts` / `billing.http.db.test.ts`, so they die with their subject files when the importers above are rebuilt.
+
+### S9 — README
+
+- Files table: every file in the folder is listed, `ui/index.ts` recorded as the empty component entry (S7 none), and the golden's row no longer claims it runs against the legacy handler.
+- Invariants: every row names the test that pins it today — billing's own (`billing.http.db.test.ts`, the three `*.rules.test.ts`, the two `*.db.test.ts`) or the sibling's where the behaviour sits across a call (parsing's goldens for the cap/record/short-window rows; account's legacy `accountSubscription.test.ts` for the plan card's copy).
+- Depends on: Calls / Called by now say what is true — one caller today (`/api/me/subscription`) and the modules that will call billing as they land — instead of listing callers that do not exist yet.
 
 ## Notes
 
@@ -199,8 +240,8 @@ Implemented differences from the rows above, with their reasons:
 |---|---|
 | `/pricing` computes `showDiscountedPrices`/`displayPrice` and never reads them | drop the dead server work; the page renders base prices (S7). |
 | `PlanTypeSelector` hardcodes `$5/$48` and `$9/$90`, 0 importers | delete the component; `PLAN_PRICES` is the one price table. |
-| pricing card says "Up to 5 family members" while the free tier allows 6 | decided, Q-018 B (owner, 2026-11-12): the copy says up to 6 family members; a post-S6 fix, S7 changes the string. The rule (6) is the Invariant. |
-| `calculateFamilyMemberDiscount` counts the user's membership rows and uses `>= 4` | keep the *threshold mechanics* (40% from four up) in `familyDiscountRate`, but take the count as an argument. Decided, Q-017 B (owner, 2026-11-12): count the members of one family, threshold 5; a post-S6 fix, so S3–S6 keep today's rule. |
+| pricing card says "Up to 5 family members" while the free tier allows 6 | decided, Q-018 B (owner, 2026-11-12): the copy says up to 6 family members; the free `memberLimit` stays 6 (`FREE_PLAN_LIMITS`). **Landed (2026-11-20)** in the legacy pricing page (`src/routes/(marketing)/pricing/+page.svelte:15`). |
+| `calculateFamilyMemberDiscount` counts the user's membership rows and uses `>= 4` | keep the *threshold mechanics* (40%) in `familyDiscountRate`, but take the count as an argument. Decided, Q-017 B (owner, 2026-11-12): count the members of one family, threshold 5. **Landed (2026-11-20)**: `>= 4` on membership rows became `>= 5` on one family's members; it rewrote this rule's table test and the service's quote inputs. |
 | `getPlanPricing(_planType)` ignores its argument | drop the parameter; `planPricing()` returns all three plans. |
 | `getUserSubscriptionLimits` duplicates the default literal | drop; `FREE_PLAN_LIMITS` is the only literal. |
 | the purchase action trusts client-posted `finalPrice` | drop; the new action recomputes the quote from the plan (it still never sells — the stub message stays). |
@@ -209,15 +250,23 @@ Implemented differences from the rows above, with their reasons:
 
 ### Owner decisions
 
-Both answered by the owner on 2026-11-12 (`docs/rewrite/questions.md`, lettering as there). Both are fixes that land **after S6**: S3+S4 port today's behaviour, so the rules below keep it.
+Both answered by the owner on 2026-11-12 (`docs/rewrite/questions.md`, lettering as there). Both were fixes that landed **after S6**: S3+S4 ported the legacy behaviour, and the S5+S6 follow-up applied them (2026-11-20).
 
-1. **Family-size discount: which count?** (Q-017, answer **B**) Context: `discountService.ts:19-34` counts the user's `familyMembers` rows (so four *different* families qualify) and its 40% threshold disagrees with the checkout copy "5+ members". Decided: count the members of one family, threshold 5. Until the post-S6 fix, `familyDiscountRate(membershipCount)` keeps `>= 4` on whatever count the caller passes, and the fix then rewrites this rule's table test. No wire change: the subscription summary carries no discount, and checkout is still a stub, so nothing can be mis-charged.
-2. **Pricing card copy: "Up to 5 family members" vs the free tier's 6.** (Q-018, answer **B**) Context: `pricing/+page.svelte:12` vs `seed.ts:19`. Decided: the copy says up to 6 family members; the free `memberLimit` stays 6 (`FREE_PLAN_LIMITS`). A string change in S7 or after; no rule moves.
+1. **Family-size discount: which count?** (Q-017, answer **B**) Context: `discountService.ts:19-34` counts the user's `familyMembers` rows (so four *different* families qualify) and its 40% threshold disagrees with the checkout copy "5+ members". Decided: count the members of one family, threshold 5. **Q-017 B landed**: `familyDiscountRate(familyMemberCount)` grants 40% at `>= 5`; the service inputs take `familyMemberCount` (the fullest family's count, supplied by the caller — billing reads no family table) and its rules table was rewritten to the answered values. No wire change: the subscription summary carries no discount, and checkout is still a stub, so nothing can be mis-charged.
+2. **Pricing card copy: "Up to 5 family members" vs the free tier's 6.** (Q-018, answer **B**) Context: `pricing/+page.svelte:12` vs `seed.ts:19`. Decided: the copy says up to 6 family members; the free `memberLimit` stays 6 (`FREE_PLAN_LIMITS`). **Q-018 B landed**: the legacy pricing page's free card now says "Up to 6 family members". The page cannot import `FREE_PLAN_LIMITS` while it stays legacy (R8: a route that imports ported code is wiring only, ≤ 25 lines), so it carries the literal until marketing's S7 port renders `FREE_PLAN_LIMITS.memberLimit`; no rule moves.
+
+### Q-017 B landed (owner answer, applied 2026-11-20)
+
+- `familyDiscountRate(familyMemberCount)` grants 40% at `>= 5`: the count is one family's members (the fullest family's when the person belongs to several), never the person's family-membership rows. The rules table is 0/3/4 → 0% and 5/6/12 → 40%; the service's `getCheckoutQuote` and `listEligibleDiscounts` inputs are `{ familyMemberCount }`. No golden row changes — the subscription summary carries no discount — and no wire change.
+
+### Q-018 B landed (owner answer, applied 2026-11-20)
+
+- The free card says "Up to 6 family members" (`src/routes/(marketing)/pricing/+page.svelte:15`), matching `FREE_PLAN_LIMITS.memberLimit`. The number stays a literal there until marketing's S7 port because R8 forbids a legacy route importing module code; the ported page must render `FREE_PLAN_LIMITS.memberLimit`. No golden row changes (the pricing page has no golden; the plan `memberLimit` goldens keep 6).
 
 ### S2 — goldens
 
 - `billing.http.db.test.ts` covers the one `/api` route: success for a session and a Bearer caller, the free defaults, a tiered subscription with an override, this month's AI counter (under and over the cap), an expired row, newest-of-two active rows, and the degrade-on-read-failure path. All run against the legacy handler (no spec-goldens needed).
-- The AI-usage test seeds the month/year from the real clock because the legacy service reads it (`subscriptionService.ts:333-334`); it asserts counts and shapes, never dates. The other goldens use fixed far-past/far-future dates so they never depend on today.
+- The AI-usage test seeds the month/year from the real clock because the legacy service reads it (`subscriptionService.ts:333-334`); it asserts counts and shapes, never dates. The other goldens use fixed far-past/far-future dates so they never depend on today. After the port the handler reads the same real month through `ctx.clock`: `goldenCtx` gives goldens production's `systemClock` (and `systemIds`), not `testCtx`'s frozen clock. The window's edges are pinned in `billing.service.db.test.ts` (`getSubscriptionSummary` › "counts only the injected clock's UTC month"), where `testCtx({ now })` controls time.
 - The degrade golden renames `aiUsageTracking` for one request (drizzle sends unnamed statements — `prepare: false` — so the renamed relation is re-resolved by name and the read fails) and restores it in `finally`. If this proves brittle on a future drizzle upgrade, move it to `billing.service.db.test.ts` with a throwing `Db` passed to `testCtx({ db })`; it must not be deleted, the behaviour is on the wire.
 
 

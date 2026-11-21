@@ -10,6 +10,7 @@
  *                 query: a scalar key keeps its FIRST value (legacy `get`), a key listed in
  *                 `queryArrays` keeps every value (legacy `getAll`), absent array keys are []
  *   body          JSON; bodyMode 'json' (default): empty body = {}, malformed -> 400 {"error":"Invalid JSON"}
+ *                 malformedBody {status?, error} replaces that refusal with the route's own copy
  *                 bodyMode 'lenient': malformed, empty or unreadable body = null, so the schema refuses it
  *   AppError      -> its status + {"error", ...extra}
  *   anything else -> logged, filed via ctx.faults, 500 {"error": failMessage}
@@ -64,6 +65,14 @@ export type RateLimitRule = {
 /** See `EndpointSpec.bodyMode`. */
 export type BodyMode = 'json' | 'lenient';
 
+/** The refusal copy for a body the route could not parse. See `EndpointSpec.malformedBody`. */
+export type MalformedBody = {
+	/** Status of the refusal; default 400, the default copy's status. */
+	readonly status?: number;
+	/** The `error` sentence; the default copy is `Invalid JSON`. */
+	readonly error: string;
+};
+
 type Schema = z.ZodType | undefined;
 export type Parsed<S extends Schema> = S extends z.ZodType ? z.output<S> : undefined;
 
@@ -109,6 +118,17 @@ export type EndpointSpec<
 	 * the refusal and its wording. Opt in per endpoint, never by default.
 	 */
 	readonly bodyMode?: BodyMode;
+	/**
+	 * The refusal this route gave a body it could not parse, replacing the default
+	 * `400 {"error":"Invalid JSON"}`. Set it when the route's own copy is pinned (groceries and
+	 * the focus sessions answer `Invalid JSON body`). It covers the whole non-lenient reader: a
+	 * malformed, unreadable **and empty/whitespace-only** body, because legacy `request.json()`
+	 * threw on all three; an endpoint with this option therefore no longer reads an empty body
+	 * as `{}`. Bodies that parse (including the literal `null`, a string, an array) are untouched
+	 * and still reach the schema. Ignored with `bodyMode: 'lenient'`, where the schema decides
+	 * every non-JSON body, and when `body` is not set.
+	 */
+	readonly malformedBody?: MalformedBody;
 	readonly params?: P;
 	readonly rateLimit?: RateLimitRule;
 	/** The 500 body message; default 'Something went wrong'. Keep legacy wording when porting. */
@@ -165,9 +185,11 @@ async function runEndpoint<
 		if (spec.rateLimit) enforceRateLimit(ctx, event.request, spec.rateLimit);
 		const query = parseInput(spec.query, queryInput(event.url, spec.queryArrays ?? []));
 		const params = parseInput(spec.params, event.params);
-		const body = spec.body
-			? parseInput(spec.body, await readJsonBody(event.request, spec.bodyMode ?? 'json'))
+		const read = spec.body
+			? await readJsonBody(event.request, spec.bodyMode ?? 'json', spec.malformedBody)
 			: undefined;
+		if (read && 'refusal' in read) return read.refusal;
+		const body = spec.body && read ? parseInput(spec.body, read.value) : undefined;
 		return await spec.handle({
 			ctx,
 			// SAFETY: authorize() returns an Actor for user/admin, Actor|null for optional, null otherwise — exactly ActorFor<A>.
@@ -253,22 +275,33 @@ function parseInput<S extends Schema>(schema: S, input: JsonValue): Parsed<S> | 
 	return result.data as Parsed<S>;
 }
 
-async function readJsonBody(request: Request, mode: BodyMode): Promise<JsonValue> {
+type BodyRead = { readonly value: JsonValue } | { readonly refusal: Response };
+
+async function readJsonBody(
+	request: Request,
+	mode: BodyMode,
+	malformed: MalformedBody | undefined
+): Promise<BodyRead> {
 	const lenient = mode === 'lenient';
+	const refuse = (): BodyRead => ({
+		refusal: reply(malformed?.status ?? 400, { error: malformed?.error ?? INVALID_JSON_MESSAGE })
+	});
 	let text: string;
 	try {
 		text = await request.text();
 	} catch {
-		if (lenient) return null;
-		throw invalid(INVALID_JSON_MESSAGE);
+		return lenient ? { value: null } : refuse();
 	}
-	if (!text.trim()) return lenient ? null : {};
+	if (!text.trim()) {
+		if (lenient) return { value: null };
+		// Default: an empty body is {}. A route that pins its own copy threw on it too, so it refuses.
+		return malformed ? refuse() : { value: {} };
+	}
 	try {
 		// SAFETY: JSON.parse only ever produces JsonValue-shaped data.
-		return JSON.parse(text) as JsonValue;
+		return { value: JSON.parse(text) as JsonValue };
 	} catch {
-		if (lenient) return null;
-		throw invalid(INVALID_JSON_MESSAGE);
+		return lenient ? { value: null } : refuse();
 	}
 }
 
