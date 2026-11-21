@@ -13,7 +13,7 @@
 	Doc: ../README.md#invariants
 -->
 <script lang="ts">
-	import { relativeFromNow } from '$lib/kernel/time/dates';
+	import { relativeFromNow } from '$lib/kernel/time/relative';
 	import type { AlertRow } from '../alerts.contract';
 	import { isPlainAlertClick } from '../alerts.feed.rules';
 	import { alertGlyph, alertLabel, alertTone } from '../alerts.vocabulary.rules';
