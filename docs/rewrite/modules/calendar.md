@@ -261,6 +261,22 @@ Each decision lands as its own fix AFTER S6, and each is already pinned to TODAY
 
 Two more gaps are pinned as today's behaviour, not as intent (no owner ticket yet): the scope-`this` write leg is read access (a family member can edit/cancel another member's occurrence), and the bulk `attendants` op / smart-plan `delete` never consult the owner leg. See the README's Access invariants for the two test titles.
 
+### S3+S4 — deviations from the plan (with reasons)
+
+- **`findAccessibleCalendarIds(db, userId, familyIds)`.** The repo reads only the module's four tables; the viewer's family memberships are a `family` read, so the service passes the ids in (S5 calls `family`). This keeps R3 honest and avoids a `familyMembers` foreign read. Consequence: S5 needs a `family` call for family ids before every scope load.
+- **`eventAccessFilter` is not a Drizzle predicate here.** It became pure row predicates (`isEventVisibleTo`, `canMutateEventRow`, `eventTouchDecision`); the repo builds the SQL from the id sets. A predicate factory in a `.rules.ts` would drag drizzle into the pure layer.
+- **The bulk planner inlines the month/weekday vocabulary.** `parsing`'s public entry is still empty, and importing the legacy `$lib/utils/dateVocab` would violate R14. The (private) tables move to `parsing` when it exports them.
+- **`buildIcsEvent(input, now)` takes `now`.** DTSTAMP used to read the process clock inside the builder; R5 puts it in the signature (S5 passes `ctx.clock.now()`).
+- **Move rules keep the legacy names.** `snapMinutes`, `normalizeRange`, `buildMovePayload`, `buildDuplicateEventPayload`, `overlapsDay`, `pickDayEntries`, `matchCalendarByName`. The plan's `moveEventByDays`/`resizeEvent`/`duplicateEvent` do not exist as legacy behaviour — the module has drag arithmetic and payload builders — so porting the real shapes keeps the legacy pure tests as evidence.
+- **`listCalendarEventsForPrint` is `listEventsByCalendar`.** Same query, one name (R11/R15).
+- **Fixtures keep their frozen golden signatures and take the transaction `db` as an optional LAST argument.** The goldens call `seedCalendarRow(id, options)`, so a db-first signature (the feedback shape) would break them; the trailing default keeps rollback repo tests possible without editing a golden.
+- **`describeRecurrence` lives in `calendar.recurrence.rules.ts`,** not `calendar.import.rules.ts`, and its input is the recurrence columns (`RecurrenceShape`) so the API write shape and the import draft share it.
+- **The occurrence id also exports `resolveMasterId`** (the bulk route needs the master half without an occurrence).
+- **The public entry exports the client api and the vocabularies** as the README now documents; the S1 "four exports" line was a design sketch, not the reviewed shape.
+- **`kernel/time/dates.ts` gained `RecurrenceFrequency`** (K-06), one type, additive.
+- **Print item times use the viewer's zone** (`shortTime(instant, zone)`); legacy `printData` formatted them from the server's local `Date`. The printed "today" was already the viewer's day, so this makes the times agree with the day. No golden flips (the print golden sets the viewer zone to `utc`), but a non-UTC viewer's sheet now shows their local time — flagged as an owner question rather than silently kept or silently changed.
+- **Query strings are not zod schemas.** A `?from&to` pair's three exact messages and its existence/order checks are `resolveEventRange`'s rule; the print month clamp and the location 2–100 rule are their loaders'. A schema would be a second home for both the copy and the coercion, so the contract carries the request BODIES and the responses, and the rules carry the query contracts.
+
 ### S2 — goldens
 
 - Three files, the maximum the step allows (the events surface alone is ~1.5k lines, so the cap decides the grouping): `calendar.events.http.db.test.ts` (events CRUD, rsvp, .ics), `calendar.bulk.http.db.test.ts` (bulk, calendars, print, location search), `calendar.import.http.db.test.ts` (import preview/commit/undo + picker).
