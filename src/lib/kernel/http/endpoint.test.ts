@@ -114,6 +114,74 @@ describe('endpoint input parsing', () => {
 	});
 });
 
+describe('endpoint query values', () => {
+	// `invoke`'s `query` option uses searchParams.set (one value), so repeated keys go in `path`.
+	const lookup = endpoint({
+		auth: 'public',
+		query: z.object({
+			eventId: z.string().optional(),
+			exclude: z.array(z.string())
+		}),
+		queryArrays: ['exclude'],
+		handle: async ({ query }) => ok({ eventId: query.eventId ?? null, exclude: query.exclude })
+	});
+
+	type QueryCase = {
+		readonly name: string;
+		readonly path: string;
+		readonly want: { readonly eventId: string | null; readonly exclude: readonly string[] };
+	};
+
+	const cases: readonly QueryCase[] = [
+		{
+			name: 'absent keys: a scalar stays absent and an array key arrives as []',
+			path: '/',
+			want: { eventId: null, exclude: [] }
+		},
+		{
+			name: 'a scalar key with one value',
+			path: '/?eventId=e1',
+			want: { eventId: 'e1', exclude: [] }
+		},
+		{
+			name: 'a repeated scalar key keeps the FIRST value (legacy get)',
+			path: '/?eventId=e1&eventId=e2',
+			want: { eventId: 'e1', exclude: [] }
+		},
+		{
+			name: 'an array key with 0 values while other keys are present',
+			path: '/?other=1',
+			want: { eventId: null, exclude: [] }
+		},
+		{
+			name: 'an array key with 1 value',
+			path: '/?exclude=a',
+			want: { eventId: null, exclude: ['a'] }
+		},
+		{
+			name: 'an array key with 2 values keeps them all, in order',
+			path: '/?exclude=b&exclude=a',
+			want: { eventId: null, exclude: ['b', 'a'] }
+		},
+		{
+			name: 'scalar and array keys together',
+			path: '/?eventId=e1&eventId=e2&exclude=a&exclude=b',
+			want: { eventId: 'e1', exclude: ['a', 'b'] }
+		},
+		{
+			name: 'an empty value stays present as "" (not absent), for both kinds',
+			path: '/?eventId=&exclude=',
+			want: { eventId: '', exclude: [''] }
+		}
+	];
+
+	it.each(cases)('$name', async ({ path, want }) => {
+		const res = await invoke(lookup.handler, { ctx: testCtx(), path });
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual(want);
+	});
+});
+
 describe('endpoint body modes', () => {
 	// Distinct copy per layer: 'Bad a' comes from the field, 'Bad body' from the object itself.
 	const schema = z.object({ a: z.string({ error: 'Bad a' }) }, { error: 'Bad body' });
