@@ -20,6 +20,7 @@ import type { CodeRow, NewCodeRow } from '$lib/kernel/db/tables.server';
 import { emailCodeExpiresAt, emailCodeKey, isEmailCodeExpired } from './identity.code.rules';
 import {
 	deleteEmailCodeByKey,
+	deleteEmailCodesForEmail,
 	findEmailCodeByKey,
 	insertEmailCode
 } from './identity.repo.server';
@@ -74,6 +75,30 @@ export type RedeemEmailCodeInput = {
 	readonly email: string;
 	readonly type: string;
 };
+
+/**
+ * Reads one code by its `(digest, email, type)` key WITHOUT consuming it — the
+ * reset marker's existence check (a used link must stay used) and the
+ * email-change token's pre-flight. Expiry is the caller's call: the reset
+ * marker expires with the token, which the signature check already refused.
+ */
+export async function findEmailCode(
+	ctx: Ctx,
+	input: RedeemEmailCodeInput
+): Promise<CodeRow | null> {
+	return await findEmailCodeByKey(ctx.db, emailCodeKey(input, ctx.config.codePepper));
+}
+
+/**
+ * Every code bound to one address, gone — an email-change request replaces the
+ * address's pending codes (legacy `deleteCodesByEmail`). Takes the address, not
+ * a key, because the request must clear codes of every kind it minted for it.
+ * Q-103: `type` narrows it to one kind, so an email-change request leaves the
+ * durable `reset_used` marker (and any sign-in code) alone.
+ */
+export async function discardEmailCodes(ctx: Ctx, email: string, type?: string): Promise<void> {
+	await deleteEmailCodesForEmail(ctx.db, email, type);
+}
 
 /**
  * Redeems (and consumes) one code by its `(digest, email, type)` key: a miss,

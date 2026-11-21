@@ -448,9 +448,17 @@ export async function deleteEmailCodeByKey(db: Db, key: EmailCodeKey): Promise<v
 	await db.delete(codes).where(matchesKey(key));
 }
 
-/** Every code bound to an address (a new email-change request replaces the old). */
-export async function deleteEmailCodesForEmail(db: Db, email: string): Promise<void> {
-	await db.delete(codes).where(eq(codes.email, email));
+/** Every code bound to an address, or (Q-103) only those of one `type`. */
+export async function deleteEmailCodesForEmail(
+	db: Db,
+	email: string,
+	type?: string
+): Promise<void> {
+	if (type === undefined) {
+		await db.delete(codes).where(eq(codes.email, email));
+		return;
+	}
+	await db.delete(codes).where(and(eq(codes.email, email), eq(codes.type, type)));
 }
 
 /** Codes that expired strictly before `now`. Returns how many went. */

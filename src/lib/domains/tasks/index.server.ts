@@ -10,6 +10,15 @@
  * Doc: ./README.md#public-interface
  */
 
+// --- Guest merge (access) -----------------------------------------------------
+
+/** `access`' guest merge reads the counts and moves them inside its own transaction. */
+export {
+	moveGuestTasks,
+	countGuestTasks,
+	type MoveGuestTasksInput
+} from './tasks.guest.service.server';
+
 // --- Port this module implements ---------------------------------------------
 
 export { unassignMemberTasks } from './tasks.items.service.server';

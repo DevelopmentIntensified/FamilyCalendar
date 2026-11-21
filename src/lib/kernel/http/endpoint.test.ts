@@ -385,6 +385,49 @@ describe('endpoint malformed body copy', () => {
 			name: 'lenient mode ignores the copy: the schema decides an empty body',
 			rawBody: '',
 			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		// strict: the copy owns the empty-body refusal too, not just malformed JSON.
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode answers the copy for malformed JSON',
+			rawBody: '{"a":',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode answers the copy for an empty body',
+			rawBody: '',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode answers the copy for a whitespace body',
+			rawBody: ' \n\t ',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode: a valid object is untouched',
+			rawBody: '{"a":"ok"}',
+			want: { status: 200, body: { a: 'ok' } }
+		},
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode: the literal null parses, so the schema answers',
+			rawBody: 'null',
+			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		{
+			mode: 'strict',
+			copy: copyOnly,
+			name: 'strict mode without a status answers 400',
+			rawBody: '',
+			want: { status: 400, body: { error: 'Invalid JSON body' } }
 		}
 	];
 

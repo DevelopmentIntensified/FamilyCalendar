@@ -7,40 +7,30 @@ import { getUserFamilyMemberships } from '$lib/server/db/actions/families';
 import { fail, redirect } from '@sveltejs/kit';
 import { requireUserAction } from '$lib/server/utils/requireUser';
 import type { Actions, PageServerLoad } from './$types';
-import { NOREPLYEMAIL, EMAILSECRET } from '$env/static/private';
-import { getUrl } from '$lib/utils/getUrl';
 import { hiddenModulesFromForm } from '$lib/components/account/accountDashboardModules';
 import { familyCalendarEntries } from '$lib/components/account/accountCalendars';
 import { listTokensForUser } from '$lib/server/db/actions/apiTokens';
 import { isNotificationPreferenceId } from '$lib/components/account/accountNotifications';
 import {
 	accountSettingsView,
-	defaultUpdateEmailDeps,
+	changeEmailAction,
 	deleteAccount,
 	loadConsentHistory,
 	loadNotificationPreferences,
 	loadSubscriptionSummary,
 	mintNamedApiToken,
-	requestEmailChange,
 	revokeApiToken,
 	revokeOtherSessions,
 	saveCalendarSettings,
 	saveDashboardModules,
 	saveNotificationPreference,
 	updateProfile,
-	type AccountResult,
-	type UpdateEmailDeps
+	type AccountResult
 } from '$lib/server/services/accountData';
 
 // The load + action bodies live in accountData (#292 L0) so the /api/me/*
 // JSON endpoints run the same code; this file parses forms and maps results.
-export type { UpdateEmailDeps };
-
-const updateEmailDeps: UpdateEmailDeps = defaultUpdateEmailDeps(
-	getUrl(),
-	NOREPLYEMAIL,
-	EMAILSECRET
-);
+// The email change is access's port (`changeEmailAction`), wired below.
 
 /** A service result as this page's form-action contract. */
 function toActionResult(result: AccountResult) {
@@ -191,17 +181,7 @@ export const actions: Actions = {
 		);
 	},
 
-	updateEmail: async ({ request, locals }, deps: UpdateEmailDeps = updateEmailDeps) => {
-		const auth = requireUserAction(locals);
-		if (auth.response) return auth.response;
-		const result = await requestEmailChange(
-			request,
-			auth.user.id,
-			async () => formString(await request.formData(), 'email'),
-			deps
-		);
-		return toActionResult(result);
-	},
+	updateEmail: changeEmailAction,
 
 	logoutAllDevices: async ({ locals }) => {
 		const auth = requireUserAction(locals);

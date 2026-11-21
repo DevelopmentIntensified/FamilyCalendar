@@ -23,15 +23,15 @@
  * from a new IP and one from a new address / person, so "per IP", "per address"
  * and "per person + IP" stay what they are (`rateLimit.ts:28-33`).
  *
- * The success paths that really send an email are spec-goldens at the bottom
- * (skipped today, activated in S6); the reason and the exact shape are in
- * docs/rewrite/modules/access.md#notes. Owner accidents are pinned where they
- * live and name their question: Q-102 (a sign-in link resets a password),
- * Q-103 (an email-change request revives a used reset link), Q-104 (reset
- * leaves `auth_account.password` stale), Q-105 (logout sends no `Set-Cookie`).
- * The owner answered all four (B, B, C, B) after this file froze, so each fix
- * lands after S6 as its own `fix(access)` commit that changes the golden
- * first — until then these tests pin today's behaviour on purpose.
+ * The success paths that really send an email are the spec-goldens at the
+ * bottom; they run now that the ported handlers take their sender from `ctx`
+ * (Q-067; docs/rewrite/modules/access.md#notes). The owner's post-S6 answers
+ * landed here first, one row per question: Q-102 (a sign-in link is no longer a
+ * reset token), Q-103 (an email-change request keeps the `reset_used` marker),
+ * Q-104 C (no flow writes `auth_account.password`), Q-105 (logout clears the
+ * cookie), Q-062 (the two malformed-body 500s are the house 400), Q-064 (both
+ * page-code 500s answer the generic copy), Q-065 (the change row stores the
+ * keyed digest), Q-066 (the reset cap lives in the shared service).
  *
  * Doc: ./README.md#how-to-test
  */
@@ -40,10 +40,10 @@ import { eq } from 'drizzle-orm';
 import { TimeSpan } from 'oslo';
 import { createJWT, parseJWT } from 'oslo/jwt';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { hmacSha256Hex } from '$lib/kernel/ids/ids';
 import {
 	accounts,
 	apiTokens,
-	authAccount,
 	authSession,
 	calendars,
 	claimTokens,
@@ -83,7 +83,6 @@ import {
 	ACCESS_ANON_DOMAIN,
 	ACCESS_PASSWORD_HASH,
 	seedAccessApiToken,
-	seedAccessAuthAccount,
 	seedAccessEmailCode,
 	seedAccessGuest,
 	seedAccessPasswordUser,
@@ -133,9 +132,13 @@ async function mintEmailJwt(payload: Record<string, string>, minutes = 60): Prom
 	});
 }
 
-/** The 60-minute reset JWT the forgot-password email carries (`reset` reads it back). */
+/**
+ * The 60-minute reset JWT the forgot-password email carries (`reset` reads it
+ * back). Q-102: the payload carries the reset purpose claim, and a link without
+ * it is refused — see the sign-in-link row below.
+ */
 async function mintResetToken(email: string): Promise<string> {
-	return mintEmailJwt({ email });
+	return mintEmailJwt({ email, purpose: 'password_reset' });
 }
 
 type RedirectTarget = {
@@ -182,20 +185,21 @@ type BodyCase = {
 beforeEach(truncateAll);
 
 describe('POST /api/logout', () => {
-	it('answers 302 / when signed out (Q-105: no Set-Cookie)', async () => {
+	it('answers 302 / and clears the session cookie (Q-105)', async () => {
 		const c = ctx();
 		const res = await invokeRedirect(postLogout, {
 			ctx: c,
 			method: 'POST',
 			path: '/api/logout'
 		});
-		// Q-105: today the handler throws Kit's `redirect(302, '/')`, which carries
-		// status + location and no header channel at all, so the session cookie is
-		// never cleared; the dead row-less cookie expires on its own. A ported
-		// endpoint answering a plain 302 must send no `Set-Cookie` either. The owner
-		// chose B (clear it with an expired `Set-Cookie`): that lands after S6 as a
-		// `fix(access)` commit which changes this expectation first.
-		expect(res).toEqual({ status: 302, location: '/', setCookie: null });
+		// Q-105 B: the answer is still a plain 302 to `/`, and it now carries the
+		// clearing `Set-Cookie` — better-auth's expireCookie shape (`Max-Age=0`,
+		// `Expires` at the epoch), so no dead cookie lingers in the browser.
+		expect(res).toEqual({
+			status: 302,
+			location: '/',
+			setCookie: 'better-auth.session_token=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax'
+		});
 	});
 
 	// `invoke` cannot inject `locals.session` (the harness pins it to null), so
@@ -1825,18 +1829,22 @@ describe('POST /api/mobile/auth/forgot', () => {
 		});
 	});
 
-	it('answers 500 {"error":"Failed to send reset email"} for a malformed body', async () => {
+	it('answers 400 {"error":"Invalid JSON"} for a malformed or empty body (Q-062)', async () => {
 		const c = ctx();
-		const res = await invoke(postMobileForgot, {
-			ctx: c,
-			path: '/api/mobile/auth/forgot',
-			headers: { 'x-real-ip': '10.11.0.2' },
-			rawBody: 'not json'
-		});
-		expect({ status: res.status, body: res.body }).toEqual({
-			status: 500,
-			body: { error: 'Failed to send reset email' }
-		});
+		// Q-062 B: legacy parsed inside its own `try`, so a body it could not read
+		// was the 500 send copy. Both doors now answer the house 400 instead.
+		for (const options of [{ rawBody: 'not json' }, { rawBody: '' }] as const) {
+			const res = await invoke(postMobileForgot, {
+				ctx: c,
+				path: '/api/mobile/auth/forgot',
+				headers: { 'x-real-ip': '10.11.0.2' },
+				...options
+			});
+			expect({ status: res.status, body: res.body }).toEqual({
+				status: 400,
+				body: { error: 'Invalid JSON' }
+			});
+		}
 	});
 
 	it('answers {sent:true} for an unknown address without emailing', async () => {
@@ -2000,18 +2008,22 @@ describe('POST /api/mobile/auth/reset', () => {
 		});
 	});
 
-	it('answers 500 {"error":"Failed to reset password"} for a malformed body', async () => {
+	it('answers 400 {"error":"Invalid JSON"} for a malformed or empty body (Q-062)', async () => {
 		const c = ctx();
-		const res = await invoke(postMobileReset, {
-			ctx: c,
-			path: '/api/mobile/auth/reset',
-			headers: { 'x-real-ip': '10.12.0.7' },
-			rawBody: 'not json'
-		});
-		expect({ status: res.status, body: res.body }).toEqual({
-			status: 500,
-			body: { error: 'Failed to reset password' }
-		});
+		// Q-062 B: the web reset handler parsed inside its own `try` too, so its
+		// 500 copy is the house 400 now — on the mobile door and the web form alike.
+		for (const options of [{ rawBody: 'not json' }, { rawBody: '' }] as const) {
+			const res = await invoke(postMobileReset, {
+				ctx: c,
+				path: '/api/mobile/auth/reset',
+				headers: { 'x-real-ip': '10.12.0.7' },
+				...options
+			});
+			expect({ status: res.status, body: res.body }).toEqual({
+				status: 400,
+				body: { error: 'Invalid JSON' }
+			});
+		}
 	});
 
 	it('answers 400 {"error":"Account not found"} for a signed token with no account', async () => {
@@ -2038,12 +2050,6 @@ describe('POST /api/mobile/auth/reset', () => {
 			token: 'session-token-reset-1'
 		});
 		await seedAccessApiToken(user.id, 'fp_doomedTokenForTheResetGoldenOnly', 'Old phone');
-		// Q-104: Better Auth's credential row was seeded from `users.passwordHash`
-		// and no sign-in path reads it yet, so reset leaves it stale. Owner answer C:
-		// `auth_account.password` stops being a password store (no access flow writes
-		// it — legacy reset writes only `users.passwordHash`) and the column goes at
-		// the schema cleanup; this assertion holds until then.
-		await seedAccessAuthAccount(user.id, 'stale-credential-password');
 		const token = await mintResetToken(email);
 		const parsed = parseJWT(token);
 		if (!parsed?.expiresAt) throw new Error('the minted reset token carries no expiry');
@@ -2065,18 +2071,13 @@ describe('POST /api/mobile/auth/reset', () => {
 			[]
 		);
 		expect(await tokensFor(user.id)).toEqual([]);
-		const credentials = await db()
-			.select()
-			.from(authAccount)
-			.where(eq(authAccount.userId, user.id));
-		expect(credentials.map((credential) => credential.password)).toEqual([
-			'stale-credential-password'
-		]);
+		// Q-104 C: `auth_account.password` is not a password store — reset writes
+		// `users.passwordHash` only, and the column goes at the schema cleanup.
 		const marker = first(
 			await db()
 				.select()
 				.from(codes)
-				.where(eq(codes.code, `used:${sha256(token)}`))
+				.where(eq(codes.code, hmacSha256Hex(EMAIL_SECRET, `used:${sha256(token)}`)))
 		);
 		expect(marker.type).toBe('reset_used');
 		expect(marker.email).toBe(email);
@@ -2095,14 +2096,13 @@ describe('POST /api/mobile/auth/reset', () => {
 		});
 	});
 
-	it('accepts a sign-in magic link as a reset token (Q-102)', async () => {
+	it('refuses a sign-in magic link as a reset token (Q-102)', async () => {
 		const c = ctx();
 		const email = 'reset-via-login-link@example.test';
 		const user = await seedAccessPasswordUser(email);
-		// The payload a login link carries (`magicLink.ts:207-225`): no purpose
-		// claim exists, so `isResetPayload` only asks for an `email`. Owner answer B
-		// (mint reset tokens with a purpose claim and refuse the rest) lands after S6
-		// as a `fix(access)` commit that turns this into a 400 first.
+		// Q-102 B: reset links carry a `password_reset` purpose claim and the reset
+		// reader refuses every other `EMAILSECRET` JWT — a login link still carries
+		// its `email`, which is all the old reader asked for, and is refused now.
 		const token = await mintEmailJwt({ kind: 'login', email, code: '13572468' }, 15);
 		const res = await invoke(postMobileReset, {
 			ctx: c,
@@ -2111,11 +2111,11 @@ describe('POST /api/mobile/auth/reset', () => {
 			body: { token, password: 'chosen-by-the-link-holder' }
 		});
 		expect({ status: res.status, body: res.body }).toEqual({
-			status: 200,
-			body: { success: true }
+			status: 400,
+			body: { error: 'Invalid reset token' }
 		});
 		const [row] = await db().select().from(users).where(eq(users.id, user.id));
-		expect(row.passwordHash).not.toBe(ACCESS_PASSWORD_HASH);
+		expect(row.passwordHash).toBe(ACCESS_PASSWORD_HASH);
 	});
 
 	it('throttles reset attempts at 10 per 15 minutes per IP', async () => {
@@ -2144,10 +2144,10 @@ describe('POST /api/mobile/auth/reset', () => {
 			body: { error: 'Too many attempts. Try again shortly.' }
 		});
 
-		// `pw-reset-ip:<ip>` (`api/mobile/auth/reset/+server.ts:21-28`) has no body
-		// dimension: even a well-formed token is refused from the same IP. Q-066's
-		// answered fix moves the limiter into the shared service — same key, same
-		// limit, and the wrapper's copy must go so this burst is not counted twice.
+		// `pw-reset-ip:<ip>` (`RESET_ATTEMPT_SCOPE`) has no body dimension: even a
+		// well-formed token is refused from the same IP. Q-066 B moved the limiter
+		// into `resetPassword` — same key, same limit — and the endpoint-level copy
+		// is gone, so this burst is counted once, not twice.
 		const sameIpValid = await send('10.12.2.1', {
 			token,
 			password: 'long-enough-password'
@@ -2170,13 +2170,12 @@ describe('POST /api/mobile/auth/reset', () => {
 /**
  * Q-064: the two page-group JSON endpoints the sign-in and sign-up screens
  * POST to. They are not page loads or form actions — the client fetches JSON —
- * so they get goldens: each answers a 500 that names the account state, and
- * these tests are what makes the flip visible. The owner answered B (both
- * answer the generic `Unexpected error, please try again`); that lands after
- * S6 as a `fix(access)` commit which edits these two expectations first.
+ * so they get goldens. Owner answer B: both answer the one generic 500
+ * `Unexpected error, please try again`, so neither page tells an anonymous
+ * visitor whether an address is registered.
  */
 describe('POST /signup/email/code (page JSON, Q-064)', () => {
-	it('answers 500 {"success":false,"error":"Account with this email already Exists"} and burns the code', async () => {
+	it('answers the generic 500 and burns the code', async () => {
 		const c = ctx();
 		const email = 'page-signup-taken@example.test';
 		const owner = await seedUser(db(), { email: 'page-signup-owner@example.test' });
@@ -2194,18 +2193,18 @@ describe('POST /signup/email/code (page JSON, Q-064)', () => {
 			headers: { 'x-real-ip': '10.13.0.1' },
 			body: { code: '24681012', email }
 		});
-		// `signup/email/code/+server.ts:87-95`: the membership signal, capitalised
-		// typo included, and the code is deleted before the answer.
+		// Q-064 B: the membership sentence is gone; the code is still deleted
+		// before the answer, exactly as the legacy branch did.
 		expect({ status: res.status, body: res.body }).toEqual({
 			status: 500,
-			body: { success: false, error: 'Account with this email already Exists' }
+			body: { success: false, error: 'Unexpected error, please try again' }
 		});
 		expect(await rowsOfEmail(email)).toEqual([]);
 	});
 });
 
 describe('POST /login/email/code (page JSON, Q-064)', () => {
-	it('answers 500 {"success":false,"error":"No Account found"} and keeps the code', async () => {
+	it('answers the generic 500 and keeps the code', async () => {
 		const c = ctx();
 		const email = 'page-login-orphan@example.test';
 		await seedAccessEmailCode({ code: '12108642', email, type: 'login' });
@@ -2215,27 +2214,25 @@ describe('POST /login/email/code (page JSON, Q-064)', () => {
 			headers: { 'x-real-ip': '10.13.1.1' },
 			body: { code: '12108642', email }
 		});
-		// `login/email/code/+server.ts:94-100`: an orphaned login code names its own
-		// state, and the row survives (nothing deletes it on this branch).
+		// Q-064 B: an orphaned login code answers the generic copy, and the row
+		// survives (nothing deletes it on this branch).
 		expect({ status: res.status, body: res.body }).toEqual({
 			status: 500,
-			body: { success: false, error: 'No Account found' }
+			body: { success: false, error: 'Unexpected error, please try again' }
 		});
 		expect(await rowsOfEmail(email)).toHaveLength(1);
 	});
 });
 
 /**
- * golden from spec: legacy handler sends through the module-scope Resend client
- * (`src/lib/utils/sendEmail.ts`), so these success paths would hit the network
- * from the db project and cannot run here. The expected wire comes from
+ * The success paths that really send an email. They were spec-goldens (`it.skip`)
+ * until the ported handlers took their sender from `ctx.mail`; Q-067's
+ * activation is the `.skip` above. The expected wire comes from
  * docs/guides/task-api-spec.md and the legacy unit tests (which inject the send
- * seam). The ported handlers take the sender from `ctx`, so S6 unskips these —
- * see docs/rewrite/modules/access.md#notes. Each one asserts the rows it
- * writes, because S6 may only remove the `.skip`.
+ * seam). Each one asserts the rows it writes.
  */
-describe('success paths that send email (spec-goldens, skipped until S6)', () => {
-	it.skip('POST /api/me/claim — answers {sent:true} for a guest at a fresh address', async () => {
+describe('success paths that send email (spec-goldens, Q-067)', () => {
+	it('POST /api/me/claim — answers {sent:true} for a guest at a fresh address', async () => {
 		const c = ctx();
 		const guest = await seedAccessGuest();
 		const email = 'claim-fresh@example.test';
@@ -2247,6 +2244,7 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 			headers: { 'x-real-ip': '10.14.0.1' },
 			body: { email }
 		});
+		const after = Date.now();
 		expect({ status: res.status, body: res.body }).toEqual({
 			status: 200,
 			body: { sent: true }
@@ -2256,11 +2254,14 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 		expect(claimRows.map((row) => row.email)).toEqual([email]);
 		const claimRow = first(claimRows);
 		expect(claimRow.tokenHash).toMatch(/^[0-9a-f]{64}$/);
-		expect(claimRow.expiresAt.getTime()).toBeGreaterThan(before);
-		expect(claimRow.expiresAt.getTime()).toBeLessThanOrEqual(before + 15 * 60 * 1000);
+		// The TTL is exactly 15 minutes from the handler's own clock read, which
+		// sits between `before` and `after`: a spec row, so the window is the
+		// request's, not one millisecond of the test's.
+		expect(claimRow.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 15 * 60 * 1000);
+		expect(claimRow.expiresAt.getTime()).toBeLessThanOrEqual(after + 15 * 60 * 1000);
 	});
 
-	it.skip('POST /api/me/claim — answers the same {sent:true} for a registered address', async () => {
+	it('POST /api/me/claim — answers the same {sent:true} for a registered address', async () => {
 		const c = ctx();
 		const guest = await seedAccessGuest();
 		const email = 'claim-taken@example.test';
@@ -2285,7 +2286,7 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 		).toEqual([email]);
 	});
 
-	it.skip('POST /api/me/claim — answers 429 on the fourth request for the same address within 15 minutes', async () => {
+	it('POST /api/me/claim — answers 429 on the fourth request for the same address within 15 minutes', async () => {
 		const c = ctx();
 		const guest = await seedAccessGuest();
 		const email = 'claim-429@example.test';
@@ -2313,7 +2314,7 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 		expect(newAddress.status).toBe(200);
 	});
 
-	it.skip('POST /api/me/claim — answers 429 on the eleventh request from one IP within 15 minutes', async () => {
+	it('POST /api/me/claim — answers 429 on the eleventh request from one IP within 15 minutes', async () => {
 		const c = ctx();
 		const guest = await seedAccessGuest();
 		const send = (ip: string, address: string) =>
@@ -2338,7 +2339,7 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 		expect(newIp.status).toBe(200);
 	});
 
-	it.skip('POST /api/me/email — mails a code to the NEW address and answers the message', async () => {
+	it('POST /api/me/email — mails a code to the NEW address and answers the message', async () => {
 		const c = ctx();
 		const email = 'change-ok@example.test';
 		const user = await seedUser(db(), {
@@ -2347,7 +2348,7 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 			lastName: 'Lovelace'
 		});
 		// A real reset first: it writes the durable `used:<hash>` marker, which is
-		// what Q-103's `deleteCodesByEmail` below wipes.
+		// what Q-103's narrower delete must leave alone.
 		const reset = await invoke(postMobileReset, {
 			ctx: c,
 			path: '/api/mobile/auth/reset',
@@ -2368,25 +2369,27 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 			body: { success: true, message: 'Verification email sent. Please check your inbox.' }
 		});
 
-		// Q-065: the row is bound to the CURRENT address, carries the pending one,
-		// and stores the 8-digit code in plaintext (`accountData.ts:374-383`). Owner
-		// answer B (hash it at rest, no wire change) lands after S6 and swaps this
-		// for a digest.
+		// The code the NEW address was mailed: the golden reads it from the mail
+		// port rather than assuming the generator's bytes.
+		const changeMail = c.mail.outbox.find((message) => message.to === 'change-new@example.test');
+		if (!changeMail) throw new Error('the change mail was not sent');
+		const mailedCode = /Your verification code is: (\d{8})/.exec(changeMail.html)?.[1];
+		if (!mailedCode) throw new Error('the change mail carried no 8-digit code');
+
+		// Q-065 B: the row is bound to the CURRENT address, carries the pending
+		// one, and stores the keyed digest — never the 8 digits themselves.
 		const rows = await rowsOfEmail(email);
-		expect(rows.map((row) => [row.type, row.pendingEmail])).toEqual([
-			['email_change', 'change-new@example.test']
-		]);
-		const linkRow = first(rows);
-		expect(linkRow.code).toMatch(/^\d{8}$/);
+		expect(rows.map((row) => row.type).sort()).toEqual(['email_change', 'reset_used']);
+		const linkRow = first(rows.filter((row) => row.type === 'email_change'));
+		expect(linkRow.code).toBe(hmacSha256Hex(EMAIL_SECRET, mailedCode));
+		expect(linkRow.pendingEmail).toBe('change-new@example.test');
 		expect([linkRow.firstName, linkRow.lastName]).toEqual(['Ada', 'Lovelace']);
-		// Q-103: that one row is all that is left for this address — the reset
-		// marker (and any other code) went with `deleteCodesByEmail`. Owner answer B
-		// (delete only the `email_change` codes) lands after S6 as a `fix(access)`
-		// commit; this test then also sees the marker survive.
-		expect(rows).toHaveLength(1);
+		// Q-103 B: only the `email_change` codes are replaced, so the reset marker
+		// is still there — an already-used reset link stays used.
+		expect(rows.filter((row) => row.type === 'reset_used')).toHaveLength(1);
 	});
 
-	it.skip('POST /api/me/verify-email/resend — sends a code to an unverified caller', async () => {
+	it('POST /api/me/verify-email/resend — sends a code to an unverified caller', async () => {
 		const c = ctx();
 		const email = 'resend-unverified@example.test';
 		const user = await seedUser(db(), {
@@ -2416,7 +2419,7 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 		expect(codeRow.expiresAt.getTime()).toBeGreaterThan(Date.now());
 	});
 
-	it.skip('POST /api/mobile/auth/email — sends the code for a known login and a fresh signup', async () => {
+	it('POST /api/mobile/auth/email — sends the code for a known login and a fresh signup', async () => {
 		const c = ctx();
 		const known = 'mobile-email-known@example.test';
 		await seedUser(db(), { email: known });
@@ -2451,7 +2454,7 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 		]);
 	});
 
-	it.skip('POST /api/mobile/auth/signup — creates the account, mints a token, answers 200 pending', async () => {
+	it('POST /api/mobile/auth/signup — creates the account, mints a token, answers 200 pending', async () => {
 		const c = ctx();
 		const email = 'mobile-signup-new@example.test';
 		const res = await invoke(postMobileSignup, {
@@ -2487,7 +2490,7 @@ describe('success paths that send email (spec-goldens, skipped until S6)', () =>
 		]);
 	});
 
-	it.skip('POST /api/mobile/auth/forgot — mails a 60-minute reset link to a registered address', async () => {
+	it('POST /api/mobile/auth/forgot — mails a 60-minute reset link to a registered address', async () => {
 		const c = ctx();
 		const email = 'forgot-known@example.test';
 		await seedUser(db(), { email });

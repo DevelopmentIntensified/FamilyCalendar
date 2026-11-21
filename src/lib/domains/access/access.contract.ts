@@ -76,11 +76,23 @@ export const UNAUTHORIZED_MESSAGE = 'Unauthorized';
 /** The web/mobile `/api` limiter's copy (`forgot-password/+server.ts:59`). */
 export const RATE_LIMIT_MESSAGE = 'Too many attempts. Try again shortly.';
 
+/** The page sign-in/sign-up routes' address copy (`login/email`, `signup/email`). */
+export const INVALID_EMAIL_MESSAGE = 'Invalid email';
+
+/** The page sign-up's names copy (`signup/email/+server.ts`). */
+export const MISSING_NAME_MESSAGE = 'First and last name are required';
+
 /** Password signup with a blank field (`passwordSignup.ts:71`). */
 export const SIGNUP_FIELDS_REQUIRED_MESSAGE = 'All fields are required';
 
 /** Password signup/reset under 8 characters (`passwordSignup.ts:74`). */
 export const PASSWORD_TOO_SHORT_MESSAGE = 'Password must be at least 8 characters';
+
+/** Web password sign-in's one refusal (`login/password/+server.ts:36`). */
+export const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password';
+
+/** A passwordless account at the password door (`login/password/+server.ts:37`). */
+export const EMAIL_LOGIN_REQUIRED_MESSAGE = 'Please use email login for this account';
 
 /** A registered person cannot claim (already has an email) (`claimRequest.ts:54`). */
 export const CLAIM_ACCOUNT_HAS_EMAIL_MESSAGE = 'Account already has an email';
@@ -134,14 +146,8 @@ export const RESET_USED_MESSAGE = 'This reset link has already been used. Please
 /** No account behind a signed reset token (`reset/+server.ts:107-110`). */
 export const RESET_ACCOUNT_NOT_FOUND_MESSAGE = 'Account not found';
 
-/** Any other reset failure, malformed body included today (`reset/+server.ts:133-135`). */
+/** Any other reset failure (`reset/+server.ts:133-135`). */
 export const RESET_FAILED_MESSAGE = 'Failed to reset password';
-
-/** Q-064: the signup page-code endpoint's membership signal, typo verbatim. */
-export const PAGE_SIGNUP_TAKEN_MESSAGE = 'Account with this email already Exists';
-
-/** Q-064: the login page-code endpoint's orphaned-code signal. */
-export const PAGE_LOGIN_ORPHAN_MESSAGE = 'No Account found';
 
 /** A password-signup verification email carries no clickable link, only the code. */
 export const PASSWORD_VERIFY_CALLBACK_PATH = '/signup/password/verify';
@@ -167,8 +173,9 @@ function mobileObject<S extends z.ZodRawShape>(shape: S) {
 
 /**
  * The two web-forwarded handlers destructure `await request.json()` before
- * reading a field: only a literal `null` throws (today's 500); an array, a
- * scalar or a missing key reads as "no field" and reaches the 400 checks.
+ * reading a field: only a literal `null` throws, and Q-062 B answers that with
+ * the house `400 Invalid JSON`. An array, a scalar or a missing key reads as
+ * "no field" and reaches the route's own 400 checks.
  */
 function destructuredObject<S extends z.ZodRawShape>(shape: S, error: string) {
 	return z.preprocess(
@@ -339,24 +346,25 @@ export type ChangeEmailResponse = z.infer<typeof ChangeEmailResponse>;
  * `POST /api/mobile/auth/forgot` `{email}`. Kept permissive on purpose: the
  * route's only check is truthiness (`forgot-password/+server.ts:50`), so
  * `'nope'` is a 200 `{sent:true}` — a kernel e-mail rule would change the wire.
+ * A body the reader cannot parse is the house `Invalid JSON` (Q-062 B).
  */
 export const ForgotPasswordBody = destructuredObject(
 	{ email: z.preprocess(textOrEmpty, z.string()) },
-	FORGOT_SEND_FAILED_MESSAGE
+	INVALID_JSON_MESSAGE
 );
 export type ForgotPasswordBody = z.infer<typeof ForgotPasswordBody>;
 
 /**
  * `POST /api/mobile/auth/reset` `{token,password}`: no trimming, no length
- * rule here (the service maps `passwordResetRefusal`). A malformed body is
- * today's 500 (`reset/+server.ts:133-135`), which S6 pins.
+ * rule here (the service maps `passwordResetRefusal`). A body the reader cannot
+ * parse is the house `Invalid JSON` (Q-062 B).
  */
 export const ResetPasswordBody = destructuredObject(
 	{
 		token: z.preprocess(textOrEmpty, z.string()),
 		password: z.preprocess(textOrEmpty, z.string())
 	},
-	RESET_FAILED_MESSAGE
+	INVALID_JSON_MESSAGE
 );
 export type ResetPasswordBody = z.infer<typeof ResetPasswordBody>;
 

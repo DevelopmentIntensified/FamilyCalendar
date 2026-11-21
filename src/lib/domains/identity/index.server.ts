@@ -49,17 +49,26 @@ export type IdentityCtx = Ctx & IdentityPorts;
 export {
 	getPerson,
 	getPersonByEmail,
+	getPersonById,
 	isEmailTaken,
 	listPersonNames,
 	createPersonWithPassword,
+	createEmailPerson,
+	findPersonForSignIn,
+	ensurePersonSettings,
 	updatePersonProfile,
+	verifyPersonEmail,
+	setPersonEmail,
+	setPersonPassword,
 	createAnonymousAccount,
 	touchLastActive,
 	getTimeZone,
 	deletePerson,
 	type PersonName,
 	type ProfileInput,
-	type CreatePersonWithPasswordInput
+	type CreatePersonWithPasswordInput,
+	type CreateEmailPersonInput,
+	type SignInPersonLookup
 } from './identity.person.service.server';
 export {
 	startSession,
@@ -83,6 +92,9 @@ export {
 	authenticateApiToken,
 	type MintedApiToken
 } from './identity.token.service.server';
+
+/** The `fp_` prefix every mobile Bearer token must carry (`mobileAuth.ts:357`). */
+export { isApiTokenFormat } from './identity.token.rules';
 export {
 	getCalendarPreferences,
 	getCalendarSettings,
@@ -96,12 +108,16 @@ export {
 	verifyPassword,
 	issueEmailCode,
 	redeemEmailCode,
+	findEmailCode,
+	discardEmailCodes,
 	type IssueEmailCodeInput,
 	type RedeemEmailCodeInput
 } from './identity.credentials.service.server';
 
 /** The app resolves the fail-closed signing secret once at boot. */
 export { resolveSessionSecret } from './identity.session.rules';
+/** The cookie the browser session rides on — the auth routes read it for the guest stash. */
+export { SESSION_COOKIE_NAME } from './identity.session.rules';
 
 /** The untrimmed stored full name (`first + ' ' + last`), the legacy stats shape. */
 export { personFullName } from './identity.person.rules';

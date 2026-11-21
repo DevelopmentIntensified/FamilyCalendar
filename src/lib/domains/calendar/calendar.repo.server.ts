@@ -680,3 +680,30 @@ export async function deleteImportedRows(
 	}
 	return removedIds.length;
 }
+
+/**
+ * Moves every Event one person owns onto another person and one calendar —
+ * the guest merge (`guestMergeService.ts:67-72`). Ids are preserved untouched
+ * (checklist links survive), and mirror rows move like their masters: the
+ * legacy update had no `mirrorOf` filter either.
+ */
+export async function moveEventsOwnedBy(
+	db: Db,
+	input: { readonly from: string; readonly to: string; readonly calendarId: string }
+): Promise<number> {
+	const moved = await db
+		.update(events)
+		.set({ ownerId: input.to, calendarId: input.calendarId })
+		.where(eq(events.ownerId, input.from))
+		.returning({ id: events.id });
+	return moved.length;
+}
+
+/** How many Events one person owns — the `/merge-guest` prompt's count. */
+export async function countEventsOwnedBy(db: Db, ownerId: string): Promise<number> {
+	const rows = await db
+		.select({ id: events.id })
+		.from(events)
+		.where(eq(events.ownerId, ownerId));
+	return rows.length;
+}

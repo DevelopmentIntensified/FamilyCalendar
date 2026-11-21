@@ -244,12 +244,13 @@ Baseline and check must run on the same day, because pages show today's date. If
 
 1. Add one `endpoint()` option, `malformedBody: { status?: number; error: string }`. Every legacy `request.json()` catch answered `400 {"error":"Invalid JSON body"}`, so `status` defaults to 400 and only the copy is required.
 2. Semantics, exactly the legacy reader:
-   - it replaces the refusal for **every** non-lenient read failure: malformed JSON, an unreadable body, and an **empty/whitespace-only** body — `request.json()` threw on all three;
+   - it replaces the refusal for **every** refusing read failure (`'json'` and `'strict'`): malformed JSON, an unreadable body, and an **empty/whitespace-only** body — `request.json()` threw on all three;
    - an endpoint that sets it therefore no longer reads an empty body as `{}` (that is why it is not just a copy swap);
    - a body that parses — including the JSON literal `null`, a string, a number or an array — is NOT "malformed": it reaches the contract's `body` schema as parsed, so a route that also refused non-objects with the same sentence puts that sentence on the schema's object-level error;
-   - `bodyMode: 'lenient'` ignores it (there the schema decides every non-JSON body); it is also unused when `body` is not set.
+   - `bodyMode: 'strict'` (identity's `PATCH /api/me/settings`) refuses an empty body as well, and with the option set it answers this copy there too — the copy owns every refusing read, strict included;
+   - `bodyMode: 'lenient'` ignores it (there the schema decides every non-JSON body), and so does `'empty-object'` (no read refusal there); it is also unused when `body` is not set.
 3. Every existing caller stays byte-identical: with no `malformedBody`, json mode keeps `{}` for an empty body and `400 {"error":"Invalid JSON"}` for a malformed one; lenient mode is untouched.
-4. Typed `it.each` tests in `endpoint.test.ts` under `endpoint malformed body copy`: default copy unchanged, malformed/empty/whitespace under a custom copy and status, a copy without a status (400), a valid object untouched, the literal `null` and an array still reaching the schema, and lenient + copy ignoring the copy.
+4. Typed `it.each` tests in `endpoint.test.ts` under `endpoint malformed body copy`: default copy unchanged, malformed/empty/whitespace under a custom copy and status, a copy without a status (400), a valid object untouched, the literal `null` and an array still reaching the schema, lenient + copy ignoring the copy, and strict + copy answering it for the empty body too.
 5. Docs: the kernel README "HTTP" note and the `endpoint.server.ts` Files row.
 
 **Do not rewire a module now.** Groceries and tasks set the option at their own S6, which is where their duplicated body parser goes.
