@@ -18,6 +18,7 @@ import {
 	getStatsPage,
 	getTaskStats,
 	listCompletionInstants,
+	listDayCompletions,
 	TASK_STATS_DONE_BY_LIMIT,
 	TASK_STATS_PEOPLE_LIMIT,
 	TASK_STATS_RECENT_LIMIT
@@ -287,5 +288,39 @@ describe('getStatsPage', () => {
 			doneBy: [],
 			roster: []
 		});
+	});
+});
+
+describe('listDayCompletions', () => {
+	rollbackTest('normalizes the history instants to ISO and keeps only recurring Tasks', async (db) => {
+		const mia = await seedUser(db);
+		const piano = await seedTask(db, {
+			title: 'Practice piano',
+			userId: mia.id,
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1
+		});
+		const oneOff = await seedTask(db, { title: 'Water plants', userId: mia.id });
+		await seedTaskCompletion(db, {
+			taskId: piano.id,
+			userId: mia.id,
+			actorId: mia.id,
+			completedAt: '2026-11-02 07:00:00+00'
+		});
+		await seedTaskCompletion(db, {
+			taskId: oneOff.id,
+			userId: mia.id,
+			actorId: mia.id,
+			completedAt: '2026-11-02 08:00:00+00'
+		});
+
+		const rows = await listDayCompletions(testCtx({ db, now: NOW }), actorFromUser(mia, 'session'), {
+			startIso: '2026-11-02T00:00:00.000Z',
+			endIso: '2026-11-03T00:00:00.000Z'
+		});
+
+		expect(rows).toEqual([
+			{ id: expect.any(String), title: 'Practice piano', completedAt: '2026-11-02T07:00:00.000Z' }
+		]);
 	});
 });

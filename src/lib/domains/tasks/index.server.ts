@@ -62,11 +62,13 @@ export {
 export {
 	getTaskStats,
 	listCompletionInstants,
+	listDayCompletions,
 	getStatsPage,
 	TASK_STATS_RECENT_LIMIT,
 	TASK_STATS_PEOPLE_LIMIT,
 	TASK_STATS_DONE_BY_LIMIT,
-	TASK_STATS_INSTANT_LIMIT
+	TASK_STATS_INSTANT_LIMIT,
+	type TaskDayCompletion
 } from './tasks.stats.service.server';
 export {
 	resolveTaskQuickAdd,

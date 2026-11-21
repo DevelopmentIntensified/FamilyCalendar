@@ -1,5 +1,10 @@
 /**
- * dayDashboard — public server interface: services and http handlers.
+ * dayDashboard — public server interface: the composition service and the two
+ * handlers (the page load and the `/api/dashboard` endpoint).
  * Doc: ./README.md#public-interface
  */
-export {};
+export {
+	loadDayDashboard,
+	type DayDashboardInput
+} from './dayDashboard.service.server';
+export { getDayDashboard, loadDayDashboardPage } from './dayDashboard.http.server';

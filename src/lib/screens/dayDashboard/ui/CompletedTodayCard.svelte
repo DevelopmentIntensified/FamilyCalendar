@@ -1,13 +1,24 @@
+<!--
+	Completed Today / Completed this day: the win count and one line per win
+	with its completion time. The empty copy differs for today and a past day.
+
+	Legacy reference: `components/dashboard/CompletedTodayCard.svelte`.
+-->
 <script lang="ts">
 	import { DateTime } from 'luxon';
+	import type { DashboardCompletedRow } from '../dayDashboard.contract';
 
-	export let tasks: { id: string; title: string; completedAt: string | null }[] = [];
-	export let isToday: boolean = true;
+	interface Props {
+		tasks: readonly DashboardCompletedRow[];
+		isToday: boolean;
+	}
+
+	let { tasks, isToday }: Props = $props();
 
 	function timeLabel(iso: string | null): string {
 		if (!iso) return '';
-		const dt = DateTime.fromISO(iso);
-		return dt.isValid ? dt.toFormat('h:mm a') : '';
+		const at = DateTime.fromISO(iso);
+		return at.isValid ? at.toFormat('h:mm a') : '';
 	}
 </script>
 
@@ -36,13 +47,7 @@
 						class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
 						aria-hidden="true"
 					>
-						<svg
-							class="h-2.5 w-2.5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="4"
-						>
+						<svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="4">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 						</svg>
 					</span>

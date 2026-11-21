@@ -235,9 +235,19 @@ export type DashboardModel = z.infer<typeof DashboardModel>;
 /**
  * What the page load returns while the band streams: the header and the
  * warning labels, with `data` still a promise. One derivation of the model, so
- * the page cannot drift from the API.
+ * the page cannot drift from the API: the streamed promise resolves the same
+ * ten legs the wire carries, plus the legs' own warning labels (the API strips
+ * them into `warnings`, after the page's labels — legacy's merge order).
  */
+export type DashboardLoadedData = DashboardData & { readonly warnings: string[] };
+
 export type DashboardPageData = Omit<DashboardModel, 'data' | 'warnings'> & {
-	data: Promise<DashboardData>;
+	data: Promise<DashboardLoadedData>;
 	loadWarnings: string[];
+};
+
+/** The page's own payload: the streamed model plus the one header-only fact it needs. */
+export type DayDashboardPageData = DashboardPageData & {
+	/** The viewer's Default View; `'dashboard'` sends "Back to Calendar" to the board. */
+	readonly defaultView: string | null;
 };

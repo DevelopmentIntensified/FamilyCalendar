@@ -32,6 +32,7 @@ import {
 	countRecurringCompletions,
 	countRecurringTasks,
 	listCompletionInstantRows,
+	listDayCompletionRows,
 	listDoneByIds,
 	listRecentCompletions,
 	listTopAssigneeIds,
@@ -137,6 +138,38 @@ export async function listCompletionInstants(
 		limit: TASK_STATS_INSTANT_LIMIT
 	});
 	return rows.map((row) => completionInstantIso(row)).filter(Boolean);
+}
+
+/**
+ * One Completed Today row: the history row's id (each check-off is its own
+ * win), its Task's title, and the ISO instant the row records.
+ */
+export type TaskDayCompletion = {
+	readonly id: string;
+	readonly title: string;
+	readonly completedAt: string;
+};
+
+/**
+ * The recurring half of the Completed Today card: the viewer's recurring
+ * check-offs inside the viewed day, newest first, with ISO instants. The
+ * one-off half comes from the caller's own Task rows (the dashboard holds
+ * them), so this read never touches `tasks.completedAt`.
+ */
+export async function listDayCompletions(
+	ctx: Ctx,
+	actor: Actor,
+	input: { readonly startIso: string; readonly endIso: string }
+): Promise<TaskDayCompletion[]> {
+	const rows = await listDayCompletionRows(ctx.db, {
+		userId: actor.id,
+		startIso: input.startIso,
+		endIso: input.endIso
+	});
+	return rows.flatMap((row) => {
+		const completedAt = completionInstantIso(row.completedAt);
+		return completedAt ? [{ id: row.id, title: row.title, completedAt }] : [];
+	});
 }
 
 /**

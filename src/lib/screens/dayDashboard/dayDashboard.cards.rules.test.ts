@@ -8,12 +8,17 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+	dashboardDueTone,
+	familyBoardTaskBody,
+	glanceRsvpVisual,
+	groupBoardTasks,
 	groupKidsSchedule,
 	initialsFromName,
 	orderGlanceEvents,
 	type KidsScheduleKid,
 	type KidsScheduleRow
 } from './dayDashboard.cards.rules';
+import { parseTaskQuickAdd } from '$lib/domains/parsing';
 
 type GlanceRow = { readonly id: string; readonly allDay: boolean; readonly start: string | Date };
 
@@ -164,5 +169,142 @@ describe('initialsFromName', () => {
 		['   ', '?']
 	])('draws %j as %j', (name, expected) => {
 		expect(initialsFromName(name)).toBe(expected);
+	});
+});
+
+describe('glanceRsvpVisual', () => {
+	it.each<[string | undefined, string | null]>([
+		['going', '✓ Going'],
+		['maybe', '? Maybe'],
+		['declined', "✕ Can't go"],
+		[undefined, null],
+		['undecided', null]
+	])('draws %j as %j', (status, expected) => {
+		const visual = glanceRsvpVisual(status);
+		expect(visual ? `${visual.icon} ${visual.label}` : null).toBe(expected);
+	});
+
+	it('dims a declined row and rings a going one (the legacy container classes)', () => {
+		expect(glanceRsvpVisual('declined')?.containerClass).toBe('opacity-60 saturate-50');
+		expect(glanceRsvpVisual('going')?.containerClass).toContain('ring-emerald-400/60');
+	});
+});
+
+type BoardRow = {
+	readonly id: string;
+	readonly title: string;
+	readonly dueDate: string | null;
+	readonly completedAt: string | null;
+	readonly assignedTo: string | null;
+	readonly userId: string;
+};
+
+const boardRow = (
+	id: string,
+	overrides: Partial<BoardRow> = {}
+): BoardRow => ({
+	id,
+	title: id,
+	dueDate: null,
+	completedAt: null,
+	assignedTo: null,
+	userId: 'user-me',
+	...overrides
+});
+
+describe('groupBoardTasks', () => {
+	const NOW = new Date(2026, 10, 2, 12, 0, 0, 0);
+	const names: Record<string, string> = {
+		'user-me': 'Riley Chen',
+		'user-mia': 'Mia Rivera',
+		'user-zed': 'Zed Rivera'
+	};
+
+	it('keeps a column for a member with nothing assigned, viewer first then by name', () => {
+		const columns = groupBoardTasks([], {
+			rosterIds: ['user-mia', 'user-me', 'user-zed'],
+			meId: 'user-me',
+			nameFor: (id) => names[id] ?? id,
+			now: NOW
+		});
+		expect(columns.map((column) => [column.ownerId, column.name, column.tasks.length])).toEqual([
+			['user-me', 'Riley Chen', 0],
+			['user-mia', 'Mia Rivera', 0],
+			['user-zed', 'Zed Rivera', 0]
+		]);
+	});
+
+	it('falls back to the creator when a Task is unassigned, and keeps an ex-member column', () => {
+		const columns = groupBoardTasks(
+			[
+				boardRow('task-unassigned', { userId: 'user-mia' }),
+				boardRow('task-gone', { userId: 'user-left', assignedTo: 'user-left' })
+			],
+			{ rosterIds: ['user-me', 'user-mia'], meId: 'user-me', nameFor: (id) => names[id] ?? id, now: NOW }
+		);
+		expect(columns.map((column) => column.ownerId)).toEqual(['user-me', 'user-mia', 'user-left']);
+		expect(columns[1]?.tasks.map((row) => row.id)).toEqual(['task-unassigned']);
+	});
+
+	it('orders a column overdue → today → later → none, then earliest due, then title', () => {
+		const columns = groupBoardTasks(
+			[
+				boardRow('none-b', { title: 'B', assignedTo: 'user-me' }),
+				boardRow('later', { dueDate: '2026-11-05T09:00:00.000Z', assignedTo: 'user-me' }),
+				boardRow('none-a', { title: 'A', assignedTo: 'user-me' }),
+				boardRow('today', { dueDate: '2026-11-02T18:00:00.000Z', assignedTo: 'user-me' }),
+				boardRow('overdue', { dueDate: '2026-11-01T09:00:00.000Z', assignedTo: 'user-me' })
+			],
+			{ rosterIds: ['user-me'], meId: 'user-me', nameFor: (id) => names[id] ?? id, now: NOW }
+		);
+		expect(columns[0]?.tasks.map((row) => row.id)).toEqual(['overdue', 'today', 'later', 'none-a', 'none-b']);
+	});
+});
+
+describe('dashboardDueTone', () => {
+	const NOW = new Date(2026, 10, 2, 12, 0, 0, 0);
+
+	it.each<[string | null, string]>([
+		['2026-11-01T09:00:00.000Z', 'bg-red-100 text-red-700'],
+		['2026-11-02T18:00:00.000Z', 'bg-amber-100 text-amber-700'],
+		['2026-11-05T09:00:00.000Z', 'bg-slate-100 text-slate-600'],
+		[null, '']
+	])('tones %j as %j', (due, expected) => {
+		expect(dashboardDueTone(due, NOW)).toBe(expected);
+	});
+});
+
+describe('familyBoardTaskBody', () => {
+	const parsed = parseTaskQuickAdd('saturday for Dad #public', {
+		now: new Date(2026, 10, 2, 12, 0, 0, 0),
+		zone: 'UTC',
+		members: [{ userId: 'user-dad', firstName: 'Dad', lastName: 'Chen' }]
+	});
+
+	it('files a family task, assigns the @member, and omits a blank category', () => {
+		const body = familyBoardTaskBody(parsed, {
+			familyId: 'family-chen',
+			meId: 'user-me',
+			category: '   '
+		});
+		expect(body.familyId).toBe('family-chen');
+		expect(body.assignedTo).toBe('user-dad');
+		expect(body.visibility).toBe('public');
+		expect('category' in body).toBe(false);
+	});
+
+	it('assigns the creator when no member was named, and sends a typed category', () => {
+		const plain = parseTaskQuickAdd('water the plants', {
+			now: new Date(2026, 10, 2, 12, 0, 0, 0),
+			zone: 'UTC',
+			members: []
+		});
+		const body = familyBoardTaskBody(plain, {
+			familyId: 'family-chen',
+			meId: 'user-me',
+			category: ' Errands '
+		});
+		expect(body.assignedTo).toBe('user-me');
+		expect(body.category).toBe('Errands');
 	});
 });

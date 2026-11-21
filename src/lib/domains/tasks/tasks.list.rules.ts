@@ -226,6 +226,23 @@ export function splitTasksByRecurrence<T extends { readonly recurrenceFrequency?
 	return { recurring, oneOff };
 }
 
+/**
+ * The day's completed rows, newest first: the viewer's one-off Tasks that are
+ * currently completed plus the recurring check-offs recovered from the history
+ * table. A row with no instant sorts last (legacy treated it as epoch 0), and
+ * the input arrays are never mutated.
+ */
+export function mergeDayCompletions<T extends { readonly completedAt: string | null }>(
+	oneOff: readonly T[],
+	recurring: readonly T[]
+): T[] {
+	return [...oneOff, ...recurring].sort(
+		(a, b) =>
+			(b.completedAt ? Date.parse(b.completedAt) : 0) -
+			(a.completedAt ? Date.parse(a.completedAt) : 0)
+	);
+}
+
 /** Chip predicate: Family Tasks partition off first, then visibility. */
 export function matchesTaskChip(task: TaskPageRow, chip: TaskChip): boolean {
 	if (chip === 'all') return true;

@@ -7,6 +7,7 @@
  */
 export type {
 	DashboardData,
+	DashboardLoadedData,
 	DashboardModel,
 	DashboardPageData
 } from './dayDashboard.contract';
