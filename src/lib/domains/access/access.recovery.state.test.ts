@@ -93,7 +93,7 @@ describe('ResetPasswordState', () => {
 	it('shows the success panel and leaves for login after the beat', async () => {
 		const manual = manualScheduler();
 		const visits: string[] = [];
-		const state = new ResetPasswordState(api(), 'tok', (path) => visits.push(path), manual.schedule);
+		const state = new ResetPasswordState(api(), 'tok', (path) => void visits.push(path), manual.schedule);
 		state.password = 'secret12';
 		state.confirmPassword = 'secret12';
 		await state.submit();

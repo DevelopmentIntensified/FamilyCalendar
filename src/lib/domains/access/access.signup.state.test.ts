@@ -39,7 +39,7 @@ function build(authApi: AuthApi) {
 	const signup = new SignupState(authApi, toasts, {
 		redirectTo: '/calendar',
 		isLoggedIn: false,
-		redirect: (path) => visits.push(path)
+		redirect: (path) => void visits.push(path)
 	});
 	return { signup, visits, toasts };
 }

@@ -37,7 +37,7 @@ function build(authApi: AuthApi, over: Partial<LoginStateOptions> = {}) {
 		redirectTo: '/calendar',
 		isLoggedIn: false,
 		mergeMode: false,
-		redirect: (path) => visits.push(path),
+		redirect: (path) => void visits.push(path),
 		...over
 	});
 	return { login, visits };
