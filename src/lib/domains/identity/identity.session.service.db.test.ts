@@ -40,7 +40,8 @@ describe('startSession', () => {
 				id: (length = 15) => {
 					requestedLengths.push(length);
 					return 'x'.repeat(length);
-				}
+				},
+				random: (count: number) => new Uint8Array(count)
 			}
 		};
 		const user = await seedUser(db);

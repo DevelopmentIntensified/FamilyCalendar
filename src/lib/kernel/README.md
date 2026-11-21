@@ -6,7 +6,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 
 ## Purpose
 
-- **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; the mail port and its adapters; structured logs; db/transaction helpers; the Drizzle table definitions in `db/tables` (one file per owning module, `TABLE_OWNERS` in `scripts/arch/registry.mjs`) with their row types; the test harness.
+- **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; the mail, push, AI and outbound-HTTP ports with their adapters; structured logs; db/transaction helpers; the Drizzle table definitions in `db/tables` (one file per owning module, `TABLE_OWNERS` in `scripts/arch/registry.mjs`) with their row types; the test harness.
 - **Does not own:** any business rule. Something like "who may edit a task" belongs in the module that owns the concept (`tasks`), even when several modules need it.
 - **Also owns:** the date formatting and month math in `kernel/time` (K-06), and the shared UI primitives in `kernel/ui`: sheet, confirm action, pill, skeleton, toaster, brand mark, day nav, mention input, colour hashes. Screens and domains import them by path; they never import a domain or `$app/*`.
 - **Client pieces** (K-07) live in `client/`: the api client, toasts, device preferences, debounced search and the offline queue; `time/ticker` is the reactive "now" for countdowns.
@@ -16,6 +16,10 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 
 | file | role | what it does, and why it exists | tested by |
 |---|---|---|---|
+| [ai/ai.ts](ai/ai.ts) | infra | `Ai` port (`configured`, `chatJson(system, user)` → the parsed object or `null` — the legacy failure value) and `createMemoryAi()` recording `calls` and answering scripted replies. Services reach the model through `ctx.ai`, so no module imports a provider. | [ai.test.ts](ai/ai.test.ts) |
+| [ai/ai.test.ts](ai/ai.test.ts) | test | recorded call order, scripted replies in order then `null`, the `configured` flag | — |
+| [ai/cerebrasAi.server.ts](ai/cerebrasAi.server.ts) | infra | `createCerebrasAi({ apiKey, model, apiUrl? }, fetcher = fetch)`: the legacy `services/llm.ts` JSON-mode chat body (system + user message, `response_format: json_object`); every failure — no key, network, non-2xx, no string content, invalid JSON — answers `null`. Config is a parameter — `src/lib/app` reads the environment (R6). | [cerebrasAi.test.ts](ai/cerebrasAi.test.ts) |
+| [ai/cerebrasAi.test.ts](ai/cerebrasAi.test.ts) | test | request URL/headers/body, endpoint override, no key = no request, refusal/non-string content/invalid JSON/thrown fetch all `null` — fake fetcher | — |
 | [client/apiClient.ts](client/apiClient.ts) | client | `createApiClient(fetcher)`: one JSON request shape returning `ApiResult<T>` instead of throwing. Error copy: the server's `error`, else the legacy `actionErrorCopy` per-status text; a rejected fetch is "Network problem. Try again.". | [apiClient.test.ts](client/apiClient.test.ts) |
 | [client/apiClient.test.ts](client/apiClient.test.ts) | test | JSON body/content-type, 204 → `data: undefined`, server copy, 401/403, 5xx, unexplained 4xx, network rejection, non-JSON error body | — |
 | [client/localPref.ts](client/localPref.ts) | client | Versioned device preference over an injectable `Storage` (`{v, value}`). Wrong version, junk JSON, a `parse` rejection, SSR or a refusing storage all fall back; never throws. Legacy `calendarVisibility.ts:31` stores a raw array under `familyplanz:hiddenCalendars:<id>`, so the calendar port must read that shape once (or accept a one-time reset — owner call). | [localPref.test.ts](client/localPref.test.ts) |
@@ -29,7 +33,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [client/toasts.svelte.ts](client/toasts.svelte.ts) | client | `createToasts({schedule})`: runes toast list, max four visible (oldest dropped), 6 s auto-dismiss, optional `action` (`{label, run}`) for Undo-style buttons; `memoryToasts()` records `{kind, text, action?}` for state-class tests. `Scheduler` lives in `time/scheduler.ts`. | [toasts.test.ts](client/toasts.test.ts) |
 | [client/toasts.test.ts](client/toasts.test.ts) | test | ids, four-toast cap, six-second dismissal, timers for dropped toasts, action kept, memory recorder — shared manual scheduler | — |
 | [ctx/actor.ts](ctx/actor.ts) | type | `Actor` (who is calling: id, email, isAdmin, via) + `actorFromUser`. Small on purpose: anything else about the person is asked of `identity`. | [endpoint.test.ts](http/endpoint.test.ts) |
-| [ctx/ctx.server.ts](ctx/ctx.server.ts) | type | `Ctx`: db, clock, ids, log, limiter, mail, faults, config. Services take it as their first argument, so tests swap any dependency without `vi.mock`. | via every test that uses `testCtx` |
+| [ctx/ctx.server.ts](ctx/ctx.server.ts) | type | `Ctx`: db, clock, ids, log, limiter, mail, push, ai, http, faults, config. Services take it as their first argument, so tests swap any dependency without `vi.mock`. | via every test that uses `testCtx` |
 | [db/database.server.ts](db/database.server.ts) | infra | `Db` (pool or transaction), `connectDb`, `withTx`. Nested transactions become savepoints. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [db/migrations/bundledMigrations.server.ts](db/migrations/bundledMigrations.server.ts) | infra | The `sql/migrations/*.sql` files imported as `?raw`, sorted by numeric prefix: the exact set the cold-start runner replays. Must equal the files on disk. | [bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) |
 | [db/migrations/bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) | test | parity gate: every `sql/migrations/` file is bundled, byte-identical, ascending numeric order | — |
@@ -55,23 +59,29 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [errors/appError.test.ts](errors/appError.test.ts) | test | status mapping, extra fields cannot override `error` | — |
 | [http/endpoint.server.ts](http/endpoint.server.ts) | infra | `endpoint({ auth, query, body, bodyMode, params, rateLimit, failMessage, handle })` → `{ handler }` for `+server.ts`. Owns auth, parsing, the `{error}` shape, 429/500 and fault filing. | [endpoint.test.ts](http/endpoint.test.ts) |
 | [http/endpoint.test.ts](http/endpoint.test.ts) | test | auth modes incl. cron, parsing, Invalid JSON, body modes (json/lenient/strict), AppError/extra, 500 + fault, rate limit | — |
+| [http/fetchOutboundHttp.server.ts](http/fetchOutboundHttp.server.ts) | infra | `createFetchOutboundHttp({ timeoutMs? }, fetcher = fetch)`: the global `fetch` behind the `Http` port, sending every request with `AbortSignal.timeout` (10 s default, the legacy geocoder's). A non-2xx is a response; a network failure rejects so the caller keeps its legacy empty result. Config is a parameter (R6). | [fetchOutboundHttp.test.ts](http/fetchOutboundHttp.test.ts) |
+| [http/fetchOutboundHttp.test.ts](http/fetchOutboundHttp.test.ts) | test | method/headers/body and the timeout signal, a POST body, a 503 as a response, a rejecting fetch — fake fetcher | — |
+| [http/outboundHttp.ts](http/outboundHttp.ts) | infra | `HttpRequest`/`HttpResponse`, the `Http` port (`request` one URL: status, `ok`, body text) and `createMemoryHttp()` recording `calls` and answering replies scripted by URL (an unscripted URL throws). Services reach another site through `ctx.http`, never the global `fetch`. | [outboundHttp.test.ts](http/outboundHttp.test.ts) |
+| [http/outboundHttp.test.ts](http/outboundHttp.test.ts) | test | recorded request order, scripted body/status, a replaced reply, an unscripted URL | — |
 | [http/pageHandlers.server.ts](http/pageHandlers.server.ts) | infra | `pageLoad` (redirects to /login or /calendar) and `formAction` (`fail(...)` with `{ success: false, error }`), `formFields`. | [pageHandlers.test.ts](http/pageHandlers.test.ts) |
 | [http/pageHandlers.test.ts](http/pageHandlers.test.ts) | test | redirect rules, legacy `requireUserAction` failure shape, AppError mapping, fault filing | — |
-| [ids/ids.ts](ids/ids.ts) | infra | `Ids` port, `systemIds` (the existing 15-char row-id format), `sequentialIds` for tests, `sha256Hex`, the one hash for stored secrets. | [ids.test.ts](ids/ids.test.ts) |
-| [ids/ids.test.ts](ids/ids.test.ts) | test | id format, FIPS vector, byte-equality with the legacy node:crypto hashes | — |
+| [ids/ids.ts](ids/ids.ts) | infra | `Ids` port (`id(length?)`, `random(count)`), `systemIds` (the existing 15-char row-id format, `crypto.getRandomValues` bytes), `sequentialIds` for tests (counter bytes on their own counter), `sha256Hex`, the one hash for stored secrets. | [ids.test.ts](ids/ids.test.ts) |
+| [ids/ids.test.ts](ids/ids.test.ts) | test | id format, random draw length/independence, deterministic test bytes, FIPS vector, byte-equality with the legacy node:crypto hashes | — |
 | [log/jsonLog.ts](log/jsonLog.ts) | infra | `Log` port + JSON-lines adapter (same line format as the legacy logger, so Vercel log search keeps working). | [jsonLog.test.ts](log/jsonLog.test.ts) |
 | [log/jsonLog.test.ts](log/jsonLog.test.ts) | test | line shape | — |
 | [mail/mailer.ts](mail/mailer.ts) | infra | `MailMessage`, the `Mailer` port (`send` one message: resolves when the provider accepted it, rejects when it did not) and `createMemoryMailer()` recording into `outbox`. Services reach it through `ctx.mail`, so no module imports Resend. | [mailer.test.ts](mail/mailer.test.ts) |
 | [mail/mailer.test.ts](mail/mailer.test.ts) | test | recorded order, and `text`/`from`/`replyTo` kept exactly as sent | — |
 | [mail/resendMailer.server.ts](mail/resendMailer.server.ts) | infra | `createResendMailer({ apiKey, from }, fetcher = fetch)`: posts the legacy `resend.emails.send` body (`from`, `to`, `subject`, `html`, optional `text`/`reply_to`) to the Resend API; a non-2xx rejects with the provider's message (the legacy caller's `send-failed` branch). Config is a parameter — `src/lib/app` reads the environment (R6). | [resendMailer.test.ts](mail/resendMailer.test.ts) |
 | [mail/resendMailer.test.ts](mail/resendMailer.test.ts) | test | request URL/headers/body, per-message `from`, `text`/`reply_to`, a 422 refusal and a non-JSON one — fake fetcher | — |
+| [push/push.ts](push/push.ts) | infra | `Push` port: `webPublicKey()`, `devicesConfigured()`, and `send` one `PushMessage` — one web subscription with a `PushNotice`, or one device token with an `FcmBody` — answering `sent \| dead \| skipped \| failed` (`dead` is the legacy prune signal: Web Push 404/410, FCM `unregistered`). `createMemoryPush()` records `sent` and answers scripted deliveries. The caller owns the subscription/token rows, so the port stays domain-free. | [push.test.ts](push/push.test.ts) |
+| [push/push.test.ts](push/push.test.ts) | test | recorded web/device order, scripted deliveries then `sent`, the VAPID key and FCM gate | — |
 | [ratelimit/rateLimiter.ts](ratelimit/rateLimiter.ts) | infra | `RateLimiter` port, in-memory sliding window driven by the clock, `clientKeyOf` (same keys as legacy). | [rateLimiter.test.ts](ratelimit/rateLimiter.test.ts) |
 | [ratelimit/rateLimiter.test.ts](ratelimit/rateLimiter.test.ts) | test | window edges, independent buckets, key derivation | — |
 | [testing/invokeHandlers.server.ts](testing/invokeHandlers.server.ts) | test infra | `invoke`, `invokeLoad`, `invokeAction`: call route handlers without a server; sets `locals.user` (legacy) and `locals.actor` (v2), so one golden test covers both. | used by every http test |
 | [testing/manualScheduler.ts](testing/manualScheduler.ts) | test infra | `manualScheduler()`: a `Scheduler` that records its callbacks and a `fireAll()` the test calls, so no unit test waits on real timers. One copy for every kernel client/time test. | used by [toasts.test.ts](client/toasts.test.ts), [searchBox.test.ts](client/searchBox.test.ts), [ticker.test.ts](time/ticker.test.ts) |
 | [testing/seedRows.server.ts](testing/seedRows.server.ts) | test infra | `seedUser`, `uniqueSuffix`. Module-specific builders live in `<module>.fixtures.server.ts`. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
-| [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret? })`: fixed clock, sequential ids, memory log/faults/limiter/mail; no-db guard. | [testCtx.test.ts](testing/testCtx.test.ts) |
-| [testing/testCtx.test.ts](testing/testCtx.test.ts) | test | the memory mailer on `ctx.mail` records sends; `config.mailFrom` is the legacy default sender | — |
+| [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret?, sessionSecret?, production? })`: fixed clock, sequential ids, memory log/faults/limiter/mail/push/ai/http; no-db guard. | [testCtx.test.ts](testing/testCtx.test.ts) |
+| [testing/testCtx.test.ts](testing/testCtx.test.ts) | test | the memory mailer, push, AI and HTTP ports on `ctx`; `config` carries the legacy default sender, VAPID subject, model and user agent, and push/AI start unconfigured | — |
 | [testing/testDb.server.ts](testing/testDb.server.ts) | test infra | `rollbackTest` (default: one rolled-back transaction per test), `inRollback`, `testDb`, `truncateAll` (committed mode: one transaction, FK triggers off, one `DELETE FROM` per table in one batch — a few ms idle, 70–110 ms measured on a saturated machine), lane guard. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [testing/testDb.db.test.ts](testing/testDb.db.test.ts) | test | migrations applied, rollback isolation, savepoints, truncate, reset under 250 ms, FKs enforced after a reset, `timestamptz` rendered in UTC | — |
 | [testing/testDbConfig.ts](testing/testDbConfig.ts) | test infra | Test DB URL + lane guard (kept apart from testDb because globalSetup must not import vitest). `V2_TEST_DB` picks a per-worktree database (`familycalendar_v2_test_<id>`) for parallel runs. | — |
@@ -154,6 +164,7 @@ Every function parses strings by one rule (shared by the formatters and `toInsta
 ### Ids
 
 - `ctx.ids.id()` for new rows.
+- `ctx.ids.random(count)` for the bytes a token, email code or claim link is built from (`crypto.getRandomValues`; the caller formats them).
 - `sha256Hex(text)` for any stored secret (API token, email code, claim token).
 
 ### Rate limits
@@ -167,6 +178,23 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 ### Mail
 
 `ctx.mail.send({ to, subject, html, text?, from?, replyTo? })` sends one message and resolves when the provider accepted it; it **rejects** when it did not, which a legacy caller maps to its `send-failed` branch. The default sender is the adapter's `from`; `ctx.config.mailFrom` carries the same value (`NOREPLYEMAIL`) for a service that must pass `from` explicitly. Production builds `createResendMailer` in [src/lib/app/appCtx.server.ts](../app/appCtx.server.ts); tests get `createMemoryMailer` from `testCtx` and assert `ctx.mail.outbox`. Never log a recipient address or a message body.
+
+### Push
+
+- `ctx.push.send({ channel: 'web', subscription, notice })` sends one browser notification (`{ title, body, link? }`), and `{ channel: 'device', token, body }` one FCM message. The answer is `sent`, `dead`, `skipped` (that channel is unconfigured — the legacy silent return) or `failed` (a real error, logged where it happens, as the legacy transport's `console.error` did — the caller must not log it again).
+- Only `dead` means the **target** is gone: a Web Push 404/410, or an FCM `unregistered` token. Delete the subscription row or the device token; keep it on `failed`.
+- `ctx.push.webPublicKey()` is the VAPID public key for `GET /api/push/public-key`; `ctx.push.devicesConfigured()` is the legacy cheap gate for the silent `events_changed` nudge.
+- The port is a transport, not a fan-out: the module that owns the rows (alerts) lists the user's subscriptions and tokens and sends one message per target. Production builds `createPushTransport` in [src/lib/app/pushTransport.server.ts](../app/pushTransport.server.ts) (`web-push` plus the legacy FCM sender); tests get `createMemoryPush` and assert `ctx.push.sent`, scripting answers with `willDeliver(...)`. `testCtx`'s memory push starts **unconfigured** (`webPublicKey()` null, `devicesConfigured()` false), like a zero-env process; pass `createMemoryPush({ webPublicKey, devicesConfigured })` to model a configured one.
+
+### AI
+
+- `ctx.ai.chatJson(system, user)` asks for one JSON-mode completion and answers the parsed object or `null`; `ctx.ai.configured()` says whether a key is set. `null` covers every legacy failure (no key, network, non-2xx, no string content, invalid JSON) — a caller validates the object and never retries here.
+- Production builds `createCerebrasAi` in [src/lib/app/appCtx.server.ts](../app/appCtx.server.ts) (`ctx.config.cerebrasApiKey`/`cerebrasModel` are the same values); tests get `createMemoryAi`, script replies with `ctx.ai.script(...)` and assert `ctx.ai.calls`. `testCtx`'s memory AI starts **unconfigured** (`configured()` false), so a golden takes the legacy local-parser fallback; pass `createMemoryAi({ configured: true })` to model a keyed process.
+
+### Outbound HTTP
+
+- `ctx.http.request({ url, method?, headers?, body?, timeoutMs? })` answers `{ status, ok, body }` as text; a caller parses it. A non-2xx is a response, a network failure or timeout **rejects**, so the porting service keeps its legacy empty result.
+- Default timeout is 10 s (the legacy geocoder's `AbortSignal.timeout`). Production builds `createFetchOutboundHttp` in [src/lib/app/appCtx.server.ts](../app/appCtx.server.ts); tests get `createMemoryHttp`, script replies per exact URL with `ctx.http.reply(url, { status, body })`, and assert `ctx.http.calls`. Pass `ctx.config.userAgent` as the Nominatim `User-Agent`.
 
 ### Database
 
@@ -237,6 +265,11 @@ Components and helpers in `kernel/ui`, imported by path. Props in, callbacks out
 - Closing a sheet returns focus to the element that opened it. Pinned by `Sheet.svelte.test.ts › returns focus to the previously focused element when it closes`.
 - `colorHash`'s pinned outputs never change: a name keeps its store and contact colour, and an id its avatar, across the rewrite. Pinned by `colorHash.test.ts › pins the name hash for …` and `› pins the avatar colour for …` (literals taken from the legacy functions, `colorHash.test.ts:4-7`).
 - Mail posts the legacy `resend.emails.send` body: `from`, `to`, `subject`, `html`, plus `text` and `reply_to` only when the message gives them. Pinned by `resendMailer.test.ts › posts the legacy …` and `› carries text, reply_to …`; a refusal rejects, pinned by `› rejects with the provider message …`.
+- One word for a dead push target: a Web Push 404/410 and an FCM `unregistered` token are both `dead`; every other refusal is `failed` and keeps the target. Pinned by `pushTransport.test.ts › reports a 404 or 410 subscription as dead …` and `› sends one device message per token and maps FCM results`.
+- A push channel that is not configured sends nothing and answers `skipped`. Pinned by `pushTransport.test.ts › skips web push silently …` and `› skips device sends when FCM is not configured`.
+- An AI completion answers `null` for every failure mode and makes no request without a key. Pinned by `cerebrasAi.test.ts › answers null for a refused request …`, `› answers null when the request itself throws` and `› makes no request and answers null without a key`.
+- Every outbound HTTP request carries a timeout signal, a non-2xx is a response and a network failure rejects. Pinned by `fetchOutboundHttp.test.ts › passes the method, headers, body and a timeout signal …`, `› reports a non-2xx status as a response …` and `› propagates a network failure …`.
+- `ctx.ids.random(count)` draws from `crypto.getRandomValues`, and the test ids' bytes count up without renumbering a row id. Pinned by `ids.test.ts › draws the requested number of random bytes` and `› draws bytes from their own counter …`.
 
 ## Depends on
 
