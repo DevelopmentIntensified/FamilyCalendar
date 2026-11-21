@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testCtx } from './testCtx.server';
+import { testCtx, TEST_CODE_PEPPER } from './testCtx.server';
 
 describe('testCtx', () => {
 	it('gives every test a memory mailer whose outbox is the sent mail', async () => {
@@ -30,6 +30,12 @@ describe('testCtx', () => {
 			ok: true,
 			body: '[]'
 		});
+	});
+
+	it('peppers email codes with the test pepper, overridable like the session secret', () => {
+		expect(testCtx().config.codePepper).toBe(TEST_CODE_PEPPER);
+		expect(TEST_CODE_PEPPER).toBe('test-code-pepper');
+		expect(testCtx({ codePepper: 'other-pepper' }).config.codePepper).toBe('other-pepper');
 	});
 
 	it('carries the legacy VAPID, model and user-agent defaults', () => {

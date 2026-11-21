@@ -197,6 +197,12 @@ describe('endpoint body modes', () => {
 			body: schema,
 			bodyMode: 'lenient',
 			handle: async ({ body }) => ok({ a: body.a })
+		}),
+		strict: endpoint({
+			auth: 'public',
+			body: schema,
+			bodyMode: 'strict',
+			handle: async ({ body }) => ok({ a: body.a })
 		})
 	};
 
@@ -222,7 +228,16 @@ describe('endpoint body modes', () => {
 		{ mode: 'lenient', name: 'the literal null', rawBody: 'null', want: refused('Bad body') },
 		{ mode: 'lenient', name: 'a string', rawBody: '"x"', want: refused('Bad body') },
 		{ mode: 'lenient', name: 'an array', rawBody: '[1]', want: refused('Bad body') },
-		{ mode: 'lenient', name: 'a valid object', rawBody: '{"a":"ok"}', want: accepted }
+		{ mode: 'lenient', name: 'a valid object', rawBody: '{"a":"ok"}', want: accepted },
+		// strict: an empty/whitespace body is refused exactly like malformed JSON,
+		// every parseable body behaves as json.
+		{ mode: 'strict', name: 'malformed JSON', rawBody: '{"a":', want: refused('Invalid JSON') },
+		{ mode: 'strict', name: 'an empty body', rawBody: '', want: refused('Invalid JSON') },
+		{ mode: 'strict', name: 'a whitespace body', rawBody: ' \n\t ', want: refused('Invalid JSON') },
+		{ mode: 'strict', name: 'the literal null', rawBody: 'null', want: refused('Bad body') },
+		{ mode: 'strict', name: 'a string', rawBody: '"x"', want: refused('Bad body') },
+		{ mode: 'strict', name: 'an array', rawBody: '[1]', want: refused('Bad body') },
+		{ mode: 'strict', name: 'a valid object', rawBody: '{"a":"ok"}', want: accepted }
 	];
 
 	it.each(cases)('$mode mode: $name -> $want.status', async ({ mode, rawBody, want }) => {

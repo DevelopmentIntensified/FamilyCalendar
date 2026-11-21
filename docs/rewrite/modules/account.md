@@ -11,9 +11,9 @@ The /account page: one section per domain (profile, calendar settings, notificat
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
-- [ ] S3 contract + rules
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
@@ -322,7 +322,7 @@ legacy source files left (17/17, 2368 LOC):
   - src/lib/components/account/accountSections.ts (41 LOC, model) importers: 2
   - src/lib/components/account/accountSubscription.ts (96 LOC, model) importers: 2
   - src/lib/server/db/actions/export.ts (215 LOC, server) importers: 1
-  - src/lib/server/services/accountData.ts (467 LOC, server) importers: 12
+  - src/lib/server/services/accountData.ts (467 LOC, server) importers: 6
       NOTE: SPLIT per section: settings/profile/sessions/api tokens -> identity; notification prefs -> alerts; subscription summary -> billing; dashboard module hides -> dashboardModules; consent history -> sponsored; account screen composes.
 
 route files not yet wiring-only (7/7):

@@ -9,6 +9,7 @@
  *
  * Doc: ./README.md#invariants
  */
+import type { FeedbackBugRegister, FeedbackPhraseRegister } from '$lib/domains/feedback';
 import { wholeNumber, z } from '$lib/kernel/validation/validators';
 
 /**
@@ -22,3 +23,22 @@ export const AdminCounts = z.object({
 	openPhrases: wholeNumber('Invalid open phrase count')
 });
 export type AdminCounts = z.infer<typeof AdminCounts>;
+
+/**
+ * One register page's load data: feedback's rows for that kind, plus the clock
+ * and zone the "Export for agent" text is rendered with.
+ *
+ * The rows come from feedback (this screen owns no tables); the clock is the
+ * server's (`ctx.clock.now()`, rule R5) and the zone is feedback's export zone,
+ * so the text the page builds is byte-identical to `GET /api/admin/*`'s.
+ */
+export type AdminBugRegisterData = FeedbackBugRegister & {
+	readonly now: Date;
+	readonly zone: string;
+};
+
+/** The unmatched-phrase register page's load data, same shape as the bug one. */
+export type AdminPhraseRegisterData = FeedbackPhraseRegister & {
+	readonly now: Date;
+	readonly zone: string;
+};
