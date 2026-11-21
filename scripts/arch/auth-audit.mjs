@@ -7,8 +7,9 @@
 // two sides from evidence only (no LLM, no network):
 //
 //   1. v2 handlers: every `export const … = endpoint({…}) / pageLoad({…}) /
-//      formAction({…})` in src/lib/{domains,screens}/**/*.http.server.ts, with
-//      its `auth:` value.
+//      formAction({…})` in src/lib/{domains,screens}/**/*.http.server.ts, plus
+//      src/lib/app/appRoutes.server.ts (app's infrastructure routes: cron
+//      cleanup and health), with its `auth:` value.
 //   2. wired routes: src/routes/**/{+server,+page.server,+layout.server}.ts
 //      exports that only point at one of those handlers (`… = foo.handler`,
 //      `export const load = fooLoad`, `actions = { submit: fooAction }`).
@@ -49,7 +50,8 @@ import { ROOT, stripComments } from './lib.mjs';
 const LEGACY_SHA = '66a11131';
 const ALLOW_FILE = 'scripts/arch/auth-audit-allow.json';
 
-const HANDLER_GLOB = /^src\/lib\/(?:domains|screens)\/.+\.http\.server\.ts$/;
+const HANDLER_GLOB =
+	/^src\/lib\/(?:domains|screens)\/.+\.http\.server\.ts$|^src\/lib\/app\/appRoutes\.server\.ts$/;
 const MODULE_ROLE_FILE = /\.(?:service\.server|rules)\.ts$/;
 const ROUTE_FILE = /^src\/routes\/(?:.+?)\/(?:\+server|\+page\.server|\+layout\.server)\.ts$|^src\/routes\/(?:\+layout\.server)\.ts$/;
 
@@ -101,6 +103,19 @@ const USER_EVIDENCE = [
 	/\bstatus:\s*401\b/,
 	/redirect\(\s*(?:302|303)\s*,\s*['"]\/login['"]/
 ];
+
+/**
+ * The cron secret gate: a legacy route whose FILE reads `CRON_SECRET` answers
+ * `status: 401` for a missing Bearer from its helper, which `USER_EVIDENCE`
+ * would misread as a session guard (the slice holds no `CRON_SECRET` itself).
+ * The gate is the secret, not the person — exactly the kernel's `auth: 'cron'`
+ * (RANK 1, so a v2 `public` port is still a DOWNGRADE and a `user` port is
+ * stricter). A slice that ALSO carries real session evidence stays `user`.
+ */
+const CRON_EVIDENCE = [/\bCRON_SECRET\b/, /['"]x-cron-secret['"]/i];
+
+/** `USER_EVIDENCE` without the bare `status: 401`, which a cron refusal matches too. */
+const SESSION_EVIDENCE = USER_EVIDENCE.filter((pattern) => pattern.source !== '\\bstatus:\\s*401\\b');
 
 /**
  * Family-role evidence, split into the two doors legacy used:
@@ -476,14 +491,19 @@ function readWiring(fileText) {
 // 3. legacy level at the S2 sha: site auth level + family-role door
 // ---------------------------------------------------------------------------
 
-const classifyLegacy = (text) => {
+const classifyLegacy = (text, cronFile = false) => {
 	if (!text) return { siteLevel: 'none', familyKind: null };
 	const clean = stripComments(text);
+	const userGuarded = USER_EVIDENCE.some((pattern) => pattern.test(clean));
 	const siteLevel = SITE_ADMIN_EVIDENCE.some((pattern) => pattern.test(clean))
 		? 'admin'
-		: USER_EVIDENCE.some((pattern) => pattern.test(clean))
-			? 'user'
-			: 'none';
+		: userGuarded
+			? cronFile && !SESSION_EVIDENCE.some((pattern) => pattern.test(clean))
+				? 'cron'
+				: 'user'
+			: cronFile
+				? 'cron'
+				: 'none';
 	const familyKind = FAMILY_MANAGER_EVIDENCE.some((pattern) => pattern.test(clean))
 		? 'manager'
 		: FAMILY_MEMBER_EVIDENCE.some((pattern) => pattern.test(clean))
@@ -573,7 +593,8 @@ function legacyLevel({ file, exportName, kind, legacyTexts }) {
 				? actionSlice(legacyText, exportName)
 				: exportSlice(legacyText, 'load');
 	if (!slice) return { siteLevel, familyKind, absent: false };
-	const own = classifyLegacy(slice);
+	const cronFile = CRON_EVIDENCE.some((pattern) => pattern.test(stripComments(legacyText)));
+	const own = classifyLegacy(slice, cronFile);
 	// A family membership/role refusal can only run for a signed-in actor.
 	return {
 		siteLevel: maxLevel(siteLevel, effectiveSite(own)),
