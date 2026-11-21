@@ -11,22 +11,25 @@
  * (./testing/goldenCtx.server.ts) for the `/api` goldens.
  *
  * TRANSITION BRIDGES (K-15; each names the module whose S5 replaces it):
- * identity's two ports are backed by the legacy functions until their owning
- * modules port, because identity's S5+S6 ran before calendar's and sponsored's:
- * - `calendarAccess` → legacy `getAccessibleCalendarIds` (db/actions/calendarScope).
- *   `calendar`'s S5 exports the real adapter and replaces this block.
+ * identity's `adConsent` port is backed by the legacy functions until
+ * `sponsored` ports, because identity's S5+S6 ran before calendar's and
+ * sponsored's:
  * - `adConsent` → legacy `getAdConsentRecords`/`recordAdConsentChange`
  *   (services/adConsentService). `sponsored`'s S5 exports the real adapter.
- * Both must keep reading today's rows so the frozen identity goldens see the
- * calendars and consent records another module owns.
+ *   It must keep reading today's rows so the frozen identity goldens see the
+ *   consent records another module owns.
  *
- * family's five ports are bridged the same way, because family's S5+S6 ran
- * before calendar's and tasks' (the third is owner answer Q-030, a
- * family-owned port):
- * - `calendar.createFamilyCalendar` → legacy `createCalendar({ familyId })`.
- *   `calendar`'s S5 exports the real adapter and replaces it. The bridge cannot
- *   join family's transaction, so family calls it right after its own commit;
- *   the S5 adapter moves the insert back inside `withTx`.
+ * Calendar already ports, so its two adapters are the REAL ones from
+ * `$lib/domains/calendar/index.server`:
+ * - identity's `calendarAccess` → `createCalendarAccessPort(ctx)`, one home for
+ *   the accessible-calendar scope read (`listAccessibleCalendarIds`).
+ * - family's `calendar.createFamilyCalendar` → `createFamilyCalendarPort()`,
+ *   which writes through the ctx family hands it, so the row joins family's
+ *   create transaction.
+ *
+ * family's remaining ports are bridged, because family's S5+S6 ran before
+ * tasks' (the third is owner answer Q-030, a family-owned port, implemented by
+ * dashboardModules):
  * - `tasks.unassignMemberTasks` → legacy `removeFamilyMember`, which also drops
  *   the roster row, so family calls it BEFORE its own delete. `tasks`' S5
  *   exports the assignment clear alone and family's delete does the row.
@@ -51,22 +54,19 @@
 import { TimeSpan } from 'oslo';
 import { createJWT } from 'oslo/jwt';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
+import {
+	createCalendarAccessPort,
+	createFamilyCalendarPort
+} from '$lib/domains/calendar/index.server';
 import type {
 	FamilyChildAccountPort,
-	FamilyCalendarPort,
 	FamilyInviteLinkPort,
 	FamilyModuleSwitchesPort,
 	FamilyPorts,
 	MemberTasksPort
 } from '$lib/domains/family/index.server';
 import { listFamilyModuleSwitches } from '$lib/domains/dashboardModules/index.server';
-import type {
-	AdConsentPort,
-	CalendarAccessPort,
-	IdentityPorts
-} from '$lib/domains/identity/index.server';
-import { createCalendar } from '$lib/server/db/actions/calendar';
-import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
+import type { AdConsentPort, IdentityPorts } from '$lib/domains/identity/index.server';
 import { removeFamilyMember } from '$lib/server/db/actions/families';
 import { getAdConsentRecords, recordAdConsentChange } from '$lib/server/services/adConsentService';
 import { createNewUser } from '$lib/server/utils/createNewUser';
@@ -81,11 +81,6 @@ const INVITE_TOKEN_SECRET = new TextEncoder().encode(process.env.EMAILSECRET ?? 
 /** One day, as both legacy invite doors minted. */
 const INVITE_TOKEN_LIFETIME = new TimeSpan(1, 'd');
 
-/** TRANSITION BRIDGE — `calendar`'s S5 replaces this with its exported adapter. */
-const legacyCalendarAccess: CalendarAccessPort = {
-	listAccessibleCalendarIds: (userId) => getAccessibleCalendarIds(userId)
-};
-
 /** TRANSITION BRIDGE — `sponsored`'s S5 replaces this with its exported adapter. */
 const legacyAdConsent: AdConsentPort = {
 	listConsentHistory: async (userId) => {
@@ -94,13 +89,6 @@ const legacyAdConsent: AdConsentPort = {
 	},
 	recordConsentChange: async (userId, previous, next) => {
 		await recordAdConsentChange(userId, previous, next);
-	}
-};
-
-/** TRANSITION BRIDGE — `calendar`'s S5 replaces this with its exported adapter. */
-const legacyFamilyCalendar: FamilyCalendarPort = {
-	createFamilyCalendar: async (_ctx, familyId) => {
-		await createCalendar({ familyId });
 	}
 };
 
@@ -152,9 +140,9 @@ const legacyInviteLink: FamilyInviteLinkPort = {
 export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
 	return {
 		...ctx,
-		calendarAccess: legacyCalendarAccess,
+		calendarAccess: createCalendarAccessPort(ctx),
 		adConsent: legacyAdConsent,
-		calendar: legacyFamilyCalendar,
+		calendar: createFamilyCalendarPort(),
 		tasks: legacyMemberTasks,
 		moduleSwitches: dashboardModuleSwitches,
 		childAccount: legacyChildAccount,

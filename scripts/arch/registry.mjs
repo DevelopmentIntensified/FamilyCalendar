@@ -264,6 +264,10 @@ export const FOREIGN_READS = {
 	sponsored: {
 		events:
 			'serve the 📢 rows a user already owns (Q-040 decided B: the read and this entry go with that fix)'
+	},
+	calendar: {
+		users:
+			'creator first name on every displayed occurrence and member first/last names on attendance rows'
 	}
 };
 

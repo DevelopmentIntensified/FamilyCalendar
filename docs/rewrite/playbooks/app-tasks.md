@@ -59,7 +59,7 @@ These run after every domain and screen is `done`. They retire the last legacy p
 1. `git rm -r` the empty legacy folders, `vitest-setup-server.ts` and `src/lib/server/db/testHarness.ts`.
 2. In `vite.config.ts`, delete the `client` and `server` projects. This task is the one place allowed to edit `vite.config.ts`.
 3. Point `test:unit` in package.json at `vitest`.
-4. Run `npm run typecheck -- --ratchet` (the baseline should reach 0).
+4. Run `npm run typecheck -- --ratchet` (the baseline list should reach empty).
 5. Keep `LEGACY_PREFIXES` in the registry so the folders can't come back.
 
 ## app-06

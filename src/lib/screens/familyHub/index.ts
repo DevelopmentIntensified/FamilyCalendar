@@ -3,4 +3,6 @@
  * Other modules import familyHub ONLY through this file, index.server.ts or ui/index.ts (rule R2).
  * Doc: ./README.md#public-interface
  */
-export {};
+
+/** The wire body of `GET /api/families/{id}/tasks` (G11), exactly four keys. */
+export type { FamilyBoardResponse } from './familyHub.contract';

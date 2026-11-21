@@ -111,6 +111,8 @@ export {
 	getFamilyCreatePage,
 	getViewerRole,
 	listFamilies,
+	listPersonFamilyIds,
+	resolveMembershipFamilyId,
 	updateFamily,
 	type FamilyListPayload
 } from './family.families.service.server';

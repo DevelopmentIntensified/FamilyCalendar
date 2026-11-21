@@ -11,9 +11,9 @@ The Day Dashboard: composes events, Top-3 Priorities, Family Task Board, Kids Sc
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
-- [ ] S3 contract + rules
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
@@ -92,7 +92,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ### Files (S3–S7)
 
-- `dayDashboard.contract.ts` — `DashboardDayQuery`: `date` optional and **regex-only** `^\d{4}-\d{2}-\d{2}$`, rejecting everything else with `Invalid date` (NOT kernel `isoDate`, which also calendar-validates and would 400 the impossible date the golden pins as a 200 today-fallback; that fallback lives in the service). Plus the wire types `DashboardModel` / `DashboardData` / `DashboardPageData`, built from each owning domain's contract type (`Task`, `Event`, `FamilyMember`, `ModuleSwitchMap`). It is the type the golden pins; no logic, no hand-mirrored rows.
+- `dayDashboard.contract.ts` — `DashboardDayQuery`: `date` optional and **regex-only** `^\d{4}-\d{2}-\d{2}$`, rejecting everything else with `Invalid date` (NOT kernel `isoDate`, which also calendar-validates and would 400 the impossible date the golden pins as a 200 today-fallback; that fallback lives in the service). Plus the resolved payload's zod schema — `DashboardModel` (`{ zone, dayISO, isToday, meId, familyId, modules, taskCategories, data, warnings }`), `DashboardData` and one row schema per leg — built field for field from the golden. `DashboardPageData` stays the page-only derivation (`Omit<DashboardModel, 'data' | 'warnings'> & { data: Promise<DashboardData>; loadWarnings }`), so it never sits on the wire. It is the type the golden pins; no logic.
 - `dayDashboard.cards.rules.ts` + `dayDashboard.cards.rules.test.ts` — the two card rules no domain owns: `orderGlanceEvents` (all-day rows first, then by start) and `groupKidsSchedule` (one group per child in first-event order; an event shared by two children appears under both; initials from the name). Pure tables.
 - `dayDashboard.service.server.ts` — `loadDayDashboard(ctx, actor, { date })`: zone + day window from identity's settings, `dashboardVisibility` from dashboardModules (after its switches read), then the legs. An impossible (well-formed) date falls back to today, exactly as today. Skips per `DASHBOARD_READS.needs`; each leg recovers to its fallback and its warning label; returns the header plus a `data` promise. No SQL.
 - `dayDashboard.service.db.test.ts` — one test per leg and per warning label (the only place a failing leg can be forced without `vi.mock`, rule R9), the skip matrix, the zone/day-window and `isToday` rules with `testCtx({ now })`.
@@ -158,6 +158,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
   - The weekly streak is the payload's one real-clock value: `weekStreak` is asserted by `expect.any(Number)`.
   - Refusals on this route are only 401 and 400(`Invalid date`); there is no 403/404/409/429 branch, so no golden claims one.
   - Warning labels: a failing leg cannot be produced in the golden without mocks, so the label order (page labels first: `settings`; then legs: `tasks`, `events`, `task-wins`, `streak`, `family`) is pinned at S5 in `dayDashboard.service.db.test.ts`. `groceries` has no label — it degrades silently.
+- 2026-11-19 (S3): the contract carries the payload's own row schemas instead of importing the owning domains' wire types, deviating from the S1 wording above. Reasons: every domain entry (`tasks`, `calendar`, `family`, `dashboardModules`) still answers `export {}` in this change set, so no owning type is importable through R2's public entries; and the two task legs match no single owning wire schema — `userTasks` carries the parent Event's calendar and no phone-focus overlay, `familyTasks` carries the creator's name and no calendar. Every field in the schemas comes from the golden; when the domains' entries fill, the payload stays the screen's own contract because it is a projection, not a mirror of any one domain route.
 
 ### Questions for the owner
 
