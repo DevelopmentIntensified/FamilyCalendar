@@ -1,4 +1,4 @@
-# Playbook: kernel tasks (K-04 … K-14)
+# Playbook: kernel tasks (K-04 … K-19)
 
 Kernel tasks build shared pieces once, before the modules that need them. Each new kernel file gets a test and a row in the [kernel README](../../../src/lib/kernel/README.md) Files table, in the same commit.
 
@@ -211,5 +211,32 @@ Baseline and check must run on the same day, because pages show today's date. If
 5. [appCtx.server.ts](../../../src/lib/app/appCtx.server.ts) builds the real adapter from `RESEND_API_KEY`/`NOREPLYEMAIL` — the only place allowed to read them. Legacy callers keep using `utils/sendEmail.ts` until their module ports; both paths coexist.
 6. Tests: the memory adapter's recording (order, optional fields) and the `testCtx` wiring; the Resend adapter through a fake `fetcher` (URL, headers, body, a 422 and a non-JSON refusal).
 7. Docs: four files in the kernel README Files table, the "Mail" note under Ctx and actor, and the composition line in the [app README](../../../src/lib/app/README.md).
+
+**Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.
+
+## k-15
+
+**K-15: the remaining ports — `push`, `ai`, `http`, `ids.random(bytes)` — and identity's bridges.** After K-14 every other side effect wave 1 needs has to be on `ctx` for the same reason mail was: alerts sends push (web-push + FCM), parsing asks Cerebras for JSON, calendar geocodes through Nominatim, and access draws the bytes its tokens and codes are built from. Identity's S5+S6 runs before calendar's and sponsored's S5, so its two declared ports need legacy-backed adapters now. `$env`/`process.env` stay in [src/lib/app](../../../src/lib/app) (R6).
+
+1. Add `src/lib/kernel/push/push.ts`: `PushNotice`, `WebPushSubscription`, `FcmBody`, `PushMessage` (one web subscription + notice, or one device token + body), `PushDelivery` (`sent | dead | skipped | failed`) and the `Push` port (`webPublicKey`, `devicesConfigured`, `send`); `createMemoryPush()` records `sent` and answers scripted deliveries. The port is a transport, never a fan-out: the owning module lists its rows and sends one message per target, so no subscription or token word enters the kernel. `dead` is the legacy prune signal in one word — a Web Push 404/410, and an FCM `unregistered` token; `skipped` is an unconfigured channel (the legacy silent return).
+2. Add the real push adapter `src/lib/app/pushTransport.server.ts`: `createPushTransport(config, deps)` wraps `web-push` (VAPID details, `JSON.stringify(notice)` payload) and the legacy `fcmService` sender (`createFcmSender`/`parseServiceAccount`, so it lives in app where legacy imports are allowed). Both transports are injectable, so its test never touches the network. Config is a parameter — the adapter never reads the environment (R6).
+3. Add `src/lib/kernel/ai/ai.ts` (`Ai` port: `configured`, `chatJson(system, user)`; `createMemoryAi()` records `calls` and answers `script(...)` replies then `null`) and `src/lib/kernel/ai/cerebrasAi.server.ts` (`createCerebrasAi({ apiKey, model, apiUrl? }, fetcher = fetch)`): the legacy `services/llm.ts` JSON-mode body, and `null` for every failure it swallowed (no key, network, non-2xx, no string content, invalid JSON).
+4. Add `src/lib/kernel/http/outboundHttp.ts` (`Http` port answering `{ status, ok, body }` as text; `createMemoryHttp()` records `calls` and answers replies scripted by exact URL) and `src/lib/kernel/http/fetchOutboundHttp.server.ts` (`createFetchOutboundHttp({ timeoutMs? }, fetcher = fetch)`): the global `fetch` with `AbortSignal.timeout` (10 s default, the legacy geocoder's). A non-2xx is a response; a network failure or timeout rejects, so the porting service keeps its legacy empty result.
+5. Add `random(count)` to the `Ids` port in [ids/ids.ts](../../../src/lib/kernel/ids/ids.ts): `crypto.getRandomValues` in `systemIds`; `sequentialIds` counts bytes on their own counter so a draw never renumbers a row id.
+6. Wiring: `Ctx` gains `push`, `ai` and `http`; `AppConfig` gains `sessionSecret` (`BETTER_AUTH_SECRET`), `vapidPublicKey`/`vapidPrivateKey`/`vapidSubject`, `fcmServiceAccount`, `cerebrasApiKey`/`cerebrasModel` and `userAgent`. `testCtx` provides the memory adapters and the legacy config defaults; appCtx reads the env and builds the real adapters, keeping legacy `auth.ts`'s production fail-closed session secret.
+7. Bridges: [ports.server.ts](../../../src/lib/app/ports.server.ts) gains `AppPorts` (= identity's `IdentityPorts`) and legacy adapters for `CalendarAccessPort` (`getAccessibleCalendarIds`) and `AdConsentPort` (`getAdConsentRecords`, `recordAdConsentChange`); each is a TRANSITION BRIDGE naming the S5 that replaces it. `goldenCtx` gets both through `wirePorts`.
+8. Tests: the memory adapters' recording and scripting, `testCtx`'s new ports and config, the Cerebras request/body and its refusals, the fetch timeout signal/method/body/status, and the push transport's web payload + VAPID details + `dead` mapping + FCM result mapping.
+9. Docs: the kernel README Files table rows plus the "Push", "AI" and "Outbound HTTP" notes under Ctx and actor, and the app README bridge and env lines.
+
+**Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.
+
+## k-19
+
+**K-19: query first value and array keys.** `endpoint()` built its query object with `Object.fromEntries(url.searchParams)`, which keeps the LAST value of a repeated key; legacy handlers read the FIRST (`searchParams.get(k)`) or every value (`getAll(k)`, family's member-search `exclude`). Needed before family's S6.
+
+1. A scalar query key receives its FIRST value, the one legacy `get(k)` read. An absent key stays absent; `?key=` is `''`.
+2. Add one `endpoint()` option, `queryArrays`, naming the keys legacy read with `getAll(k)`. Such a key receives every value in order, and `[]` when absent (`getAll` semantics), so its schema field is `z.array(...)`, usually `.default([])`. The keys are a plain `readonly string[]`; list only keys whose `query` field is an array. A legacy `.filter(Boolean)` stays in the module (member-search has one), so `?exclude=` still reaches it and is dropped there.
+3. Typed `it.each` tests: a repeated scalar key keeps the first value; an array key with 0/1/2 values; absent keys; an empty value stays present as `''`. Repeated keys go through `invoke`'s `path`, because its `query` option sets one value per key.
+4. Document the option in the kernel README (HTTP notes and Invariants).
 
 **Check:** `npm run test:mod -- kernel && npm run arch && npm run docs:check && npm run typecheck`.

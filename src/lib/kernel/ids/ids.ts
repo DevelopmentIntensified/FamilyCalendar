@@ -21,6 +21,8 @@ const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 export type Ids = {
 	/** A new random id; `length` defaults to the row-id length (15). */
 	id(length?: number): string;
+	/** `count` cryptographically random bytes (tokens, codes, claim links). */
+	random(count: number): Uint8Array;
 };
 
 const random = {
@@ -29,15 +31,32 @@ const random = {
 	}
 };
 
+function randomBytes(count: number): Uint8Array {
+	const bytes = new Uint8Array(count);
+	crypto.getRandomValues(bytes);
+	return bytes;
+}
+
 export const systemIds: Ids = {
-	id: (length = ROW_ID_LENGTH) => generateRandomString(random, ALPHABET, length)
+	id: (length = ROW_ID_LENGTH) => generateRandomString(random, ALPHABET, length),
+	random: randomBytes
 };
 
-/** Deterministic ids for tests: `${prefix}-1`, `${prefix}-2`, ... */
+/**
+ * Deterministic ids for tests: `${prefix}-1`, `${prefix}-2`, ... Random bytes
+ * count up from 0 (mod 256) on their own counter, so drawing bytes never
+ * renumbers a row id.
+ */
 export function sequentialIds(prefix = 'id'): Ids {
 	let n = 0;
+	let next = 0;
 	return {
-		id: () => `${prefix}-${++n}`
+		id: () => `${prefix}-${++n}`,
+		random: (count) => {
+			const bytes = new Uint8Array(count);
+			for (let i = 0; i < count; i++) bytes[i] = next++ & 0xff;
+			return bytes;
+		}
 	};
 }
 
