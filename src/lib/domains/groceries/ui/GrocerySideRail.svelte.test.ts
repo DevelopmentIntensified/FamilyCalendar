@@ -141,7 +141,7 @@ describe('GrocerySideRail', () => {
 
 		const quickAdd = screen.getByRole('textbox', { name: 'Add grocery item' });
 		await fireEvent.input(quickAdd, { target: { value: 'milk 2' } });
-		await fireEvent.input(screen.getByRole('textbox', { name: 'Stores for this item' }), {
+		await fireEvent.input(screen.getByRole('combobox', { name: 'Stores for this item' }), {
 			target: { value: 'Aldi' }
 		});
 		expect(addButton).toBeEnabled();
@@ -163,7 +163,7 @@ describe('GrocerySideRail', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Use store Aldi' }));
 
 		expect(state.storeInput).toBe('Aldi');
-		expect(screen.getByRole('textbox', { name: 'Stores for this item' })).toHaveValue('Aldi');
+		expect(screen.getByRole('combobox', { name: 'Stores for this item' })).toHaveValue('Aldi');
 	});
 
 	it('offers the shops already on the lists as datalist options', () => {

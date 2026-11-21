@@ -28,13 +28,14 @@ import { DEFAULT_FAMILY_ROLE, DEFAULT_MEMBER_TYPE } from './family.roles.rules';
 /**
  * EVERY family the user holds a membership in, oldest first (`createdAt`, then
  * id so equal timestamps stay deterministic), each with the membership's own
- * role and Member Type, the roster size and every member's first name — one
- * query however many families the user is in (issue 078).
+ * role and Member Type, the roster size and every member's first name and real
+ * user id — one query however many families the user is in (issue 078).
  *
  * `roster` is the family's whole membership set joined back onto the user's
- * own row, and `rosterUser` carries those members' first names home with it,
- * aggregated in first-name order. Both joins are left joins so a family never
- * disappears from the answer.
+ * own row, and `rosterUser` carries each member's name and id home together,
+ * one pair per member in first-name order (Q-023 B: the pair keeps the real
+ * id, so two people who share a first name keep their own avatar colour). Both
+ * joins are left joins so a family never disappears from the answer.
  */
 export async function listMemberships(db: Db, userId: string): Promise<FamilyMembershipView[]> {
 	const roster = alias(familyMembers, 'roster');
@@ -49,9 +50,9 @@ export async function listMemberships(db: Db, userId: string): Promise<FamilyMem
 			role: familyMembers.role,
 			memberType: familyMembers.memberType,
 			memberCount: count(roster.userId),
-			firstNames: sql<
-				string[]
-			>`coalesce(array_agg(${rosterUser.firstName} order by ${rosterUser.firstName}, ${rosterUser.id}) filter (where ${rosterUser.firstName} is not null), '{}')`
+			members: sql<
+				{ userId: string; firstName: string }[]
+			>`coalesce(jsonb_agg(jsonb_build_object('userId', ${roster.userId}, 'firstName', ${rosterUser.firstName}) order by ${rosterUser.firstName}, ${rosterUser.id}) filter (where ${rosterUser.firstName} is not null), '[]'::jsonb)`
 		})
 		.from(familyMembers)
 		.innerJoin(families, eq(familyMembers.familyId, families.id))
@@ -68,7 +69,7 @@ export async function listMemberships(db: Db, userId: string): Promise<FamilyMem
 		role: row.role,
 		memberType: row.memberType,
 		memberCount: row.memberCount,
-		firstNames: row.firstNames ?? []
+		members: row.members ?? []
 	}));
 }
 

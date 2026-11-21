@@ -42,8 +42,8 @@ describe('listFamilyRoster', () => {
 		const ann = await seedUser(db);
 		await seedFamily('fam-new', { createdAt: '2026-01-01T00:00:00.000Z' }, db);
 		await seedFamily('fam-old', { createdAt: '2025-01-01T00:00:00.000Z' }, db);
-		await seedMembership('fam-new', ann.id, 'creator', db);
-		await seedMembership('fam-old', ann.id, 'member', db);
+		await seedMembership('fam-new', ann.id, 'creator', 'member', db);
+		await seedMembership('fam-old', ann.id, 'member', 'member', db);
 
 		const answer = await listFamilyRoster(
 			testCtx({ db, now: NOW }),
@@ -150,7 +150,7 @@ describe('findInvitableMembers', () => {
 	rollbackTest('refuses a family you are not in, even when you belong to another', async (db) => {
 		const { out } = await seedFamilyRoster(db);
 		await seedFamily('fam-2', {}, db);
-		await seedMembership('fam-2', out.id, 'creator', db);
+		await seedMembership('fam-2', out.id, 'creator', 'member', db);
 
 		const failure = await findInvitableMembers(
 			testCtx({ db, now: NOW }),
@@ -190,9 +190,14 @@ describe('findInvitableMembers', () => {
 		}
 	});
 
-	rollbackTest('does not find a full name: both name columns meet the whole query', async (db) => {
+	// Q-028 B (answered 2026-11-12): the term splits into first and last name.
+	rollbackTest('finds a full name by splitting it into first and last (Q-028 B)', async (db) => {
 		const { ann } = await seedFamilyRoster(db);
-		await seedUser(db, { firstName: 'Ann', lastName: 'Lee', email: 'ann.lee@example.test' });
+		const annLee = await seedUser(db, {
+			firstName: 'Ann',
+			lastName: 'Lee',
+			email: 'ann.lee@example.test'
+		});
 		const sameBoth = await seedUser(db, {
 			firstName: 'Sam',
 			lastName: 'Sam',
@@ -201,7 +206,10 @@ describe('findInvitableMembers', () => {
 		const c = testCtx({ db, now: NOW });
 		const actor = actorFromUser(ann, 'session');
 
-		expect(await findInvitableMembers(c, actor, { q: 'Ann Lee', familyId: 'fam-1' })).toEqual([]);
+		const fullName = await findInvitableMembers(c, actor, { q: 'Ann Lee', familyId: 'fam-1' });
+		expect(fullName.map((user) => user.id)).toEqual([annLee.id]);
+
+		// One token keeps the legacy leg: both name columns equal it.
 		const identical = await findInvitableMembers(c, actor, { q: 'Sam', familyId: 'fam-1' });
 		expect(identical.map((user) => user.id)).toEqual([sameBoth.id]);
 	});

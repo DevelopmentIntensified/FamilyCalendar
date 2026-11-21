@@ -79,12 +79,12 @@ describe('listGroceryItems', () => {
 		const older = await seedGroceryItem(db, {
 			userId: user.id,
 			name: 'Milk',
-			createdAt: '2026-01-01T00:00:00Z'
+			createdAt: new Date('2026-01-01T00:00:00Z')
 		});
 		const newer = await seedGroceryItem(db, {
 			userId: user.id,
 			name: 'Eggs',
-			createdAt: '2026-01-02T00:00:00Z'
+			createdAt: new Date('2026-01-02T00:00:00Z')
 		});
 		await seedGroceryItem(db, { userId: user.id, name: 'Bread', checkedAt: NOW });
 		await seedGroceryItem(db, { userId: other.id, name: 'Beer' });

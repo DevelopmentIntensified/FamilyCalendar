@@ -77,7 +77,7 @@ describe('listMemberships', () => {
 		]);
 	});
 
-	rollbackTest('counts the whole roster and lists every first name in first-name order', async (db) => {
+	rollbackTest('counts the whole roster and lists every member\'s id and first name in first-name order', async (db) => {
 		const cid = await seedUser(db, { firstName: 'Cid' });
 		const ann = await seedUser(db, { firstName: 'Ann' });
 		const bob = await seedUser(db, { firstName: 'Bob' });
@@ -91,7 +91,29 @@ describe('listMemberships', () => {
 
 		const [row] = await listMemberships(db, cid.id);
 		expect(row.memberCount).toBe(3);
-		expect(row.firstNames).toEqual(['Ann', 'Bob', 'Cid']);
+		expect(row.members).toEqual([
+			{ firstName: 'Ann', userId: ann.id },
+			{ firstName: 'Bob', userId: bob.id },
+			{ firstName: 'Cid', userId: cid.id }
+		]);
+	});
+
+	// Q-023 B: the aggregated pair carries the real id, so a shared first name
+	// is not mistaken for the same person.
+	rollbackTest('keeps each member\'s own id when two share a first name (Q-023 B)', async (db) => {
+		const viewer = await seedUser(db, { firstName: 'Ann' });
+		const samOne = await seedUser(db, { firstName: 'Sam', lastName: 'One' });
+		const samTwo = await seedUser(db, { firstName: 'Sam', lastName: 'Two' });
+		await seedFamily('fam-1', { name: 'Riveras' }, db);
+		await seedMembership('fam-1', viewer.id, 'creator', 'parent', db);
+		await seedMembership('fam-1', samOne.id, 'member', 'member', db);
+		await seedMembership('fam-1', samTwo.id, 'member', 'member', db);
+
+		const [row] = await listMemberships(db, viewer.id);
+		expect(row.members.map((member) => member.firstName)).toEqual(['Ann', 'Sam', 'Sam']);
+		expect(row.members.map((member) => member.userId).sort()).toEqual(
+			[viewer.id, samOne.id, samTwo.id].sort()
+		);
 	});
 
 	rollbackTest('keeps one row per family however many families and members there are', async (db) => {
@@ -108,10 +130,10 @@ describe('listMemberships', () => {
 		}
 
 		const rows = await listMemberships(db, ann.id);
-		expect(rows.map((row) => [row.family.id, row.memberCount, row.firstNames])).toEqual([
-			['fam-1', 2, ['Ann', 'Bob']],
-			['fam-2', 2, ['Ann', 'Bob']],
-			['fam-3', 2, ['Ann', 'Bob']]
+		expect(rows.map((row) => [row.family.id, row.memberCount, row.members])).toEqual([
+			['fam-1', 2, [{ firstName: 'Ann', userId: ann.id }, { firstName: 'Bob', userId: bob.id }]],
+			['fam-2', 2, [{ firstName: 'Ann', userId: ann.id }, { firstName: 'Bob', userId: bob.id }]],
+			['fam-3', 2, [{ firstName: 'Ann', userId: ann.id }, { firstName: 'Bob', userId: bob.id }]]
 		]);
 	});
 

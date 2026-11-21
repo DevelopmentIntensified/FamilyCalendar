@@ -20,7 +20,7 @@ import { memberRefusal } from './family.members.rules';
 import { findMemberRole, listRoster } from './family.members.repo.server';
 import { familyRefusalError } from './family.roles.rules';
 import { findInvitableUsers, findVerifiedUsersByPrefix } from './family.search.repo.server';
-import { maskEmail, searchTermProblem } from './family.search.rules';
+import { maskEmail, searchTermProblem, splitInviteName } from './family.search.rules';
 
 /** `GET /api/family/roster`: the family the answer is for (null: none) and its members. */
 export type FamilyRosterAnswer = {
@@ -89,7 +89,8 @@ export async function searchMembers(
 /**
  * `GET /api/family/search`: the invite flow. A missing term or family answers
  * an empty list (Q-026); otherwise the caller must be a member of THAT family
- * and the lookup is exact (email, or both names equal to the whole term).
+ * and the lookup is exact (the whole term against the email, or its split
+ * first/last names against theirs — Q-028 B).
  */
 export async function findInvitableMembers(
 	ctx: Ctx,
@@ -102,10 +103,11 @@ export async function findInvitableMembers(
 	if (refusal) throw familyRefusalError(refusal);
 
 	const term = input.q.trim();
+	const { firstName, lastName } = splitInviteName(term);
 	return await findInvitableUsers(ctx.db, {
 		familyId: input.familyId,
 		email: term,
-		firstName: term,
-		lastName: term
+		firstName,
+		lastName
 	});
 }
