@@ -110,6 +110,8 @@ export {
 	getFamily,
 	getFamilyCreatePage,
 	listFamilies,
+	listPersonFamilyIds,
+	resolveMembershipFamilyId,
 	updateFamily,
 	type FamilyListPayload
 } from './family.families.service.server';

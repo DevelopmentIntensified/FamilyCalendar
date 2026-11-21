@@ -32,6 +32,13 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 /**
+ * The RFC 5545 FREQ subset every recurrence writer and reader shares. One home
+ * (K-06): calendar, tasks and parsing all import this type instead of declaring
+ * a private union, so a new frequency cannot mean two different things.
+ */
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+/**
  * The value as a luxon DateTime in `zone`, by the one offset rule in the file
  * header. A `Date` is already an instant, so it only changes zone. Null for
  * empty/invalid input or an unknown zone.
