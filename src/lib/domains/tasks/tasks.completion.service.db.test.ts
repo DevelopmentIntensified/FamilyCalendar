@@ -133,8 +133,11 @@ describe('toggleTaskCompletion', () => {
 			taskId: task.id
 		});
 
-		// 2026-03-01T00:00+14:00 is 2026-02-28T10:00:00Z — the owner's day start.
-		expect(advanced.dueDate).toBe('2026-02-28 10:00:00+00');
+		// The owner's day starts at 2026-02-28T10:00:00Z (2026-03-01T00:00+14:00),
+		// and legacy `advanceCursor` (66a11131:db/actions/tasks/cursor.ts:43-56)
+		// starts at n = 1: today + ONE interval, i.e. 2026-03-01T00:00+14:00.
+		// A server-day (UTC) anchor would instead land on 2026-03-02T00:00:00Z.
+		expect(advanced.dueDate).toBe('2026-03-01 10:00:00+00');
 	});
 
 	rollbackTest('alerts the owner on someone else`s check-off, never on self or an un-check', async (db) => {
@@ -203,7 +206,7 @@ describe('toggleTaskCompletion', () => {
 });
 
 describe('skipTaskOccurrence', () => {
-	rollbackTest('moves the cursor with no history row and no count change, reopening the row', async (db) => {
+	rollbackTest('moves the cursor with no history row, no count change and no completion write', async (db) => {
 		const { mia } = await seedHousehold(db);
 		const task = await seedTask(db, {
 			title: 'Water plants',
@@ -219,9 +222,10 @@ describe('skipTaskOccurrence', () => {
 			taskId: task.id
 		});
 
+		// Q-058: skip is not complete, so the stamp the row already held stays.
 		expect(skipped).toMatchObject({
 			dueDate: '2026-03-02 00:00:00+00',
-			completedAt: null,
+			completedAt: '2026-02-01 00:00:00+00',
 			completionCount: 0
 		});
 		expect(await historyOf(db, task.id)).toEqual([]);

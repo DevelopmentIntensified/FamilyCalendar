@@ -38,7 +38,7 @@ import type { TaskCreateBody, TaskUpdateBody } from './tasks.contract';
 import { needsOverduePin, pinnedDueFor } from './tasks.cursor.rules';
 import { getPhoneFocusOverlay } from './tasks.focus.service.server';
 import {
-	archiveOwnedCompletedTasks,
+	archiveViewerCompletedTasks,
 	archiveTaskById,
 	deleteTaskById,
 	findOwnedTask,
@@ -61,7 +61,7 @@ import {
 	type TaskRowWithEvent,
 	type TaskWritePatch
 } from './tasks.repo.server';
-import { canMutateTask, nextAssignmentPatch, normalizeTags } from './tasks.task.rules';
+import { canMutateTask, canReadTask, nextAssignmentPatch, normalizeTags } from './tasks.task.rules';
 import {
 	skipTaskOccurrence,
 	toggleTaskCompletion,
@@ -101,13 +101,6 @@ export type TaskListRow = TaskRowWithEvent & {
 	readonly tags: readonly string[];
 	readonly assigneeFirstName: string | null;
 	readonly assigneeLastName: string | null;
-	readonly phoneFocusMinutes: number;
-	readonly phoneFocusStartedAt: Date | null;
-};
-
-/** The `?eventId=` row: the raw Task row, its Event calendar and the phone overlay — no tags/names. */
-export type TaskEventRow = TaskRow & {
-	readonly eventCalendarId: string | null;
 	readonly phoneFocusMinutes: number;
 	readonly phoneFocusStartedAt: Date | null;
 };
@@ -218,20 +211,21 @@ function definedPatch(patch: Partial<TaskWritePatch>): TaskWritePatch {
 export type TaskListInput = { readonly eventId?: string | null };
 
 /**
- * The list read, both shapes the wire has today:
+ * The list read — ONE row shape on both legs (Q-055):
  *
- * - no `eventId`: the caller's own rows plus every row of their family, newest
- *   first, archived excluded, tags sorted, the parent Event's calendar always
- *   present and the phone overlay applied. Overdue cursors are pinned first.
- * - `?eventId=`: the Event's raw Task rows (no tags, no names), another
- *   member's private row hidden, `eventCalendarId` from the access check. An
- *   unknown Event is `{tasks: []}` and this leg does NOT pin (Q-055).
+ * - no `eventId`: the caller's own rows plus the family rows the Task
+ *   Visibility rule allows, newest first, archived excluded, tags sorted, the
+ *   parent Event's calendar always present and the phone overlay applied.
+ *   Overdue cursors are pinned first.
+ * - `?eventId=`: the same list shape for the Event's readable rows (Q-005a's
+ *   private rule, #164), oldest first. An unknown Event is `{tasks: []}` and
+ *   this leg does NOT pin.
  */
 export async function listTasks(
 	ctx: Ctx,
 	actor: Actor,
 	input: TaskListInput = {}
-): Promise<readonly TaskListRow[] | readonly TaskEventRow[]> {
+): Promise<readonly TaskListRow[]> {
 	const eventId = input.eventId ?? null;
 	if (eventId) return await listEventTasks(ctx, actor, eventId);
 	const familyId = await resolveMembershipFamilyId(ctx, actor.id);
@@ -242,18 +236,18 @@ export async function listTasks(
 type EventAccess =
 	| { readonly kind: 'missing' }
 	| { readonly kind: 'denied' }
-	| { readonly kind: 'ok'; readonly calendarId: string | null };
+	| { readonly kind: 'ok' };
 
 /**
- * Calendar's own read answers both questions: a missing Event is `notFound`
- * and an unreadable one `forbidden`, so one call carries the access decision
- * and the Event's calendar (the wire's `eventCalendarId`) without tasks
- * reading `calendars` or `calendarShares`.
+ * Calendar's own read answers the access question: a missing Event is
+ * `notFound` and an unreadable one `forbidden`, so the wire's `403 No access
+ * to this event` comes from one call without tasks reading `calendars` or
+ * `calendarShares` (the row's own calendar arrives on the list projection).
  */
 async function eventAccess(ctx: Ctx, actor: Actor, eventId: string): Promise<EventAccess> {
 	try {
-		const detail = await getEventForViewer(ctx, actor, eventId);
-		return { kind: 'ok', calendarId: detail.event.calendarId ?? null };
+		await getEventForViewer(ctx, actor, eventId);
+		return { kind: 'ok' };
 	} catch (error) {
 		if (error instanceof AppError) {
 			if (error.code === 'notFound') return { kind: 'missing' };
@@ -263,36 +257,45 @@ async function eventAccess(ctx: Ctx, actor: Actor, eventId: string): Promise<Eve
 	}
 }
 
-/** The `?eventId=` leg: the raw rows, the private filter (#164) and the overlay, never the pin. */
+/** The `?eventId=` leg: the list shape, the private read rule and no pin (Q-055). */
 async function listEventTasks(
 	ctx: Ctx,
 	actor: Actor,
 	eventId: string
-): Promise<readonly TaskEventRow[]> {
+): Promise<readonly TaskListRow[]> {
 	const access = await eventAccess(ctx, actor, eventId);
 	if (access.kind === 'missing') return [];
 	if (access.kind === 'denied') throw forbidden(TASK_EVENT_NO_ACCESS);
 
-	const rows = (await listTasksForEvent(ctx.db, eventId)).filter(
-		(task) => task.visibility !== 'private' || task.userId === actor.id
+	const rows = (await listTasksForEvent(ctx.db, eventId)).filter((task) =>
+		canReadTask(task, actor.id)
 	);
-	const overlay = await getPhoneFocusOverlay(ctx, actor);
-	return rows.map((row) => ({
-		...row,
-		eventCalendarId: access.calendarId,
-		phoneFocusMinutes: overlay.get(row.id)?.phoneFocusMinutes ?? 0,
-		phoneFocusStartedAt: overlay.get(row.id)?.phoneFocusStartedAt ?? null
-	}));
+	return await attachListFields(ctx, actor, rows);
 }
 
-/** The main list for one already-resolved family: pin, read, names, tags, overlay. */
+/** The main list for one already-resolved family: pin, read, then the shared enrichment. */
 async function loadTaskList(
 	ctx: Ctx,
 	actor: Actor,
 	familyId: string | null
 ): Promise<readonly TaskListRow[]> {
 	await pinOverdue(ctx, actor, { userId: actor.id, familyId });
-	const rows = await listTasksForUser(ctx.db, { userId: actor.id, familyId });
+	const rows = (await listTasksForUser(ctx.db, { userId: actor.id, familyId })).filter((row) =>
+		canReadTask(row, actor.id)
+	);
+	return await attachListFields(ctx, actor, rows);
+}
+
+/**
+ * The list row's derived fields over any Task rows: sorted tags, the
+ * assignee's names and the caller's phone overlay. Both list legs share it, so
+ * the two shapes can never drift again (Q-055).
+ */
+async function attachListFields(
+	ctx: Ctx,
+	actor: Actor,
+	rows: readonly TaskRowWithEvent[]
+): Promise<readonly TaskListRow[]> {
 	const tagMap = await listTagsForTasks(
 		ctx.db,
 		rows.map((row) => row.id)
@@ -416,8 +419,9 @@ export async function listTaskSections(ctx: Ctx, actor: Actor): Promise<{
 }
 
 /**
- * The Family Task Board for one family: every family Task plus the members'
- * PUBLIC personal Tasks, both with names and tags and neither with
+ * The Family Task Board for one family: every READABLE family Task (a private
+ * one only for its owner or its assignee, Q-005a) plus the members' PUBLIC
+ * personal Tasks, both with names and tags and neither with
  * `eventCalendarId`. A caller outside the family gets the board's one 404.
  */
 export async function listFamilyTasks(
@@ -434,7 +438,9 @@ export async function listFamilyTasks(
 		memberIds
 	});
 
-	const familyRows = await listFamilyTaskRows(ctx.db, input.familyId);
+	const familyRows = (await listFamilyTaskRows(ctx.db, input.familyId)).filter((row) =>
+		canReadTask(row, actor.id)
+	);
 	const publicRows = await listPublicFamilyTasks(ctx.db, memberIds);
 	const names = await nameMap(
 		ctx,
@@ -647,7 +653,6 @@ async function patchTaskFields(
 		priority: body.priority,
 		recurrenceFrequency: frequency,
 		recurrenceInterval,
-		completedAt: body.completedAt,
 		focusMinutes: body.focusMinutes,
 		focusStartedAt: body.focusStartedAt,
 		category
@@ -799,12 +804,11 @@ export async function deleteTask(
 }
 
 /**
- * `DELETE /api/tasks/completed`: archive the caller's OWN completed rows and
- * report how many moved. A completed accepted assignment stays in their list
- * (legacy `deleteCompletedTasks`, Q-059).
+ * `DELETE /api/tasks/completed`: archive the caller's OWN completed rows plus
+ * the completed assignments they ACCEPTED (Q-059), and report how many moved.
  */
 export async function clearCompletedTasks(ctx: Ctx, actor: Actor): Promise<number> {
-	return await archiveOwnedCompletedTasks(ctx.db, actor.id, ctx.clock.now().toISOString());
+	return await archiveViewerCompletedTasks(ctx.db, actor.id, ctx.clock.now().toISOString());
 }
 
 /**

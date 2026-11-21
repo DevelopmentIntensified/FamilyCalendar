@@ -10,9 +10,9 @@
  * for example), and the goldens may not change after S2. Create one ctx per
  * test; a rate-budget test reuses ONE ctx for every request of its burst.
  *
- * The domain ports come from `wirePorts` itself, so the one legacy bridge that
- * identity's remaining port (`adConsent`) rides on today (../ports.server.ts) is
- * here too, next to calendar's real `calendarAccess` adapter.
+ * The domain ports come from `wirePorts` itself, so identity's two REAL
+ * adapters — calendar's `calendarAccess` and sponsored's `adConsent` — are here
+ * too, next to family's remaining bridges (../ports.server.ts).
  *
  * `clock` and `ids` are the REAL ones too (`systemClock`, `systemIds`), not the
  * frozen clock and `id-N` counter `testCtx` hands S5 tests: a golden

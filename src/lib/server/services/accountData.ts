@@ -22,7 +22,7 @@ import {
 } from '$lib/server/services/subscriptionService';
 import { getPlanPricing } from '$lib/server/services/checkoutService';
 import { recordAdConsentChange, getAdConsentRecords } from '$lib/server/services/adConsentService';
-import { DASHBOARD_MODULES } from '$lib/dashboardModules';
+import { dashboardModulesSavedMessage } from '$lib/domains/dashboardModules';
 import { createApiToken, revokeToken } from '$lib/server/db/actions/apiTokens';
 import {
 	getNotificationPreferences,
@@ -241,9 +241,7 @@ export async function saveDashboardModules(
 		const hiddenCount = hiddenDashboardModules.length;
 		return {
 			ok: true,
-			message: hiddenCount
-				? `Dashboard modules saved — ${DASHBOARD_MODULES.length - hiddenCount} of ${DASHBOARD_MODULES.length} cards on.`
-				: `Dashboard modules saved — all ${DASHBOARD_MODULES.length} cards on.`
+			message: dashboardModulesSavedMessage(hiddenCount)
 		};
 	} catch (error) {
 		console.error('Failed to save dashboard modules:', error);

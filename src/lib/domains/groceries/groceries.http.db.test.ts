@@ -540,6 +540,22 @@ describe('POST /api/groceries', () => {
 		expect(res).toMatchObject({ status: 400, body: { error: 'Invalid JSON body' } });
 	});
 
+	// Q-111 (owner: B, 2026-11-18): a literal `null` body parses, reaches the body
+	// schema as `null`, and answers the route's existing 400 instead of the 500 the
+	// legacy field reads threw. The malformed row above keeps its own sentence.
+	it('answers 400 "scope must be mine or family" for a JSON null body (Q-111)', async () => {
+		const user = await seedUser(testDb());
+
+		const res = await invoke(postGroceries, {
+			ctx: ctx(),
+			user,
+			path: '/api/groceries',
+			body: null
+		});
+
+		expect(res).toMatchObject({ status: 400, body: { error: 'scope must be mine or family' } });
+	});
+
 	it('answers 400 "scope must be mine or family" when scope is absent or junk', async () => {
 		const user = await seedUser(testDb());
 
@@ -861,6 +877,22 @@ describe('PATCH /api/groceries/[id]', () => {
 		expect(res).toMatchObject({ status: 400, body: { error: 'Invalid JSON body' } });
 	});
 
+	// Q-111 (owner: B): a literal `null` body is the route's scope 400, not a 500.
+	it('answers 400 "scope must be mine or family" for a JSON null body (Q-111)', async () => {
+		const user = await seedUser(testDb());
+		const item = await seedItem({ userId: user.id, name: 'Milk' });
+
+		const res = await invoke(patchGrocery, {
+			ctx: ctx(),
+			user,
+			method: 'PATCH',
+			path: `/api/groceries/${item.id}`,
+			body: null
+		});
+
+		expect(res).toMatchObject({ status: 400, body: { error: 'scope must be mine or family' } });
+	});
+
 	it('answers 400 for every op it cannot run', async () => {
 		const user = await seedUser(testDb());
 		const item = await seedItem({ userId: user.id, name: 'Milk' });
@@ -1154,12 +1186,9 @@ describe('PATCH /api/groceries/colours', () => {
 		]);
 	});
 
-	// #086 fix-in-port: the family write upserts with
-	// `on conflict ("family_id","store_key")`, and Postgres cannot infer the partial
-	// unique index (family_id IS NOT NULL) without the predicate, so the statement
-	// faults and the route answers 500. S6 fixes this in its own
-	// `rewrite(groceries): fix-in-port #086` commit and flips this golden to 200 {ok:true}.
-	it('faults with 500 on a family write — #086: partial index not inferred', async () => {
+	// #086 fixed in-port (Q-039 owner: B): the family upsert names its partial
+	// index's predicate, so Postgres infers the arbiter and the write lands.
+	it('writes a family colour — #086 fixed: the upsert names its index predicate', async () => {
 		const user = await seedUser(testDb());
 		const familyId = await seedFamily('My family');
 		await addMember(user.id, familyId);
@@ -1172,9 +1201,11 @@ describe('PATCH /api/groceries/colours', () => {
 			body: { store: 'Aldi', color: 'sky', scope: 'family' }
 		});
 
-		expect(res.status).toBe(500);
-		expect(res.body).toEqual({ error: 'Failed to set the colour' });
-		expect(await colourRows()).toEqual([]);
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ ok: true });
+		expect(await colourRows()).toEqual([
+			{ storeKey: 'aldi', color: 'sky', userId: user.id, familyId }
+		]);
 	});
 
 	it('answers 400 "No family to set a family colour on" without a family', async () => {
@@ -1306,6 +1337,24 @@ describe('PATCH /api/groceries/colours', () => {
 		});
 
 		expect(res).toMatchObject({ status: 400, body: { error: 'Invalid JSON body' } });
+	});
+
+	// Q-111 (owner: B): a literal `null` body is the colour route's own 400.
+	it('answers 400 "store and color are required" for a JSON null body (Q-111)', async () => {
+		const user = await seedUser(testDb());
+
+		const res = await invoke(patchColours, {
+			ctx: ctx(),
+			user,
+			method: 'PATCH',
+			path: '/api/groceries/colours',
+			body: null
+		});
+
+		expect(res).toMatchObject({
+			status: 400,
+			body: { error: 'store and color are required' }
+		});
 	});
 
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {

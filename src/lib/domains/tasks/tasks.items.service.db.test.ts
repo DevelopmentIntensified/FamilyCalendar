@@ -19,7 +19,7 @@ import { events, notifications, tasks } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
-import { TaskCreateBody, TaskUpdateBody } from './tasks.contract';
+import { TASK_COMPLETED_AT_DIRECT, TaskCreateBody, TaskUpdateBody } from './tasks.contract';
 import {
 	addMember,
 	seedTask,
@@ -39,7 +39,6 @@ import {
 	listTasks,
 	unassignMemberTasks,
 	updateTask,
-	type TaskEventRow,
 	type TaskListRow,
 	type TaskSectionRow,
 	type TaskWithTagsRow
@@ -201,7 +200,7 @@ describe('listTasks', () => {
 		expect(rows[0].phoneFocusMinutes).toBe(0);
 	});
 
-	rollbackTest('includes every row of the caller`s family, another member`s private one too (Q-005a)', async (db) => {
+	rollbackTest('hides another member`s private family row, and shows it to its assignee (Q-005a)', async (db) => {
 		const { mia, sam, home } = await seedHousehold(db);
 		const other = await seedUser(db, { firstName: 'Ada' });
 		await seedTask(db, {
@@ -210,12 +209,21 @@ describe('listTasks', () => {
 			familyId: home.id,
 			visibility: 'private'
 		});
+		const handedOver = await seedTask(db, {
+			title: 'Sam private, mine to do',
+			userId: sam.id,
+			familyId: home.id,
+			visibility: 'private',
+			assignedTo: mia.id,
+			assignmentStatus: 'accepted'
+		});
 		await seedTask(db, { title: 'Ada personal', userId: other.id });
 		const ctx = testCtx({ db, now: NOW });
 
 		const rows = (await listTasks(ctx, actorFromUser(mia, 'session'))) as readonly TaskListRow[];
 
-		expect(rows.map((row) => row.title)).toEqual(['Sam private']);
+		expect(rows.map((row) => row.title)).toEqual(['Sam private, mine to do']);
+		expect(rows[0].id).toBe(handedOver.id);
 	});
 
 	rollbackTest('overlays the caller`s phone sessions and names the assignee', async (db) => {
@@ -248,15 +256,16 @@ describe('listTasks', () => {
 		expect(rows[0].phoneFocusStartedAt).toEqual(new Date('2026-03-01T08:40:00Z'));
 	});
 
-	rollbackTest('?eventId= filters another member`s private row, adds the calendar and never pins', async (db) => {
+	rollbackTest('?eventId= answers the list shape, hides another member`s private row and never pins (Q-055)', async (db) => {
 		const { mia, sam } = await seedHousehold(db);
 		const event = await seedEvent(db, { ownerId: mia.id, title: 'Trip', start: NOW });
-		await seedTask(db, {
+		const pack = await seedTask(db, {
 			title: 'Pack',
 			userId: mia.id,
 			eventId: event.id,
 			createdAt: new Date('2026-01-01T00:00:00Z')
 		});
+		await seedTaskTags(db, pack.id, ['travel']);
 		await seedTask(db, {
 			title: 'Sam private',
 			userId: sam.id,
@@ -275,10 +284,17 @@ describe('listTasks', () => {
 		const ctx = testCtx({ db, now: NOW });
 		const actor = actorFromUser(mia, 'session');
 
-		const rows = (await listTasks(ctx, actor, { eventId: event.id })) as readonly TaskEventRow[];
+		const rows = (await listTasks(ctx, actor, { eventId: event.id })) as readonly TaskListRow[];
 
 		expect(rows.map((row) => row.title)).toEqual(['Pack', 'Stale recurring']);
-		expect(rows[0]).toMatchObject({ eventCalendarId: null, phoneFocusMinutes: 0 });
+		// The list shape: tags, names and the Event's own attribution.
+		expect(rows[0]).toMatchObject({
+			tags: ['travel'],
+			assigneeFirstName: null,
+			eventTitle: 'Trip',
+			eventCalendarId: null,
+			phoneFocusMinutes: 0
+		});
 		expect(rows[1].dueDate).toBe('2026-02-01 10:00:00+00');
 
 		expect(await listTasks(ctx, actor, { eventId: 'no-such-event' })).toEqual([]);
@@ -348,10 +364,26 @@ describe('listTaskSections', () => {
 });
 
 describe('listFamilyTasks', () => {
-	rollbackTest('reads the family`s rows plus the members` public personal rows, and 404s a non-member', async (db) => {
+	rollbackTest('reads the readable family rows plus the members` public personal rows, and 404s a non-member', async (db) => {
 		const { mia, sam, home } = await seedHousehold(db);
 		const outsider = await seedUser(db, { firstName: 'Ada' });
 		await seedTask(db, { title: 'Family chore', userId: sam.id, familyId: home.id });
+		// Q-005a: a private Family Task reaches the board only for its owner and
+		// its assignee.
+		const secret = await seedTask(db, {
+			title: 'Sam private chore',
+			userId: sam.id,
+			familyId: home.id,
+			visibility: 'private'
+		});
+		const handedOver = await seedTask(db, {
+			title: 'Sam private chore, mine',
+			userId: sam.id,
+			familyId: home.id,
+			visibility: 'private',
+			assignedTo: mia.id,
+			assignmentStatus: 'accepted'
+		});
 		await seedTask(db, { title: 'Sam public', userId: sam.id, visibility: 'public' });
 		await seedTask(db, { title: 'Sam private', userId: sam.id, visibility: 'private' });
 		await seedTask(db, { title: 'Ada public', userId: outsider.id, visibility: 'public' });
@@ -361,9 +393,21 @@ describe('listFamilyTasks', () => {
 			familyId: home.id
 		});
 
-		expect(board.familyTasks.map((row) => row.title)).toEqual(['Family chore']);
+		expect(board.familyTasks.map((row) => row.title).sort()).toEqual([
+			'Family chore',
+			'Sam private chore, mine'
+		]);
+		expect(board.familyTasks.map((row) => row.id)).not.toContain(secret.id);
+		expect(board.familyTasks.map((row) => row.id)).toContain(handedOver.id);
 		expect(board.publicTasks.map((row) => row.title)).toEqual(['Sam public']);
 		expect(board.publicTasks[0]).toMatchObject({ creatorFirstName: 'Sam' });
+
+		// The owner still reads their own private Family Task.
+		const samsBoard = await listFamilyTasks(ctx, actorFromUser(sam, 'session'), {
+			familyId: home.id
+		});
+		expect(samsBoard.familyTasks.map((row) => row.id)).toContain(secret.id);
+		expect(samsBoard.familyTasks).toHaveLength(3);
 
 		await expect(
 			listFamilyTasks(ctx, actorFromUser(outsider, 'session'), { familyId: home.id })
@@ -586,7 +630,7 @@ describe('updateTask field patch', () => {
 		).toMatchObject({ focusMinutes: 45 });
 	});
 
-	rollbackTest('sets and clears the category, and writes a raw completedAt directly', async (db) => {
+	rollbackTest('sets and clears the category, and refuses a raw completedAt (Q-051 B)', async (db) => {
 		const { mia } = await seedHousehold(db);
 		const task = await seedTask(db, { title: 'Report', userId: mia.id });
 		const ctx = testCtx({ db, now: NOW });
@@ -594,12 +638,22 @@ describe('updateTask field patch', () => {
 
 		const set = await updateTask(ctx, actor, {
 			taskId: task.id,
-			body: TaskUpdateBody.parse({ category: 'Work', completedAt: '2026-02-01T10:00:00.000Z' })
+			body: TaskUpdateBody.parse({ category: 'Work' })
 		});
 		expect(set.category).toBe('Work');
 		expect((set as TaskWithTagsRow).tags).toEqual([]);
+
+		// Q-051 B: the completion stamp has ONE writer (the toggle and its
+		// undo), so the contract refuses a raw value — the patch never runs and
+		// the row keeps its null stamp.
+		const refused = TaskUpdateBody.safeParse({
+			category: 'Home',
+			completedAt: '2026-02-01T10:00:00.000Z'
+		});
+		const refusals = refused.success ? [] : refused.error.issues.map((issue) => issue.message);
+		expect(refusals).toContain(TASK_COMPLETED_AT_DIRECT);
 		const rows = await db.select().from(tasks).where(eq(tasks.id, task.id));
-		expect(rows[0].completedAt).toBe('2026-02-01 10:00:00+00');
+		expect(rows[0].completedAt).toBeNull();
 
 		expect(
 			await updateTask(ctx, actor, {
@@ -666,7 +720,7 @@ describe('deleteTask and clearCompletedTasks', () => {
 		).rejects.toMatchObject({ status: 404, message: 'Task not found' });
 	});
 
-	rollbackTest('archives only the caller`s completed rows and keeps every other row', async (db) => {
+	rollbackTest('archives the caller`s completed rows and their accepted assignments, keeping every other row', async (db) => {
 		const { mia, sam, home } = await seedHousehold(db);
 		const mine = await seedTask(db, {
 			title: 'Mine done',
@@ -682,18 +736,29 @@ describe('deleteTask and clearCompletedTasks', () => {
 			assignmentStatus: 'accepted',
 			completedAt: '2026-02-01 00:00:00+00'
 		});
+		const pending = await seedTask(db, {
+			title: 'Their done, not answered',
+			userId: sam.id,
+			familyId: home.id,
+			assignedTo: mia.id,
+			assignmentStatus: 'pending',
+			completedAt: '2026-02-01 00:00:00+00'
+		});
 		const ctx = testCtx({ db, now: NOW });
 
 		const archived = await clearCompletedTasks(ctx, actorFromUser(mia, 'session'));
 
-		expect(archived).toBe(1);
+		// Q-059: own row + the assignment the caller accepted.
+		expect(archived).toBe(2);
 		const rows = await db
 			.select()
 			.from(tasks)
 			.where(and(eq(tasks.userId, mia.id), eq(tasks.id, mine.id)));
 		expect(rows[0].archivedAt).toBe('2026-03-01 09:00:00+00');
 		const kept = await db.select().from(tasks).where(eq(tasks.id, assignment.id));
-		expect(kept[0].archivedAt).toBeNull();
+		expect(kept[0].archivedAt).toBe('2026-03-01 09:00:00+00');
+		const [pendingRow] = await db.select().from(tasks).where(eq(tasks.id, pending.id));
+		expect(pendingRow.archivedAt).toBeNull();
 		const [openRow] = await db.select().from(tasks).where(eq(tasks.id, open.id));
 		expect(openRow.archivedAt).toBeNull();
 	});

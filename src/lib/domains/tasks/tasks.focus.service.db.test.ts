@@ -99,7 +99,7 @@ describe('device commands', () => {
 		expect(await listFocusCommands(testCtxValue, actor)).toHaveLength(2);
 	});
 
-	rollbackTest('answers 400 Task not found when a start names a foreign task', async (db) => {
+	rollbackTest('answers 400 Task not found when a start names a task the caller cannot edit', async (db) => {
 		const { actor } = await callerWithTask(db);
 		const sam = await seedUser(db);
 		const theirs = await seedTask(db, { title: 'Theirs', userId: sam.id });
@@ -108,14 +108,52 @@ describe('device commands', () => {
 		await expect(
 			issueFocusCommand(testCtxValue, actor, { command: 'start', taskId: theirs.id })
 		).rejects.toMatchObject({ status: 400, message: 'Task not found' });
-		// Kept as today's contract for `stop` too (Q-056 keeps the ownership gate).
-		await expect(
-			issueFocusCommand(testCtxValue, actor, { command: 'stop', taskId: theirs.id })
-		).rejects.toMatchObject({ status: 400, message: 'Task not found' });
 		await expect(
 			issueFocusCommand(testCtxValue, actor, { command: 'start', taskId: 'no-such-task' })
 		).rejects.toMatchObject({ status: 400, message: 'Task not found' });
 		expect(await db.select().from(taskfocusCommands)).toEqual([]);
+	});
+
+	rollbackTest('ignores stop`s task id: a foreign one still enqueues and is not stored (Q-056)', async (db) => {
+		const { actor } = await callerWithTask(db);
+		const sam = await seedUser(db);
+		const theirs = await seedTask(db, { title: 'Theirs', userId: sam.id });
+		const testCtxValue = testCtx({ db, now: NOW });
+
+		const stop = await issueFocusCommand(testCtxValue, actor, {
+			command: 'stop',
+			taskId: theirs.id
+		});
+
+		expect(stop).toMatchObject({ command: 'stop', taskId: null });
+	});
+
+	rollbackTest('starts focus on any task the caller can edit (Q-060)', async (db) => {
+		const { mia, task, actor } = await callerWithTask(db);
+		const sam = await seedUser(db, { firstName: 'Sam' });
+		const home = await seedTaskFamily(db);
+		await addMember(db, mia.id, home.id);
+		await addMember(db, sam.id, home.id);
+		const testCtxValue = testCtx({ db, now: NOW });
+		const familyTask = await seedTask(db, {
+			title: 'Family chore',
+			userId: sam.id,
+			familyId: home.id
+		});
+		const accepted = await seedTask(db, {
+			title: 'Their personal, mine now',
+			userId: sam.id,
+			assignedTo: mia.id,
+			assignmentStatus: 'accepted'
+		});
+
+		for (const scenario of [task, familyTask, accepted]) {
+			const row = await issueFocusCommand(testCtxValue, actor, {
+				command: 'start',
+				taskId: scenario.id
+			});
+			expect(row).toMatchObject({ command: 'start', taskId: scenario.id });
+		}
 	});
 
 	rollbackTest('acks an own, foreign or already-gone id without an error', async (db) => {
@@ -259,7 +297,7 @@ describe('phone focus sessions', () => {
 		const archived = await seedTask(db, {
 			title: 'Archived',
 			userId: actor.id,
-			archivedAt: at('2026-02-01T00:00:00.000Z')
+			archivedAt: '2026-02-01 00:00:00+00'
 		});
 		const personal = await seedTask(db, { title: 'Sam`s own', userId: sam.id });
 		const testCtxValue = testCtx({ db, now: NOW });

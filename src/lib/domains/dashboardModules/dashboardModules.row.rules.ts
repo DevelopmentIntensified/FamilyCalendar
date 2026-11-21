@@ -48,6 +48,41 @@ const STATE_CLASS: Record<ModuleRowState, string> = {
 	'hidden-for-me': 'bg-amber-100 text-amber-700'
 };
 
+/** The two chips one state reads, without the facts that produced it. */
+export type DashboardModuleChips = {
+	readonly scopeLabel: string;
+	readonly stateLabel: string;
+	readonly stateClass: string;
+};
+
+/**
+ * The chip vocabulary for one state. `describeDashboardModuleRow` composes it
+ * with the state and the submit value, and the row component reads the same
+ * table through here — one home for every label and tone, so a caller that
+ * already knows the state (an optimistic override, for example) never
+ * re-derives the words.
+ */
+export function describeDashboardModuleState(
+	scope: ModuleScope,
+	state: ModuleRowState
+): DashboardModuleChips {
+	return {
+		scopeLabel: SCOPE_LABEL[scope],
+		stateLabel: STATE_LABEL[state],
+		stateClass: STATE_CLASS[state]
+	};
+}
+
+/**
+ * The value a row's submit button posts: the opposite of the current family
+ * switch, so a click flips the row away from where it is now. Both the family
+ * page's plain form and `describeDashboardModuleRow` use it (legacy
+ * `moduleToggleValue`, ported).
+ */
+export function dashboardModuleToggleValue(enabled: boolean): ModuleToggleValue {
+	return enabled ? 'false' : 'true';
+}
+
 /**
  * One row's whole story. Family-off outranks the viewer's preference: the
  * master switch is the louder fact, and a row must never say two things at
@@ -55,10 +90,7 @@ const STATE_CLASS: Record<ModuleRowState, string> = {
  * personal module has no family switch, so a stale hidden-list entry cannot
  * downgrade it (legacy `moduleRowState`, ported exactly — the personal branch
  * is unreachable from today's callers, and whether it should ever read
- * `hidden-for-me` is an S7 design question).
- *
- * The submit value is the opposite of the current family switch: it flips the
- * row away from where it is now.
+ * `hidden-for-me` is an S7 design question, answered: it keeps reading `on`).
  */
 export function describeDashboardModuleRow(input: {
 	readonly scope: ModuleScope;
@@ -72,9 +104,7 @@ export function describeDashboardModuleRow(input: {
 			: 'on';
 	return {
 		state,
-		scopeLabel: SCOPE_LABEL[input.scope],
-		stateLabel: STATE_LABEL[state],
-		stateClass: STATE_CLASS[state],
-		submitValue: input.enabled ? 'false' : 'true'
+		...describeDashboardModuleState(input.scope, state),
+		submitValue: dashboardModuleToggleValue(input.enabled)
 	};
 }

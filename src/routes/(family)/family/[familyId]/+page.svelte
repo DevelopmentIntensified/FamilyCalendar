@@ -217,7 +217,7 @@
 		modulePending = null;
 	}
 
-	function moduleSubmit(mod: Module): SubmitFunction<{ type: string }> {
+	function moduleSubmit(mod: Module): SubmitFunction {
 		// enhance calls the outer callback at submit time and then invokes the
 		// inner one it returns before the action (no result) and after; only
 		// the second call can confirm or revert. syncToServer stays out so the

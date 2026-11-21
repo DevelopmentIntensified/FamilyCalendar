@@ -1,18 +1,19 @@
 /**
- * marketing contract: the zod schemas and types for `POST /api/contact` (the
- * module's one `/api` route) and for the `/contact` page's form, plus the
- * `/api` response bodies.
+ * marketing contract: the zod schema and types for `POST /api/contact` (the
+ * module's one contact surface) and its response bodies.
+ *
+ * One surface since Q-068 (owner answer B): the `/contact` page posts to the
+ * `/api` action, so the second body and its 5/10-minute budget are gone. The
+ * page and an installed client share this schema, this budget and this copy.
  *
  * The error copy is the wire: the golden tests pin it
  * (`marketing.http.db.test.ts`). Keep the legacy wording.
  *
- * Both forms are read the way the legacy actions read `FormData`: the first
- * value of a field, and a missing or non-string (file) value is `''`. Nothing is
- * trimmed. The checks run in the legacy order and the first failure is the
- * answer: honeypot, then "all fields", then the address shape. The two forms
- * differ in one place only — `/contact` counts a whitespace-only message as
- * empty (`message.trim()`), `/api/contact` does not — and neither trims what it
- * passes on.
+ * The form is read the way the legacy action read `FormData`: the first value
+ * of a field, and a missing or non-string (file) value is `''`. Nothing is
+ * trimmed — a whitespace-only message is a message. The checks run in the
+ * legacy order and the first failure is the answer: honeypot, then "all
+ * fields", then the address shape.
  *
  * Doc: ./README.md#invariants
  */
@@ -21,7 +22,7 @@ import { isContactEmail } from './marketing.mail.rules';
 
 // --- Wire copy --------------------------------------------------------------
 
-/** 429, both contact surfaces. */
+/** 429, `POST /api/contact`. */
 export const CONTACT_THROTTLED_MESSAGE = 'Too many attempts. Try again shortly.';
 
 /** 400 when the hidden `website` field is filled. */
@@ -36,10 +37,7 @@ export const CONTACT_EMAIL_MESSAGE = 'Please enter a valid email address';
 /** The 500 body of `POST /api/contact` when the mail provider fails. */
 export const CONTACT_API_FAULT_MESSAGE = 'Failed to send message. Please try again later.';
 
-/** The 500 payload of the `/contact` action when the mail provider fails. */
-export const CONTACT_FORM_FAULT_MESSAGE = 'Something went wrong. Please try again.';
-
-// --- Request bodies ---------------------------------------------------------
+// --- Request body -----------------------------------------------------------
 
 /** A form field as the legacy `formString` read it: first value; absent or non-string is `''`. */
 const formText = z.preprocess((value) => {
@@ -54,34 +52,23 @@ const ContactFields = z.object({
 	message: formText
 });
 
-/** Honeypot, then "all fields" (the message rule differs per surface), then the address shape. */
-function contactBody(isMessageFilled: (message: string) => boolean) {
-	return ContactFields.refine((fields) => fields.website === '', {
-		error: CONTACT_HONEYPOT_MESSAGE,
+/**
+ * `POST /api/contact`, form-encoded. Honeypot, then "all fields", then the
+ * address shape; a message is filled when it is non-empty (a whitespace-only
+ * one is sent).
+ */
+export const ContactApiBody = ContactFields.refine((fields) => fields.website === '', {
+	error: CONTACT_HONEYPOT_MESSAGE,
+	abort: true
+})
+	.refine((fields) => fields.name !== '' && fields.email !== '' && fields.message !== '', {
+		error: CONTACT_REQUIRED_MESSAGE,
 		abort: true
 	})
-		.refine(
-			(fields) => fields.name !== '' && fields.email !== '' && isMessageFilled(fields.message),
-			{ error: CONTACT_REQUIRED_MESSAGE, abort: true }
-		)
-		.refine((fields) => isContactEmail(fields.email), { error: CONTACT_EMAIL_MESSAGE });
-}
-
-/**
- * `POST /api/contact`, form-encoded. A message is filled when it is non-empty:
- * a whitespace-only one is sent.
- */
-export const ContactApiBody = contactBody((message) => message !== '');
+	.refine((fields) => isContactEmail(fields.email), { error: CONTACT_EMAIL_MESSAGE });
 export type ContactApiBody = z.infer<typeof ContactApiBody>;
 
-/**
- * The `/contact` page action. A message is filled when it is non-blank after
- * trimming; the value that goes on to the mail is still the untrimmed one.
- */
-export const ContactFormBody = contactBody((message) => message.trim() !== '');
-export type ContactFormBody = z.infer<typeof ContactFormBody>;
-
-// --- `/api/contact` responses ----------------------------------------------
+// --- Responses --------------------------------------------------------------
 
 /** `200 {success:true}`. */
 export const ContactSentResponse = z.object({ success: z.literal(true) });

@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { CARD_DASHBOARD_MODULES, INFO_DASHBOARD_MODULES } from '$lib/dashboardModules';
+	import { selectDashboardModules } from '$lib/domains/dashboardModules';
 	import { isModuleMounted, shownModuleIds } from './accountDashboardModules';
+
+	/** The two bands the account page splits the registry into (the old
+	 * INFO/CARD lists are the same registry filtered once). */
+	const INFO_MODULES = selectDashboardModules({ band: 'info' });
+	const CARD_MODULES = selectDashboardModules({ band: 'card' });
 
 	interface Props {
 		hiddenDashboardModules?: string[] | null;
@@ -37,7 +42,7 @@
 		class="space-y-4"
 	>
 		<div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
-			{#each [{ band: 'Above your cards', modules: INFO_DASHBOARD_MODULES }, { band: 'Cards', modules: CARD_DASHBOARD_MODULES }] as group (group.band)}
+			{#each [{ band: 'Above your cards', modules: INFO_MODULES }, { band: 'Cards', modules: CARD_MODULES }] as group (group.band)}
 				<h3 class="pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
 					{group.band}
 				</h3>

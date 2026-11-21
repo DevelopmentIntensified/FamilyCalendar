@@ -21,6 +21,7 @@ import {
 	TASK_CATEGORY_NAME_TOO_LONG,
 	TASK_CATEGORY_NOT_STRING,
 	TASK_CATEGORY_TOO_LONG,
+	TASK_COMPLETED_AT_DIRECT,
 	TASK_INVALID_DUEDATE,
 	TASK_INVALID_EVENT_ID,
 	TASK_INVALID_FOCUS_MINUTES,
@@ -28,6 +29,7 @@ import {
 	TASK_INVALID_RECURRENCE_FREQUENCY,
 	TASK_INVALID_RECURRENCE_INTERVAL,
 	TASK_INVALID_VISIBILITY,
+	TASK_NOTES_NOT_STRING,
 	TASK_TITLE_REQUIRED,
 	TaskCategoryNameBody,
 	TaskCreateBody,
@@ -112,10 +114,16 @@ describe('TaskCreateBody', () => {
 		['an unparseable focusStartedAt', { title: 'X', focusStartedAt: 'not-a-date' }, TASK_INVALID_FOCUS_STARTED_AT],
 		['a numeric focusStartedAt', { title: 'X', focusStartedAt: 42 }, TASK_INVALID_FOCUS_STARTED_AT],
 		['a numeric category', { title: 'X', category: 7 }, TASK_CATEGORY_NOT_STRING],
-		['an over-long category', { title: 'X', category: 'x'.repeat(81) }, TASK_CATEGORY_TOO_LONG]
+		['an over-long category', { title: 'X', category: 'x'.repeat(81) }, TASK_CATEGORY_TOO_LONG],
+		['a truthy non-string notes (Q-061)', { title: 'X', notes: 42 }, TASK_NOTES_NOT_STRING]
 	];
 	it.each(bad)('answers %s with its legacy copy', (_label, body, message) => {
 		expect(firstMessage(TaskCreateBody, body)).toBe(message);
+	});
+
+	it('still reads a FALSY non-string notes as none (legacy `|| null`)', () => {
+		expect(TaskCreateBody.parse({ title: 'X', notes: 0 }).notes).toBeNull();
+		expect(TaskCreateBody.parse({ title: 'X', notes: false }).notes).toBeNull();
 	});
 });
 
@@ -154,22 +162,28 @@ describe('TaskUpdateBody', () => {
 		expect(TaskUpdateBody.parse({ category: '  Errands ' }).category).toBe('Errands');
 	});
 
-	it('ignores a whitespace-only title instead of rejecting it (Q-054)', () => {
-		expect(TaskUpdateBody.parse({ title: '   ' }).title).toBeUndefined();
+	it('refuses a whitespace-only title with POST`s copy (Q-054)', () => {
+		expect(firstMessage(TaskUpdateBody, { title: '   ' })).toBe(TASK_TITLE_REQUIRED);
 		expect(TaskUpdateBody.parse({ title: '  Renamed  ' }).title).toBe('Renamed');
+		expect(TaskUpdateBody.parse({ title: 7 }).title).toBeUndefined();
 	});
 
-	it('never validates dueDate: a garbage string still reaches the patch (Q-052)', () => {
-		expect(TaskUpdateBody.parse({ dueDate: 'not-a-date' }).dueDate).toBe('not-a-date');
-		expect(TaskUpdateBody.parse({ dueDate: null }).dueDate).toBeNull();
-		expect(TaskUpdateBody.parse({ dueDate: '' }).dueDate).toBeNull();
-	});
-
-	it('writes a parseable completedAt straight through and drops garbage (Q-051)', () => {
-		expect(TaskUpdateBody.parse({ completedAt: '2026-01-01T00:00:00Z' }).completedAt).toBe(
+	it('validates dueDate exactly like POST (Q-052)', () => {
+		expect(firstMessage(TaskUpdateBody, { dueDate: 'not-a-date' })).toBe(TASK_INVALID_DUEDATE);
+		expect(TaskUpdateBody.parse({ dueDate: '2026-01-01T00:00:00Z' }).dueDate).toBe(
 			'2026-01-01T00:00:00Z'
 		);
-		expect(TaskUpdateBody.parse({ completedAt: 'nope' }).completedAt).toBeUndefined();
+		expect(TaskUpdateBody.parse({ dueDate: null }).dueDate).toBeNull();
+		expect(TaskUpdateBody.parse({ dueDate: '' }).dueDate).toBeNull();
+		expect(TaskUpdateBody.parse({}).dueDate).toBeUndefined();
+	});
+
+	it('refuses a raw completedAt whatever its value (Q-051)', () => {
+		expect(firstMessage(TaskUpdateBody, { completedAt: '2026-01-01T00:00:00Z' })).toBe(
+			TASK_COMPLETED_AT_DIRECT
+		);
+		expect(firstMessage(TaskUpdateBody, { completedAt: null })).toBe(TASK_COMPLETED_AT_DIRECT);
+		expect(TaskUpdateBody.parse({}).completedAt).toBeUndefined();
 	});
 
 	it('carries the assignment patch values the route branches on', () => {

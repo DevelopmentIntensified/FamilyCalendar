@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/svelte';
 import DayDashboard from './DayDashboard.svelte';
-import { dashboardVisibility } from '$lib/dashboardModules';
+import { dashboardVisibility } from '$lib/domains/dashboardModules';
 
 afterEach(() => {
 	cleanup();

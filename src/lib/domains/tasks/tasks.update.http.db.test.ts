@@ -588,7 +588,7 @@ describe('PUT /api/tasks/[id] — completion, cursor and undo', () => {
 				title: 'Skip me',
 				notes: null,
 				dueDate: pgTime(localTomorrow),
-				completedAt: null,
+				completedAt: '2026-01-02 00:00:00+00',
 				archivedAt: null,
 				recurrenceFrequency: 'daily',
 				recurrenceInterval: 1,
@@ -619,7 +619,7 @@ describe('PUT /api/tasks/[id] — completion, cursor and undo', () => {
 		expect(refused.body).toEqual({ error: 'Task not found' });
 	});
 
-	it('skips without counting or recording history, and reopens a completed row', async () => {
+	it('skips without counting or recording history, and keeps a completed row`s stamp (Q-058)', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, {
@@ -649,7 +649,7 @@ describe('PUT /api/tasks/[id] — completion, cursor and undo', () => {
 				title: 'Skip me',
 				notes: null,
 				dueDate: pgTime(utcToday().plus({ days: 1 })),
-				completedAt: null,
+				completedAt: '2026-01-02 00:00:00+00',
 				archivedAt: null,
 				recurrenceFrequency: 'daily',
 				recurrenceInterval: 1,
@@ -1691,8 +1691,9 @@ describe('PUT /api/tasks/[id] — recurrence and the accidental wire', () => {
 		});
 	});
 
-	it('writes a raw completedAt directly, bypassing the cursor and history', async () => {
-		// Probably accidental: the spec tells clients not to send completedAt.
+	it('answers 400 completedAt cannot be set directly and leaves the row alone (Q-051)', async () => {
+		// Q-051: the column has ONE writer (toggle/cursor); a raw completedAt is
+		// refused instead of writing past the history row and the cursor.
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, {
@@ -1701,7 +1702,7 @@ describe('PUT /api/tasks/[id] — recurrence and the accidental wire', () => {
 			userId: mia.id
 		});
 
-		const res = await invoke(putTask, {
+		const raw = await invoke(putTask, {
 			ctx: ctx(),
 			user: mia,
 			path: `/api/tasks/${task.id}`,
@@ -1709,38 +1710,27 @@ describe('PUT /api/tasks/[id] — recurrence and the accidental wire', () => {
 			body: { completedAt: '2026-05-05T10:00:00.000Z' }
 		});
 
-		expect(res.status).toBe(200);
-		expect(res.body).toEqual({
-			success: true,
-			task: {
-				id: task.id,
-				title: 'Direct',
-				notes: null,
-				dueDate: null,
-				completedAt: '2026-05-05 10:00:00+00',
-				archivedAt: null,
-				recurrenceFrequency: null,
-				recurrenceInterval: null,
-				completionCount: 0,
-				tags: [],
-				assignedTo: null,
-				assignmentStatus: 'none',
-				priority: 'normal',
-				visibility: 'public',
-				userId: mia.id,
-				familyId: null,
-				eventId: null,
-				focusMinutes: null,
-				focusStartedAt: null,
-				category: null,
-				createdAt: '2026-01-01T00:00:00.000Z'
-			}
+		expect(raw.status).toBe(400);
+		expect(raw.body).toEqual({ error: 'completedAt cannot be set directly' });
+
+		// A null is the same refusal: clearing the stamp has its own path (undo).
+		const cleared = await invoke(putTask, {
+			ctx: ctx(),
+			user: mia,
+			path: `/api/tasks/${task.id}`,
+			method: 'PUT',
+			body: { completedAt: null }
 		});
+		expect(cleared.status).toBe(400);
+		expect(cleared.body).toEqual({ error: 'completedAt cannot be set directly' });
+
 		expect(await db.select().from(taskCompletions)).toEqual([]);
+		const [stored] = await db.select().from(tasks).where(eq(tasks.id, task.id));
+		expect(stored.completedAt).toBeNull();
 	});
 
-	it('silently ignores a whitespace-only title instead of rejecting it', async () => {
-		// Probably accidental: every other invalid input is a 400.
+	it('answers 400 Title is required for a whitespace-only title (Q-054)', async () => {
+		// Q-054: the two verbs now agree about one field; POST's copy, verbatim.
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Keep me', userId: mia.id });
@@ -1753,18 +1743,20 @@ describe('PUT /api/tasks/[id] — recurrence and the accidental wire', () => {
 			body: { title: '   ' }
 		});
 
-		expect(res.status).toBe(200);
-		expect(res.body).toEqual({ success: true, task: expect.objectContaining({ title: 'Keep me' }) });
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'Title is required' });
+		const [stored] = await db.select().from(tasks).where(eq(tasks.id, task.id));
+		expect(stored.title).toBe('Keep me');
 	});
 
-	it('does not validate dueDate: garbage reaches the UPDATE and answers 500', async () => {
-		// Probably accidental: POST /api/tasks answers 400 Invalid dueDate for
-		// the same input. Pinned as today's wire; S3 should reject it.
+	it('validates dueDate like POST and answers 400 Invalid dueDate (Q-052)', async () => {
+		// Q-052: the same input gets the same answer on both verbs; garbage no
+		// longer reaches the UPDATE as a 500.
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const task = await seedTask(db, { title: 'Dated', userId: mia.id });
 
-		const res = await invoke(putTask, {
+		const garbage = await invoke(putTask, {
 			ctx: ctx(),
 			user: mia,
 			path: `/api/tasks/${task.id}`,
@@ -1772,8 +1764,23 @@ describe('PUT /api/tasks/[id] — recurrence and the accidental wire', () => {
 			body: { dueDate: 'not-a-date' }
 		});
 
-		expect(res.status).toBe(500);
-		expect(res.body).toEqual({ error: 'Failed to update task' });
+		expect(garbage.status).toBe(400);
+		expect(garbage.body).toEqual({ error: 'Invalid dueDate' });
+		const [stored] = await db.select().from(tasks).where(eq(tasks.id, task.id));
+		expect(stored.dueDate).toBeNull();
+
+		const valid = await invoke(putTask, {
+			ctx: ctx(),
+			user: mia,
+			path: `/api/tasks/${task.id}`,
+			method: 'PUT',
+			body: { dueDate: '2026-05-05T10:00:00.000Z' }
+		});
+		expect(valid.status).toBe(200);
+		expect(valid.body).toEqual({
+			success: true,
+			task: expect.objectContaining({ dueDate: '2026-05-05 10:00:00+00' })
+		});
 	});
 });
 

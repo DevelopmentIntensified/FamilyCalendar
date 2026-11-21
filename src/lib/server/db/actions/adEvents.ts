@@ -5,10 +5,10 @@ import { count, gte, lt } from 'drizzle-orm';
 /**
  * #088 — retention and reporting for adEvents.
  *
- * The ad-injection path writes one row per injected ad (`injectAdEvent` in the
- * ad service) and nothing in the app reads the table back. Two answers to
- * that: a weekly-cron prune so the write-only table cannot grow unbounded, and
- * one minimal reporting read for analytics.
+ * The ad-injection path (`injectAdEvent`, removed in the sponsored port) wrote
+ * one row per injected ad, and nothing in the app reads the table back. Two
+ * answers to that: a weekly-cron prune so the write-only table cannot grow
+ * unbounded, and one minimal reporting read for analytics.
  */
 
 /**

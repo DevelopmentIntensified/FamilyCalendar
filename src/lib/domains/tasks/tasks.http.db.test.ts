@@ -258,21 +258,27 @@ describe('GET /api/tasks', () => {
 		});
 	});
 
-	it('includes every row of the caller`s family, another member`s private one too (Q-005a)', async () => {
-		// TODAY's wire: the family leg of getTasksForUser ignores visibility, so a
-		// member's PRIVATE family task reaches the other member. Q-005a fixes this
-		// after S6 (`fix(tasks): Q-005a hide private tasks from family reads`) and
-		// changes exactly this golden.
+	it('hides another member`s private family task, and shows it to its owner and its assignee (Q-005a)', async () => {
+		// Q-005a: the read hides a private Task from everyone except its owner
+		// and, while it is assigned, its assignee.
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
 		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
-		const secret = await seedTask(db, {
+		await seedTask(db, {
 			title: 'Sam`s secret',
 			visibility: 'private',
 			familyId: family.id,
+			userId: sam.id
+		});
+		const handedOver = await seedTask(db, {
+			title: 'Sam`s secret, mine to do',
+			visibility: 'private',
+			familyId: family.id,
+			assignedTo: mia.id,
+			assignmentStatus: 'accepted',
 			userId: sam.id
 		});
 		await seedTask(db, {
@@ -281,10 +287,18 @@ describe('GET /api/tasks', () => {
 			userId: sam.id
 		});
 
-		const res = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
+		const asMia = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
+		expect(asMia.body).toEqual({
+			tasks: [expect.objectContaining({ id: handedOver.id, title: 'Sam`s secret, mine to do' })]
+		});
 
-		expect(res.body).toEqual({
-			tasks: [expect.objectContaining({ id: secret.id, title: 'Sam`s secret' })]
+		const asSam = await invoke(getTasks, { ctx: ctx(), user: sam, path: '/api/tasks' });
+		// Both rows share one `createdAt` default, so the golden claims the set.
+		expect(asSam.body).toEqual({
+			tasks: expect.arrayContaining([
+				expect.objectContaining({ id: handedOver.id }),
+				expect.objectContaining({ title: 'Sam`s secret' })
+			])
 		});
 	});
 
@@ -321,7 +335,7 @@ describe('GET /api/tasks', () => {
 		expect(res.body).toEqual({ error: 'No access to this event' });
 	});
 
-	it('lists an accessible event`s tasks, hides another member`s private one (#164)', async () => {
+	it('lists an accessible event`s tasks in the list shape, hides another member`s private one (#164)', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
@@ -362,8 +376,8 @@ describe('GET /api/tasks', () => {
 		});
 
 		expect(res.status).toBe(200);
-		// The event branch returns the raw task row shape (no tags / eventTitle /
-		// assignee names) plus the three derived fields — two shapes on one route.
+		// Q-055: `?eventId=` answers the SAME list shape as the main read —
+		// tags, assignee names and the Event's title/start included.
 		expect(res.body).toEqual({
 			tasks: [
 				{
@@ -387,11 +401,21 @@ describe('GET /api/tasks', () => {
 					focusStartedAt: null,
 					category: null,
 					createdAt: expect.stringMatching(ISO),
+					tags: [],
+					assigneeFirstName: null,
+					assigneeLastName: null,
+					eventTitle: 'Dentist',
+					eventStart: '2026-03-01 09:00:00+00',
 					eventCalendarId: calendar.id,
 					phoneFocusMinutes: 0,
 					phoneFocusStartedAt: null
 				},
-				expect.objectContaining({ id: samsPublic.id, title: 'Sam`s public' })
+				expect.objectContaining({
+					id: samsPublic.id,
+					title: 'Sam`s public',
+					eventTitle: 'Dentist',
+					tags: []
+				})
 			]
 		});
 	});
@@ -892,6 +916,36 @@ describe('POST /api/tasks', () => {
 		expect(await db.select().from(tasks)).toEqual([]);
 	});
 
+	it('answers 400 notes must be a string for a truthy non-string notes (Q-061)', async () => {
+		const db = testDb();
+		const mia = await seedUser(db, { firstName: 'Mia' });
+
+		const res = await invoke(postTask, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/tasks',
+			method: 'POST',
+			body: { title: 'Notes', notes: 42 }
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'notes must be a string' });
+		expect(await db.select().from(tasks)).toEqual([]);
+
+		// A FALSY non-string still reads as "no notes", legacy's `body.notes || null`.
+		const zero = await invoke(postTask, {
+			ctx: ctx(),
+			user: mia,
+			path: '/api/tasks',
+			method: 'POST',
+			body: { title: 'No notes', notes: 0 }
+		});
+		expect(zero.status).toBe(201);
+		expect(zero.body).toEqual({
+			success: true,
+			task: expect.objectContaining({ notes: null })
+		});
+	});
+
 	it('silently nulls an unknown recurrenceFrequency and floors the interval to at least 1', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
@@ -1212,7 +1266,7 @@ describe('GET /api/tasks/sections', () => {
 describe('DELETE /api/tasks/completed', () => {
 	beforeEach(truncateAll);
 
-	it('archives only the caller`s completed rows and keeps every other row', async () => {
+	it('archives the caller`s completed rows and their completed accepted assignments, keeping every other row', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
@@ -1249,22 +1303,18 @@ describe('DELETE /api/tasks/completed', () => {
 		const archived = new Map(rows.map((row) => [row.id, row.archivedAt]));
 		expect(archived.get(completed.id)).not.toBeNull();
 		expect(archived.get(open.id)).toBeNull();
-		// TODAY's wire: the clear only archives rows the caller OWNS, so a
-		// completed accepted assignment stays in the caller's list.
-		expect(archived.get(assigned.id)).toBeNull();
+		// Q-059: the clear also archives the completed assignments the caller
+		// ACCEPTED, so the button clears what the page shows.
+		expect(archived.get(assigned.id)).not.toBeNull();
 
 		const sections = await invoke(getSections, {
 			ctx: ctx(),
 			user: mia,
 			path: '/api/tasks/sections'
 		});
-		// Legacy getMyTasks is the OR of the caller's personal rows and their
-		// accepted assignments, so the untouched open row is still listed.
+		// The archived assignment drops out; the untouched open row stays.
 		expect(sections.body).toEqual({
-			myTasks: [
-				expect.objectContaining({ id: assigned.id }),
-				expect.objectContaining({ id: open.id })
-			],
+			myTasks: [expect.objectContaining({ id: open.id })],
 			pendingAssignments: [],
 			requestedByMe: [],
 			warnings: []

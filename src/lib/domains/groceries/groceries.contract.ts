@@ -32,6 +32,14 @@ export const GROCERY_ITEM_ID_MESSAGE = 'Item ID required';
 /** The one 404 body, for any row outside the requested scope. */
 export const GROCERY_ITEM_NOT_FOUND_MESSAGE = 'Item not found';
 
+/**
+ * A malformed or empty JSON body: the sentence legacy's own `request.json()`
+ * catch answered. It is the body route's, not the schema's — a literal `null`
+ * parses and reaches the schema, which then answers the route's own 400
+ * (Q-111), so the two cases keep two different answers.
+ */
+export const GROCERY_INVALID_JSON_MESSAGE = 'Invalid JSON body';
+
 /** `PATCH /api/groceries/[id]` with an op, or a `stores`/`target` payload, it cannot run. */
 export const GROCERY_OP_MESSAGE = 'op must be check, uncheck, stores, or move';
 
@@ -210,3 +218,35 @@ export const GroceryColoursResponse = z.object({
 	palette: z.array(GroceryColourSwatchResponse)
 });
 export type GroceryColoursResponse = z.infer<typeof GroceryColoursResponse>;
+
+// --- Page model -------------------------------------------------------------
+
+/**
+ * One Grocery Item as the page and its components see it: exactly the fields
+ * the list renders and edits. The loader hands repo rows (`createdAt` is a
+ * `Date`) and `POST /api/groceries` hands a wire row (ISO string), so the
+ * instant is either — the page only uses it to keep the oldest-first order
+ * after a local insert.
+ */
+export type GroceryListItem = {
+	readonly id: string;
+	readonly name: string;
+	readonly quantity: number;
+	readonly stores: readonly string[];
+	readonly familyId: string | null;
+	readonly createdAt: Date | string;
+};
+
+/**
+ * The `/calendar/groceries` page model: both item lists, the colour rows and
+ * the viewer. It is isomorphic (not wire) so the page's state class and its
+ * `ui/` components can type their props without importing a `.server` file.
+ */
+export type GroceriesPageData = {
+	readonly mine: GroceryListItem[];
+	readonly family: GroceryListItem[];
+	readonly hasFamily: boolean;
+	readonly userId: string;
+	readonly familyId: string | null;
+	readonly colours: StoreColourRow[];
+};

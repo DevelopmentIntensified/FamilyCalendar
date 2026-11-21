@@ -22,7 +22,9 @@ import type { IdentityPorts } from '$lib/domains/identity/index.server';
 import { seedFamily, seedFamilyRoster, seedInvite, seedMembership } from './family.fixtures.server';
 import {
 	createFamily,
+	familyIdForActor,
 	getFamily,
+	getViewerRole,
 	listFamilies,
 	updateFamily
 } from './family.families.service.server';
@@ -107,6 +109,22 @@ function countingDb(db: Db): { db: Db; count: () => number } {
 	});
 	return { db: proxy as Db, count: () => calls };
 }
+
+describe('familyIdForActor', () => {
+	rollbackTest('answers the family of the actor’s only membership', async (db) => {
+		const ann = await seedUser(db);
+		await seedFamily('fam-1', {}, db);
+		await seedMembership('fam-1', ann.id, 'member', 'parent', db);
+
+		expect(await familyIdForActor(familyCtx(db), actorFromUser(ann, 'session'))).toBe('fam-1');
+	});
+
+	rollbackTest('answers null when the actor holds no membership', async (db) => {
+		const loner = await seedUser(db);
+
+		expect(await familyIdForActor(familyCtx(db), actorFromUser(loner, 'session'))).toBeNull();
+	});
+});
 
 describe('listFamilies', () => {
 	rollbackTest('orders families oldest first and builds each card from one read', async (db) => {
@@ -310,5 +328,30 @@ describe('updateFamily', () => {
 		});
 		const [row] = await db.select().from(families).where(eq(families.id, 'fam-1'));
 		expect(row.name).toBe('Riveras');
+	});
+});
+
+describe('getViewerRole', () => {
+	rollbackTest('answers the stored role for a plain member', async (db) => {
+		const ann = await seedUser(db);
+		await seedFamily('fam-role', {}, db);
+		await seedMembership('fam-role', ann.id, 'member', 'parent', db);
+
+		expect(await getViewerRole(testCtx({ db }), ann.id, 'fam-role')).toBe('member');
+	});
+
+	rollbackTest('answers the stored role for an admin', async (db) => {
+		const ann = await seedUser(db);
+		await seedFamily('fam-role', {}, db);
+		await seedMembership('fam-role', ann.id, 'admin', 'parent', db);
+
+		expect(await getViewerRole(testCtx({ db }), ann.id, 'fam-role')).toBe('admin');
+	});
+
+	rollbackTest('answers null when the viewer holds no row in that family', async (db) => {
+		const ann = await seedUser(db);
+		await seedFamily('fam-role', {}, db);
+
+		expect(await getViewerRole(testCtx({ db }), ann.id, 'fam-role')).toBeNull();
 	});
 });

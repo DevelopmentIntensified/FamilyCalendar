@@ -103,9 +103,15 @@ export async function listFocusCommands(ctx: Ctx, actor: Actor): Promise<Taskfoc
 }
 
 /**
- * Enqueue one command. A `taskId` names a Task the caller OWNS (the legacy
- * gate, kept for `stop` too per Q-056's open question); a missing or foreign
- * one answers `400 Task not found`, not a 404 — the device channel's contract.
+ * Enqueue one command.
+ *
+ * - `start` names a Task the caller may EDIT — the same door as `PUT
+ *   /api/tasks/[id]` (owner, a live assignee, or a member of the Task's
+ *   family; Q-060 widened this from owner-only so whoever does the work can
+ *   time it). A missing, archived or foreign one answers `400 Task not
+ *   found`, not a 404 — the device channel's contract.
+ * - `stop` carries no identity: whatever id it was sent is ignored and not
+ *   stored (Q-056 — the column's FK wants a real row and stop never reads it).
  */
 export async function issueFocusCommand(
 	ctx: Ctx,
@@ -113,10 +119,9 @@ export async function issueFocusCommand(
 	input: FocusCommandInput
 ): Promise<TaskfocusCommandRow> {
 	let taskId: string | null = null;
-	if (input.taskId !== null) {
-		const task = await findTask(ctx.db, input.taskId);
-		if (!task || task.userId !== actor.id) throw invalid('Task not found');
-		taskId = task.id;
+	if (input.command === 'start' && input.taskId !== null) {
+		taskId = await mutableTask(ctx, actor, input.taskId);
+		if (!taskId) throw invalid('Task not found');
 	}
 	return await insertCommand(ctx.db, {
 		userId: actor.id,

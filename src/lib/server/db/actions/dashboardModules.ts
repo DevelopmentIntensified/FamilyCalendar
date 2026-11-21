@@ -1,7 +1,11 @@
 import { db } from '$lib/server/db';
 import { dashboardModuleSwitches } from '$lib/server/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { DASHBOARD_MODULES, FAMILY_DASHBOARD_MODULES, type ModuleSwitchMap } from '$lib/dashboardModules';
+import {
+	DASHBOARD_MODULES,
+	selectDashboardModules,
+	type ModuleSwitchMap
+} from '$lib/domains/dashboardModules';
 
 /** Current family master switches for the family-scoped modules.
  * Missing row → enabled (the default); rows only exist while switched off.
@@ -18,7 +22,7 @@ export async function getFamilyModuleSwitches(familyId: string): Promise<ModuleS
 		.from(dashboardModuleSwitches)
 		.where(eq(dashboardModuleSwitches.familyId, familyId));
 	const map: ModuleSwitchMap = {};
-	for (const { id } of FAMILY_DASHBOARD_MODULES) map[id] = true;
+	for (const { id } of selectDashboardModules({ scope: 'family' })) map[id] = true;
 	for (const row of rows) map[row.module] = row.enabled;
 	return map;
 }

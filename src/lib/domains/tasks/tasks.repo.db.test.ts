@@ -18,7 +18,7 @@ import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { addMember, seedTask, seedTaskCompletion, seedTaskFamily, seedTaskTags } from './tasks.fixtures.server';
 import {
 	advanceCursorGuarded,
-	archiveOwnedCompletedTasks,
+	archiveViewerCompletedTasks,
 	archiveTaskById,
 	deleteCompletionById,
 	deleteTaskById,
@@ -125,7 +125,7 @@ describe('task rows', () => {
 	});
 
 	rollbackTest(
-		'archiveOwnedCompletedTasks archives only the caller`s completed, unarchived rows',
+		'archiveViewerCompletedTasks archives the caller`s own completed rows and the assignments they accepted',
 		async (db) => {
 			const mia = await seedUser(db);
 			const sam = await seedUser(db);
@@ -141,16 +141,32 @@ describe('task rows', () => {
 				archivedAt: '2026-01-02T00:00:00Z',
 				userId: mia.id
 			});
+			const accepted = await seedTask(db, {
+				title: 'Theirs, mine to do',
+				completedAt: '2026-01-01T00:00:00Z',
+				assignedTo: mia.id,
+				assignmentStatus: 'accepted',
+				userId: sam.id
+			});
+			const pending = await seedTask(db, {
+				title: 'Theirs, not answered',
+				completedAt: '2026-01-01T00:00:00Z',
+				assignedTo: mia.id,
+				assignmentStatus: 'pending',
+				userId: sam.id
+			});
 			const theirs = await seedTask(db, {
 				title: 'Their done',
 				completedAt: '2026-01-01T00:00:00Z',
 				userId: sam.id
 			});
 
-			expect(await archiveOwnedCompletedTasks(db, mia.id, '2026-03-01T00:00:00.000Z')).toBe(1);
+			expect(await archiveViewerCompletedTasks(db, mia.id, '2026-03-01T00:00:00.000Z')).toBe(2);
 			expect((await findTask(db, completed.id))?.archivedAt).toBe('2026-03-01 00:00:00+00');
+			expect((await findTask(db, accepted.id))?.archivedAt).toBe('2026-03-01 00:00:00+00');
 			expect((await findTask(db, open.id))?.archivedAt).toBeNull();
 			expect((await findTask(db, already.id))?.archivedAt).toBe('2026-01-02 00:00:00+00');
+			expect((await findTask(db, pending.id))?.archivedAt).toBeNull();
 			expect((await findTask(db, theirs.id))?.archivedAt).toBeNull();
 		}
 	);
@@ -197,6 +213,8 @@ describe('list reads', () => {
 			});
 
 			const rows = await listTasksForUser(db, { userId: mia.id, familyId: family.id });
+			// The repo's scope is owner + family (visibility is the service's
+			// `canReadTask` rule, pinned in `tasks.items.service.db.test.ts`).
 			expect(rows.map((row) => row.title)).toEqual(['Sam`s private', 'Mine']);
 			expect(rows.map((row) => row.id)).toEqual([samsPrivate.id, mine.id]);
 			expect(rows[1]).toMatchObject({
@@ -207,7 +225,7 @@ describe('list reads', () => {
 		}
 	);
 
-	rollbackTest('listTasksForEvent reads the raw rows oldest first, archived dropped', async (db) => {
+	rollbackTest('listTasksForEvent reads the joined list rows oldest first, archived dropped', async (db) => {
 		const mia = await seedUser(db);
 		const event = await seedEvent(db, { ownerId: mia.id, title: 'Trip', start: '2026-03-01T09:00:00Z' });
 		const older = await seedTask(db, {
@@ -232,8 +250,8 @@ describe('list reads', () => {
 
 		const rows = await listTasksForEvent(db, event.id);
 		expect(rows.map((row) => row.id)).toEqual([older.id, newer.id]);
-		// The raw row shape: no joined Event columns on this read.
-		expect(rows[0]).not.toHaveProperty('eventTitle');
+		// Q-055: the same Event-joined projection as the main list.
+		expect(rows[0]).toMatchObject({ eventTitle: 'Trip', eventStart: '2026-03-01 09:00:00+00' });
 	});
 
 	rollbackTest(
@@ -469,7 +487,7 @@ describe('cursor writes', () => {
 		expect(advanced?.dueDate).toBe('2026-01-20 00:00:00+00');
 	});
 
-	rollbackTest('skipCursor moves the due and reopens a completed row', async (db) => {
+	rollbackTest('skipCursor moves the due and keeps a completed row`s stamp', async (db) => {
 		const mia = await seedUser(db);
 		const row = await seedTask(db, {
 			title: 'Daily',
@@ -480,7 +498,7 @@ describe('cursor writes', () => {
 		});
 		const skipped = await skipCursor(db, { taskId: row.id, dueDate: '2026-01-21T00:00:00.000Z' });
 		expect(skipped?.dueDate).toBe('2026-01-21 00:00:00+00');
-		expect(skipped?.completedAt).toBeNull();
+		expect(skipped?.completedAt).toBe('2026-01-01 10:00:00+00');
 	});
 
 	rollbackTest('rewindCursorGuarded decrements and refuses at zero', async (db) => {
