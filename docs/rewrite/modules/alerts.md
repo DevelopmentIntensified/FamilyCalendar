@@ -16,10 +16,10 @@ The Alert feed (closed type set, needs-you vs news), notification preferences, w
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures)
 - [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; one file kept (see Notes)
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S6 http + route wiring (goldens unchanged since S2)
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — `ui/` bell, feed, row, toolbar, push toggle and the state classes; visual/perf checks are the orchestrator's
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; the one file it kept then was deleted in the final sweep (see Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -169,6 +169,8 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 ### S8 sweep (2026-11-21)
 
 Deleted: `server/db/actions/notificationMethods.ts` + `components/account/accountNotifications.ts` (preferences read through this module), `server/db/actions/notifications.ts` + `server/services/pushService.ts` (superseded by `ctx.push`/`pushTransport`) and `server/services/web-push.d.ts` (moved to `app/app.web-push.d.ts`). Kept: `server/services/devicePushService.ts` — the legacy `eventsChangedNudge` (event detail page, `icsImportFlow`) still fans out through it.
+
+Final sweep (2026-11-21): `eventsChangedNudge` and `icsImportFlow` went with the calendar pages, so `server/services/devicePushService.ts` was deleted with no importer left — the FCM fan-out is this module's `alerts.push.service.server.ts` over the kernel push transport, with the message builders in `alerts.push.rules.ts`; the legacy file's cases live in `alerts.push.service.db.test.ts` (`sendAlertPush`, `nudgeEventsChanged`) and `alerts.push.rules.test.ts` (census: 0 legacy files).
 
 **Verified against the code (S1).** The draft's API table holds. Corrections and additions:
 

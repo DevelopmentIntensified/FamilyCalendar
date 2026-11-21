@@ -11,15 +11,15 @@ Public site: home, features, pricing display, roadmap/changelog, contact, SEO ta
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures) — empty by design: no v2 code reads a marketing table (Notes)
 - [x] S5 service
 - [x] S6 http + route wiring (goldens unchanged since S2)
 - [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — including `/pricing` and `/checkout` (wave decision 2026-11-21)
-- [x] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S8 rewire importers, delete legacy code and legacy tests — final sweep 2026-11-21: the legacy `Navbar`/`Toaster`/`navItems`/`focusTrap`/`reportBug`/`brand/Mark` chain that the `(marketing)` layout used left with the marketing header port (Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final; `census --write` and `gate:push` are the orchestrator's (census now reports 0 legacy files for marketing)
 
 ## Must survive
 
@@ -122,6 +122,7 @@ Where each legacy export goes:
 
 ## Notes
 
+- **2026-11-21 final sweep: the header is marketing's.** The `(marketing)` layout used to hand in the legacy `$lib/components/Navbar.svelte` + `Toaster.svelte` as snippets. Both are gone: `ui/MarketingHeader.svelte` (+ `MarketingMobileMenu.svelte`, `MarketingProfileMenu.svelte`) is the legacy navbar ported into this module (Svelte 5 runes, kernel `BrandMark`/`trapFocus`, feedback's `reportBugHref`, identity's `isRegisteredAccount`, alerts' bell as a snippet), and a page that shows a toast renders its own kernel `Toaster` (access' sign-up already does), so the layout hands none in. The header takes `pathname`/`search`/`isLoggedIn`/`user`/`appNavItems` as props — no `$app/*` import, so it renders in a test — and the layout passes shell's `shellNavItems` (minus the bell row) because marketing may not import a screen (R1) and issue 065 forbids a second copy of the destination list. The legacy chrome components and their tests were deleted with the port; `MARKETING_NAV` gained its `marketingActiveHref` longest-prefix rule and `marketing.contract.ts` the `MarketingViewer` type.
 - **2026-11-12 (owner, Q-070): the waitlist leaves the website.** The `/waitlist` page, its `?/join` action and the pricing page's waitlist links go; the `waitlist` table stays (no DDL). Android's "Join Waitlist" link opens `/pricing` and is relabelled app-side later. Q-071 (the success card's copy) was moot once the page went.
 - **`/api/contact` is the module's one `/api` route, and it is a form-action file** (`+page.server.ts`), not `+server.ts`. The golden stays on it: same POST path, form-encoded body, JSON answers. S6 wires it as `export const actions = { default: contactEndpoint.handler }` so the test's import never changes.
 - **S2 goldens are wire-only.** The legacy action sends through Resend and has no injection seam, so the test sets a dummy `RESEND_API_KEY` before a dynamic import and stubs `fetch` at the provider boundary. It asserts status/body/messages; the sent mail's recipient, subject and escaping are pinned by the S5 service test. The provider-failure 500 is therefore **not** a golden — it needs a failing mailer, which exists only once the mail port does; `marketing.service.db.test.ts` pins it as the fault-not-refusal rule, and `contactEndpoint` turns that fault into the legacy 500 body through `failMessage` while the kernel files it (what `apiError` did). The 3-per-15-min budget and the absent/empty/whitespace differences are goldens.

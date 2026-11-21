@@ -13,6 +13,7 @@ import {
 	MARKETING_NAV,
 	ROADMAP_SECTIONS,
 	changelogNewestFirst,
+	marketingActiveHref,
 	type ChangelogEntry
 } from './marketing.content.rules';
 
@@ -24,6 +25,29 @@ describe('MARKETING_NAV', () => {
 			{ href: '/about', label: 'About' },
 			{ href: '/contact', label: 'Contact' }
 		]);
+	});
+});
+
+describe('marketingActiveHref', () => {
+	it.each<[string, string | null]>([
+		['/pricing', '/pricing'],
+		['/pricing/compare', '/pricing'],
+		['/features/', '/features'],
+		['/pricingfoo', null],
+		['/', null],
+		['', null]
+	])('%s → %s', (pathname, expected) => {
+		expect(marketingActiveHref(pathname, MARKETING_NAV)).toBe(expected);
+	});
+
+	it('longest prefix wins, and an href’s query half is ignored', () => {
+		const items = [
+			{ href: '/calendar?dashboardView=1', label: 'Calendar' },
+			{ href: '/calendar/tasks', label: 'Tasks' }
+		];
+		expect(marketingActiveHref('/calendar', items)).toBe('/calendar?dashboardView=1');
+		expect(marketingActiveHref('/calendar/tasks/1', items)).toBe('/calendar/tasks');
+		expect(marketingActiveHref('/calendar/archive', items)).toBe('/calendar?dashboardView=1');
 	});
 });
 

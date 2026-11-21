@@ -16,10 +16,10 @@ Families, Family Members (role vs Member Type), invite codes and email/link invi
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures)
 - [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; `families.ts` kept (see Notes)
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S6 http + route wiring (goldens unchanged since S2)
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — `ui/` screens/cards; visual/perf checks are the orchestrator's
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; the `families.ts` it kept then was deleted in the final sweep (see Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -173,6 +173,8 @@ Where each legacy export goes:
 ### S8 sweep (2026-11-21)
 
 Deleted: `server/services/userScope.ts`, `utils/familyDisplay.ts` (+ test), `utils/familyPalette.ts` (+ test). Kept: `server/db/actions/families.ts` (+ its legacy test) — the unported calendar services (`archiveData`, `icsImportFlow`, `printData`, `statsData`) import it. The `/family/invite/email` page's accept now runs through this module's `joinFamily`/`previewInvite` from access' page handlers.
+
+Final sweep (2026-11-21): those calendar services are gone, so `server/db/actions/families.ts` (+ `families.test.ts`) had no importer left and was deleted — `searchUsers`, `acceptInvite`, `removeFamilyMember`, `generateInviteCode` and `DEFAULT_INVITE_MAX_USES` are this module's services/repo (census: 0 legacy files).
 
 ### Perf pass (ADR 0010, 2026-11-21): zod and luxon out of the family pages
 

@@ -19,7 +19,7 @@ Calendars, Events, Recurring Event expansion, Exception Overrides, family mirror
 - [x] S6 http + route wiring (goldens unchanged since S2)
 - [x] S7 UI rebuild (rules, api, state, components, screen) + visual check
 - [x] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -337,6 +337,8 @@ Two more gaps are pinned as today's behaviour, not as intent (no owner ticket ye
 Deleted with the pages (legacy tests included): the whole legacy `src/lib/components/calendar/**` cluster (26 components/models + `MODALS_SPEC.md`, `BottomSheetHandle.svelte`, `bottomSheetSwipe.ts` — all folded into kernel `Sheet`/`sheetSwipe` or rebuilt as `ui/*`), `src/lib/components/LocationSearch.svelte`, `src/lib/data/smartEventTemplates.ts` (its table lives in tasks' `tasks.smart.rules.ts`), the legacy model/server chain `server/services/{calendarData,eventDisplayService,printData,icsImportFlow,icsImportPreview,icsImportService,eventsChangedNudge}.ts`, `server/db/actions/{events,calendarScope}.ts`, `server/utils/eventIds.ts`, `utils/{ics,attendance,chipVocabulary,eventChip,eventDisplay,eventDuplicate,eventRoster,calendarMatch,dayOverlap,shareTarget}.ts`, `lib/types.ts`, and the import page's two legacy route tests.
 
 **Kept for code outside this sweep** (census names them; each still has a live importer): `src/lib/server/services/archiveData.ts` and `src/lib/components/archive/archiveMonths.ts` (the unported `/calendar/archive` page and `GET /api/archive`); `src/lib/server/db/actions/calendar.ts` (access' legacy `guestMergeService.ts` still imports `ensurePersonalCalendar`); `src/lib/server/services/recurrenceService.ts` and `src/lib/server/utils/eventTimes.ts` (tasks' legacy `db/actions/tasks/cursor.ts` imports `scheduleStep`/`toDateTime`; both die with that file in tasks' sweep). No behaviour is lost: every export they serve has a v2 home already.
+
+**Final sweep (2026-11-21).** Those importers are gone, so the three kept files went too: `server/db/actions/calendar.ts` (+ `calendar.test.ts`), `server/services/recurrenceService.ts` (+ `recurrenceService.test.ts`) and `server/utils/eventTimes.ts`, all with no importer left (verified with `git grep`). Their rules live in this module's `calendar.recurrence.rules.ts`/`calendar.occurrence.rules.ts`/`calendar.time.rules.ts` and the repo/services, pinned by the module's own tests and goldens; census reports 0 legacy files for calendar.
 
 **S9 — left to the orchestrator:** the README is final (Files table, Invariants, this section) and both allowed checks print OK; `npm run census -- --write`, `npm run gate:push`, the visual/perf checks and the ledger row need npm, which this agent may not run.
 

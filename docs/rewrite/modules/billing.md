@@ -231,6 +231,8 @@ Their legacy tests stay with them: `subscriptionService.test.ts` and `discountSe
 
 Deleted: `server/seed.ts`, `server/services/analyticsService.ts`, `server/services/checkoutService.ts`, `server/services/discountService.ts` (+ its legacy test). Kept: `server/services/subscriptionService.ts` (+ its legacy test) — legacy `db/actions/families.ts` and `services/archiveData.ts` still read through it.
 
+Final sweep (2026-11-21): both of those importers are gone, so `server/services/subscriptionService.ts` (+ `subscriptionService.test.ts`) was deleted with no importer left — the plan/member rules are this module's `billing.limits.rules.ts`/`billing.pricing.rules.ts` and its services, pinned by the goldens (census: 0 legacy files).
+
 ### S1 — verification and decisions
 
 - Every legacy line in the sheet's draft inventory was checked against the cited file. Two corrections: `subscriptions.endDate` is `NOT NULL` (`src/lib/server/db/schema.ts:163`), so the legacy `isNull(endDate)` branch can never match and is not carried over as a rule; and the family-discount threshold reads ≥ 4 **membership rows**, not "5+ members in one family" as its own copy claims.

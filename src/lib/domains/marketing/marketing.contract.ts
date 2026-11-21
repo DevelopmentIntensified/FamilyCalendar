@@ -77,3 +77,18 @@ export type ContactSentResponse = z.infer<typeof ContactSentResponse>;
 /** Every refusal and the fault: `400`/`429`/`500 {error}`. */
 export const ContactErrorResponse = z.object({ error: z.string() });
 export type ContactErrorResponse = z.infer<typeof ContactErrorResponse>;
+
+// --- Header -----------------------------------------------------------------
+
+/**
+ * The viewer the layout hands the marketing header: identity's session user,
+ * narrowed to the fields the chrome renders. The layout load passes
+ * `event.locals.user` straight through, so this stays structural on purpose —
+ * marketing never imports identity's server session types.
+ */
+export type MarketingViewer = {
+	firstName?: string | null;
+	lastName?: string | null;
+	email?: string | null;
+	roles?: string[];
+};

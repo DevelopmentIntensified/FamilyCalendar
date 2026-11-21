@@ -16,10 +16,10 @@ Sponsored Events: serve gate (showAdsAsEvents), month generation, impressions/cl
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures)
 - [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; `adService.ts` kept (see Notes)
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S6 http + route wiring (goldens unchanged since S2)
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — **S7: none**; the module owns no page or component (`ui/index.ts` exports nothing): its serve/display rules feed calendarPage's grid and the account consent rows
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; the `adService.ts` it kept then was deleted in the final sweep (see Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -165,6 +165,8 @@ The module owns no page and one JSON route; its cost lands on `calendarPage` and
 ### S8 sweep (2026-11-21)
 
 Deleted: `server/db/actions/adEvents.ts` (+ `adEvents.prune.test.ts`) and `server/services/adConsentService.ts` (+ its test). Kept: `server/services/adService.ts` (+ its legacy test) — `services/calendarData.ts`, which the unported calendar page loads, still calls it.
+
+Final sweep (2026-11-21): `calendarData` went with the calendar pages, so `server/services/adService.ts` (+ `adService.test.ts`) was deleted with no importer left — serving, the consent gate and the monthly generation are this module's `sponsored.serve.rules.ts`/`sponsored.consent.rules.ts`/`sponsored.display.rules.ts`/`sponsored.month.rules.ts`, pinned by the goldens (census: 0 legacy files).
 
 ### Decisions
 

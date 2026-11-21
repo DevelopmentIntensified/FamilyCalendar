@@ -16,10 +16,10 @@ Natural-language grammars: event quick-add, task quick-add (shared parse vectors
 - [ ] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; `dateResolution`/`dateVocab` kept (see Notes)
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S6 http + route wiring (goldens unchanged since S2)
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — **S7: none**; the module owns no page or component (`ui/index.ts` exports nothing): its parse rules feed tasks' quick-add and calendar's event form
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; the two date files it kept then were deleted in the final sweep (see Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -228,6 +228,8 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
 ## Notes
 
 - **S8 sweep (2026-11-21).** Deleted `server/utils/dateParsing.ts` (no importer left). Kept `utils/dateResolution.ts` (+ test) and `utils/dateVocab.ts` (+ test): the legacy `utils/taskQuickAdd.ts` (`client/taskSubmit.ts`, `MentionInput.svelte`) parses with them; they go with tasks' UI port.
+
+Final sweep (2026-11-21): tasks' UI port landed, so `utils/dateResolution.ts` (+ `dateResolution.test.ts`) and `utils/dateVocab.ts` (+ `dateVocab.test.ts`) had no importer left and were deleted. Their vocabulary and resolution rules live in this module's `parsing.dates.rules.ts` and `parsing.event-dates.rules.ts`, pinned by their tests and the goldens (census: 0 legacy files).
 
 - 2026-11-11 (owner, [Q-002](../questions.md)): M-bills deletes the bill grammar (`parseBillQuickAdd`, bill cues, merchant keywords) before this port. Ignore the bill rows in the inventory above.
 - Architecture review 2026-11-10 ([report](../../archive/review/architecture-review-2026-11-10.html)), candidates for this module's design:

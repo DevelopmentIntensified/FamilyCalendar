@@ -1,15 +1,26 @@
+<!--
+	The header's avatar dropdown: the account rows every signed-in surface shows
+	(Settings, Family Management, Task Stats, Archive, Report a Bug) plus the
+	admin pair and the logout form.
+
+	A registered account gets the name/email header; a guest's placeholder email
+	never shows (identity's `isRegisteredAccount`, the legacy #242 rule). The bug
+	link is `feedback`'s `reportBugHref` rule, so the form records the page the
+	bug was on, never `/report-bug` itself (#257).
+
+	Moved from the legacy `src/lib/components/NavbarProfileMenu.svelte` with the
+	same markup, roles and copy.
+
+	Doc: ../README.md#invariants
+-->
 <script lang="ts">
 	import { slide } from 'svelte/transition';
-	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import { isRegisteredAccount } from '$lib/domains/identity';
+	import { trapFocus } from '$lib/kernel/ui/trapFocus';
+	import type { MarketingViewer } from '../marketing.contract';
 
 	interface Props {
-		user: {
-			firstName?: string | null;
-			lastName?: string | null;
-			email?: string | null;
-			roles?: string[];
-		} | null;
+		user: MarketingViewer | null;
 		onNavigate: () => void;
 		onLogoutSubmit: () => void;
 		/** Issue 257: bug-form link carrying the current page as `?from=`. */
@@ -20,7 +31,7 @@
 </script>
 
 <div
-	use:trapFocusAction
+	use:trapFocus
 	transition:slide={{ duration: 150 }}
 	class="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
 >
@@ -28,10 +39,10 @@
 	{#if isRegisteredAccount(user)}
 		<div class="border-b border-slate-100 px-4 pb-2">
 			<p class="truncate text-sm font-medium text-slate-900">
-				{user.firstName}
-				{user.lastName}
+				{user?.firstName}
+				{user?.lastName}
 			</p>
-			<p class="truncate text-xs text-slate-500">{user.email}</p>
+			<p class="truncate text-xs text-slate-500">{user?.email}</p>
 		</div>
 	{/if}
 	{#if user?.roles?.includes?.('admin')}

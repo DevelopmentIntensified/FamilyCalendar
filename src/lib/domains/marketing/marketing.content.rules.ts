@@ -25,6 +25,26 @@ export const MARKETING_NAV: readonly MarketingNavLink[] = [
 	{ href: '/contact', label: 'Contact' }
 ];
 
+/**
+ * The header's active link: longest prefix wins, so `/pricing/compare` still
+ * highlights Pricing; a prefix only counts at a segment boundary (`/pricingfoo`
+ * matches nothing), and the query half of an href is ignored for the comparison
+ * (#056). The full href is returned, so the caller compares hrefs.
+ */
+export function marketingActiveHref(
+	pathname: string,
+	items: readonly MarketingNavLink[]
+): string | null {
+	const matches = items.filter((item) => {
+		const href = item.href.split('?')[0];
+		return pathname === href || pathname.startsWith(`${href}/`);
+	});
+	if (matches.length === 0) return null;
+	return matches.reduce((winner, item) =>
+		item.href.split('?')[0].length > winner.href.split('?')[0].length ? item : winner
+	).href;
+}
+
 // --- Changelog --------------------------------------------------------------
 
 export type ChangelogEntry = {

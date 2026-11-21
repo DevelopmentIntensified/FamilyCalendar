@@ -1,19 +1,33 @@
+<!--
+	The phone menu under the header's hamburger: the bell row, the destination
+	list with its active highlight, the account rows, the admin pair, then Logout
+	or the guest's Sign In / Get Started pair.
+
+	Focus is trapped while it is open (the shell's mobile menu gained the same
+	trap at its own port; the legacy component imported the action but never
+	used it). Moved from `src/lib/components/NavbarMobileMenu.svelte` with the
+	same markup, roles and copy.
+
+	Doc: ../README.md#invariants
+-->
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import { AlertsBell } from '$lib/domains/alerts/ui';
-	import { trapFocusAction } from '$lib/utils/focusTrap';
-	import type { NavItem } from '$lib/utils/navItems';
+	import { trapFocus } from '$lib/kernel/ui/trapFocus';
+	import type { MarketingNavLink } from '../marketing.content.rules';
+	import type { MarketingViewer } from '../marketing.contract';
 
 	interface Props {
 		isLoggedIn: boolean;
-		user: { roles?: string[] } | null;
-		navItems: NavItem[];
+		user: MarketingViewer | null;
+		navItems: readonly MarketingNavLink[];
 		activeHref: string | null;
 		onNavigate: () => void;
 		onLogoutSubmit: () => void;
 		/** Issue 257: bug-form link carrying the current page as `?from=`. */
 		reportBugHref?: string;
+		/** Alerts' bell; absent when no one is signed in. */
+		bell?: Snippet;
 	}
 
 	let {
@@ -23,15 +37,20 @@
 		activeHref,
 		onNavigate,
 		onLogoutSubmit,
-		reportBugHref = '/report-bug'
+		reportBugHref = '/report-bug',
+		bell
 	}: Props = $props();
 </script>
 
-<div transition:slide={{ duration: 200 }} class="border-t border-slate-200 bg-white md:hidden">
+<div
+	use:trapFocus
+	transition:slide={{ duration: 200 }}
+	class="border-t border-slate-200 bg-white md:hidden"
+>
 	<div class="space-y-1 px-3 py-3">
-		{#if isLoggedIn}
+		{#if isLoggedIn && bell}
 			<div class="flex items-center justify-end border-b border-slate-200 pb-2">
-				<AlertsBell navigate={goto} />
+				{@render bell()}
 			</div>
 		{/if}
 		{#each navItems as item}

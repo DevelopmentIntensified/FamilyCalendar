@@ -4,10 +4,11 @@
 	<title>, which stays with each page so a document keeps exactly one), the
 	skip link, the 150 ms local fade the legacy layout applied, and the footer.
 
-	The navbar and the toaster are the SHELL module's chrome (`Navbar.svelte`,
-	`Toaster.svelte`), not ported yet, so the layout hands them in as snippets —
-	the sanctioned seam (rule R1). When shell lands, the layout passes its
-	components here and nothing in this file changes.
+	The header is marketing's own component (`MarketingHeader.svelte`, the
+	legacy navbar): the layout hands it in as a snippet, the sanctioned seam
+	(rule R1) — this file never imports it. A page that shows a toast renders
+	its own kernel `Toaster` (access' sign-up does), so the layout hands no
+	toaster in.
 
 	The `--mp-*` tokens and the `.mp-*` vocabulary live in `MarketingTheme.svelte`
 	(the legacy `src/lib/marketing/theme.css`), imported once, here.

@@ -34,10 +34,11 @@
  *   that writes the child's `users` row, `email` account, settings and personal
  *   calendar. Identity's S5 has no such use-case and `calendars` belongs to
  *   calendar, so both owning modules must export one before this bridge goes.
- * - `inviteLink.mintInviteLink` → `oslo/jwt` with `EMAILSECRET` plus the legacy
- *   `getUrl()`: the legacy invite page still validates the token with that
- *   secret, and only `app` may read the environment (R6). A kernel token port
- *   would be the real home; it does not exist yet.
+ * - `inviteLink.mintInviteLink` → `oslo/jwt` with `EMAILSECRET` plus the config's
+ *   `siteUrl` (APP-02-era app rule, the legacy `getUrl()`): the legacy invite
+ *   page still validates the token with that secret, and only `app` may read
+ *   the environment (R6). A kernel token port would be the real home; it does
+ *   not exist yet.
  *
  * dashboardModules' Q-030 adapter is an exception in rank terms: it is not a
  * bridge, because `family` declares that port for a HIGHER-ranked module
@@ -65,7 +66,6 @@ import { sponsoredAdConsentPort } from '$lib/domains/sponsored/index.server';
 import { unassignMemberTasks } from '$lib/domains/tasks/index.server';
 import { createEmailPerson } from '$lib/domains/identity/index.server';
 import { ensurePersonalCalendar } from '$lib/domains/calendar/index.server';
-import { getUrl } from '$lib/utils/getUrl';
 
 /** Cross-module adapters. Grows one owning module at a time. */
 export type AppPorts = IdentityPorts & FamilyPorts;
@@ -104,23 +104,25 @@ const childAccount: FamilyChildAccountPort = {
 };
 
 /** TRANSITION BRIDGE — a kernel token port (or access' mail tokens) replaces this. */
-const legacyInviteLink: FamilyInviteLinkPort = {
-	mintInviteLink: async ({ email, firstName, lastName, familyId, inviteCode }) => {
-		const token = await createJWT(
-			'HS256',
-			INVITE_TOKEN_SECRET,
-			{ email, firstName, lastName, familyId, inviteCode },
-			{
-				headers: {
-					alg: 'HS256',
-					typ: 'JWT'
-				},
-				expiresIn: INVITE_TOKEN_LIFETIME
-			}
-		);
-		return `${getUrl()}/family/invite/email?token=${token}`;
-	}
-};
+function inviteLinkPort(siteUrl: string): FamilyInviteLinkPort {
+	return {
+		mintInviteLink: async ({ email, firstName, lastName, familyId, inviteCode }) => {
+			const token = await createJWT(
+				'HS256',
+				INVITE_TOKEN_SECRET,
+				{ email, firstName, lastName, familyId, inviteCode },
+				{
+					headers: {
+						alg: 'HS256',
+						typ: 'JWT'
+					},
+					expiresIn: INVITE_TOKEN_LIFETIME
+				}
+			);
+			return `${siteUrl}/family/invite/email?token=${token}`;
+		}
+	};
+}
 
 /** Returns `ctx` with every cross-module adapter attached. */
 export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
@@ -132,6 +134,6 @@ export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
 		tasks: { unassignMemberTasks },
 		moduleSwitches: dashboardModuleSwitches,
 		childAccount,
-		inviteLink: legacyInviteLink
+		inviteLink: inviteLinkPort(ctx.config.siteUrl)
 	};
 }

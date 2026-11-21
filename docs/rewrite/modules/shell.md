@@ -18,8 +18,8 @@ App chrome: root + group layouts, nav bars, alert bell slot, offline banner, err
 - [x] S5 service — `shell.service.server.ts`, pinned by `shell.service.db.test.ts`
 - [x] S6 http + route wiring — no golden exists (no `/api` route); pinned by `shell.http.db.test.ts`
 - [x] S7 UI rebuild — nine components, four state classes, `shell.api.ts`, `shell.wiring.http.test.ts`; visual/perf checks are the orchestrator's
-- [x] S8 rewire importers, delete legacy code and legacy tests — partial: files with remaining importers stay (see Notes)
-- [ ] S9 README final, census --write, gate:push, ledger done — README done; `census --write` and `gate:push` are the orchestrator's
+- [x] S8 rewire importers, delete legacy code and legacy tests — done: the legacy chrome that survived the first pass was deleted in the final sweep (see Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -214,6 +214,8 @@ sha. Its db tests in S5/S6 pin the layout loads, not a wire.
 | `NotificationBell.svelte`, `pushClient.ts`, `notificationTypes.ts` | alerts. |
 
 ## Notes
+
+**Final sweep (2026-11-21).** The legacy chrome is gone: `components/Navbar.svelte`, `NavbarMobileMenu.svelte`, `NavbarProfileMenu.svelte`, `Toaster.svelte`, `Breadcrumbs.svelte`, `brand/Mark.svelte`, `utils/navItems.ts`, `utils/focusTrap.ts`, `utils/reportBug.ts` and the six legacy component tests (`Navbar`, both menus, `Mark`, `navItems`, `propsDestructure`). Shell's own chrome was already `ShellRoot`/`ShellNavbar`/`ShellMobileMenu`/`ShellProfileMenu`/`ShellTabBar`; the last importer was the `(marketing)` group layout, which now renders marketing's own `MarketingHeader` (+ its two menus) built on `kernel/ui/{BrandMark,Toaster,trapFocus}`, feedback's `reportBugHref` and this module's `shellNavItems` (the layout, a route file, reads the one signed-in destination list so marketing does not fork it — issue 065). Shell's S8 was partial only because those files sat in legacy folders, not because shell needed them.
 
 ### Decisions
 

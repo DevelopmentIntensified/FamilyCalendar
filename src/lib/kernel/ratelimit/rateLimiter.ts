@@ -2,11 +2,9 @@
  * Rate limiter port + in-memory sliding-window adapter (same algorithm as the
  * legacy `rateLimit()`), driven by an injected clock so tests can move time.
  *
- * Production wiring (src/lib/app/appCtx.server.ts) keeps using the legacy
- * module-level buckets until every limiter caller is ported, because web and
- * mobile sign-in deliberately SHARE buckets (issue 288). Switch the app to
- * `createMemoryRateLimiter(systemClock)` in the same commit that deletes the
- * last legacy `rateLimit(` call.
+ * Production wiring is `src/lib/app/appCtx.server.ts`:
+ * `createMemoryRateLimiter(systemClock)` (APP-02), so web and mobile sign-in
+ * keep sharing buckets (issue 288).
  *
  * Doc: src/lib/kernel/README.md#rate-limits
  */
