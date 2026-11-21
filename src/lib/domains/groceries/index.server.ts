@@ -18,11 +18,12 @@ export {
 	setGroceryStoreColour,
 	suggestGroceryStore,
 	updateGroceryItem,
-	type GroceriesPageData,
 	type GroceryAddInput,
 	type GroceryColourInput,
 	type GroceryUpdateInput
 } from './groceries.service.server';
+
+export type { GroceriesPageData } from './groceries.contract';
 
 export {
 	createGroceryItemEndpoint,

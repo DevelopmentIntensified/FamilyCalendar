@@ -218,3 +218,35 @@ export const GroceryColoursResponse = z.object({
 	palette: z.array(GroceryColourSwatchResponse)
 });
 export type GroceryColoursResponse = z.infer<typeof GroceryColoursResponse>;
+
+// --- Page model -------------------------------------------------------------
+
+/**
+ * One Grocery Item as the page and its components see it: exactly the fields
+ * the list renders and edits. The loader hands repo rows (`createdAt` is a
+ * `Date`) and `POST /api/groceries` hands a wire row (ISO string), so the
+ * instant is either — the page only uses it to keep the oldest-first order
+ * after a local insert.
+ */
+export type GroceryListItem = {
+	readonly id: string;
+	readonly name: string;
+	readonly quantity: number;
+	readonly stores: readonly string[];
+	readonly familyId: string | null;
+	readonly createdAt: Date | string;
+};
+
+/**
+ * The `/calendar/groceries` page model: both item lists, the colour rows and
+ * the viewer. It is isomorphic (not wire) so the page's state class and its
+ * `ui/` components can type their props without importing a `.server` file.
+ */
+export type GroceriesPageData = {
+	readonly mine: GroceryListItem[];
+	readonly family: GroceryListItem[];
+	readonly hasFamily: boolean;
+	readonly userId: string;
+	readonly familyId: string | null;
+	readonly colours: StoreColourRow[];
+};

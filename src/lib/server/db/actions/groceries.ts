@@ -6,11 +6,11 @@ import {
 	type GroceryItem
 } from '$lib/server/db/schema';
 import {
-	mostFrequentStore,
+	mostFrequentGroceryStore,
 	normalizeGroceryName,
 	isStoreColourKey,
 	NO_STORE_LABEL
-} from '$lib/data/groceries';
+} from '$lib/domains/groceries';
 import { and, asc, eq, isNull, or, sql } from 'drizzle-orm';
 
 export type GroceryScope = { userId: string; familyId: string | null };
@@ -46,7 +46,7 @@ export async function suggestGroceryStore(
 ): Promise<string | null> {
 	const nameKey = normalizeGroceryName(name);
 	if (!nameKey) return null;
-	return mostFrequentStore(await memoryRows(scope, nameKey));
+	return mostFrequentGroceryStore(await memoryRows(scope, nameKey));
 }
 
 async function trainMemory(scope: GroceryScope, nameKey: string, stores: string[]) {
@@ -211,8 +211,8 @@ export async function deleteGroceryItem(scope: GroceryScope, id: string): Promis
  *
  * Dual scope, the shape Store Memory above already uses: a familyId-NULL row
  * is the viewer's override and wins on read, a familyId-set row is the
- * family's. `colourFor` (client-safe, in $lib/data/groceries) owns the
- * three-tier resolution; this module only reads and writes rows.
+ * family's. `resolveGroceryStoreColour` (client-safe, in the groceries domain)
+ * owns the three-tier resolution; this module only reads and writes rows.
  */
 
 export type StoreColourScope = 'personal' | 'family';

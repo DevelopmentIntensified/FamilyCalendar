@@ -21,6 +21,7 @@ import {
 	groceryColourOverrideKey,
 	groceryColourScopeOf,
 	groceryColourKeyOf,
+	groceryStoreGroups,
 	groceryStoreKey,
 	groceryStoresSharingColour,
 	groupGroceryItems,
@@ -492,5 +493,27 @@ describe('optimistic colour overrides are scoped (#115)', () => {
 		expect(hasGroceryColourOverride(overrides, 'family', 'aldi')).toBe(false);
 		expect(hasGroceryColourOverride(overrides, 'personal', 'costco')).toBe(false);
 		expect(hasGroceryColourOverride({ 'personal:aldi': '' }, 'personal', 'aldi')).toBe(false);
+	});
+});
+
+describe('groceryStoreGroups', () => {
+	it('groups exactly as groupGroceryItems does, without a colour', () => {
+		const items = [
+			{ id: '1', stores: ['Aldi'] },
+			{ id: '2', stores: ['kroger', 'Aldi'] },
+			{ id: '3', stores: [] }
+		];
+		expect(groceryStoreGroups(items)).toEqual(
+			groupGroceryItems(items, [], viewer).map(({ store, items: grouped }) => ({
+				store,
+				items: grouped
+			}))
+		);
+	});
+
+	it('is what the Day Dashboard card names a scope’s shops with', () => {
+		expect(
+			groceryStoreGroups([{ stores: ["Trader Joe's"] }, { stores: ['Aldi'] }]).map((g) => g.store)
+		).toEqual(['Aldi', "Trader Joe's"]);
 	});
 });

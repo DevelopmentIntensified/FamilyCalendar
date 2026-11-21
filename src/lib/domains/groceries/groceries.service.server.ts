@@ -31,6 +31,7 @@ import {
 	GROCERY_NO_FAMILY_MOVE_MESSAGE,
 	GROCERY_OP_MESSAGE,
 	GROCERY_SCOPE_MESSAGE,
+	type GroceriesPageData,
 	type GroceryColoursResponse,
 	type StoreColourRow
 } from './groceries.contract';
@@ -312,16 +313,6 @@ export async function setGroceryStoreColour(
 }
 
 // --- Page -------------------------------------------------------------------
-
-/** The `/calendar/groceries` page model: both item lists, the colour rows and the viewer. */
-export type GroceriesPageData = {
-	readonly mine: GroceryItemRow[];
-	readonly family: GroceryItemRow[];
-	readonly hasFamily: boolean;
-	readonly userId: string;
-	readonly familyId: string | null;
-	readonly colours: StoreColourRow[];
-};
 
 /**
  * The page's whole read in one call: the two item legs and the colour rows,
