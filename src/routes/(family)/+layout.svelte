@@ -15,7 +15,8 @@
 </script>
 
 {#if data.user}
-	<ShellGroupFrame variant="family" scope={{ user: data.user, year: data.year }} {ports}>
+	{@const user = data.user}
+	<ShellGroupFrame variant="family" scope={{ user, year: data.year }} {ports}>
 		{@render children()}
 	</ShellGroupFrame>
 {:else}

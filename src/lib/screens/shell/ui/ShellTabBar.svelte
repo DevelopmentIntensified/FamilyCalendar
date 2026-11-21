@@ -34,10 +34,8 @@
 	let keyboardOpen = $state(false);
 
 	function syncKeyboard(): void {
-		keyboardOpen = shellIsKeyboardOpen(
-			window.innerHeight,
-			typeof window.visualViewport === 'undefined' ? null : window.visualViewport.height
-		);
+		const viewport = window.visualViewport;
+		keyboardOpen = shellIsKeyboardOpen(window.innerHeight, viewport ? viewport.height : null);
 	}
 
 	onMount(() => {

@@ -19,7 +19,7 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { testCtx, type TestCtx } from '$lib/kernel/testing/testCtx.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
-import type { ShellUserSummary } from './shell.contract';
+import type { ShellRootModel, ShellUserSummary } from './shell.contract';
 import { shellCalendarGroupLoad, shellRootLoad } from './shell.http.server';
 
 const NOW = '2026-06-01T12:00:00.000Z';
@@ -55,7 +55,7 @@ function rootParent(user: ShellUserSummary | null): Readonly<Record<string, Json
 
 /** The summary the root load answers for a seeded row, taken from the load itself. */
 async function summaryOf(ctx: TestCtx, row: Awaited<ReturnType<typeof seedUser>>) {
-	const model = await invokeLoad(shellRootLoad, {
+	const model = await invokeLoad<ShellRootModel>(shellRootLoad, {
 		ctx,
 		path: '/(calendar)/calendar',
 		user: row
@@ -124,9 +124,11 @@ describe('shellCalendarGroupLoad', () => {
 		expect(Object.keys(data).sort()).toEqual([
 			'daysLeft',
 			'familyId',
+			'familyMembers',
 			'roster',
 			'settings',
 			'user',
+			'userSettings',
 			'year'
 		]);
 		expect(data.user).toEqual(parent);
@@ -137,6 +139,9 @@ describe('shellCalendarGroupLoad', () => {
 			daysLeft: 60
 		});
 		expect(data.roster).toHaveLength(1);
+		// The two legacy names the unported calendar pages read (S8 sweep).
+		expect(data.userSettings).toEqual(data.settings);
+		expect(data.familyMembers).toEqual(data.roster);
 	});
 
 	rollbackTest('counts the Inactivity Window down from lastActiveAt', async (db) => {

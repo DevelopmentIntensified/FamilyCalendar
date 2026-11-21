@@ -71,23 +71,18 @@ function familyTask(overrides: Partial<FamilyRow> = {}): FamilyRow {
 
 function data(tasks: PageData['tasks']) {
 	const payload: PageData = {
+		// The family frame reads the root load's whitelisted summary, not the
+		// users row the legacy family layout serialised (shell, #324).
 		user: {
 			id: 'u_dad',
 			firstName: 'Dad',
 			lastName: 'Smith',
 			email: null,
-			passwordHash: null,
+			isAdmin: false,
 			emailVerified: null,
-			picture: null,
-			roles: [],
-			createdAt: new Date('2026-08-01T00:00:00.000Z'),
-			lastActiveAt: new Date('2026-09-01T00:00:00.000Z'),
-			updatedAt: new Date('2026-09-01T00:00:00.000Z'),
-			phonenumber: null,
-			phonenumberVerified: null,
-			lastLogin: new Date('2026-09-01T00:00:00.000Z'),
-			receiptIngestToken: null
+			lastActiveAt: new Date('2026-09-01T00:00:00.000Z')
 		},
+		year: 2026,
 		isLoggedIn: true,
 		pathname: '/family/tasks',
 		tasks,

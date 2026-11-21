@@ -366,12 +366,17 @@ widens it at #18 — no double navbar in the meantime.
   toaster. Legacy had the footer after the toaster; both are `fixed`, so nothing moves on screen.
 - **`shell.wiring.http.test.ts`** carries the `http` role because repo scans need `node:fs`, which a
   rules file may not import (R4); it has no `_` http source behind it.
+- **Prerender safety:** the root `+layout.svelte` and `+error.svelte` pass
+  `building ? '' : page.url.search`; reading `url.search` while prerendering throws (the `/changelog`
+  build failure), and this is the legacy guard's own rule (`Navbar.svelte:57-58`). Non-prerendered
+  server renders and the client keep the real search.
 - **Interim ordering dependency:** the calendar pages (`/calendar`, `/calendar/dashboard`,
   `/calendar/tasks`, …) are still legacy and read the OLD layout fields through `parent()`
   (`userSettings`, `familyMembers`, `pathname`, `isLoggedIn`). The group load now ships
-  `settings`/`familyId`/`roster`/`user`/`year`/`daysLeft`, so those pages show no family scope until
-  their ports (#21 dayDashboard, #22 calendarPage) read the new names — they degrade (`?? []`,
-  `?.`) rather than crash. `dashboard/page.ssr.test.ts` still renders the chain: it feeds the layouts
+  `settings`/`familyId`/`roster`/`user`/`year`/`daysLeft` and ALSO the legacy `userSettings`
+  (typed as the row they were written against, carrying the same values) and `familyMembers` (the
+  same roster) so those pages typecheck and work; the aliases go in the S8 sweep when #21/#22 read
+  the new names. `pathname`/`isLoggedIn` were dropped: no calendar page read them. `dashboard/page.ssr.test.ts` still renders the chain: it feeds the layouts
   its old data, so the chrome falls back to "children only" there (no session summary at `data_0`).
 - **Visual/perf checks are the orchestrator's** (`visual:check`/`perf:check` shell): this agent could
   not run them. The expected visual differences are only the sheet's approved internal fixes
