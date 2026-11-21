@@ -163,20 +163,20 @@ legacy source files left (39/44, 3412 LOC):
   - src/lib/conformance/collect.ts (57 LOC, testing/conformance) importers: 1
   - src/lib/conformance/rules.ts (154 LOC, testing/conformance) importers: 2
   - src/lib/conformance/tokens.ts (97 LOC, testing/conformance) importers: 2
-  - src/lib/server/db/index.ts (9 LOC, db) importers: 5
+  - src/lib/server/db/index.ts (9 LOC, db) importers: 6
   - src/lib/server/db/schema.ts (1227 LOC, db) importers: 86
       NOTE: Re-exports BILL_CATEGORIES (no table uses it) and defines TASK_VISIBILITIES for legacy importers. Task K-04 split the tables into src/lib/kernel/db/tables/<module>.tables.server.ts and kept this compat re-export; bills owns the BILL_CATEGORIES vocabulary.
   - src/lib/server/db/testHarness.ts (52 LOC, testing) importers: 0
-  - src/lib/server/services/fcmService.ts (250 LOC, push) importers: 2
+  - src/lib/server/services/fcmService.ts (250 LOC, push) importers: 3
   - src/lib/server/services/llm.ts (64 LOC, ai) importers: 4
   - src/lib/server/services/logger.ts (59 LOC, log) importers: 3
   - src/lib/server/utils/clampCount.ts (14 LOC, http) importers: 1
   - src/lib/server/utils/generateId.ts (22 LOC, ids) importers: 6
   - src/lib/server/utils/guard.ts (21 LOC, http) importers: 5
-  - src/lib/server/utils/jsonBody.ts (29 LOC, http) importers: 16
+  - src/lib/server/utils/jsonBody.ts (29 LOC, http) importers: 14
   - src/lib/server/utils/pickWritableFields.ts (12 LOC, http) importers: 2
   - src/lib/server/utils/rateLimit.ts (42 LOC, ratelimit) importers: 27
-  - src/lib/server/utils/requireUser.ts (54 LOC, http) importers: 60
+  - src/lib/server/utils/requireUser.ts (54 LOC, http) importers: 54
   - src/lib/server/utils/svixVerify.ts (68 LOC, http) importers: 1
   - src/lib/utils/actionError.ts (31 LOC, client) importers: 2
   - src/lib/utils/avatarColor.ts (17 LOC, util) importers: 11
