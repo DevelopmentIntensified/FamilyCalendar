@@ -116,3 +116,22 @@ export function inviteRefusalCopy(refusal: InviteRefusal): FamilyRefusal {
 	}
 	return { status: 400, message: 'Invalid, expired, or already used invite code' };
 }
+
+/** What the invite email renders: the inviter's name and the code-bound join link. */
+export type FamilyInviteEmailInput = {
+	readonly inviterName: string;
+	readonly inviteUrl: string;
+};
+
+/**
+ * The family-invite email's HTML (legacy `server/emails/family-invite.ts`): one
+ * link, one deadline, one opt-out line for a stranger who did not ask for it.
+ * Pure, so the send use-case renders it without a mailer.
+ */
+export function familyInviteEmailHtml({ inviterName, inviteUrl }: FamilyInviteEmailInput): string {
+	return `
+<p>${inviterName} invited you to join their family on Family Planz.</p>
+<p><a href="${inviteUrl}">Join the family</a></p>
+<p>The link expires in 24 hours. If you were not expecting this email, you can ignore it — nothing happens to your account.</p>
+`.trim();
+}

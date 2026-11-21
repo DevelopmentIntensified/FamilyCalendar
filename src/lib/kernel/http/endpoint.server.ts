@@ -9,6 +9,7 @@
  *   query/params  zod-parsed; failure -> 400 {"error": first issue message}
  *   body          JSON; bodyMode 'json' (default): empty body = {}, malformed -> 400 {"error":"Invalid JSON"}
  *                 bodyMode 'lenient': malformed, empty or unreadable body = null, so the schema refuses it
+ *                 bodyMode 'strict': an empty/whitespace body is refused like malformed JSON; the rest as 'json'
  *   AppError      -> its status + {"error", ...extra}
  *   anything else -> logged, filed via ctx.faults, 500 {"error": failMessage}
  *
@@ -60,7 +61,7 @@ export type RateLimitRule = {
 };
 
 /** See `EndpointSpec.bodyMode`. */
-export type BodyMode = 'json' | 'lenient';
+export type BodyMode = 'json' | 'lenient' | 'strict';
 
 type Schema = z.ZodType | undefined;
 export type Parsed<S extends Schema> = S extends z.ZodType ? z.output<S> : undefined;
@@ -96,7 +97,11 @@ export type EndpointSpec<
 	 * `null`; a body that parses (including a literal `null`, a string, a number, an array) reaches
 	 * it as parsed. Use it when a legacy route refused such bodies with its own sentence (usually
 	 * the one it gives a non-object body) that a frozen golden pins: the contract then decides
-	 * the refusal and its wording. Opt in per endpoint, never by default.
+	 * the refusal and its wording. `'strict'`: an empty or whitespace-only body is refused with
+	 * `400 {"error":"Invalid JSON"}`, exactly like malformed JSON; every other behaviour is
+	 * `'json'`. Legacy `request.json()` throws on an empty body, so a route whose golden pins
+	 * `Invalid JSON` for both malformed and empty bodies opts into this mode.
+	 * Opt in per endpoint, never by default.
 	 */
 	readonly bodyMode?: BodyMode;
 	readonly params?: P;
@@ -229,7 +234,11 @@ async function readJsonBody(request: Request, mode: BodyMode): Promise<JsonValue
 		if (lenient) return null;
 		throw invalid(INVALID_JSON_MESSAGE);
 	}
-	if (!text.trim()) return lenient ? null : {};
+	if (!text.trim()) {
+		if (lenient) return null;
+		if (mode === 'strict') throw invalid(INVALID_JSON_MESSAGE);
+		return {};
+	}
 	try {
 		// SAFETY: JSON.parse only ever produces JsonValue-shaped data.
 		return JSON.parse(text) as JsonValue;

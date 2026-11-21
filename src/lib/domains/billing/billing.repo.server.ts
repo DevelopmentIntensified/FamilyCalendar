@@ -123,6 +123,15 @@ export async function incrementAiUsage(db: Db, input: AiUsageIncrement): Promise
 	return row.used;
 }
 
+/**
+ * Remove every subscription row a person holds. Account deletion runs this
+ * before deleting the person row: `activeSubscriptions.userId` is the one user
+ * FK without a cascade, so Postgres would refuse the delete otherwise.
+ */
+export async function deleteSubscriptionsByUserId(db: Db, userId: string): Promise<void> {
+	await db.delete(subscriptions).where(eq(subscriptions.userId, userId));
+}
+
 /** The discounts one person holds (their row ids feed the lifetime eligibility read). */
 export async function listUserDiscounts(db: Db, userId: string): Promise<UserDiscountRow[]> {
 	return await db.select().from(userDiscounts).where(eq(userDiscounts.userId, userId));

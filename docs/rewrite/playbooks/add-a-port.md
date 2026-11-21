@@ -61,6 +61,6 @@ export type IdentityCtx = Ctx & IdentityPorts;
 
 - **Declared by the needing module:** `<M>Ports` and `<M>Ctx = Ctx & <M>Ports`; its services take `<M>Ctx`. family plans `FamilyCalendarPort` / `MemberTasksPort`, identity plans `CalendarAccessPort` / `AdConsentPort`.
 - **Adapter exported by the owning module:** the higher-ranked domain implements the type over its own services and exports the factory from its `index.server.ts`.
-- **Wired once:** [src/lib/app/ports.server.ts](../../../src/lib/app/ports.server.ts) — its `wirePorts(ctx)` returns the ctx plus `AppPorts`, and an owning module's S5 adds its adapter there. Nothing else chooses it.
+- **Wired once:** [src/lib/app/ports.server.ts](../../../src/lib/app/ports.server.ts) — its `wirePorts(ctx)` returns the ctx plus `AppPorts`, and an owning module's S5 adds its adapter there. Nothing else chooses it. Until the owning module ports, S6 may bridge the port over the legacy implementation there (identity's `CalendarAccessPort` and `AdConsentPort` did), so the frozen goldens can see the other module's rows; the owning module's S5 replaces the bridge.
 - **S5 service tests** keep `testCtx` and pass a memory fake for each port they exercise (`{ ...testCtx({ db }), calendarAccess: memoryCalendarAccess() }`), asserting on what the fake recorded.
 - **`/api` goldens** call `goldenCtx` ([goldenCtx.server.ts](../../../src/lib/app/testing/goldenCtx.server.ts)), which is `testCtx` plus every real adapter, so a frozen golden sees the rows the other module actually wrote.

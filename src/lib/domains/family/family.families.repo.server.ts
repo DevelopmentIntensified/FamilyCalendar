@@ -17,7 +17,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { and, asc, count, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '$lib/kernel/db/database.server';
 import { families, familyMembers, tasks, users } from '$lib/kernel/db/tables.server';
@@ -184,4 +184,99 @@ export async function findMembershipFamilyId(db: Db, userId: string): Promise<st
 		.orderBy(asc(families.createdAt), asc(families.id))
 		.limit(1);
 	return row?.familyId ?? null;
+}
+
+/** One recent-activity line the family detail page shows: who did what, when. */
+export type FamilyActivityRow = {
+	readonly kind: 'completed' | 'assigned';
+	readonly title: string;
+	readonly actorName: string;
+	readonly targetName: string | null;
+	/** `completedAt` keeps the driver's Postgres text render; `createdAt` is an ISO instant. */
+	readonly at: string;
+};
+
+/** The legacy `fullName`: first and last joined by one space, blanks dropped. */
+function fullName(first: string | null, last: string | null): string {
+	return [first, last].filter(Boolean).join(' ');
+}
+
+/**
+ * The family detail page's recent activity, newest first, at most `limit`
+ * lines: completed tasks (whoever held it, else whoever wrote it) and accepted
+ * assignments of someone else's task. Read-only joins into `tasks` and `users`
+ * (both declared in `FOREIGN_READS.family`); no clock and no rule.
+ *
+ * `completedAt` keeps the driver's Postgres text render and `createdAt` is an
+ * ISO instant, exactly as the legacy `toIso` answered (`mode: 'string'` column
+ * vs `Date`).
+ */
+export async function listRecentFamilyActivity(
+	db: Db,
+	familyId: string,
+	limit = 8
+): Promise<FamilyActivityRow[]> {
+	const assignee = alias(users, 'assignee');
+	const creator = alias(users, 'creator');
+
+	const completedRows = await db
+		.select({
+			title: tasks.title,
+			completedAt: tasks.completedAt,
+			assigneeFirst: assignee.firstName,
+			assigneeLast: assignee.lastName,
+			creatorFirst: creator.firstName,
+			creatorLast: creator.lastName
+		})
+		.from(tasks)
+		.leftJoin(assignee, eq(tasks.assignedTo, assignee.id))
+		.innerJoin(creator, eq(tasks.userId, creator.id))
+		.where(and(eq(tasks.familyId, familyId), isNotNull(tasks.completedAt)))
+		.orderBy(desc(tasks.completedAt))
+		.limit(limit);
+
+	const assignedRows = await db
+		.select({
+			title: tasks.title,
+			createdAt: tasks.createdAt,
+			creatorFirst: creator.firstName,
+			creatorLast: creator.lastName,
+			assigneeFirst: assignee.firstName,
+			assigneeLast: assignee.lastName
+		})
+		.from(tasks)
+		.innerJoin(assignee, eq(tasks.assignedTo, assignee.id))
+		.innerJoin(creator, eq(tasks.userId, creator.id))
+		.where(
+			and(
+				eq(tasks.familyId, familyId),
+				eq(tasks.assignmentStatus, 'accepted'),
+				isNotNull(tasks.assignedTo),
+				ne(tasks.assignedTo, tasks.userId)
+			)
+		)
+		.orderBy(desc(tasks.createdAt))
+		.limit(limit);
+
+	const items: FamilyActivityRow[] = [
+		...completedRows.map((row) => ({
+			kind: 'completed' as const,
+			title: row.title,
+			actorName: fullName(row.assigneeFirst, row.assigneeLast) || fullName(row.creatorFirst, row.creatorLast),
+			targetName: null,
+			// SAFETY: the query filters isNotNull(tasks.completedAt), so the column is non-null here.
+			at: row.completedAt as string
+		})),
+		...assignedRows.map((row) => ({
+			kind: 'assigned' as const,
+			title: row.title,
+			actorName: fullName(row.creatorFirst, row.creatorLast),
+			targetName: fullName(row.assigneeFirst, row.assigneeLast),
+			at: row.createdAt.toISOString()
+		}))
+	]
+		.sort((a, b) => (a.at < b.at ? 1 : -1))
+		.slice(0, limit);
+
+	return items;
 }

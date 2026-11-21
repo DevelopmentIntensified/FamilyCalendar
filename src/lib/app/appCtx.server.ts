@@ -18,6 +18,9 @@
  * - faults   legacy auto-bug-report builder + throttle + insert; the
  *            `feedback` port (M-feedback) replaces it with its service.
  * - log      legacy JSON logger; identical line format to createJsonLog.
+ * - push     legacy `fcmService` FCM transport behind the kernel `Push` port
+ *            (./pushTransport.server.ts); the web-push half has no legacy
+ *            import. Stays until the kernel grows its own FCM sender.
  *
  * Doc: src/lib/app/README.md
  */
@@ -26,13 +29,26 @@ import { db } from '$lib/server/db';
 import { buildAutoBugReport, shouldFileAutoReport } from '$lib/server/services/autoBugReport';
 import { logEvent } from '$lib/server/services/logger';
 import { rateLimit } from '$lib/server/utils/rateLimit';
+import { createCerebrasAi } from '$lib/kernel/ai/cerebrasAi.server';
 import type { Ctx, Fault } from '$lib/kernel/ctx/ctx.server';
+import { createFetchOutboundHttp } from '$lib/kernel/http/fetchOutboundHttp.server';
 import { systemIds } from '$lib/kernel/ids/ids';
 import { createResendMailer } from '$lib/kernel/mail/resendMailer.server';
 import { systemClock } from '$lib/kernel/time/clock';
+import { resolveSessionSecret } from '$lib/domains/identity/index.server';
 import { wirePorts } from './ports.server';
+import { createPushTransport } from './pushTransport.server';
+
+const production = process.env.NODE_ENV === 'production';
+
+/** Production without `BETTER_AUTH_SECRET` refuses to boot (identity's rule). */
+const sessionSecret = resolveSessionSecret(process.env.BETTER_AUTH_SECRET, production);
 
 const mailFrom = process.env.NOREPLYEMAIL ?? '';
+const vapidSubject = process.env.VAPID_SUBJECT ?? 'mailto:admin@familyplanz.com';
+const cerebrasModel = process.env.CEREBRAS_MODEL || 'gpt-oss-120b';
+/** The legacy geocoder's `User-Agent`, unchanged (`api/location-search/+server.ts`). */
+const userAgent = 'FamilyPlanz/1.0 (test@familyplanz.com)';
 
 function fileFault(fault: Fault): void {
 	try {
@@ -59,6 +75,30 @@ export const appCtx = wirePorts({
 	},
 	limiter: { allow: (key, limit, windowMs) => rateLimit(key, limit, windowMs) },
 	mail: createResendMailer({ apiKey: process.env.RESEND_API_KEY ?? '', from: mailFrom }),
+	push: createPushTransport({
+		vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
+		vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? null,
+		vapidSubject,
+		fcmServiceAccount: process.env.FCM_SERVICE_ACCOUNT_JSON ?? null
+	}),
+	ai: createCerebrasAi({
+		apiKey: process.env.CEREBRAS_API_KEY ?? null,
+		model: cerebrasModel,
+		apiUrl: process.env.CEREBRAS_API_URL
+	}),
+	http: createFetchOutboundHttp(),
 	faults: { report: fileFault },
-	config: { cronSecret: process.env.CRON_SECRET ?? null, mailFrom }
+	config: {
+		cronSecret: process.env.CRON_SECRET ?? null,
+		sessionSecret,
+		production,
+		mailFrom,
+		vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
+		vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? null,
+		vapidSubject,
+		fcmServiceAccount: process.env.FCM_SERVICE_ACCOUNT_JSON ?? null,
+		cerebrasApiKey: process.env.CEREBRAS_API_KEY ?? null,
+		cerebrasModel,
+		userAgent
+	}
 } satisfies Ctx);

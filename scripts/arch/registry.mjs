@@ -258,7 +258,8 @@ export const FOREIGN_READS = {
 	family: {
 		users:
 			'roster names/emails, picker + invite-flow search, verified-account check, direct-add lookup',
-		tasks: 'open-task counts on the /family list (read-only grouped count)'
+		tasks:
+			'open-task counts on the /family list and the recent-activity rows of the family detail payload (read-only)'
 	},
 	sponsored: {
 		events:
