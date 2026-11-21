@@ -40,6 +40,8 @@ export type TestCtxOverrides = {
 	readonly db?: Db;
 	readonly now?: string;
 	readonly cronSecret?: string | null;
+	readonly sessionSecret?: string;
+	readonly production?: boolean;
 };
 
 export function testCtx(overrides: TestCtxOverrides = {}): TestCtx {
@@ -51,7 +53,11 @@ export function testCtx(overrides: TestCtxOverrides = {}): TestCtx {
 		log: memoryLog(),
 		limiter: createMemoryRateLimiter(clock),
 		faults: memoryFaults(),
-		config: { cronSecret: overrides.cronSecret ?? 'test-cron-secret' }
+		config: {
+			cronSecret: overrides.cronSecret ?? 'test-cron-secret',
+			sessionSecret: overrides.sessionSecret ?? 'test-session-secret',
+			production: overrides.production ?? false
+		}
 	};
 }
 

@@ -54,7 +54,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [errors/appError.ts](errors/appError.ts) | rules | `AppError` with codes mapped to HTTP status; constructors `invalid`, `notFound`, `forbidden`, `conflict(msg, extra)`, and so on. Expected failures only. | [appError.test.ts](errors/appError.test.ts) |
 | [errors/appError.test.ts](errors/appError.test.ts) | test | status mapping, extra fields cannot override `error` | — |
 | [http/endpoint.server.ts](http/endpoint.server.ts) | infra | `endpoint({ auth, query, body, bodyMode, params, rateLimit, failMessage, handle })` → `{ handler }` for `+server.ts`. Owns auth, parsing, the `{error}` shape, 429/500 and fault filing. | [endpoint.test.ts](http/endpoint.test.ts) |
-| [http/endpoint.test.ts](http/endpoint.test.ts) | test | auth modes incl. cron, parsing, Invalid JSON, body modes (json/lenient), AppError/extra, 500 + fault, rate limit | — |
+| [http/endpoint.test.ts](http/endpoint.test.ts) | test | auth modes incl. cron, parsing, Invalid JSON, body modes (json/lenient/strict), AppError/extra, 500 + fault, rate limit | — |
 | [http/pageHandlers.server.ts](http/pageHandlers.server.ts) | infra | `pageLoad` (redirects to /login or /calendar) and `formAction` (`fail(...)` with `{ success: false, error }`), `formFields`. | [pageHandlers.test.ts](http/pageHandlers.test.ts) |
 | [http/pageHandlers.test.ts](http/pageHandlers.test.ts) | test | redirect rules, legacy `requireUserAction` failure shape, AppError mapping, fault filing | — |
 | [ids/ids.ts](ids/ids.ts) | infra | `Ids` port, `systemIds` (the existing 15-char row-id format), `sequentialIds` for tests, `sha256Hex`, the one hash for stored secrets. | [ids.test.ts](ids/ids.test.ts) |
@@ -126,7 +126,7 @@ Parse input once, at the boundary, through the `query`/`body`/`params`/`form` sc
 
 ### HTTP
 
-- `endpoint()` builds `+server.ts` handlers. `body` reads JSON by default (an empty body is `{}`, malformed JSON answers `400 {"error":"Invalid JSON"}`); set `bodyMode: 'lenient'` on an endpoint whose legacy route refused malformed or empty JSON with its own sentence, and a malformed, empty or unreadable body reaches the schema as `null`, so the contract decides the refusal and its wording.
+- `endpoint()` builds `+server.ts` handlers. `body` reads JSON by default (an empty body is `{}`, malformed JSON answers `400 {"error":"Invalid JSON"}`); set `bodyMode: 'lenient'` on an endpoint whose legacy route refused malformed or empty JSON with its own sentence, and a malformed, empty or unreadable body reaches the schema as `null`, so the contract decides the refusal and its wording. `bodyMode: 'strict'` refuses an empty or whitespace-only body with the same `400 {"error":"Invalid JSON"}` as malformed JSON and behaves as `json` otherwise (`PATCH /api/me/settings` uses it: legacy `request.json()` threw on an empty body).
 - `pageLoad()` builds `load`.
 - `formAction()` builds `actions`.
 - Response helpers: `ok`, `created`, `reply`.

@@ -10,18 +10,45 @@
  * adapters meet a ctx: `appCtx` for production and `goldenCtx`
  * (./testing/goldenCtx.server.ts) for the `/api` goldens.
  *
- * `AppPorts` is empty today; each owning module's S5 adds its adapter here.
- * The first planned ones are family's `FamilyCalendarPort` and
- * `MemberTasksPort`, and identity's `CalendarAccessPort` and `AdConsentPort`.
+ * TRANSITION BRIDGES (each adapter names the module whose S5 replaces it):
+ * - identity's `CalendarAccessPort` over legacy `getAccessibleCalendarIds`
+ *   (calendar's S5 exports the adapter over its own service);
+ * - identity's `AdConsentPort` over legacy `adConsentService` (sponsored's S5).
+ * Both must keep reading today's rows so the frozen identity goldens see the
+ * calendars and consent records another module owns. They are the production
+ * adapters until those modules port; no route or endpoint composes a port.
  *
  * Doc: docs/rewrite/playbooks/add-a-port.md#domain-ports
  */
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
+import type {
+	AdConsentPort,
+	CalendarAccessPort
+} from '$lib/domains/identity/index.server';
+import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
+import {
+	getAdConsentRecords,
+	recordAdConsentChange
+} from '$lib/server/services/adConsentService';
 
-/** Cross-module adapters. Grows one owning module at a time; today it has none. */
-export type AppPorts = Record<never, never>;
+/** Cross-module adapters. Grows one owning module at a time. */
+export type AppPorts = {
+	readonly calendarAccess: CalendarAccessPort;
+	readonly adConsent: AdConsentPort;
+};
 
 /** Returns `ctx` with every cross-module adapter attached. */
 export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
-	return ctx;
+	return {
+		...ctx,
+		calendarAccess: {
+			listAccessibleCalendarIds: async (userId) => await getAccessibleCalendarIds(userId)
+		},
+		adConsent: {
+			listConsentHistory: async (userId) => await getAdConsentRecords(userId),
+			recordConsentChange: async (userId, previous, next) => {
+				await recordAdConsentChange(userId, previous, next);
+			}
+		}
+	};
 }

@@ -29,7 +29,13 @@ import { rateLimit } from '$lib/server/utils/rateLimit';
 import type { Ctx, Fault } from '$lib/kernel/ctx/ctx.server';
 import { systemIds } from '$lib/kernel/ids/ids';
 import { systemClock } from '$lib/kernel/time/clock';
+import { resolveSessionSecret } from '$lib/domains/identity/index.server';
 import { wirePorts } from './ports.server';
+
+const production = process.env.NODE_ENV === 'production';
+
+/** Production without `BETTER_AUTH_SECRET` refuses to boot (identity's rule). */
+const sessionSecret = resolveSessionSecret(process.env.BETTER_AUTH_SECRET, production);
 
 function fileFault(fault: Fault): void {
 	try {
@@ -56,5 +62,5 @@ export const appCtx = wirePorts({
 	},
 	limiter: { allow: (key, limit, windowMs) => rateLimit(key, limit, windowMs) },
 	faults: { report: fileFault },
-	config: { cronSecret: process.env.CRON_SECRET ?? null }
+	config: { cronSecret: process.env.CRON_SECRET ?? null, sessionSecret, production }
 } satisfies Ctx);

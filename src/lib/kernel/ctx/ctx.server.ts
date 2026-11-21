@@ -37,6 +37,10 @@ export type FaultReporter = {
 export type AppConfig = {
 	/** Shared secret for `/api/cron/*` (Vercel Cron). Null = cron endpoints refuse everyone. */
 	readonly cronSecret: string | null;
+	/** Signs session cookies (`BETTER_AUTH_SECRET`); resolved fail-closed by `src/lib/app`. */
+	readonly sessionSecret: string;
+	/** True in production: the session cookie gets `Secure`, and a missing secret refuses to boot. */
+	readonly production: boolean;
 };
 
 export type Ctx = {
