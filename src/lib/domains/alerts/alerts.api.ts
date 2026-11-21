@@ -76,7 +76,7 @@ export function createAlertsApi(client = createApiClient()): AlertsApi {
 		unregisterDevice(body: DeviceRegistrationBody): Promise<ApiResult<AlertsAckResponse>> {
 			return client.request('DELETE', '/api/devices', body);
 		},
-		/** `GET /api/push/public-key`: the VAPID key, or `null` when unset. */
+		/** `GET /api/push/public-key`: the VAPID key, or `null` unless both halves are configured (Q-020). */
 		publicKey(): Promise<ApiResult<PushPublicKeyResponse>> {
 			return client.request('GET', '/api/push/public-key');
 		},

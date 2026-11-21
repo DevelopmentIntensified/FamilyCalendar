@@ -651,16 +651,21 @@ describe('DELETE /api/devices', () => {
 });
 
 describe('GET /api/push/public-key', () => {
-	let savedKey: string | undefined;
+	let savedPublicKey: string | undefined;
+	let savedPrivateKey: string | undefined;
 
 	beforeEach(() => {
-		savedKey = process.env.VAPID_PUBLIC_KEY;
+		savedPublicKey = process.env.VAPID_PUBLIC_KEY;
+		savedPrivateKey = process.env.VAPID_PRIVATE_KEY;
 		delete process.env.VAPID_PUBLIC_KEY;
+		delete process.env.VAPID_PRIVATE_KEY;
 	});
 
 	afterEach(() => {
-		if (savedKey === undefined) delete process.env.VAPID_PUBLIC_KEY;
-		else process.env.VAPID_PUBLIC_KEY = savedKey;
+		if (savedPublicKey === undefined) delete process.env.VAPID_PUBLIC_KEY;
+		else process.env.VAPID_PUBLIC_KEY = savedPublicKey;
+		if (savedPrivateKey === undefined) delete process.env.VAPID_PRIVATE_KEY;
+		else process.env.VAPID_PRIVATE_KEY = savedPrivateKey;
 	});
 
 	it('answers {publicKey:null} when VAPID_PUBLIC_KEY is unset', async () => {
@@ -669,8 +674,16 @@ describe('GET /api/push/public-key', () => {
 		expect(res.body).toEqual({ publicKey: null });
 	});
 
-	it('answers the configured key', async () => {
+	it('answers {publicKey:null} when only the public half is configured (Q-020)', async () => {
 		process.env.VAPID_PUBLIC_KEY = 'BPublicKeyForTests';
+		const res = await invoke(getPushPublicKey, { ctx: ctx(), path: '/api/push/public-key' });
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ publicKey: null });
+	});
+
+	it('answers the configured key when both halves are set (Q-020)', async () => {
+		process.env.VAPID_PUBLIC_KEY = 'BPublicKeyForTests';
+		process.env.VAPID_PRIVATE_KEY = 'VPrivateKeyForTests';
 		const res = await invoke(getPushPublicKey, { ctx: ctx(), path: '/api/push/public-key' });
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ publicKey: 'BPublicKeyForTests' });

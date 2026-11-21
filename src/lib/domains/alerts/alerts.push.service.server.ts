@@ -45,9 +45,16 @@ import {
 	upsertPushSubscription
 } from './alerts.repo.server';
 
-/** What `GET /api/push/public-key` answers, from the port the browser flow reads. */
+/**
+ * What `GET /api/push/public-key` answers: the configured public half only
+ * while the private half is configured too (Q-020), so a client never
+ * subscribes to a server that would silently skip every send. Either half
+ * missing answers `null` and the browser flow hides its toggle.
+ */
 export function getPushPublicKey(ctx: Ctx): PushPublicKeyResponse {
-	return { publicKey: ctx.push.webPublicKey() };
+	const publicKey = ctx.config.vapidPublicKey;
+	const privateKey = ctx.config.vapidPrivateKey;
+	return { publicKey: publicKey && privateKey ? publicKey : null };
 }
 
 /** Register (or re-own) the caller's FCM token, stamped `now`. */
@@ -88,8 +95,9 @@ export async function removePushSubscription(
 
 /**
  * The visible push for one stored Alert: title = actor, body = message, tap
- * target = the Alert's link or `/calendar/tasks`. Both channels run in
- * parallel; this never rejects, so `createAlert` can fire it without awaiting.
+ * target = the payload's link (the Alert's own, or the page its type answers —
+ * Q-021). Both channels run in parallel; this never rejects, so `createAlert`
+ * can fire it without awaiting.
  */
 export async function sendAlertPush(
 	ctx: Ctx,
