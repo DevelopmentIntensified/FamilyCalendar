@@ -1,19 +1,53 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { deviceTokens } from '$lib/server/db/schema';
-import {
-	eventsChangedMessage,
-	getFcmSender,
-	notificationMessage,
-	type FcmMessage,
-	type FcmSender
-} from './fcmService';
+import { getFcmSender, type FcmBody, type FcmSender } from '$lib/kernel/push/fcm.server';
 
 /**
  * Device-token store + FCM fan-out (#272). The Android app registers its FCM
  * token via `/api/devices`; every send here loops that user's tokens through
  * the FCM transport and prunes the ones FCM reports dead.
+ *
+ * LEGACY: this file and its message builders leave with the alerts sweep; the
+ * v2 path is alerts' `ctx.push` fan-out, whose builders live in
+ * `alerts.push.rules.ts`. The kernel now holds the transport only.
  */
+
+/** One FCM `message` body minus `token` (v1 has no multicast). */
+type FcmMessage = FcmBody;
+
+/** A user-visible notification: shown by the system tray; `data.link` is the tap target. */
+function notificationMessage(payload: {
+	title: string;
+	body: string;
+	link?: string;
+}): FcmMessage {
+	const data: Record<string, string> = { type: 'notification' };
+	if (payload.link) data.link = payload.link;
+	return {
+		notification: { title: payload.title, body: payload.body },
+		data,
+		android: { priority: 'high' }
+	};
+}
+
+/**
+ * The silent sync nudge: data-only (no notification block, so nothing shows),
+ * high priority so a dozing phone wakes to reschedule reminders, collapsed so a
+ * burst of edits delivers once, short TTL because a stale nudge is worthless.
+ * `actorId` (#281): the editor's own phone skips the "Event updates" notice.
+ */
+function eventsChangedMessage(actorId: string): FcmMessage {
+	return {
+		data: { type: 'events_changed', actorId },
+		android: { priority: 'high', collapse_key: 'events_changed', ttl: '600s' }
+	};
+}
+
+/** Cheap synchronous gate for request paths: is FCM configured at all? */
+export function isFcmConfigured(): boolean {
+	return getFcmSender(process.env.FCM_SERVICE_ACCOUNT_JSON) !== null;
+}
 
 export const MAX_DEVICE_TOKEN_LENGTH = 4096;
 export const DEVICE_PLATFORMS = ['android'] as const;
@@ -49,7 +83,7 @@ export interface DevicePushDeps {
 }
 
 const defaultDeps: DevicePushDeps = {
-	sender: () => getFcmSender(),
+	sender: () => getFcmSender(process.env.FCM_SERVICE_ACCOUNT_JSON),
 	listTokens: (userIds) =>
 		db
 			.select({ userId: deviceTokens.userId, token: deviceTokens.token })

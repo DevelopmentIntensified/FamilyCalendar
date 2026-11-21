@@ -4,11 +4,22 @@ import {
 	parseServiceAccount,
 	signServiceAccountJwt,
 	createFcmSender,
-	notificationMessage,
-	eventsChangedMessage,
 	getFcmSender,
 	type ServiceAccount
-} from './fcmService';
+} from './fcm.server';
+import type { FcmBody } from './push';
+
+/** The shapes `alerts` builds (its rules tests pin them); the transport only carries them. */
+const EVENTS_CHANGED: FcmBody = {
+	data: { type: 'events_changed', actorId: 'actor-1' },
+	android: { priority: 'high', collapse_key: 'events_changed', ttl: '600s' }
+};
+
+const NOTIFICATION: FcmBody = {
+	notification: { title: 'A', body: 'B' },
+	data: { type: 'notification', link: '/x' },
+	android: { priority: 'high' }
+};
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
 	modulusLength: 2048,
@@ -118,37 +129,12 @@ describe('signServiceAccountJwt', () => {
 	});
 });
 
-describe('message builders', () => {
-	it('notification message carries title/body and the link as data', () => {
-		expect(notificationMessage({ title: 'Hi', body: 'There', link: '/calendar' })).toEqual({
-			notification: { title: 'Hi', body: 'There' },
-			data: { type: 'notification', link: '/calendar' },
-			android: { priority: 'high' }
-		});
-	});
-
-	it('notification message without link omits data.link', () => {
-		expect(notificationMessage({ title: 'Hi', body: 'There' }).data).toEqual({
-			type: 'notification'
-		});
-	});
-
-	it('events_changed is data-only (carries actorId, #281), high priority, collapsed, short TTL', () => {
-		const msg = eventsChangedMessage('actor-1');
-		expect(msg).toEqual({
-			data: { type: 'events_changed', actorId: 'actor-1' },
-			android: { priority: 'high', collapse_key: 'events_changed', ttl: '600s' }
-		});
-		expect(msg).not.toHaveProperty('notification');
-	});
-});
-
 describe('createFcmSender', () => {
 	it('exchanges the JWT for an access token and posts messages:send', async () => {
 		const f = scriptedFetch();
 		const sender = createFcmSender(SA, { fetch: f.fn, now: () => 1_700_000_000_000 });
 
-		const result = await sender.send('device-token-1', eventsChangedMessage('actor-1'));
+		const result = await sender.send('device-token-1', EVENTS_CHANGED);
 
 		expect(result).toBe('sent');
 		const [tokenCall, sendCall] = f.calls;
@@ -177,14 +163,9 @@ describe('createFcmSender', () => {
 	it('sends the notification body shape for a notification message', async () => {
 		const f = scriptedFetch();
 		const sender = createFcmSender(SA, { fetch: f.fn, now: () => 0 });
-		await sender.send('t', notificationMessage({ title: 'A', body: 'B', link: '/x' }));
+		await sender.send('t', NOTIFICATION);
 		const body = JSON.parse(String(f.calls[1].init.body));
-		expect(body.message).toEqual({
-			token: 't',
-			notification: { title: 'A', body: 'B' },
-			data: { type: 'notification', link: '/x' },
-			android: { priority: 'high' }
-		});
+		expect(body.message).toEqual({ token: 't', ...NOTIFICATION });
 	});
 
 	it('caches the access token until shortly before expiry', async () => {
@@ -192,21 +173,21 @@ describe('createFcmSender', () => {
 		const f = scriptedFetch([], 3600);
 		const sender = createFcmSender(SA, { fetch: f.fn, now: () => nowMs });
 
-		await sender.send('a', eventsChangedMessage('actor-1'));
-		await sender.send('b', eventsChangedMessage('actor-1'));
+		await sender.send('a', EVENTS_CHANGED);
+		await sender.send('b', EVENTS_CHANGED);
 		nowMs += 3000 * 1000; // 50 min later — still valid
-		await sender.send('c', eventsChangedMessage('actor-1'));
+		await sender.send('c', EVENTS_CHANGED);
 		expect(f.tokenCount()).toBe(1);
 
 		nowMs += 590 * 1000; // within the 60s refresh margin of expiry
-		await sender.send('d', eventsChangedMessage('actor-1'));
+		await sender.send('d', EVENTS_CHANGED);
 		expect(f.tokenCount()).toBe(2);
 	});
 
 	it('shares one in-flight token exchange across parallel sends', async () => {
 		const f = scriptedFetch();
 		const sender = createFcmSender(SA, { fetch: f.fn, now: () => 0 });
-		await Promise.all(['a', 'b', 'c'].map((t) => sender.send(t, eventsChangedMessage('actor-1'))));
+		await Promise.all(['a', 'b', 'c'].map((t) => sender.send(t, EVENTS_CHANGED)));
 		expect(f.tokenCount()).toBe(1);
 	});
 
@@ -250,7 +231,7 @@ describe('createFcmSender', () => {
 		]
 	])('reports unregistered on %s', async (_label, reply) => {
 		const sender = createFcmSender(SA, { fetch: scriptedFetch([reply]).fn, now: () => 0 });
-		expect(await sender.send('dead', eventsChangedMessage('actor-1'))).toBe('unregistered');
+		expect(await sender.send('dead', EVENTS_CHANGED)).toBe('unregistered');
 	});
 
 	it('a 400 INVALID_ARGUMENT not about the token is a plain failure', async () => {
@@ -267,7 +248,7 @@ describe('createFcmSender', () => {
 			}
 		});
 		const sender = createFcmSender(SA, { fetch: scriptedFetch([reply]).fn, now: () => 0 });
-		expect(await sender.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
+		expect(await sender.send('t', EVENTS_CHANGED)).toBe('failed');
 	});
 
 	it('5xx and network errors are failures, never throws', async () => {
@@ -275,7 +256,7 @@ describe('createFcmSender', () => {
 			fetch: scriptedFetch([jsonResponse(503, { error: { status: 'UNAVAILABLE' } })]).fn,
 			now: () => 0
 		});
-		expect(await s1.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
+		expect(await s1.send('t', EVENTS_CHANGED)).toBe('failed');
 
 		const s2 = createFcmSender(SA, {
 			fetch: vi.fn(async () => {
@@ -283,34 +264,35 @@ describe('createFcmSender', () => {
 			}),
 			now: () => 0
 		});
-		expect(await s2.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
+		expect(await s2.send('t', EVENTS_CHANGED)).toBe('failed');
 	});
 
 	it('drops the cached token after a 401 so the next send re-authenticates', async () => {
 		const f = scriptedFetch([jsonResponse(401, { error: { status: 'UNAUTHENTICATED' } })]);
 		const sender = createFcmSender(SA, { fetch: f.fn, now: () => 0 });
-		expect(await sender.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
-		await sender.send('t', eventsChangedMessage('actor-1'));
+		expect(await sender.send('t', EVENTS_CHANGED)).toBe('failed');
+		await sender.send('t', EVENTS_CHANGED);
 		expect(f.tokenCount()).toBe(2);
 	});
 
 	it('a failed token exchange is a failure, not a throw', async () => {
 		const fetchFn = vi.fn(async () => jsonResponse(400, { error: 'invalid_grant' }));
 		const sender = createFcmSender(SA, { fetch: fetchFn, now: () => 0 });
-		expect(await sender.send('t', eventsChangedMessage('actor-1'))).toBe('failed');
+		expect(await sender.send('t', EVENTS_CHANGED)).toBe('failed');
 		expect(fetchFn).toHaveBeenCalledTimes(1);
 	});
 });
 
 describe('getFcmSender', () => {
-	it('returns null when FCM_SERVICE_ACCOUNT_JSON is unset (skip silently)', () => {
-		expect(getFcmSender({})).toBeNull();
+	it('returns null when the service-account value is unset (skip silently)', () => {
+		expect(getFcmSender(undefined)).toBeNull();
+		expect(getFcmSender('')).toBeNull();
 	});
 
 	it('memoizes one sender per configured value (token cache survives across calls)', () => {
-		const env = { FCM_SERVICE_ACCOUNT_JSON: JSON.stringify(RAW_ACCOUNT) };
-		const a = getFcmSender(env);
+		const raw = JSON.stringify(RAW_ACCOUNT);
+		const a = getFcmSender(raw);
 		expect(a).not.toBeNull();
-		expect(getFcmSender(env)).toBe(a);
+		expect(getFcmSender(raw)).toBe(a);
 	});
 });

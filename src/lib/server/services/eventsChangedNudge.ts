@@ -2,8 +2,7 @@ import { inArray } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { calendars, familyMembers } from '$lib/server/db/schema';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
-import { isFcmConfigured } from './fcmService';
-import { sendDataToUsers, type EventsChangedData } from './devicePushService';
+import { isFcmConfigured, sendDataToUsers, type EventsChangedData } from './devicePushService';
 
 /**
  * Silent sync nudge (#272): after any event mutation, every user who can see
