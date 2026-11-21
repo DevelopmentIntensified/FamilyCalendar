@@ -12,7 +12,7 @@ import {
 	tasks
 } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { createNewUser } from '../../src/lib/server/utils/createNewUser';
+import { createNewUser } from '../testUtils';
 import { getSessionCookie } from '../testUtils';
 
 const firstName = 'test';

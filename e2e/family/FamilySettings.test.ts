@@ -22,7 +22,7 @@ test.beforeEach(async () => {
 		await deleteUser(existing[0].id);
 	}
 
-	const ownerUser = await import('$lib/server/utils/createNewUser').then((m) =>
+	const ownerUser = await import('../testUtils').then((m) =>
 		m.createNewUser('Test', 'Owner', ownerEmail)
 	);
 	ownerId = ownerUser.id;

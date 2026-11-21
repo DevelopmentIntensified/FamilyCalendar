@@ -3,10 +3,13 @@ import { db } from '$lib/server/db';
 import { authSession, users, calendars, events, userSettings } from '$lib/server/db/schema';
 import { createSession, createSessionCookie } from '$lib/server/auth';
 import { eq } from 'drizzle-orm';
-import { createNewUser } from '$lib/server/utils/createNewUser';
-import { deleteAccount } from '$lib/server/db/actions/accounts';
-import { deleteUser } from '$lib/server/db/actions/users';
+import { createAccount, deleteAccount } from '$lib/server/db/actions/accounts';
+import { createUser, deleteUser } from '$lib/server/db/actions/users';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
+import { createUserSettings } from '$lib/server/db/actions/userSettings';
+import { ensurePersonalCalendar } from '$lib/server/db/actions/calendar';
+import { generateId } from '$lib/server/utils/generateId';
+import { randHex } from '@ngneat/falso';
 import type { Page } from '@playwright/test';
 
 export interface TestUser {
@@ -15,6 +18,41 @@ export interface TestUser {
 	lastName: string;
 	uid: string;
 }
+
+/**
+ * A verified person for the e2e suite to act as: user row, `email` provider
+ * account, a random-colour settings row and a personal calendar. This is the
+ * one seeding helper the specs share (previously `src/lib/server/utils/createNewUser`,
+ * deleted with access' S8); it writes the same rows in the same order.
+ */
+export const createNewUser = async function (firstName: string, lastName: string, email: string) {
+	const user = await createUser({
+		id: generateId(15),
+		firstName,
+		lastName,
+		email,
+		emailVerified: true,
+		picture: '',
+		phonenumber: '',
+		phonenumberVerified: false,
+		roles: []
+	});
+
+	await createAccount({
+		provider: 'email',
+		userId: user.id,
+		providerAccountId: email
+	});
+
+	await createUserSettings({
+		userId: user.id,
+		color: randHex()
+	});
+
+	await ensurePersonalCalendar(user.id);
+
+	return user;
+};
 
 export async function setupTestUser(overrides?: Partial<TestUser>): Promise<TestUser> {
 	const timestamp = Date.now() + Math.floor(Math.random() * 10000);

@@ -1,7 +1,10 @@
 /**
- * access — public server interface: the `/api` endpoint handlers and the page
- * handlers the route files import. The services behind them stay
- * module-internal: no other module calls one.
+ * access — public server interface: the `/api` endpoint handlers the route
+ * files import, the page handlers, and the one retention use-case another
+ * module's cron calls.
+ *
+ * The services behind the handlers stay module-internal: no other module calls
+ * one.
  *
  * Doc: ./README.md#public-interface
  */

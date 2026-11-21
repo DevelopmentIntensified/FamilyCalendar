@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { db } from '../../src/lib/server/db';
 import { sessions, users, calendars, userSettings } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { createNewUser } from '../../src/lib/server/utils/createNewUser';
+import { createNewUser } from '../testUtils';
 import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUser, getUser } from '../../src/lib/server/db/actions/users';
 import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';

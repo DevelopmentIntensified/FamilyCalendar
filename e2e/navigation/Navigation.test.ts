@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { db } from '$lib/server/db';
 import { sessions, users, calendars, events, userSettings } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { createNewUser } from '$lib/server/utils/createNewUser';
+import { createNewUser } from '../testUtils';
 import { deleteAccount } from '$lib/server/db/actions/accounts';
 import { deleteUser } from '$lib/server/db/actions/users';
 import { deleteCodesByEmail } from '$lib/server/db/actions/codes';

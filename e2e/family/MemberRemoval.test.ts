@@ -18,12 +18,12 @@ test.beforeEach(async () => {
 	await cleanupOwner();
 	await cleanupMember();
 
-	const ownerUser = await import('$lib/server/utils/createNewUser').then((m) =>
+	const ownerUser = await import('../testUtils').then((m) =>
 		m.createNewUser('Test', 'Owner', ownerEmail)
 	);
 	ownerId = ownerUser.id;
 
-	const memberUser = await import('$lib/server/utils/createNewUser').then((m) =>
+	const memberUser = await import('../testUtils').then((m) =>
 		m.createNewUser('Test', 'Member', memberEmail)
 	);
 	memberId = memberUser.id;

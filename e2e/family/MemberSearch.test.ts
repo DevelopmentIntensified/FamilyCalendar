@@ -44,12 +44,12 @@ test.beforeEach(async () => {
 		await deleteUser(existingSearch[0].id);
 	}
 
-	const owner = await import('$lib/server/utils/createNewUser').then((m) =>
+	const owner = await import('../testUtils').then((m) =>
 		m.createNewUser('Test', 'Owner', ownerEmail)
 	);
 	ownerId = owner.id;
 
-	const searchUser = await import('$lib/server/utils/createNewUser').then((m) =>
+	const searchUser = await import('../testUtils').then((m) =>
 		m.createNewUser('Search', 'User', searchUserEmail)
 	);
 	searchUserId = searchUser.id;

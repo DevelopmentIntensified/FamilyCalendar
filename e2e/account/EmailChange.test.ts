@@ -5,7 +5,7 @@ import { deleteCodesByEmail, getCodesByEmail } from '../../src/lib/server/db/act
 import { db } from '../../src/lib/server/db';
 import { calendars, users, sessions, userSettings, events } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { createNewUser } from '../../src/lib/server/utils/createNewUser';
+import { createNewUser } from '../testUtils';
 import { lucia } from '$lib/server/auth';
 
 const firstName = 'test';

@@ -2,7 +2,7 @@ import { test, expect, loginWithSession } from '../testUtils';
 import { db } from '$lib/server/db';
 import { tasks, taskCompletions, users } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { createNewUser } from '$lib/server/utils/createNewUser';
+import { createNewUser } from '../testUtils';
 
 /**
  * 093, mark 3: "the month totals box and whatever sits beside it must be the

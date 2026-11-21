@@ -3,7 +3,7 @@ import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
 import { deleteUserByEmail } from '../../src/lib/server/db/actions/users';
 import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
 import { db } from '../../src/lib/server/db';
-import { createNewUser } from '../../src/lib/server/utils/createNewUser';
+import { createNewUser } from '../testUtils';
 import { calendars, users } from '../../src/lib/server/db/schema';
 import { SignUpPage } from '../pageObjects/signup';
 import { eq } from 'drizzle-orm';

@@ -5,7 +5,7 @@ import { createCode, deleteCodesByEmail } from '../../src/lib/server/db/actions/
 import { db } from '../../src/lib/server/db';
 import { calendars, users, events } from '../../src/lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { createNewUser } from '../../src/lib/server/utils/createNewUser';
+import { createNewUser } from '../testUtils';
 import { createEvent } from '../../src/lib/server/db/actions/events';
 import { getUserCalendar } from '../../src/lib/server/db/actions/calendar';
 import { getSessionCookie } from '../testUtils';
