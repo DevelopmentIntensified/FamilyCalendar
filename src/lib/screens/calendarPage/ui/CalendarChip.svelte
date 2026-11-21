@@ -71,7 +71,8 @@
 	draggable={selectionMode ? false : undefined}
 	ondragstart={selectionMode ? undefined : (event) => ondragstart?.(event, row)}
 	aria-pressed={selectionMode ? selected : undefined}
-	title={selectionMode ? (selected ? 'Deselect' : 'Select') : chip.shell.tooltip}
+	title={selectionMode ? (selected ? 'Deselect' : 'Select') : (row.title ?? '')}
+	aria-label={selectionMode ? undefined : chip.shell.tooltip || row.title || ''}
 	class="flex min-w-0 items-center gap-1 overflow-hidden rounded-md bg-white px-1 py-0.5 text-left text-[11px] font-medium leading-tight transition-colors hover:brightness-95 active:brightness-90 {extraClass} {chip
 		.shell.containerClass} {chip.rsvp?.containerClass ?? ''} {selectionMode && selected
 		? 'ring-2 ring-primary-400'

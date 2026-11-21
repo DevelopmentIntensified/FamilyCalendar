@@ -30,10 +30,12 @@
 <Sheet
 	{open}
 	{onclose}
-	title={day.toFormat('EEEE, MMMM d')}
+	title="Day actions"
 	variant="bottom"
 	testid="day-action-sheet"
+	closeLabel="Close"
 >
+	<h2 class="mb-3 text-lg font-bold text-slate-900">{day.toFormat('EEEE, MMMM d')}</h2>
 	{#if bucket.rows.length > 0}
 		<div
 			class="mb-3 max-h-[30dvh] divide-y divide-slate-100 overflow-y-auto overscroll-contain rounded-xl border border-slate-100"

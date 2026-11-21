@@ -1,8 +1,11 @@
 <!--
-	The edit form's action bar: Delete on the left (edit only), Cancel, Clear
-	(create only) and the submit button. Submitting reads Updating.../Creating...
-	and the button stays disabled until title + date are valid — the blocked
-	reason rides the title attribute.
+	The edit form's action bar: Delete event on the left (edit only), Cancel,
+	Clear (create only) and the submit button. Submitting reads
+	Updating.../Creating... and the button stays disabled until title + date are
+	valid — the blocked reason rides the title attribute.
+
+	The copy is the legacy e2e contract: `Delete event` and `Save Changes` are the
+	names the journeys look for (`Button: has-text("Save Changes")`).
 
 	Doc: ../../README.md#public-interface
 -->
@@ -31,7 +34,7 @@
 			onclick={ondelete}
 			class="mr-auto rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
 		>
-			Delete
+			Delete event
 		</button>
 	{/if}
 	<button
@@ -66,7 +69,7 @@
 				{isEdit ? 'Updating...' : 'Creating...'}
 			</span>
 		{:else}
-			{isEdit ? 'Update' : 'Create'}
+			{isEdit ? 'Save Changes' : 'Create'}
 		{/if}
 	</button>
 </div>

@@ -208,7 +208,7 @@ export interface CalendarChipRowInput {
  */
 export function calendarChipRowOf(
 	row: CalendarChipRowInput,
-	calendars: readonly { id: string; color: string }[],
+	calendars: readonly { readonly id: string; readonly name?: string; readonly color: string | null }[],
 	density: 'glyph' | 'word'
 ): CalendarChipRow {
 	const color = row.isAd
@@ -224,7 +224,9 @@ export function calendarChipRowOf(
 				allDay: row.allDay,
 				isAd: row.isAd
 			},
-			calendars: [...calendars]
+			// Calendar's vocabulary wants refs for its attribution hint; the
+			// screen's rows carry the name (and a colour it has already used).
+			calendars: calendars.map((calendar) => ({ id: calendar.id, name: calendar.name ?? '' }))
 		}),
 		rsvp: calendarRsvpVisual(row.rsvpStatus)
 	};

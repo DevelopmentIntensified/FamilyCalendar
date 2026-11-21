@@ -147,11 +147,29 @@
 		}))
 	);
 
-	const editView = $derived<CalendarEventView | null>(
-		state.editRow
-			? { ...state.editRow, title: state.editRow.title ?? '' }
-			: null
-	);
+	const editView = $derived<CalendarEventView | null>(() => {
+		const row = state.editRow;
+		if (!row) return null;
+		const view: CalendarEventView = {
+			id: row.id,
+			masterId: row.masterId,
+			occurrenceDate: row.occurrenceDate,
+			title: row.title ?? '',
+			start: row.start ?? row.date,
+			end: row.end,
+			date: row.date,
+			description: row.description,
+			location: row.location,
+			allDay: row.allDay,
+			calendarId: row.calendarId,
+			ownerId: row.ownerId,
+			creatorName: row.creatorName,
+			recurrenceFrequency: row.recurrenceFrequency,
+			rsvpStatus: row.rsvpStatus,
+			attendance: row.attendance
+		};
+		return view;
+	});
 
 	const warnings = $derived([...state.shell.warnings, ...(state.grid?.warnings ?? [])]);
 </script>

@@ -29,6 +29,7 @@
 	{onclose}
 	title={day.toFormat('EEEE, MMMM d, yyyy')}
 	testid="day-events"
+	closeLabel="Close"
 >
 	{#if bucket.rows.length === 0 && bucket.tasks.length === 0}
 		<p class="py-8 text-center text-slate-500">No events for this day</p>
@@ -43,6 +44,7 @@
 						state.openEdit(row.id);
 					}}
 				>
+					<h3 class="truncate text-sm font-semibold text-slate-900">{row.title}</h3>
 					<CalendarChip
 						{row}
 						calendars={state.shell.calendars}

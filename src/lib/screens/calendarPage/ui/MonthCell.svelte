@@ -56,7 +56,7 @@
 	<button
 		type="button"
 		class="absolute inset-0 z-0 rounded-[14px] focus:outline-none focus:ring-2 focus:ring-primary-400"
-		aria-label="Open {day.toFormat('EEEE, MMMM d')}"
+		aria-label="Open {day.toFormat('MM-dd-yyyy')}"
 		onclick={tap}
 	></button>
 

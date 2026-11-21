@@ -13,6 +13,7 @@
  */
 import { describe, expect } from 'vitest';
 import type { Db } from '$lib/kernel/db/database.server';
+import type { JsonValue } from '$lib/kernel/validation/validators';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
@@ -35,7 +36,7 @@ function scopeOf(
 		defaultView?: string;
 		roster?: readonly { userId: string; firstName: string; lastName: string | null }[];
 	} = {}
-): Record<string, unknown> {
+): Readonly<Record<string, JsonValue>> {
 	return {
 		settings: {
 			weekStart: 'sunday',

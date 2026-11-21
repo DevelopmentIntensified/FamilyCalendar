@@ -392,14 +392,14 @@ export class CalendarPageState {
 	/** The day list `+N more` opened, with its rows and due Tasks. */
 	dayList = $derived(
 		this.dayListDate
-			? (this.days.get(dayKey(this.dayListDate, this.zone)) ?? { rows: [], tasks: [] })
+			? (this.days.get(dayKey(this.dayListDate.toJSDate(), this.zone)) ?? { rows: [], tasks: [] })
 			: null
 	);
 
 	/** The day sheet the month cell opened, with the day's Events. */
 	daySheet = $derived(
 		this.daySheetDate
-			? (this.days.get(dayKey(this.daySheetDate, this.zone))?.rows ?? [])
+			? (this.days.get(dayKey(this.daySheetDate.toJSDate(), this.zone))?.rows ?? [])
 			: []
 	);
 
