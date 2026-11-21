@@ -81,6 +81,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Notes
 
+- APP-03: `src/hooks.server.ts` is wiring only (`export const handle = appHandle; export const handleError = appHandleError;`). The pipeline lives in `src/lib/app/requestPipeline.server.ts`, composing identity's `resolveBearer` (asked only on `/api/*`), `resolveSessionCookie` (validate, cookie roll, blank-cookie cascade, hourly `lastActiveAt`) and `shouldCreateAnonymousAccount` with access's `isAdminRoute`/`isProtectedRoute`. Behaviour is unchanged, with two implementation notes: the hourly `lastActiveAt` write now happens inside `resolveSessionCookie`, which reuses the person row it already validated (no second read), and `handleError` calls feedback's `fileAutoBugReport` directly and awaits it — the same service and throttle `ctx.faults.report` wires, and the await legacy's `createBugReport` had — instead of building the report itself. The legacy `src/hooks.server.test.ts` is deleted; its rules are pinned by `src/lib/app/app.requestPipeline.db.test.ts`.
 - Local Postgres is published on loopback only (`docker-compose.yml`: `127.0.0.1:5433:5432`, `a70d2822`) so the default `postgres/postgres` credentials never answer from the LAN.
 - Cross-module ports to wire in `src/lib/app` when their modules reach S5 ([add-a-port.md](../playbooks/add-a-port.md)): identity takes `CalendarAccessPort` and `AdConsentPort`; family takes `FamilyCalendarPort` and `MemberTasksPort`, both on the caller's transaction ctx. Each module's README › Depends on names them.
 

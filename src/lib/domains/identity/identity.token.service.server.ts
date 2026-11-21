@@ -99,3 +99,32 @@ export async function authenticateApiToken(ctx: Ctx, token: string): Promise<Use
 	await touchApiTokenLastUsed(ctx.db, holder.tokenId, ctx.clock.now());
 	return holder.person;
 }
+
+/** The header prefix a personal API token rides on (`src/hooks.server.ts:44`). */
+const BEARER_PREFIX = 'Bearer ';
+
+/**
+ * What a request's `Authorization` header resolves to, for the session
+ * pipeline: `none` when there is no Bearer header at all (the cookie path
+ * continues untouched), `invalid` when the token does not authenticate (the
+ * caller answers 401 JSON and never resolves), `person` when it does.
+ */
+export type BearerResolution =
+	| { readonly kind: 'none' }
+	| { readonly kind: 'invalid' }
+	| { readonly kind: 'person'; readonly person: UserRow };
+
+/**
+ * The Bearer half of the pipeline. It decides nothing about paths: the caller
+ * only asks on `/api/*`, because page routes stay cookie-only
+ * (`src/hooks.server.ts:42-62`).
+ */
+export async function resolveBearer(
+	ctx: Ctx,
+	authorization: string | null
+): Promise<BearerResolution> {
+	if (!authorization?.startsWith(BEARER_PREFIX)) return { kind: 'none' };
+	const person = await authenticateApiToken(ctx, authorization.slice(BEARER_PREFIX.length).trim());
+	return person ? { kind: 'person', person } : { kind: 'invalid' };
+}
+

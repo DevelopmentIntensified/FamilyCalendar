@@ -28,6 +28,7 @@ import {
 	splitSignedSessionCookie,
 	type SessionCookieAttributes
 } from './identity.session.rules';
+import { touchDue } from './identity.person.rules';
 import {
 	deleteOtherSessions,
 	deleteSession,
@@ -35,7 +36,8 @@ import {
 	findPersonById,
 	findSessionByToken,
 	insertSession,
-	renewSession
+	renewSession,
+	touchPersonLastActive
 } from './identity.repo.server';
 
 /** A cookie a caller can hand to kit's `cookies.set` (or serialize itself). */
@@ -58,6 +60,15 @@ export type ActiveSession = AuthSessionRow & { readonly fresh: boolean };
 export type SessionValidation = {
 	readonly session: ActiveSession | null;
 	readonly person: UserRow | null;
+};
+
+/**
+ * What the pipeline's cookie path needs: the signed-in person, and the cookie
+ * to write back (only when something changed).
+ */
+export type SessionResolution = SessionValidation & {
+	/** The rolled cookie when the row was fresh, the blank one when the value did not validate, else null. */
+	readonly cookie: SessionCookie | null;
 };
 
 const NO_SESSION: SessionValidation = { session: null, person: null };
@@ -147,6 +158,28 @@ export async function validateSession(
 		return NO_SESSION;
 	}
 	return { session: { ...row, fresh: renew }, person };
+}
+
+/**
+ * The pipeline's cookie path in one call (`src/hooks.server.ts:64-70,99-113`):
+ * validate the presented value, write the rolled cookie back when the row was
+ * fresh, overwrite a dead value with the blank cookie (the "blank-cookie
+ * cascade", so a browser stops sending it), and count the request as activity
+ * — `lastActiveAt` is touched at most hourly.
+ */
+export async function resolveSessionCookie(
+	ctx: Ctx,
+	cookieValue: string
+): Promise<SessionResolution> {
+	const { session, person } = await validateSession(ctx, cookieValue);
+	if (!session || !person) {
+		return { session: null, person: null, cookie: blankSessionCookie(ctx) };
+	}
+	const now = ctx.clock.now();
+	if (touchDue(person.lastActiveAt, now)) {
+		await touchPersonLastActive(ctx.db, person.id, now);
+	}
+	return { session, person, cookie: session.fresh ? sessionCookie(ctx, session.token) : null };
 }
 
 export async function endSession(ctx: Ctx, sessionId: string): Promise<void> {

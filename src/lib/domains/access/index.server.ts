@@ -52,3 +52,6 @@ export {
 	type SignupPageData,
 	type VerifyEmailActionData
 } from './access.pages.http.server';
+
+/** The session pipeline's route gate (`src/hooks.server.ts:23-39`): admin-only, or a protected page. */
+export { isAdminRoute, isProtectedRoute } from './access.route.rules';

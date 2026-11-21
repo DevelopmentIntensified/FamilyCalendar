@@ -56,7 +56,7 @@ Steps inside a module task (S1–S9) are ticked in that module's port sheet. Her
 | S-calendarPage | Port screen **calendarPage** | [port-a-module](playbooks/port-a-module.md) | [calendarPage](modules/calendarPage.md) | doing | | S1 merged; no S2 (calendarPage owns no `/api` route); S3 merged `066bfda1` |
 | APP-01 | Cron cleanup + health into app | [app-tasks › APP-01](playbooks/app-tasks.md#app-01) | [app](modules/app.md) | todo | | |
 | APP-02 | Limiter swap to the kernel memory limiter | [app-tasks › APP-02](playbooks/app-tasks.md#app-02) | [app](modules/app.md) | todo | | |
-| APP-03 | Session pipeline into app; hooks become wiring | [app-tasks › APP-03](playbooks/app-tasks.md#app-03) | [app](modules/app.md) | todo | | |
+| APP-03 | Session pipeline into app; hooks become wiring | [app-tasks › APP-03](playbooks/app-tasks.md#app-03) | [app](modules/app.md) | doing | | Ported on worktree `app3`: pipeline in `src/lib/app/requestPipeline.server.ts`, decisions in identity/access, legacy `src/hooks.server.test.ts` deleted (its rules pinned by `app.requestPipeline.db.test.ts`) |
 | APP-04 | e2e fixtures on v2 modules; Playwright green | [app-tasks › APP-04](playbooks/app-tasks.md#app-04) | [app](modules/app.md) | todo | | |
 | APP-05 | Delete legacy folders and legacy vitest projects | [app-tasks › APP-05](playbooks/app-tasks.md#app-05) | [app](modules/app.md) | todo | | |
 | APP-06 | Docs pass | [app-tasks › APP-06](playbooks/app-tasks.md#app-06) | [app](modules/app.md) | todo | | |
