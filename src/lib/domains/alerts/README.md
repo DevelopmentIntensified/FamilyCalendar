@@ -145,3 +145,9 @@ Behaviour that must not change. Wire rules name the golden in `alerts.http.db.te
 - Calls: `identity` for the `Actor` shape only; no direct service call today.
 - Called by: `tasks` and `family` create Alerts through `createAlert`; `calendar` resolves who can see a touched calendar and calls `nudgeEventsChanged` with those user ids (plus the actor); `app`'s weekly cron calls `pruneReadAlertsOlderThan`; `shell` renders `AlertsBell`; the account screen renders the preference switches from `index.ts`; the Alerts route wires `listAlertsEndpoint`-style handlers (S6) and `AlertsFeed`.
 - Until those modules port, the legacy shell mounts `AlertsBell` from `components/Navbar.svelte` and `components/NavbarMobileMenu.svelte` (with `goto` passed in), and the legacy account card still reads `components/account/accountNotifications.ts` — the file kept for that importer (see Notes). Both go when shell/account land, not here.
+
+## Legacy files (S8, 2026-11-21)
+
+Deleted (no importer was left, or the one importer was deleted with it): `server/db/actions/notificationMethods.ts` and `components/account/accountNotifications.ts` (the preference switches now read through this module's service; the account section renders them from here), `server/db/actions/notifications.ts` and `server/services/pushService.ts` (the legacy push pair, superseded by `ctx.push` + `pushTransport`), and `server/services/web-push.d.ts` — its ambient `web-push` declaration moved to `app/app.web-push.d.ts`, where the only static import lives.
+
+Kept: `server/services/devicePushService.ts` — the legacy `eventsChangedNudge` (still called by the unported event detail page and `icsImportFlow`) fans out device pushes through it; the ported path is `alerts.service.server.ts` on `ctx.push`.

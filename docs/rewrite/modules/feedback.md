@@ -18,7 +18,7 @@ Bug reports (user-filed and auto-filed faults), unmatched NLP phrases, the admin
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2, except the Q-006 row — see Notes)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; `reportBug.ts` kept (see Notes)
 - [ ] S9 README final, census --write, gate:push, ledger done
 
 ## Must survive
@@ -149,6 +149,7 @@ Every new file lives in `src/lib/domains/feedback/`. Roles follow [conventions.m
 
 ## Notes
 
+- **S8 sweep (2026-11-21).** Deleted `server/db/actions/bugReports.ts`, `server/db/actions/unmatchedPhrases.ts` and `server/services/autoBugReport.ts` (the app files every authenticated 5xx through this module's `fileAutoBugReport`, and the routes write through the repo). Kept `utils/reportBug.ts` — the legacy `components/Navbar.svelte` (marketing's header) still imports it; `reportBugHref` on `index.ts` is the ported home. `server/utils/apiError.ts` (the other consumer of `autoBugReport`) went with `app`'s S8.
 - **S1/S2 verification (2026-11-11).** Every draft inventory line used in the README was re-read against the cited code. Two corrections to the draft: the description is trimmed by the route *and* again (and capped) by `createBugReport`; and `resolveBugReport` is not a no-op on a second call — it always re-stamps `resolvedAt` (pinned, Q-007).
 - **No golden for the bug-report 500.** `POST /api/bug-report` answers `500 {"error":"Could not save report. Please try again."}` only when `createBugReport` returns `null`, which happens for a blank description (already a 400) or a database error. Neither is reachable in the db lane without breaking the schema, so the copy stays in the contract and the S5 service test; the goldens pin the 200/400/401/429 paths.
 - **Probably accidental — dropped as invariants (not visible on any `/api` handler in this module):**

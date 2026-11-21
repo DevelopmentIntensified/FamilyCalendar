@@ -141,6 +141,10 @@ Cross-module ports (the R8-legal seam): identity declares `CalendarAccessPort` a
 
 ## Notes
 
+### S8 sweep (2026-11-21)
+
+Deleted, every importer rewired: `server/auth.ts`, `server/db/actions/{accounts,users,apiTokens,codes}.ts`, `server/utils/password.ts`, `server/utils/createNewUser.ts` and `utils/anonymous.ts`. `src/app.d.ts` now types `Locals.user`/`Locals.session` from this module + the kernel tables; `identity.person.rules`' `ANONYMOUS_EMAIL_DOMAIN` is on `index.ts` and `e2e/pages/{seeds,session}.ts` + the legacy `NavbarProfileMenu` import it. Kept with their importers: `server/db/actions/userSettings.ts` (legacy service layer: adService/printData/userTimezone/event detail) and `server/utils/userTimezone.ts` (cursor/adService/icsImportFlow/printData).
+
 **S1**
 
 - The API table has 8 rows: five `/api/me` route files carrying **seven methods** (`GET`/`POST` tokens, `DELETE` token, `PATCH` profile, `POST` revoke-others, `GET`/`PATCH` settings), plus the non-`/api` `/calendar/setUserDefaultTimeZone` row. Mobile auth belongs to [access](access.md), not here.

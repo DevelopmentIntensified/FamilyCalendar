@@ -18,7 +18,7 @@ Grocery List (one list, scope filter), Grocery Items, Store Memory, Store Colour
 - [x] S5 service
 - [x] S6 http + route wiring (goldens unchanged since S2, plus the three Q-111 rows)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; none left (see Notes)
 - [ ] S9 README final, census --write, gate:push, ledger done
 
 ## Must survive
@@ -158,6 +158,8 @@ Where each legacy export goes:
 | `requireUserJson` / `apiError` / `isString` in the three route files | kernel `endpoint()` (auth, parsing, error mapping, fault filing) |
 
 ## Notes
+
+- **S8 sweep (2026-11-21).** None left: `server/db/actions/groceries.ts` and its `groceries.test.ts` were deleted; the goldens + `groceries.service.db.test.ts` / `groceries.repo.db.test.ts` replace the stub-db test.
 
 **Surprises found while verifying the inventory.**
 

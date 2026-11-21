@@ -4,6 +4,7 @@
  * Doc: ./README.md#public-interface
  */
 export {
+	ANONYMOUS_EMAIL_DOMAIN,
 	isAnonymousAccount,
 	isRegisteredAccount,
 	guestSafeEmail,

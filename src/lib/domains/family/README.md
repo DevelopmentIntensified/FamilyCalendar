@@ -198,6 +198,12 @@ Behaviour that must not change, each with the test that pins it (`file › test 
 - `/api/family/search` answers `200 {users:[]}` when `q` or `familyId` is missing, instead of the 400 its sibling search door returns — `src/routes/api/family/search/+server.ts:13-15`. Pinned by `family.http.db.test.ts › answers an empty list when q or familyId is missing`. (Owner question Q-F4.)
 - `DELETE /api/families/{id}/members/{userId}` answers `{success:true}` even when the target is not a member — `src/lib/server/services/familyData.ts:270-282`. Pinned by `family.http.db.test.ts › answers a no-op success for a target who is not a member`. (Owner question Q-F5.)
 
+## Legacy files (S8, 2026-11-21)
+
+Deleted: `server/services/userScope.ts` (the calendar group's scope read; the shell screen's `loadCalendarGroup` is the port), `utils/familyDisplay.ts` (+ its test) and `utils/familyPalette.ts` (+ its test) — the display and palette rules live in `family.display.rules.ts` / `family.palette.rules.ts`.
+
+Kept: `server/db/actions/families.ts` (+ its legacy `families.test.ts`) — the still-unported calendar services (`services/archiveData.ts`, `icsImportFlow.ts`, `printData.ts`, `statsData.ts`) import it directly; every ported caller uses this module's `index.server.ts`. The `/family/invite/email` page no longer touches it: it accepts through `joinFamily` here.
+
 ## Depends on
 
 - May import: kernel, identity, billing, alerts (public entries only).

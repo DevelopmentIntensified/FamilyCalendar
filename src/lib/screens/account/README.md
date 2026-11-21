@@ -248,5 +248,6 @@ Each line names the test that pins it.
   family-scoped use-case); a lingering assignment in a family the person had already left keeps its
   status on the set-null FK. A tasks-level "clear a person's assignments" use-case is the fix
   (report ASK).
-- `accountNotifications.ts` (legacy rules) stays: alerts' README keeps it for the legacy
-  `src/lib/server/db/actions/notificationMethods.ts` importer; deleting both is alerts' call.
+- `accountNotifications.ts` (legacy rules) is gone with alerts' S8 (2026-11-21), together with the
+  legacy `src/lib/server/db/actions/notificationMethods.ts`: the four-switch rules and the stored-bag
+  read live in the alerts domain, which the notifications section consumes through its public entry.

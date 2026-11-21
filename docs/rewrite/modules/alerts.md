@@ -18,7 +18,7 @@ The Alert feed (closed type set, needs-you vs news), notification preferences, w
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; one file kept (see Notes)
 - [ ] S9 README final, census --write, gate:push, ledger done
 
 ## Must survive
@@ -165,6 +165,10 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 
 ## Notes
+
+### S8 sweep (2026-11-21)
+
+Deleted: `server/db/actions/notificationMethods.ts` + `components/account/accountNotifications.ts` (preferences read through this module), `server/db/actions/notifications.ts` + `server/services/pushService.ts` (superseded by `ctx.push`/`pushTransport`) and `server/services/web-push.d.ts` (moved to `app/app.web-push.d.ts`). Kept: `server/services/devicePushService.ts` — the legacy `eventsChangedNudge` (event detail page, `icsImportFlow`) still fans out through it.
 
 **Verified against the code (S1).** The draft's API table holds. Corrections and additions:
 

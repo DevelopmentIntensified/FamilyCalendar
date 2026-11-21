@@ -140,6 +140,8 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Notes
 
+- **S8 sweep (2026-11-21).** Kept `server/db/actions/dashboard.ts` (its `getCompletionTimestamps` only) for the unported stats page's `services/statsData.ts`; everything else in it had already moved to tasks/calendar.
+
 - 2026-11-11 (owner, [Q-005a](../questions.md)): the Family Task Board must not show other members' private Tasks. The tasks module's family read applies the filter; this screen just uses it. The S2 golden pins today's leak first (`task-diary` on the board); the wire changes only after S6 as its own `fix(dayDashboard)`/M-tasks commit.
 - Verse deleted 2026-11-12 (Q-031/Q-032): `dailyVerse` left the `/api/dashboard` body, and the info band (`DashboardInfoBand.svelte` + test) and the `dailyVerse` prop on `DayDashboard` went with it. The `verse` Dashboard Module id stays in `modules` (Android reads `shows("verse")`), gated by `showDailyVerse` as before.
 - Architecture review 2026-11-10 #3 ([report](../../archive/review/architecture-review-2026-11-10.html)): the screen's load returns one typed `DashboardModel`, and cards type their props as `DashboardModel['…']`. No hand-mirrored wire types, no `as unknown as Event` casts.

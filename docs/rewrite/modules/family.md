@@ -18,7 +18,7 @@ Families, Family Members (role vs Member Type), invite codes and email/link invi
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; `families.ts` kept (see Notes)
 - [ ] S9 README final, census --write, gate:push, ledger done
 
 ## Must survive
@@ -169,6 +169,10 @@ Where each legacy export goes:
 - `src/lib/server/services/userScope.ts` stays with calendar/dashboard until they port; family exposes `listRoster` and `findMembershipFamilyId` for them.
 
 ## Notes
+
+### S8 sweep (2026-11-21)
+
+Deleted: `server/services/userScope.ts`, `utils/familyDisplay.ts` (+ test), `utils/familyPalette.ts` (+ test). Kept: `server/db/actions/families.ts` (+ its legacy test) — the unported calendar services (`archiveData`, `icsImportFlow`, `printData`, `statsData`) import it. The `/family/invite/email` page's accept now runs through this module's `joinFamily`/`previewInvite` from access' page handlers.
 
 ### Perf pass (ADR 0010, 2026-11-21): zod and luxon out of the family pages
 

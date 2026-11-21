@@ -99,6 +99,12 @@ Each line is a behaviour the port must keep, with the legacy evidence and the te
 - An ad offers no export/menu actions: the event modal and its header hide them when `isAd` — `src/lib/components/calendar/EventModalHeader.svelte:42`, `src/lib/components/calendar/EventModal.svelte:405`. Pinned by the calendar's `EventModal` tests + visual check.
 - Ad events are pruned weekly at 90 days, anchored on `adEvents.createdAt`, and the count removed is returned — `src/lib/server/db/actions/adEvents.ts:19-26`, `src/routes/api/cron/cleanup/+server.ts:18,46-48`, `vercel.json:5`. Pinned by `sponsored.service.db.test.ts` › "deletes ad rows created before the cutoff and returns the count" and `sponsored.repo.db.test.ts` › "deletes ad rows created before the cutoff and returns the count", "keeps rows created at or after the cutoff".
 
+## Legacy files (S8, 2026-11-21)
+
+Deleted: `server/db/actions/adEvents.ts` (+ its `adEvents.prune.test.ts`) and `server/services/adConsentService.ts` (+ its test) — the event trail and consent read are this module's repo/service, and `app`'s cleanup cron already prunes through `pruneSponsoredEventsOlderThan`.
+
+Kept: `server/services/adService.ts` (+ its legacy test) — `services/calendarData.ts`, which the unported calendar page still loads, calls it for the month's ad events; `calendarPage`'s ported ad leg uses `listSponsoredEvents`.
+
 ## Depends on
 
 - May import: kernel + identity, billing, alerts, family, dashboardModules, bills, parsing, calendar, tasks, groceries, verse (public entries only).
