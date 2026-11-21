@@ -22,7 +22,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { and, desc, eq, gt, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import type { Db } from '$lib/kernel/db/database.server';
 import {
 	events,
@@ -202,6 +202,37 @@ export async function listTasksForUser(
 	return await tasksWithEvent(db)
 		.where(and(or(...scopes), isNull(tasks.archivedAt)))
 		.orderBy(desc(tasks.createdAt));
+}
+
+/**
+ * The due-window read the calendar page composes: the caller's own open Tasks
+ * plus their family's, whose `dueDate` falls inside `[fromIso, toIso]`, in due
+ * order, with the parent Event joined. `dueDate` is `timestamptz` in string
+ * mode, so the bounds are ISO instants and the comparison is the column's own.
+ */
+export async function listDueTaskRows(
+	db: Db,
+	query: {
+		readonly userId: string;
+		readonly familyId: string | null;
+		readonly fromIso: string;
+		readonly toIso: string;
+	}
+): Promise<TaskRowWithEvent[]> {
+	const scopes = [eq(tasks.userId, query.userId)];
+	if (query.familyId) scopes.push(eq(tasks.familyId, query.familyId));
+	return await tasksWithEvent(db)
+		.where(
+			and(
+				or(...scopes),
+				isNotNull(tasks.dueDate),
+				gte(tasks.dueDate, query.fromIso),
+				lte(tasks.dueDate, query.toIso),
+				isNull(tasks.completedAt),
+				isNull(tasks.archivedAt)
+			)
+		)
+		.orderBy(tasks.dueDate);
 }
 
 /**

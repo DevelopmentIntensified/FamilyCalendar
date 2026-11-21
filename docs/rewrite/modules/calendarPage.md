@@ -15,11 +15,11 @@ The main calendar page: month/week/day/list views, toolbar and filters, selectio
 - [x] S2 `/api` goldens, green on legacy — S2 commit sha: n/a (no `/api` route; see Notes)
 - [x] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S5 service (`calendarPage.service.server.ts` + `calendarPage.service.db.test.ts`, 8 tests)
+- [x] S6 http + route wiring (`calendarPage.http.server.ts` + `calendarPage.http.db.test.ts`; no `/api` route, so no golden to keep byte-identical)
+- [x] S7 UI rebuild (rules, api, state, components, screen) — visual check owed to the orchestrator
+- [x] S8 rewire importers, delete legacy code and legacy tests (the EventModal family stays until calendar's routes are ported)
+- [x] S9 README final (census --write/gate:push run by the orchestrator)
 
 ## Must survive
 
@@ -297,6 +297,46 @@ Kept as-is because they are already right: the ads gate returns before its read 
 No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`); the text rule is pure. It is not a catalog page (it never renders), so it has no perf entry.
 
 ## Notes
+
+### S5–S9 (2026-11-21): what landed, what was deleted, and the deviations
+
+- **S5** `getCalendarPage` composes calendar (`listCalendars`, `listEventsInWindow`), tasks (`listDueTasks`,
+  added for this screen — a due-window read) and sponsored (`listSponsoredEvents`, only when the gate is
+  on). The shell warns into `shell.warnings`, the streamed grid into `grid.warnings`; the banner joins
+  both, as legacy's two lists did (Q-098 folded `family` into `calendar`).
+- **The grid is the matrix, not the padded read**: `listEventsInWindow` pads a grid week either side
+  (`calendar.range.rules` `PAD_MS`) so a client fetch can fill adjacent cells; the model filters rows to
+  the month's own matrix (and tasks to the same window by the viewer's zone day).
+- **S6** two page loads (`auth: 'user'` / `'optional'`), no actions. `/share-target` uses
+  `shareTargetText` so an Android share whose text already holds the URL does not duplicate it.
+- **S7** 23 components + 3 state classes + `calendarPage.bulk.rules.ts`; one `HourGrid` replaced
+  `DayHourGrid`+`WeekHourGrid`; colour resolves from `calendarId` (Q-099 B); the create sheet is two
+  tabs (calendar's form + this screen's Task form), categories on the Task tab's first open (Q-101 B);
+  edit uses calendar's `CalendarEventModal` with tasks' checklist snippet.
+- **Cross-module exports added instead of copies**: access exports `GUEST_MERGE_COOKIE` +
+  `isClaimableGuest`; calendar exports its move math and `CalendarBulkPlanOpWire`; tasks exports
+  `listDueTasks`, `TaskDetailModal` and `TaskQuickAddHelp` (both ported into `tasks/ui`). calendarPage
+  imports all of them.
+- **Deleted**: `Calendar`, `CalendarToolbar`, `CalendarKey`, `CalendarSelector`, `MonthView`,
+  `MonthDays`, `MonthDayCell`, `WeekView`, `WeekHourGrid`, `WeekAllDayRow`, `WeekHeader`, `DayView`,
+  `DayHourGrid`, `DayAllDayList`, `DayHeader`, `ListView`, `DayActionSheet`, `DayEventsModal`,
+  `BulkEditBar`, `ExitSelectionAsk`, `FirstRunCard`, `EmptyState`, `TaskDetailBar`, `TaskDetailModal`,
+  `EventTaskFields` (then restored — see below) and the utils `calendarVisibility`, `calendarAssignees`,
+  `calendarSearch`, `dayViewLayout`, `listGroup`, `rangeSelect`, `weekView`, `eventMove`, `bulkPlan`,
+  with their legacy tests plus `calendarView.test.ts`, `eventModalRoster.svelte.test.ts` and
+  `page.server.test.ts`.
+- **Kept**: the `EventModal` family (EventModal, EventFormModal, EventFormModel, EventModalShell/Header/
+  Bar, ChecklistSection, EventDetailList, EventRecurrenceCard, EventRsvp*, EventAttendeeGroups,
+  EventGuestNote, Event*Fields, EventQuickAdd, EventDeleteConfirm/ExportMenu, AttendantPicker,
+  AttendanceBadge, CreatorBadge, ChipKindMark) because unported routes still import it, and therefore
+  `EventTaskFields.svelte` + `chipVocabulary.ts`; `eventChip.ts` (dashboard cards), `calendarData.ts`
+  (calendar/sponsored `/api`), `components/calendar/calendarView.ts` (now unreferenced — safe to delete
+  later).
+- **Deviations**: task chips now open tasks' own `TaskDetailModal` (a row is opened by id; the sheet
+  draws only the fields the calendar row carries); the day-sheet's four actions and the range
+  popover keep legacy copy; the grid's hourly lane chips use calendar's `buildMovePayload`.
+- **Owed to the orchestrator**: `visual:check` / `perf:check` / `typecheck` and `census --write`; the
+  UI tests cover the chips, the empty states and the exit ask, not every component.
 
 ### S3 (2026-11-19): what landed, and the two deviations
 

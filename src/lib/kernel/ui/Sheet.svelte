@@ -41,6 +41,8 @@
 		variant?: 'modal' | 'bottom';
 		swipeToClose?: boolean;
 		testid?: string;
+		/** The close button's accessible name; the legacy day sheets say "Close". */
+		closeLabel?: string;
 		children: Snippet;
 		footer?: Snippet;
 	}
@@ -53,6 +55,7 @@
 		variant = 'modal',
 		swipeToClose = true,
 		testid = 'sheet',
+		closeLabel = 'Close modal',
 		children,
 		footer
 	}: Props = $props();
@@ -140,7 +143,7 @@
 					type="button"
 					onclick={close}
 					class="ml-auto rounded-full p-1.5 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-					aria-label="Close modal"
+					aria-label={closeLabel}
 					data-testid="{testid}-close"
 				>
 					<svg

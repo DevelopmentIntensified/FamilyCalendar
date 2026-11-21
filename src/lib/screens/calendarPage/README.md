@@ -39,6 +39,44 @@ The public API is designed at S1. The entries are filled as their steps land; th
 | [calendarPage.search.rules.test.ts](calendarPage.search.rules.test.ts) | test | Normalization, the AND predicate over title/description/location, and the match count. | — |
 | [calendarPage.lanes.rules.test.ts](calendarPage.lanes.rules.test.ts) | test | Lane tables including the #066 per-cluster counts, the hit-test invariant, overnight clamping and the now-line. | — |
 | [calendarPage.select.rules.test.ts](calendarPage.select.rules.test.ts) | test | Mouse drag, the long-press/Add-mode fork, stepper clamps and the one-shot click guard. | — |
+| [calendarPage.service.server.ts](calendarPage.service.server.ts) | service | `getCalendarPage`: the one composition — the bounded month window, Personal Calendar first, the roster, due Tasks riding their Event's calendar, the Sponsored Events gate, and the degrade-to-fallback + warning per section. | `calendarPage.service.db.test.ts` |
+| [calendarPage.service.db.test.ts](calendarPage.service.db.test.ts) | test | The window bound, provisioning, family calendar order, due Tasks, the ads gate and its degrade, the roster names and the seeds. | — |
+| [calendarPage.http.server.ts](calendarPage.http.server.ts) | http | `calendarPageLoad` (auth `user`, Dashboard redirect, guest-merge gate, seeds) and `shareTargetLoad` (auth `optional`, one 302). No actions: every write is a domain's `/api`. | `calendarPage.http.db.test.ts` |
+| [calendarPage.http.db.test.ts](calendarPage.http.db.test.ts) | test | Auth, the #056 redirect and its escapes, the guest gate (#241), the seeds and `/share-target`'s 302. | — |
+| [calendarPage.bulk.rules.ts](calendarPage.bulk.rules.ts) | rules | The smart plan's review copy and the past-date ask (legacy `bulkPlan.ts`, with `todayKey` passed in). | `calendarPage.bulk.rules.test.ts` |
+| [calendarPage.bulk.rules.test.ts](calendarPage.bulk.rules.test.ts) | test | Label tables (delete, move + past marker, rename, calendar), and the past-date predicate. | — |
+| [calendarPage.state.svelte.ts](calendarPage.state.svelte.ts) | state | The screen's one state class: date/view, the filter rung, selection, modals, deep-link seeds, the day map, the empty-state choice and the toasts. | `calendarPage.state.test.ts` |
+| [calendarPage.range.state.svelte.ts](calendarPage.range.state.svelte.ts) | state | The bounded 12-month fetched cache: monthly replacement, occurrence-key merge, generation guard, attempted-on-failure and the busy month. | `calendarPage.range.state.test.ts` |
+| [calendarPage.bulk.state.svelte.ts](calendarPage.bulk.state.svelte.ts) | state | The bulk bar's operations: inline delete confirm, dry run → review → apply, past-date ask, verbatim error and the phrase report. | `calendarPage.bulk.state.test.ts` |
+| [ui/CalendarPage.svelte](ui/CalendarPage.svelte) | component | The screen: one 80rem card, the same-card skeleton, warnings, first-run card, FAB, bulk bar, selection-from-text, share ack and the lazy modals. | visual:check |
+| [ui/CalendarToolbar.svelte](ui/CalendarToolbar.svelte) | component | View toggle, the date pill (kernel `DayNav` + mini picker), Add/Select, Filters + count, action strip and sandwich, full-width search row. | visual:check |
+| [ui/CalendarFiltersSheet.svelte](ui/CalendarFiltersSheet.svelte) | component | The one Filters sheet (calendars + people) at every width, with both axes' toggles and the reading-filter footer copy. | visual:check |
+| [ui/MiniPicker.svelte](ui/MiniPicker.svelte) | component | The month/year mini picker behind the date pill's label. | visual:check |
+| [ui/CalendarKeyStrip.svelte](ui/CalendarKeyStrip.svelte) | component | The folded Key strip, rendered from calendar's own chip vocabulary. | visual:check |
+| [ui/CalendarChip.svelte](ui/CalendarChip.svelte) | component | One Event chip for all four views: the vocabulary mark, title, selection ring, RSVP/creator/attendance badges. | visual:check |
+| [ui/TaskChip.svelte](ui/TaskChip.svelte) | component | One due-Task chip (dashed, no calendar colour, recurring mark); read-only until tasks exports a detail sheet. | visual:check |
+| [ui/MonthView.svelte](ui/MonthView.svelte) | component | The weekday headers and the full matrix from the grid rules. | visual:check |
+| [ui/MonthCell.svelte](ui/MonthCell.svelte) | component | The fixed-height cell (72/92/104px), chips + `+N more`, hover tools, and the width/Selection tap fork. | visual:check |
+| [ui/WeekView.svelte](ui/WeekView.svelte) | component | The week span (settings week start) with its band, hour grid and empty note. | visual:check |
+| [ui/WeekAllDayBand.svelte](ui/WeekAllDayBand.svelte) | component | The week header and all-day band: all-day chips plus each day's due Tasks. | visual:check |
+| [ui/HourGrid.svelte](ui/HourGrid.svelte) | component | ONE hour grid for 1..7 columns: hour rows, now line, lane chips, range painter + steppers, drop target, autoscroll. | visual:check |
+| [ui/DayView.svelte](ui/DayView.svelte) | component | Header with Today pill and Back, the all-day band, the empty state and the hour grid. | visual:check |
+| [ui/DayAllDayList.svelte](ui/DayAllDayList.svelte) | component | Named all-day rows and the day's Tasks group with their cadence (`🔁 2× Weekly`). | visual:check |
+| [ui/ListView.svelte](ui/ListView.svelte) | component | Sticky day headers, Event rows with clock/place, due Tasks and the legacy empty line. | visual:check |
+| [ui/DayActionSheet.svelte](ui/DayActionSheet.svelte) | component | The narrow-width day sheet with its four actions, on kernel `Sheet`. | visual:check |
+| [ui/DayEventsModal.svelte](ui/DayEventsModal.svelte) | component | The `+N more` day list (ISO keys) with its Tasks group. | visual:check |
+| [ui/BulkEditBar.svelte](ui/BulkEditBar.svelte) | component | The selection toolbar: delete confirm, plan review, past ask, calendar/location/attendant/smart tools and the error + report line. | visual:check |
+| [ui/SelectionExitAsk.svelte](ui/SelectionExitAsk.svelte) | component | The inline "exit selection to move this event?" ask. | visual:check |
+| [ui/CreateAnythingModal.svelte](ui/CreateAnythingModal.svelte) | component | The two-tab create sheet: calendar's Event form (with the tasks checklist snippet) and this screen's Task form (categories on first open, Q-101 B). | visual:check |
+| [ui/TaskFields.svelte](ui/TaskFields.svelte) | component | Task title, Visibility, optional Due Date and Category. | visual:check |
+| [ui/FirstRunCard.svelte](ui/FirstRunCard.svelte) | component | "Blank calendar!" with the Smart tasks link and its dismissal. | visual:check |
+| [ui/FilterEmpty.svelte](ui/FilterEmpty.svelte) | component | The three filter empty states (calendars, search, people), each with its one-tap recovery. | visual:check |
+| [calendarPage.state.test.ts](calendarPage.state.test.ts) | test | The filter rung, the ad's survival, person counts, the empty-state choice, selection + Escape, the toasts, the first-run card, the merge precedence and the deep-link seeds. | — |
+| [calendarPage.range.state.test.ts](calendarPage.range.state.test.ts) | test | The matrix window asked for, the twelve-month bound and eviction, wholesale replacement, the generation guard and the failure toast. | — |
+| [calendarPage.bulk.state.test.ts](calendarPage.bulk.state.test.ts) | test | The inline delete confirm, dry run → review → apply, the past-date ask, the verbatim error and the phrase report. | — |
+| [ui/CalendarChip.svelte.test.ts](ui/CalendarChip.svelte.test.ts) | test | Colour by `calendarId` (not list position), the sponsored amber, selection mode's toggle, the RSVP badge. | — |
+| [ui/FilterEmpty.svelte.test.ts](ui/FilterEmpty.svelte.test.ts) | test | The three claims and their one-tap recoveries. | — |
+| [ui/SelectionExitAsk.svelte.test.ts](ui/SelectionExitAsk.svelte.test.ts) | test | Exit selection versus Stay, and nothing while closed. | — |
 
 ## Public interface
 

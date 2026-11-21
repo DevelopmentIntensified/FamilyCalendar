@@ -65,6 +65,10 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 
 ## Public interface
 
+- `GUEST_MERGE_COOKIE` + `isClaimableGuest(ctx, guestId)` — the guest stash's cookie name and claim
+  check, exported for `calendarPage`'s merge gate so the page and `/merge-guest` cannot disagree
+  about what "claimable" means.
+
 Everything other modules and routes may use, grouped by entry file. One line each: `name` — what it does.
 
 Other modules call exactly one service: `app`'s cleanup cron calls `pruneExpiredClaimTokens` (re-exported from `index.server.ts`). Every other caller is one of this module's own routes or a page this module owns. The services are still written one per use case, so S5 has one seam per rule.

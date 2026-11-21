@@ -8,16 +8,15 @@
  * ALWAYS carries `day`, takes `pxPerHour` as a constructor argument and stays
  * framework-free: the view syncs its three public fields after each call.
  *
- * The minute math is the calendar's move math (`snapMinutes`/`yToMinutes`/
- * `normalizeRange`): 15-minute snapping and a degenerate drag becoming a
- * 30-minute block. It is private here because no other v2 caller needs it yet;
- * when calendar's entry exports its move math, this file should import it
- * rather than keep the second copy (reported as an S7 follow-up).
+ * The minute math is the calendar's move math, reached through its public
+ * entry (`calendar.move.rules`: 15-minute snapping, a degenerate drag becoming
+ * a 30-minute block). One home, no second copy.
  *
  * Ported from legacy `src/lib/utils/rangeSelect.ts` (#046/#047).
  *
  * Doc: ./README.md#day-and-week-views
  */
+import { normalizeRange, yToMinutes } from '$lib/domains/calendar/index';
 import type { DateTime } from 'luxon';
 
 /** The drag currently being painted, in minutes since midnight. */
@@ -39,32 +38,16 @@ export interface CalendarRangeFlags {
 	addMode: boolean;
 }
 
-const SELECT_SNAP_MINUTES = 15;
 const SELECT_LONG_PRESS_MS = 450;
 const SELECT_MOUSE_PX = 6;
 const SELECT_TOUCH_MIN_DELTA_MIN = 2;
 const SELECT_SCROLL_PX = 10;
 
-/** Snap minutes-since-midnight to the grid, clamped to the day. */
-function snapMinutes(minutes: number, step: number = SELECT_SNAP_MINUTES): number {
-	return Math.min(24 * 60 - step, Math.max(0, Math.round(minutes / step) * step));
-}
-
-/** Pointer Y within a px-per-hour grid → snapped minutes-since-midnight. */
-function yToMinutes(clientY: number, gridTop: number, pxPerHour: number): number {
-	return snapMinutes(((clientY - gridTop) / pxPerHour) * 60);
-}
-
 /**
- * Normalize a drag anchor + current pointer into an ordered [start, end] minute
- * pair. Degenerate drags become a 30-minute block.
+ * The minute math is calendar's, one home (`calendar.move.rules`: 15-minute
+ * snapping, a degenerate drag becoming a 30-minute block) and reached through
+ * its public entry.
  */
-function normalizeRange(anchorMinutes: number, currentMinutes: number): [number, number] {
-	const start = snapMinutes(Math.min(anchorMinutes, currentMinutes));
-	let end = snapMinutes(Math.max(anchorMinutes, currentMinutes));
-	if (end - start < SELECT_SNAP_MINUTES) end = Math.min(24 * 60, start + 30);
-	return [start, end];
-}
 
 export class RangeSelectMachine {
 	selecting: CalendarRangeSelecting | null = null;
@@ -215,3 +198,4 @@ export class RangeSelectMachine {
 		this.clearLongPress();
 	}
 }
+

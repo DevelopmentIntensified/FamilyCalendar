@@ -25,11 +25,11 @@
 </script>
 
 <div>
-	<label for="event-quick-add" class="mb-1 block text-sm font-medium text-slate-700">Quick Add</label>
+	<label for="nl-input" class="mb-1 block text-sm font-medium text-slate-700">Quick Add</label>
 	<div class="mt-1 flex gap-2">
 		<div class="relative flex-1">
 			<input
-				id="event-quick-add"
+				id="nl-input"
 				type="text"
 				value={state.quickAdd}
 				oninput={(event) => state.onQuickAddInput(event.currentTarget.value)}
