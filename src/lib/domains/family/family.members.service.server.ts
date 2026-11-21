@@ -254,7 +254,7 @@ export async function sendFamilyInvite(
 	if (target) throw invalid(target.message, { success: false });
 
 	const code = await mintFamilyInviteCode(ctx, input.familyId, EMAIL_INVITE_PLAN, actor.id);
-	const link = await mintedInviteLink(ctx, input, code);
+	const link = await mintedInviteLink(ctx, input, code.code);
 	const inviter = await getPerson(ctx, actor);
 	const inviterName = `${inviter.firstName} ${inviter.lastName}`;
 
@@ -295,7 +295,7 @@ export async function mintFamilyInviteLink(
 	if (target) throw invalid(target.message, { success: false });
 
 	const code = await mintFamilyInviteCode(ctx, input.familyId, LINK_INVITE_PLAN, actor.id);
-	return await mintedInviteLink(ctx, input, code);
+	return await mintedInviteLink(ctx, input, code.code);
 }
 
 /** The body a role/Member Type PATCH with neither field answers. */
@@ -372,7 +372,8 @@ export async function removeFamilyMember(
 	if (refusal) throw familyRefusalError(refusal);
 
 	await withTx(ctx, async (txCtx) => {
-		await txCtx.tasks.unassignMemberTasks(txCtx, input.familyId, input.userId);
+		// The port is a ctx-bound adapter; only `db` needs the transaction scope.
+		await ctx.tasks.unassignMemberTasks(txCtx, input.familyId, input.userId);
 		await deleteMembership(txCtx.db, input.familyId, input.userId);
 	});
 }

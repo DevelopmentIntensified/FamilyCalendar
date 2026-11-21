@@ -7,7 +7,9 @@
  * session). The accept runs ONE transaction that takes `SELECT … FOR UPDATE` on
  * the invite row, then checks expiry, the use cap, duplicate membership and the
  * family-size cap, and bumps `use_count` DB-side (#155). Time comes from
- * `ctx.clock` and codes from `ctx.ids`, so nothing here reads a clock.
+ * `ctx.clock` and the code from the kernel's `systemIds` (the legacy
+ * `generateId(10)` shape the frozen golden pins: 10 chars of a-z0-9), so
+ * nothing here reads a clock or invents a second alphabet.
  *
  * Doc: ./README.md#public-interface
  */
@@ -15,6 +17,7 @@ import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { withTx } from '$lib/kernel/db/database.server';
 import { invalid, notFound } from '$lib/kernel/errors/appError';
+import { systemIds } from '$lib/kernel/ids/ids';
 import type {
 	FamilyInvitationsPage,
 	FamilyView,
@@ -88,7 +91,7 @@ export async function mintFamilyInviteCode(
 	plan: InviteMintPlan,
 	createdBy: string
 ): Promise<MintedInviteCode> {
-	const code = ctx.ids.id(INVITE_CODE_LENGTH);
+	const code = systemIds.id(INVITE_CODE_LENGTH);
 	const expiresAt = inviteExpiresAt(ctx.clock.now(), plan.days);
 	await insertInviteCode(ctx.db, { code, familyId, expiresAt, maxUses: plan.maxUses, createdBy });
 	return { code, expiresAt };

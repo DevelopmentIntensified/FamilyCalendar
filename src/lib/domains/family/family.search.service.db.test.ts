@@ -42,8 +42,8 @@ describe('listFamilyRoster', () => {
 		const ann = await seedUser(db);
 		await seedFamily('fam-new', { createdAt: '2026-01-01T00:00:00.000Z' }, db);
 		await seedFamily('fam-old', { createdAt: '2025-01-01T00:00:00.000Z' }, db);
-		await seedMembership('fam-new', ann.id, 'creator', db);
-		await seedMembership('fam-old', ann.id, 'member', db);
+		await seedMembership('fam-new', ann.id, 'creator', 'member', db);
+		await seedMembership('fam-old', ann.id, 'member', 'member', db);
 
 		const answer = await listFamilyRoster(
 			testCtx({ db, now: NOW }),
@@ -150,7 +150,7 @@ describe('findInvitableMembers', () => {
 	rollbackTest('refuses a family you are not in, even when you belong to another', async (db) => {
 		const { out } = await seedFamilyRoster(db);
 		await seedFamily('fam-2', {}, db);
-		await seedMembership('fam-2', out.id, 'creator', db);
+		await seedMembership('fam-2', out.id, 'creator', 'member', db);
 
 		const failure = await findInvitableMembers(
 			testCtx({ db, now: NOW }),
