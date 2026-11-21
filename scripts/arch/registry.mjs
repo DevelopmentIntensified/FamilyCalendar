@@ -63,14 +63,14 @@ export const MODULES = [
 		rank: 6,
 		parked: true,
 		purpose:
-			'PARKED (bills archived 2026-09-25): bill category vocabulary + bills/receiptItems/itemTags tables only.'
+			'PARKED (bills archived 2026-09-25; Q-002 delete-only): owns the bills/receiptItems/itemTags tables only (kept in kernel); no code.'
 	},
 	{
 		name: 'parsing',
 		kind: 'domain',
 		rank: 7,
 		purpose:
-			'Natural-language grammars: event quick-add, task quick-add (shared parse vectors with Android), bill hints, date vocabulary, the claim book.'
+			'Natural-language grammars: event quick-add, task quick-add (shared parse vectors with Android), date vocabulary, the claim book.'
 	},
 	{
 		name: 'calendar',
@@ -258,11 +258,15 @@ export const FOREIGN_READS = {
 	family: {
 		users:
 			'roster names/emails, picker + invite-flow search, verified-account check, direct-add lookup',
-		tasks: 'open-task counts on the /family list (read-only grouped count)'
+		tasks:
+			'open-task counts on the /family list and the recent-activity rows of the family detail payload (read-only)'
 	},
-	sponsored: {
-		events:
-			'serve the 📢 rows a user already owns (Q-040 decided B: the read and this entry go with that fix)'
+	calendar: {
+		users:
+			'creator first name on every displayed occurrence and member first/last names on attendance rows'
+	},
+	tasks: {
+		events: "the parent Event's title, start and calendar on every task list row"
 	}
 };
 

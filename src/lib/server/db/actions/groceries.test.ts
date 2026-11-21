@@ -76,7 +76,7 @@ import { setStoreColour, getStoreColours, moveGroceryItem } from './groceries';
 function renderWhere(where: unknown) {
 	return new PgDialect().sqlToQuery(where as SQL);
 }
-import { defaultStoreColourKey, isStoreColourKey } from '$lib/data/groceries';
+import { defaultGroceryStoreColour, isStoreColourKey } from '$lib/domains/groceries';
 
 const viewer = { userId: 'u1', familyId: 'fam1' };
 
@@ -210,7 +210,7 @@ describe('getStoreColours', () => {
 
 describe('the default a cleared store falls back to', () => {
 	it('is a declared swatch derived from the name', () => {
-		expect(isStoreColourKey(defaultStoreColourKey('Aldi'))).toBe(true);
-		expect(defaultStoreColourKey('  ALDI ')).toBe(defaultStoreColourKey('Aldi'));
+		expect(isStoreColourKey(defaultGroceryStoreColour('Aldi').key)).toBe(true);
+		expect(defaultGroceryStoreColour('  ALDI ').key).toBe(defaultGroceryStoreColour('Aldi').key);
 	});
 });

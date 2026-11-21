@@ -17,6 +17,7 @@ import {
 	isAnonymousAccount,
 	isRegisteredAccount,
 	LAST_ACTIVE_TOUCH_MS,
+	personFullName,
 	profilePatch,
 	SIGN_UP_TIME_ZONE,
 	touchDue,
@@ -109,6 +110,19 @@ describe('displayName', () => {
 	});
 });
 
+describe('personFullName', () => {
+	// The legacy stats SQL's `first || ' ' || last` (taskStats.ts:73,86), which
+	// keeps an empty last name's trailing space ('Sam ') — the golden pins it.
+	it.each<[{ firstName: string; lastName: string }, string]>([
+		[{ firstName: 'Mia', lastName: 'Lopez' }, 'Mia Lopez'],
+		[{ firstName: 'Sam', lastName: '' }, 'Sam '],
+		[{ firstName: '', lastName: 'Kai' }, ' Kai'],
+		[{ firstName: 'Mia', lastName: 'Lopez ' }, 'Mia Lopez ']
+	])('%j → %j', (person, expected) => {
+		expect(personFullName(person)).toBe(expected);
+	});
+});
+
 describe('profilePatch', () => {
 	// users.test.ts:173-188 (#168).
 	it('profilePatch keeps only the safe fields, dropping privilege fields even if handed them', () => {
@@ -155,7 +169,8 @@ describe('touchDue', () => {
 });
 
 describe('zoneFromStored', () => {
-	// userTimezone.test.ts:5-14, plus the Luxon pseudo-zones (Q-107 is post-S6).
+	// userTimezone.test.ts:5-14, plus the Luxon pseudo-zones: Q-107 narrows the
+	// PATCH validator, never how an ALREADY stored zone resolves.
 	it.each<[string | null | undefined, string | undefined]>([
 		['America/Chicago', 'America/Chicago'],
 		['UTC', 'UTC'],

@@ -46,6 +46,19 @@ export async function findMemberRole(
 	return row?.role ?? null;
 }
 
+/**
+ * The family's creator: the person whose plan sets the family's member limit
+ * (issue 091 `getFamilySizeLimit`). Null when the family has no creator row, in
+ * which case the caller falls back to the free plan's limit.
+ */
+export async function findFamilyCreatorId(db: Db, familyId: string): Promise<string | null> {
+	const [row] = await db
+		.select({ userId: familyMembers.userId })
+		.from(familyMembers)
+		.where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.role, 'creator')));
+	return row?.userId ?? null;
+}
+
 /** The membership row of one user in one family; null when they are not in it. */
 export async function findMembership(
 	db: Db,

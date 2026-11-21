@@ -4,7 +4,7 @@
 </script>
 
 <script lang="ts">
-	import { groupGroceriesByStore } from '$lib/data/groceries';
+	import { groceryStoreGroups } from '$lib/domains/groceries';
 
 	/** Open items in the shared family list. */
 	export let familyItems: GroceryCardItem[] = [];
@@ -62,7 +62,7 @@
 						<span class="text-xs text-slate-500">{scope.items.length} open</span>
 					</div>
 					<div data-testid="groceries-stores" class="mt-1 flex flex-wrap gap-1">
-						{#each groupGroceriesByStore(scope.items) as g (g.store)}
+						{#each groceryStoreGroups(scope.items) as g (g.store)}
 							<span
 								class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600"
 								>{g.store}</span

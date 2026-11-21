@@ -8,12 +8,12 @@
 import { describe, expect, it } from 'vitest';
 import { firstIssueMessage, z } from '$lib/kernel/validation/validators';
 import {
-	SPONSORED_EVENT_COLOR,
 	SPONSORED_MONTH_INVALID_MESSAGE,
 	SponsoredEvent,
 	SponsoredEventsQuery,
 	SponsoredEventsResponse
 } from './sponsored.contract';
+import { SPONSORED_EVENT_COLOR } from './sponsored.display.rules';
 
 function messageOf(schema: z.ZodType, value: unknown): string | null {
 	const result = schema.safeParse(value);

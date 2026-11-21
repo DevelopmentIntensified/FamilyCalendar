@@ -151,26 +151,29 @@ export function resolveGroceryStoreColour(
 	return defaultGroceryStoreColour(key);
 }
 
-/** One store group on the page: its label, its items in list order, its colour. */
-export type GroceryGroup<T extends { readonly stores: readonly string[] }> = {
+/** One store group with its items, in list order. No colour yet (see below). */
+export type GroceryStoreGroup<T extends { readonly stores: readonly string[] }> = {
 	readonly store: string;
 	readonly items: T[];
-	readonly colour: StoreColour | null;
 };
 
+/** One store group on the page: its label, its items in list order, its colour. */
+export type GroceryGroup<T extends { readonly stores: readonly string[] }> =
+	GroceryStoreGroup<T> & { readonly colour: StoreColour | null };
+
 /**
- * The store groups, each with its resolved colour — grouping and colour as one
- * concept (#115).
+ * The store groups WITHOUT a colour, for a caller that only shows names (the
+ * Day Dashboard card). Same grouping rule as `groupGroceryItems`, which is
+ * this plus one `resolveGroceryStoreColour` per group — so there is one home
+ * for the key and the order, not a card copy that can drift.
  *
  * Grouped by `stores[0]` (the primary store), the storeless under
  * `NO_STORE_LABEL`; groups sorted by label alphabetically, case-insensitively;
  * items keep the order they arrived in (oldest first, from the list read).
  */
-export function groupGroceryItems<T extends { readonly stores: readonly string[] }>(
-	items: readonly T[],
-	rows: readonly StoreColourRow[],
-	scope: GroceryScope
-): GroceryGroup<T>[] {
+export function groceryStoreGroups<T extends { readonly stores: readonly string[] }>(
+	items: readonly T[]
+): GroceryStoreGroup<T>[] {
 	const groups = new Map<string, { label: string; items: T[] }>();
 	for (const item of items) {
 		const label = item.stores[0] ?? NO_STORE_LABEL;
@@ -181,11 +184,23 @@ export function groupGroceryItems<T extends { readonly stores: readonly string[]
 	}
 	return [...groups.values()]
 		.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
-		.map((group) => ({
-			store: group.label,
-			items: group.items,
-			colour: resolveGroceryStoreColour(group.label, rows, scope)
-		}));
+		.map((group) => ({ store: group.label, items: group.items }));
+}
+
+/**
+ * The store groups, each with its resolved colour — grouping and colour as one
+ * concept (#115). `groceryStoreGroups` is the grouping half; this is the page's
+ * one call, so no caller re-assembles the two key conventions.
+ */
+export function groupGroceryItems<T extends { readonly stores: readonly string[] }>(
+	items: readonly T[],
+	rows: readonly StoreColourRow[],
+	scope: GroceryScope
+): GroceryGroup<T>[] {
+	return groceryStoreGroups(items).map((group) => ({
+		...group,
+		colour: resolveGroceryStoreColour(group.store, rows, scope)
+	}));
 }
 
 /**

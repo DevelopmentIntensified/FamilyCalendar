@@ -1,5 +1,27 @@
 /**
- * feedback — public server interface: services and http handlers.
+ * feedback — public server interface: services, `/api` handlers and the
+ * `/report-bug` page handlers.
  * Doc: ./README.md#public-interface
  */
-export {};
+export {
+	submitBugReportEndpoint,
+	reportUnmatchedPhraseEndpoint,
+	listBugReportsEndpoint,
+	listUnmatchedPhrasesEndpoint,
+	resolveBugReportEndpoint,
+	resolveUnmatchedPhraseEndpoint,
+	reportBugPageLoad,
+	submitBugReportAction
+} from './feedback.http.server';
+export {
+	countOpenFeedback,
+	fileAutoBugReport,
+	fileBugReport,
+	listFeedback,
+	openBugReportCount,
+	openUnmatchedPhraseCount,
+	pruneFeedbackOlderThan,
+	reportUnmatchedPhrase,
+	resolveFeedback
+} from './feedback.service.server';
+export type { FeedbackBugRegister, FeedbackPhraseRegister } from './feedback.contract';

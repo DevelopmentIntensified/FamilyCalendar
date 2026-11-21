@@ -1,14 +1,4 @@
-import type { RequestEvent } from '@sveltejs/kit';
-import {
-	guarded,
-	mobileGuest,
-	mobileAuthDeps,
-	type MobileAuthDeps
-} from '$lib/server/services/mobileAuth';
+import { mobileGuestEndpoint } from '$lib/domains/access/index.server';
 
-// #288: cookie-free JSON sign-in for the Android app (contract in
-// docs/issues/288-android-native-login.md). Logic lives in mobileAuth.
-export const POST = async (
-	event: RequestEvent,
-	deps: MobileAuthDeps = mobileAuthDeps
-): Promise<Response> => guarded(() => mobileGuest(event.request, deps));
+/** POST /api/mobile/auth/guest — an Anonymous Account and its token; empty body allowed. */
+export const POST = mobileGuestEndpoint.handler;

@@ -1,12 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { DateTime } from 'luxon';
-import { parseEventInput } from '../../src/lib/server/services/naturalLanguageService';
+import { parseEventQuickAdd } from '$lib/domains/parsing/index.server';
 
 test.describe('NLP Time Parsing', () => {
 	test('should parse 9:00 AM as start time', async () => {
 		const input =
 			'PM Certification 4 Days Classroom Training in Lynchburg, VA Tue, May 26 • 9:00 AM Lynchburg, VA From $1,659.95';
-		const result = parseEventInput(input);
+		// Resolve relative dates in the runner's own zone, the way the server does
+		// for an anonymous caller (no stored zone ⇒ server-local).
+		const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		const result = parseEventQuickAdd(input, { now: new Date(), zone });
 
 		console.log('Parsed result:', JSON.stringify(result, null, 2));
 

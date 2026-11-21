@@ -58,14 +58,12 @@ import { DELETE as REVOKE_TOKEN } from './api-tokens/[id]/+server';
 import { PUT as MODULES } from './dashboard-modules/+server';
 import { GET as PREFS } from './notification-preferences/+server';
 import { PUT as SET_PREF } from './notification-preferences/[id]/+server';
-import { POST as EMAIL } from './email/+server';
 import { updateUser, deleteUser } from '$lib/server/db/actions/users';
 import { invalidateSession, invalidateUserSessions } from '$lib/server/auth';
 import { revokeToken } from '$lib/server/db/actions/apiTokens';
 import { updateUserSettings } from '$lib/server/db/actions/userSettings';
 import { setNotificationPreference } from '$lib/server/db/actions/notificationMethods';
 import { clearRateLimitState } from '$lib/server/utils/rateLimit';
-import type { UpdateEmailDeps } from '$lib/server/services/accountData';
 
 const ME = { id: 'u1', firstName: 'Ann', lastName: 'Lee', email: 'ann@x.com' };
 
@@ -208,36 +206,3 @@ describe('notification preferences', () => {
 	});
 });
 
-describe('POST /api/me/email', () => {
-	const deps = (): UpdateEmailDeps =>
-		({
-			getUser: vi.fn(async () => ME),
-			sendEmail: vi.fn(),
-			createJwt: vi.fn(async () => 'jwt'),
-			baseUrl: 'https://fp.test',
-			fromEmail: 'noreply@x.com',
-			emailSecret: new Uint8Array([1]),
-			deleteCodesByEmail: vi.fn(),
-			createCode: vi.fn()
-		}) as unknown as UpdateEmailDeps;
-
-	it('400 for the same address (page message)', async () => {
-		const res = await EMAIL(ev({ email: 'ann@x.com' }), deps());
-		expect(await res.json()).toEqual({ error: 'New email must be different from current email' });
-	});
-	it('a guest is told to claim', async () => {
-		const d = deps();
-		vi.mocked(d.getUser).mockResolvedValue({ ...ME, email: 'g@anonymous.placeholder.invalid' } as never);
-		const body = await (await EMAIL(ev({ email: 'new@x.com' }), d)).json();
-		expect(body.guestNeedsClaim).toBe(true);
-	});
-	it('mails the new address', async () => {
-		const d = deps();
-		const res = await EMAIL(ev({ email: 'new@x.com' }), d);
-		expect(await res.json()).toEqual({
-			success: true,
-			message: 'Verification email sent. Please check your inbox.'
-		});
-		expect(d.sendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: 'new@x.com' }));
-	});
-});

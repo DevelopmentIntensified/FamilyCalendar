@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { hashName } from './hashName';
 import { getContactColor } from './contactColors';
-import { defaultStoreColourKey } from '$lib/data/groceries';
+import { defaultGroceryStoreColour } from '$lib/domains/groceries';
 
 describe('hashName', () => {
 	it('is deterministic for the same name', () => {
@@ -17,6 +17,6 @@ describe('hashName', () => {
 	});
 
 	it('drives the same default store colour for the same name under any spelling', () => {
-		expect(defaultStoreColourKey('  ALDI ')).toBe(defaultStoreColourKey('Aldi'));
+		expect(defaultGroceryStoreColour('  ALDI ').key).toBe(defaultGroceryStoreColour('Aldi').key);
 	});
 });

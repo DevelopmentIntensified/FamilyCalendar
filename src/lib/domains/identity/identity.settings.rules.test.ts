@@ -16,8 +16,8 @@ import {
 	calendarSettingsView,
 	DEFAULT_VIEWS,
 	defaultCalendarToCheck,
-	isLuxonTimeZone,
-	mergeCalendarSettings,
+	isIanaTimeZone,
+	newCalendarSettings,
 	SETTINGS_BODY_INVALID_MESSAGE,
 	SETTINGS_PATCH_FIELDS,
 	SETTINGS_WRITABLE_FIELDS,
@@ -93,23 +93,28 @@ describe('vocabularies', () => {
 	});
 });
 
-describe('isLuxonTimeZone', () => {
-	// Q-107 (post-S6) narrows this to IANA names plus UTC; today Luxon
-	// `setZone(...).isValid` decides, so the pseudo-zones pass.
+describe('isIanaTimeZone', () => {
+	// Q-107 B: IANA names plus UTC. Expected values from the owner answer and
+	// ICU's tz database (the pseudo-zones Luxon accepted are refused).
 	it.each<[string, boolean]>([
 		['UTC', true],
+		['utc', true],
 		['America/Chicago', true],
 		['Asia/Tokyo', true],
-		['local', true],
-		['system', true],
-		['default', true],
-		['UTC+5', true],
+		['US/Central', true],
+		['Etc/GMT+5', true],
 		['gmt', true],
+		['local', false],
+		['system', false],
+		['default', false],
+		['UTC+5', false],
+		['utc+5', false],
+		['+05:00', false],
 		['', false],
 		['Mars/Base', false],
 		['Not/AZone', false]
 	])('%j → %s', (zone, expected) => {
-		expect(isLuxonTimeZone(zone)).toBe(expected);
+		expect(isIanaTimeZone(zone)).toBe(expected);
 	});
 });
 
@@ -117,7 +122,6 @@ describe('calendarSettingsPatch', () => {
 	it.each<[string, unknown, CalendarSettingsPatch]>([
 		['an empty object is an empty patch', {}, {}],
 		['timeZone alone', { timeZone: 'Asia/Tokyo' }, { timeZone: 'Asia/Tokyo' }],
-		['a Luxon pseudo-zone, stored as sent', { timeZone: 'UTC+5' }, { timeZone: 'UTC+5' }],
 		['a mixed-case colour', { color: '#aBcDeF' }, { color: '#aBcDeF' }],
 		['defaultCalendarId:null', { defaultCalendarId: null }, { defaultCalendarId: null }],
 		['an empty defaultCalendarId is null', { defaultCalendarId: '' }, { defaultCalendarId: null }],
@@ -158,6 +162,12 @@ describe('calendarSettingsPatch', () => {
 		['an invalid zone', { timeZone: 'Mars/Base' }, 'Invalid timeZone'],
 		['an empty zone', { timeZone: '' }, 'Invalid timeZone'],
 		['a non-string zone', { timeZone: 5 }, 'Invalid timeZone'],
+		// Q-107 B: Luxon's pseudo-zones and fixed offsets are refused now.
+		['a server-relative zone', { timeZone: 'local' }, 'Invalid timeZone'],
+		['the system zone alias', { timeZone: 'system' }, 'Invalid timeZone'],
+		['the default zone alias', { timeZone: 'default' }, 'Invalid timeZone'],
+		['a fixed-offset zone', { timeZone: 'UTC+5' }, 'Invalid timeZone'],
+		['a bare offset', { timeZone: '+05:00' }, 'Invalid timeZone'],
 		['a named colour', { color: 'red' }, 'Invalid color'],
 		['a short hex colour', { color: '#fff' }, 'Invalid color'],
 		['an unknown view', { defaultView: 'yearView' }, 'Invalid defaultView'],
@@ -182,23 +192,9 @@ describe('calendarSettingsPatch', () => {
 	});
 });
 
-describe('mergeCalendarSettings', () => {
-	it('timeZone alone keeps every other stored field (settings/server.test.ts:115-131)', () => {
-		expect(mergeCalendarSettings(STORED, { timeZone: 'Asia/Tokyo' })).toEqual({
-			weekStart: 'monday',
-			timeZone: 'Asia/Tokyo',
-			color: '#112233',
-			defaultView: 'dashboard',
-			defaultCalendarId: 'cal-gone',
-			syncEventsToFamilyCalendar: true,
-			autoParseEventDetails: false,
-			showDailyVerse: true,
-			showAdsAsEvents: false
-		});
-	});
-
+describe('newCalendarSettings', () => {
 	it('builds from the page defaults plus the patch when no row exists', () => {
-		expect(mergeCalendarSettings(null, { defaultView: 'monthView' })).toEqual({
+		expect(newCalendarSettings({ defaultView: 'monthView' })).toEqual({
 			weekStart: 'sunday',
 			timeZone: 'UTC',
 			color: '#3b82f6',
@@ -211,22 +207,24 @@ describe('mergeCalendarSettings', () => {
 		});
 	});
 
-	it('backfills a sparse sign-up row’s nulls from the defaults (Q-108 is post-S6)', () => {
-		expect(mergeCalendarSettings(SPARSE, { timeZone: 'America/Denver' })).toEqual({
-			weekStart: 'sunday',
-			timeZone: 'America/Denver',
-			color: '#3b82f6',
-			defaultView: 'dayView',
-			defaultCalendarId: null,
-			syncEventsToFamilyCalendar: false,
-			autoParseEventDetails: true,
-			showDailyVerse: false,
-			showAdsAsEvents: false
-		});
+	it('lets a null in the patch clear the default calendar (already the default)', () => {
+		expect(newCalendarSettings({ defaultCalendarId: null }).defaultCalendarId).toBeNull();
 	});
 
-	it('lets a null in the patch clear a stored default calendar', () => {
-		expect(mergeCalendarSettings(STORED, { defaultCalendarId: null }).defaultCalendarId).toBeNull();
+	it('keeps every field the patch sends', () => {
+		expect(
+			newCalendarSettings({
+				weekStart: 'monday',
+				timeZone: 'Asia/Tokyo',
+				color: '#00ff00',
+				showAdsAsEvents: true
+			})
+		).toMatchObject({
+			weekStart: 'monday',
+			timeZone: 'Asia/Tokyo',
+			color: '#00ff00',
+			showAdsAsEvents: true
+		});
 	});
 });
 
@@ -255,9 +253,26 @@ describe('calendarSettingsView', () => {
 		expect(Object.keys(view)).not.toContain('verseTranslation');
 	});
 
-	it('answers a sparse row’s nulls as stored', () => {
+	it('answers a sparse row’s null page columns as the defaults (Q-108 B)', () => {
 		const view = calendarSettingsView(SPARSE);
-		expect(view).toMatchObject({ color: null, syncEventsToFamilyCalendar: null });
+		expect(view).toMatchObject({ color: '#3b82f6', syncEventsToFamilyCalendar: false });
+		expect(view).toEqual({
+			id: 'settings-a',
+			userId: 'u1',
+			weekStart: 'sunday',
+			timeZone: 'UTC',
+			color: '#3b82f6',
+			defaultView: 'dayView',
+			defaultCalendarId: null,
+			syncEventsToFamilyCalendar: false,
+			autoParseEventDetails: true,
+			showDailyVerse: false,
+			showAdsAsEvents: false,
+			hiddenDashboardModules: null,
+			useCloudAI: true,
+			useLocalAI: true,
+			updatedAt: new Date('2026-10-07T13:00:00.000Z')
+		});
 	});
 });
 

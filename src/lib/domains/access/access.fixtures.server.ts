@@ -10,19 +10,33 @@
  *
  * Doc: ./README.md#how-to-test
  */
+import type { Db } from '$lib/kernel/db/database.server';
 import {
 	accounts,
 	apiTokens,
-	authAccount,
 	authSession,
+	claimTokens,
 	codes
 } from '$lib/kernel/db/tables.server';
-import { sha256Hex } from '$lib/kernel/ids/ids';
+import { hmacSha256Hex, sequentialIds, sha256Hex, systemIds, type Ids } from '$lib/kernel/ids/ids';
 import { seedUser, uniqueSuffix } from '$lib/kernel/testing/seedRows.server';
+import { GOLDEN_CODE_PEPPER } from '$lib/kernel/testing/testCtx.server';
 import { testDb } from '$lib/kernel/testing/testDb.server';
 
 /** The reserved Anonymous Account domain (`src/lib/utils/anonymous.ts:12`). */
 export const ACCESS_ANON_DOMAIN = '@anonymous.placeholder.invalid';
+
+/**
+ * The `ids` access's service tests hand `testCtx`: deterministic row ids, but
+ * REAL random bytes. `testCtx`'s `sequentialIds` counts its bytes up mod 256,
+ * so the 8-digit codes drawn `% 10` repeat every fifth draw and the 32-byte
+ * Claim/session tokens repeat every 256 bytes — the unique `codes.code` and
+ * `claim_tokens.token_hash` columns refuse both. Production draws from
+ * `crypto`, so the tests do too.
+ */
+export function accessTestIds(): Ids {
+	return { id: sequentialIds().id, random: systemIds.random };
+}
 
 /** bcrypt hash of `correct-horse-battery` at cost 8 — a real compare, no hashing in tests. */
 export const ACCESS_PASSWORD_HASH =
@@ -48,15 +62,21 @@ export async function seedAccessPasswordUser(email: string) {
 }
 
 /** A personal `fp_` token row: only the sha256 digest is stored. */
-export async function seedAccessApiToken(userId: string, plaintext: string, name = 'Phone') {
-	await testDb()
-		.insert(apiTokens)
-		.values({ userId, name, tokenHash: sha256Hex(plaintext) });
+export async function seedAccessApiToken(
+	userId: string,
+	plaintext: string,
+	name = 'Phone',
+	db: Db = testDb()
+) {
+	await db.insert(apiTokens).values({ userId, name, tokenHash: sha256Hex(plaintext) });
 }
 
 /**
  * A hashed, type-stamped email code row, exactly as `issueVerificationCode`
- * writes it (`login` / `signup` / `password-signup`). `expiresAt` defaults to a
+ * writes it (`login` / `signup` / `password-signup` / `email_change` /
+ * `reset_used`): `codes.code` is `HMAC-SHA-256(pepper, code)` with the same
+ * pepper `goldenCtx` hands the handlers (Q-116/Q-117), so a row seeded with
+ * any other pepper or a bare SHA-256 never redeems. `expiresAt` defaults to a
  * far-future date: the handlers delete dead codes before they look one up.
  */
 export async function seedAccessEmailCode(input: {
@@ -70,7 +90,7 @@ export async function seedAccessEmailCode(input: {
 	await testDb()
 		.insert(codes)
 		.values({
-			code: sha256Hex(input.code),
+			code: hmacSha256Hex(GOLDEN_CODE_PEPPER, input.code),
 			email: input.email,
 			type: input.type,
 			firstName: input.firstName ?? null,
@@ -83,18 +103,20 @@ export async function seedAccessEmailCode(input: {
 export async function seedAccessProviderAccount(
 	providerAccountId: string,
 	userId: string,
-	provider = 'email'
+	provider = 'email',
+	db: Db = testDb()
 ) {
-	await testDb().insert(accounts).values({ provider, providerAccountId, userId });
+	await db.insert(accounts).values({ provider, providerAccountId, userId });
 }
 
 /** A live web session row for `userId`. */
 export async function seedAccessSession(
 	userId: string,
-	overrides: { id?: string; token?: string; expiresAt?: Date } = {}
+	overrides: { id?: string; token?: string; expiresAt?: Date } = {},
+	db: Db = testDb()
 ) {
 	const suffix = uniqueSuffix();
-	const [row] = await testDb()
+	const [row] = await db
 		.insert(authSession)
 		.values({
 			id: overrides.id ?? `session-${suffix}`,
@@ -106,16 +128,33 @@ export async function seedAccessSession(
 	return row;
 }
 
+/** What a test controls when it seeds a Claim row. */
+export type AccessClaimTokenSeed = {
+	readonly userId: string;
+	readonly tokenHash: string;
+	readonly email?: string;
+	readonly expiresAt?: Date;
+	readonly createdAt?: Date;
+};
+
 /**
- * A Better Auth credential row, seeded from `users.passwordHash` by migration
- * 018. No sign-in path reads it today (Q-104), so nothing keeps it in step.
+ * A Claim token row, the only table access owns. Unlike the builders above it
+ * takes the caller's `db`: the repo tests run inside `rollbackTest`'s
+ * transaction, and `testDb()` would write outside it. `createdAt` is explicit
+ * so order/retention assertions never depend on the database clock.
  */
-export async function seedAccessAuthAccount(userId: string, password: string) {
-	await testDb().insert(authAccount).values({
-		id: `auth-account-${uniqueSuffix()}`,
-		userId,
-		providerId: 'credential',
-		accountId: userId,
-		password
-	});
+export async function seedAccessClaimToken(db: Db, overrides: AccessClaimTokenSeed) {
+	const suffix = uniqueSuffix();
+	const [row] = await db
+		.insert(claimTokens)
+		.values({
+			userId: overrides.userId,
+			tokenHash: overrides.tokenHash,
+			email: overrides.email ?? `claim-${suffix}@example.test`,
+			expiresAt: overrides.expiresAt ?? new Date('2099-01-01T00:00:00.000Z'),
+			createdAt: overrides.createdAt ?? new Date('2026-01-01T00:00:00.000Z')
+		})
+		.returning();
+	if (!row) throw new Error('seedAccessClaimToken: insert returned no row');
+	return row;
 }

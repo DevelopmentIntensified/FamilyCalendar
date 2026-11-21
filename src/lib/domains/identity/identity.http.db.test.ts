@@ -68,11 +68,6 @@ function jsonObject(value: JsonValue | null): { readonly [key: string]: JsonValu
 	return value;
 }
 
-function jsonArray(value: JsonValue | null | undefined): readonly JsonValue[] {
-	if (!Array.isArray(value)) throw new Error(`expected a JSON array, got ${JSON.stringify(value)}`);
-	return value;
-}
-
 function textField(record: { readonly [key: string]: JsonValue }, key: string): string {
 	const value = record[key];
 	if (typeof value !== 'string') {
@@ -115,7 +110,7 @@ describe('GET /api/me/api-tokens', () => {
 		});
 	});
 
-	it('lists every token you own; the list order is not part of the contract', async () => {
+	it('lists every token you own newest first (createdAt DESC, id)', async () => {
 		const user = await seedUser(testDb());
 		await seedIdentityApiToken(user.id, {
 			id: 'tok-a',
@@ -134,20 +129,21 @@ describe('GET /api/me/api-tokens', () => {
 			user,
 			path: '/api/me/api-tokens'
 		});
-		expect(res.status).toBe(200);
-		// Q-110: `listTokensForUser` has no ORDER BY, so the contract is the set.
-		const tokens = [...jsonArray(jsonObject(res.body).tokens)].sort((a, b) =>
-			textField(jsonObject(a), 'id').localeCompare(textField(jsonObject(b), 'id'))
-		);
-		expect(tokens).toEqual([
-			{ id: 'tok-a', name: 'Phone', createdAt: '2026-10-05T08:00:00.000Z', lastUsedAt: null },
-			{
-				id: 'tok-b',
-				name: 'Tablet',
-				createdAt: '2026-10-06T08:00:00.000Z',
-				lastUsedAt: '2026-10-08T09:30:00.000Z'
+		// Q-110 B: newest first, the id breaking a same-instant tie.
+		expect({ status: res.status, body: res.body }).toEqual({
+			status: 200,
+			body: {
+				tokens: [
+					{
+						id: 'tok-b',
+						name: 'Tablet',
+						createdAt: '2026-10-06T08:00:00.000Z',
+						lastUsedAt: '2026-10-08T09:30:00.000Z'
+					},
+					{ id: 'tok-a', name: 'Phone', createdAt: '2026-10-05T08:00:00.000Z', lastUsedAt: null }
+				]
 			}
-		]);
+		});
 	});
 
 	it('never returns another person’s tokens', async () => {
@@ -216,10 +212,9 @@ describe('POST /api/me/api-tokens', () => {
 		expect(rows[0].name).toBe('x'.repeat(60));
 	});
 
-	// Q-109 (decided B for after S6): the cut is on UTF-16 code units
-	// (`name.trim().slice(0, 60)`, accountData.ts:431), so an emoji straddling
-	// unit 60 is split and Postgres stores its lone half as U+FFFD.
-	it('cuts the name at 60 UTF-16 units, splitting an emoji on the boundary', async () => {
+	// Q-109 B: the cap is 60 CODE POINTS, so an emoji on the boundary is kept
+	// whole and the name may be up to 60 UTF-16 units plus one.
+	it('cuts the name at 60 code points, so an emoji on the boundary survives whole', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
 			ctx: goldenCtx({ db: testDb() }),
@@ -229,13 +224,13 @@ describe('POST /api/me/api-tokens', () => {
 		});
 		expect(res.status).toBe(201);
 		const name = textField(jsonObject(jsonObject(res.body).record), 'name');
-		expect(name).toHaveLength(60);
-		expect(name).toBe(`${'a'.repeat(59)}\uFFFD`);
+		expect(name).toHaveLength(61);
+		expect(name).toBe(`${'a'.repeat(59)}😀`);
 		const rows = await testDb().select().from(apiTokens).where(eq(apiTokens.userId, user.id));
-		expect(rows[0].name).toBe(`${'a'.repeat(59)}\uFFFD`);
+		expect(rows[0].name).toBe(`${'a'.repeat(59)}😀`);
 	});
 
-	it('keeps whitespace that sits before the cut (only the ends are trimmed)', async () => {
+	it('trims the whitespace the cut leaves at the end', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(createToken, {
 			ctx: goldenCtx({ db: testDb() }),
@@ -245,9 +240,9 @@ describe('POST /api/me/api-tokens', () => {
 		});
 		expect(res.status).toBe(201);
 		const name = textField(jsonObject(jsonObject(res.body).record), 'name');
-		expect(name).toBe(`${'w'.repeat(58)}  `);
+		expect(name).toBe(`${'w'.repeat(58)}`);
 		const rows = await testDb().select().from(apiTokens).where(eq(apiTokens.userId, user.id));
-		expect(rows[0].name).toBe(`${'w'.repeat(58)}  `);
+		expect(rows[0].name).toBe(`${'w'.repeat(58)}`);
 	});
 
 	it('refuses an absent name with the legacy message (an empty body reads as {})', async () => {
@@ -777,11 +772,11 @@ describe('PATCH /api/me/settings', () => {
 		expect(rows).toHaveLength(1);
 	});
 
-	// Q-108 (decided B for after S6): a sign-up row is `{userId, timeZone:'UTC'}`
-	// only (users.ts:138, mobileAuth.ts:327), so GET answers nulls while a
-	// no-row caller gets the defaults, and the first PATCH backfills both nulls
-	// from ACCOUNT_SETTINGS_DEFAULTS (settings/+server.ts:102-115).
-	it('a sparse sign-up row answers nulls, then the first PATCH fills them from the defaults', async () => {
+	// Q-108 B: a sign-up row is `{userId, timeZone:'UTC'}` only (users.ts:138,
+	// mobileAuth.ts:327). GET answers the merged view (the page defaults for
+	// the null columns), and the first PATCH writes ONLY the field it sent, so
+	// the nulls stay null in the row.
+	it('a sparse sign-up row answers the merged defaults, and a PATCH writes only the field it sent', async () => {
 		const user = await seedUser(testDb());
 		await seedIdentitySparseSettings(user.id);
 		const before = await invoke(getSettings, {
@@ -797,10 +792,10 @@ describe('PATCH /api/me/settings', () => {
 					userId: user.id,
 					weekStart: 'sunday',
 					timeZone: 'UTC',
-					color: null,
+					color: '#3b82f6',
 					defaultView: 'dayView',
 					defaultCalendarId: null,
-					syncEventsToFamilyCalendar: null,
+					syncEventsToFamilyCalendar: false,
 					autoParseEventDetails: true,
 					showDailyVerse: false,
 					showAdsAsEvents: false,
@@ -843,7 +838,7 @@ describe('PATCH /api/me/settings', () => {
 			}
 		});
 		const [row] = await testDb().select().from(userSettings).where(eq(userSettings.userId, user.id));
-		expect([row.color, row.syncEventsToFamilyCalendar]).toEqual(['#3b82f6', false]);
+		expect([row.color, row.syncEventsToFamilyCalendar]).toEqual([null, null]);
 	});
 
 	it('accepts a new default calendar the caller owns and stores it', async () => {
@@ -1216,12 +1211,14 @@ describe('PATCH /api/me/settings', () => {
 		});
 	});
 
-	// Q-107 (decided B for after S6): validation is Luxon `setZone().isValid`
-	// (settings/+server.ts:53-57), so pseudo-zones pass and are stored verbatim.
+	// Q-107 B: only IANA names (aliases included) and `UTC` pass; they are
+	// stored exactly as sent.
 	it.each<[string, string]>([
-		['local', 'local'],
-		['UTC+5', 'UTC+5']
-	])('accepts the Luxon-valid zone %s and stores it as sent', async (sent, stored) => {
+		['UTC', 'UTC'],
+		['America/Chicago', 'America/Chicago'],
+		['US/Central', 'US/Central'],
+		['Etc/GMT+5', 'Etc/GMT+5']
+	])('accepts the IANA zone %s and stores it as sent', async (sent, stored) => {
 		const user = await seedUser(testDb());
 		await seedIdentitySettings(user.id);
 		const res = await invoke(patchSettings, {
@@ -1261,6 +1258,14 @@ describe('PATCH /api/me/settings', () => {
 		[{ weekStart: 'friday' }, 'Invalid weekStart'],
 		[{ timeZone: 'Mars/Base' }, 'Invalid timeZone'],
 		[{ timeZone: '' }, 'Invalid timeZone'],
+		// Q-107 B: Luxon's server-relative pseudo-zones and fixed offsets are
+		// not IANA names, so they get the same 400 as an unknown zone.
+		[{ timeZone: 'local' }, 'Invalid timeZone'],
+		[{ timeZone: 'system' }, 'Invalid timeZone'],
+		[{ timeZone: 'default' }, 'Invalid timeZone'],
+		[{ timeZone: 'UTC+5' }, 'Invalid timeZone'],
+		[{ timeZone: 'utc+5' }, 'Invalid timeZone'],
+		[{ timeZone: '+05:00' }, 'Invalid timeZone'],
 		[{ color: 'red' }, 'Invalid color'],
 		[{ defaultView: 'yearView' }, 'Invalid defaultView'],
 		[{ verseTranslation: 'esv' }, 'Unknown field: verseTranslation'],

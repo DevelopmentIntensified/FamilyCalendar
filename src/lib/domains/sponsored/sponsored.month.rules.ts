@@ -1,18 +1,17 @@
 /**
  * sponsored month rules: which month a request means, that month's window in
- * the user's zone, and the three generated Sponsored Events for a month that
- * has no own 📢 row.
+ * the user's zone, and the three Sponsored Events the module generates for it
+ * (owner Q-040 B: the generated month is the sole source).
  *
- * Nothing here reads the clock or a random generator (rule R5): `now`, the
- * zone and the random source are parameters. Generation is re-randomised on
- * every request today (Q-041, ported as today), so the service passes a fresh
- * source per request. The rule already takes the source as a parameter, so the
- * decided fix B — a source seeded from `sha256(userId + 'YYYY-MM')` — changes
- * only what the service passes, not this rule.
+ * Nothing here reads the clock or a global random generator (rule R5): `now`,
+ * the zone and the draw's source are parameters. The source is seeded from
+ * `sha256(userId + 'YYYY-MM')` (owner Q-041 B), so the same user and month
+ * draw the same three rows on every request.
  *
  * Doc: ./README.md#invariants
  */
 import { DateTime } from 'luxon';
+import { sha256Hex } from '$lib/kernel/ids/ids';
 
 /** A calendar month: `month` is 1–12. */
 export type SponsoredMonth = { readonly year: number; readonly month: number };
@@ -23,7 +22,7 @@ export type SponsoredRandomSource = () => number;
 /** One generated Sponsored Event before it gets an id: its message and start instant. */
 export type SponsoredEventPlan = { readonly message: string; readonly start: string };
 
-/** A month with no own 📢 row is served exactly this many generated Sponsored Events. */
+/** Every served month carries exactly this many generated Sponsored Events. */
 export const SPONSORED_EVENTS_PER_MONTH = 3;
 
 /** Generated Sponsored Events start at this local hour. */
@@ -46,6 +45,50 @@ export function sponsoredMonthOfKey(key: string): SponsoredMonth {
 	return { year: Number(key.slice(0, 4)), month: Number(key.slice(5, 7)) };
 }
 
+/** The month as its `YYYY-MM` key: the seed's month half. */
+export function sponsoredMonthKeyOf(month: SponsoredMonth): string {
+	return `${month.year}-${String(month.month).padStart(2, '0')}`;
+}
+
+/**
+ * The seed of a month's draw: `sha256(userId + 'YYYY-MM')`, lowercase hex
+ * (owner Q-041 B). The person and the month are the whole input, so the draw
+ * is stable per user and month with no table.
+ */
+export function sponsoredDrawSeed({
+	userId,
+	month
+}: {
+	readonly userId: string;
+	readonly month: SponsoredMonth;
+}): string {
+	return sha256Hex(`${userId}${sponsoredMonthKeyOf(month)}`);
+}
+
+/** How many hex digits (32 bits) one draw takes. */
+const DRAW_HEX = 8;
+
+/**
+ * A uniform draw in [0, 1) from a seed's hex: eight hex digits at a time,
+ * left to right; once the block is spent it is re-hashed, so the sequence is
+ * reproducible from the seed alone and never touches a global generator (R5).
+ * The legacy draw only needs a stream of numbers in that range, which is what
+ * this hands `planSponsoredMonth`.
+ */
+export function sponsoredSeededDraw(seedHex: string): SponsoredRandomSource {
+	let block = seedHex;
+	let offset = 0;
+	return () => {
+		if (offset + DRAW_HEX > block.length) {
+			block = sha256Hex(block);
+			offset = 0;
+		}
+		const draw = Number.parseInt(block.slice(offset, offset + DRAW_HEX), 16) / 0x100000000;
+		offset += DRAW_HEX;
+		return draw;
+	};
+}
+
 /** The current month in `zone`, for a request without `month` (`+server.ts:22-25`). */
 export function sponsoredMonthOf({
 	now,
@@ -60,9 +103,10 @@ export function sponsoredMonthOf({
 
 /**
  * The month as a window of instants: local midnight on the 1st in `zone`, up
- * to (not including) the next month's (`adService.ts:93-95`). The own-row read
- * matches `events.start` against it, so a row at 05:00Z on 1 November is
- * October's in Honolulu.
+ * to (not including) the next month's (`adService.ts:93-95`). The served
+ * `created_at` is this window's start (Q-042 B), so a month is the same
+ * instant for every request, and its boundaries are the user's own: November
+ * opens at 10:00Z in Honolulu.
  */
 export function sponsoredMonthWindow({
 	month,
@@ -87,7 +131,9 @@ export function sponsoredMonthWindow({
  * was already used (and an unused one remains), then draw the day as
  * `floor(random() × daysInMonth) + 1`; the event starts at 10:00 local on that
  * day. Templates never repeat within a month; days may. The draw order is the
- * legacy one, so a scripted source pins every value.
+ * legacy one, so a scripted source pins every value; the service hands it
+ * `sponsoredSeededDraw(sponsoredDrawSeed(...))`, one per user and month
+ * (Q-041 B).
  */
 export function planSponsoredMonth({
 	month,

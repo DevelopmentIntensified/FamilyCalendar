@@ -328,7 +328,7 @@ What the device receives (FCM HTTP v1; every `data` value is a string):
 
 | Kind | `notification` | `data` | `android` |
 |---|---|---|---|
-| Activity notification (same fan-out as Web Push: every `createNotification`) | `{title, body}` | `{"type":"notification","link":"/path"}` (`link` omitted when none) | `priority: high` |
+| Activity notification (same fan-out as Web Push: every `createNotification`) | `{title, body}` | `{"type":"notification","link":"/path"}` — the Alert's own link, else the page its type answers: `/family` for `added_to_family`, `/calendar/tasks` for every task type (Q-021) | `priority: high` |
 | Sync nudge, silent | none | `{"type":"events_changed","actorId":"<user id>"}` | `priority: high`, `collapse_key: events_changed`, `ttl: 600s` |
 
 `events_changed` is sent once per mutating request (create / update / move /

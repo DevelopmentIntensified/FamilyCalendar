@@ -11,12 +11,12 @@ Sign-in flows: login, signup, magic links, password reset, Claiming, Claim Confl
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
-- [ ] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S3 contract + rules
+- [x] S4 repo (+ fixtures)
+- [x] S5 service
+- [x] S6 http + route wiring (goldens unchanged since S2 except the Q-116/Q-117 rows)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
 - [ ] S8 rewire importers, delete legacy code and legacy tests
 - [ ] S9 README final, census --write, gate:push, ledger done
@@ -52,18 +52,18 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 | `/api/mobile/auth/guest` | POST | none | optional body; `deviceName` only | 200 `{token,user}` for a fresh Anonymous Account | 400 `Request body must be JSON`; 429 `Too many attempts — try again in a few minutes` | `src/lib/server/services/mobileAuth.ts:333-348` |
 | `/api/mobile/auth/logout` | POST | `Authorization: Bearer fp_…` | none | 200 `{success:true}`; revokes exactly the presented token | 401 `Unauthorized` (no bearer, non-`fp_`, or no resolved user) | `src/lib/server/services/mobileAuth.ts:350-363` |
 | `/api/mobile/auth/signup` | POST | none | `{firstName,lastName,email,password,deviceName?}`; all trimmed except password | 200 `{token,user:{…,emailVerified:false},emailVerification:'pending'}`; a taken email gets the same shape with `token:""`, `user.id:""`, nothing sent | 400 `{"error":"Invalid JSON"}`; 400 `All fields are required`; 400 `Password must be at least 8 characters`; 429 `Too many attempts. Try again shortly.`; 500 `Something went wrong — try again` | `src/routes/api/mobile/auth/signup/+server.ts:47-89` · `src/lib/server/services/passwordSignup.ts:62-102` |
-| `/api/mobile/auth/forgot` | POST | none | `{email}` | 200 `{sent:true}` always (reuses the web handler) | 400 `Email is required`; 429 `Too many attempts. Try again shortly.`; 500 `Failed to send reset email` | `src/routes/api/mobile/auth/forgot/+server.ts:11-16` |
-| `/api/mobile/auth/reset` | POST | none | `{token,password}` | 200 `{success:true}` (forwards the web reset) | 429 `Too many attempts. Try again shortly.` (per IP, 10/15 min) then the web reset 400s | `src/routes/api/mobile/auth/reset/+server.ts:11-32` |
+| `/api/mobile/auth/forgot` | POST | none | `{email}` | 200 `{sent:true}` always (reuses the web handler) | 400 `Email is required`; 400 `Invalid JSON` for a malformed/empty body (Q-062 B); 429 `Too many attempts. Try again shortly.`; 500 `Failed to send reset email` | `src/routes/api/mobile/auth/forgot/+server.ts:11-16` |
+| `/api/mobile/auth/reset` | POST | none | `{token,password}` | 200 `{success:true}` (forwards the web reset) | 400 `Invalid JSON` for a malformed/empty body (Q-062 B); 429 `Too many attempts. Try again shortly.` (per IP, 10/15 min — the cap lives in `resetPassword`, Q-066 B) then the web reset 400s | `src/routes/api/mobile/auth/reset/+server.ts:11-32` |
 | `/login/email` | POST | none | `{email,redirectTo?}`; unguarded `request.json()` | 200 `{success:true,message:"If that email has an account, we've sent a login link."}` for sent **and** suppressed | 400 `Invalid email`; 429 `Too many attempts. Try again shortly.`; 500 `There was an error. Please try again.` | `src/routes/(marketing)/login/email/+server.ts:13-66` |
-| `/login/email/code` | POST | optional guest session | `{code,email}`; falsy either → 400 | 200 empty body + `Set-Cookie`; code row deleted | 400 `Unexpected error, please try again`; 429 `Too many attempts. Try again shortly.`; 500 generic; 500 `No Account found` | `src/routes/(marketing)/login/email/code/+server.ts:41-127` |
+| `/login/email/code` | POST | optional guest session | `{code,email}`; falsy either → 400 | 200 empty body + `Set-Cookie`; code row deleted | 400 `Unexpected error, please try again`; 429 `Too many attempts. Try again shortly.`; 500 generic for every refusal, the orphaned code included (Q-064 B) | `src/routes/(marketing)/login/email/code/+server.ts:41-127` |
 | `/login/password` | POST | none | `{email,password}`; unguarded `request.json()` | 200 `{success:true,user:{id,email,firstName}}` + `Set-Cookie` | 400 `Email and password are required`; 429 `Too many attempts. Try again shortly.`; 401 `Invalid email or password`; 401 `Please use email login for this account`; 500 `Failed to login` | `src/routes/(marketing)/login/password/+server.ts:13-66` |
 | `/signup/email` | POST | none | `{email,firstName,lastName,redirectTo?}` | 200 `{success:true}` for sent **and** suppressed (already registered) | 400 `Invalid email`; 400 `First and last name are required`; 429 `Too many attempts. Try again shortly.`; 500 `There was an error. Please try again.` | `src/routes/(marketing)/signup/email/+server.ts:13-68` |
-| `/signup/email/code` | POST | none | `{code,email}` | 200 empty body + `Set-Cookie`; user created from the code row's names | 400 `Unexpected error, please try again`; 429 `Too many attempts. Try again shortly.`; 500 generic; 500 `Account with this email already Exists` | `src/routes/(marketing)/signup/email/code/+server.ts:38-116` |
+| `/signup/email/code` | POST | none | `{code,email}` | 200 empty body + `Set-Cookie`; user created from the code row's names | 400 `Unexpected error, please try again`; 429 `Too many attempts. Try again shortly.`; 500 generic for every refusal, the taken address included (Q-064 B) | `src/routes/(marketing)/signup/email/code/+server.ts:38-116` |
 | `/signup/password` | POST | none | `{email,password,firstName,lastName}` | 201 `{success:true,user:{id,email,firstName},emailVerification:'pending'}`; a taken email gets the same 201 with `user.id:''` and no session/email | 400 `All fields are required`; 400 `Password must be at least 8 characters`; 429 `Too many attempts. Try again shortly.`; 500 `Failed to create account` | `src/routes/(marketing)/signup/password/+server.ts:53-102` · `src/lib/server/services/passwordSignup.ts:62-102` |
 | `/signup/password/resend` | POST | session, registered user only | none | 200 `{success:true}`; verified user → success without emailing | 401 `Unauthorized`; 429 `Too many attempts. Try again shortly.`; 500 `There was an error. Please try again.` | `src/routes/(marketing)/signup/password/resend/+server.ts:47-105` |
 | `/signup/password/verify` | POST | none | `{code,email}` | 200 `{success:true}`; flips `emailVerified`; code deleted | 400 `Unexpected error, please try again`; 429 `Too many attempts. Try again shortly.` | `src/routes/(marketing)/signup/password/verify/+server.ts:41-80` |
-| `/forgot-password` | POST | none | `{email}`; unguarded `request.json()` | 200 `{success:true}` for known and unknown/Anonymous Account addresses | 400 `Email is required`; 429 `Too many attempts. Try again shortly.`; 500 `Failed to send reset email` | `src/routes/(marketing)/forgot-password/+server.ts:34-92` |
-| `/forgot-password/reset` | POST | none | `{token,password}`; unguarded `request.json()` | 200 `{success:true}`; password replaced, all sessions + all `fp_` tokens revoked | 400 `Token and password are required`; 400 `Password must be at least 8 characters`; 400 `Invalid or expired reset token. Please request a new one.`; 400 `Invalid reset token`; 400 `This reset link has already been used. Please request a new one.`; 400 `Account not found`; 500 `Failed to reset password` | `src/routes/(marketing)/forgot-password/reset/+server.ts:51-135` |
+| `/forgot-password` | POST | none | `{email}`; strict JSON body | 200 `{success:true}` for known and unknown/Anonymous Account addresses | 400 `Email is required`; 400 `Invalid JSON` for a malformed/empty body (Q-062 B); 429 `Too many attempts. Try again shortly.`; 500 `Failed to send reset email` | `src/routes/(marketing)/forgot-password/+server.ts:34-92` |
+| `/forgot-password/reset` | POST | none | `{token,password}`; strict JSON body | 200 `{success:true}`; password replaced, all sessions + all `fp_` tokens revoked | 400 `Token and password are required`; 400 `Password must be at least 8 characters`; 400 `Invalid JSON` for a malformed/empty body (Q-062 B); 400 `Invalid or expired reset token. Please request a new one.`; 400 `Invalid reset token` (also a token without the `password_reset` purpose, Q-102 B); 400 `This reset link has already been used. Please request a new one.`; 400 `Account not found`; 429 `Too many attempts. Try again shortly.` (10/15 min per IP, Q-066 B); 500 `Failed to reset password` | `src/routes/(marketing)/forgot-password/reset/+server.ts:51-135` |
 | `/login/email/callback` and `/signup/email/callback` | GET | none (guest session allowed) | `?token` (JWT) | 302 + `Set-Cookie` to `/calendar` or the signed `redirectTo` | 302 `/login?error=The token provided was not valid, please try again.` (signup: `/signup?error=…`) | `src/routes/(marketing)/login/email/callback/+server.ts:39-102` · `src/routes/(marketing)/signup/email/callback/+server.ts:27-79` |
 | `/claim/verify/[token]` | GET | `locals.user` | path token | 200 HTML confirm page ("can be used once and expires in 15 minutes") | 302 `/login` | `src/routes/(calendar)/claim/verify/[token]/+server.ts:27-49` |
 | `/claim/verify/[token]` | POST | `locals.user` | path token | 302 `/calendar?claimed=1`; on Claim Conflict also sets the target account's session cookie | 302 `/login`; 302 `/claim?error=invalid` | `src/routes/(calendar)/claim/verify/[token]/+server.ts:51-70` · `src/lib/server/services/claimService.ts:108-149` |
@@ -115,9 +115,9 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ### Probably accidental (candidates to drop, owner to confirm)
 - Both signup completion paths (`/signup/email/code`, `/signup/password`) create a new session but never call `invalidateStaleAnonymousSession`, unlike every login path — the arriving guest session row survives signup. — `src/routes/(marketing)/signup/email/code/+server.ts:96-109`, `src/routes/(marketing)/signup/password/+server.ts:83-84` vs `src/routes/(marketing)/login/email/code/+server.ts:104-110` — asymmetric cleanup.
-- Seven JSON auth handlers call `await request.json()` unguarded, so malformed bodies surface as framework 500s instead of the house `400 {"error":"Invalid JSON"}` used by the `/api` routes. — `src/routes/(marketing)/login/email/+server.ts:22`, `login/email/code/+server.ts:61`, `login/password/+server.ts:19`, `signup/email/+server.ts:17`, `signup/email/code/+server.ts:59`, `forgot-password/+server.ts:48`, `forgot-password/reset/+server.ts:69` — inconsistent error contract.
-- `signup/email/code` answers 500 `"Account with this email already Exists"` (also a capitalisation typo) while every other path is deliberately generic — a membership signal at code redemption. — `src/routes/(marketing)/signup/email/code/+server.ts:87-93` — contradicts the no-enumeration rule.
-- `login/email/code` has a distinct 500 `"No Account found"` next to the generic `"Unexpected error, please try again"` — a differential response for an orphaned code. — `src/routes/(marketing)/login/email/code/+server.ts:96-99`
+- Seven JSON auth handlers called `await request.json()` unguarded, so malformed bodies surfaced as framework 500s instead of the house `400 {"error":"Invalid JSON"}` used by the `/api` routes. — `src/routes/(marketing)/login/email/+server.ts:22`, `login/email/code/+server.ts:61`, `login/password/+server.ts:19`, `signup/email/+server.ts:17`, `signup/email/code/+server.ts:59`, `forgot-password/+server.ts:48`, `forgot-password/reset/+server.ts:69` — inconsistent error contract; **fixed in the port** (the first five answer the house 400, `forgot`/`reset` with Q-062 B; `/login/password` and `/signup/password` keep their own 500 copy because legacy parsed inside its `try`).
+- `signup/email/code` answered 500 `"Account with this email already Exists"` (also a capitalisation typo) while every other path is deliberately generic — a membership signal at code redemption. — `src/routes/(marketing)/signup/email/code/+server.ts:87-93` — contradicted the no-enumeration rule; **fixed (Q-064 B)**: the generic 500.
+- `login/email/code` had a distinct 500 `"No Account found"` next to the generic `"Unexpected error, please try again"` — a differential response for an orphaned code. — `src/routes/(marketing)/login/email/code/+server.ts:96-99`; **fixed (Q-064 B)**.
 - The email validator is copy-pasted three times; two more checks are weaker — forgot-password tests `!email` only and the email-change request tests `includes('@')`. — `src/lib/server/services/magicLink.ts:112-113`, `src/lib/server/services/mobileAuth.ts:102-103`, `src/lib/server/services/claimRequest.ts:57`, `src/routes/(marketing)/forgot-password/+server.ts:50`, `src/lib/server/services/accountData.ts:338` — divergent validation. The three full-pattern copies collapse into the kernel rule; the two weaker ones are wire-visible and stay route by route (Decision 2).
 - `findActiveTokenForUser` has no importers. — `src/lib/server/services/claimService.ts:58-65` — dead code.
 - `login/email/callback` stashes `guest_merge` *before* validating the token, so a failed/invalid login still sets a 15-minute cookie for the anonymous session (same order in the signup callback). — `src/routes/(marketing)/login/email/callback/+server.ts:43-57`, `src/routes/(marketing)/signup/email/callback/+server.ts:31-45`
@@ -154,16 +154,19 @@ Three kernel seams do not exist yet; they are planned here, not written in this 
 | `access.contract.ts` | contract | Zod schemas for every `/api` request/response in this module (mobile bodies, `{email}`, `{code}`, `{token,password}`) plus the exact legacy error copy as constants; internal page/action inputs designed fresh. |
 | `access.email.rules.ts` | rules | Magic-link payload shape (kind/email/names/code/redirect), `code`/`email` pairing, the 15-minute TTL and the 8-digit shape; pure, and every TTL rule takes `now` as a parameter (never `Date.now()`). |
 | `access.redirect.rules.ts` | rules | `authRedirectTarget`: path-only same-origin landing (`safeRedirectPath` logic), fallbacks `/calendar/` and `/calendar`. |
-| `access.password.rules.ts` | rules | Signup/password validation (four required fields, at least 8 characters) and the token name rule. No email rule here: each route keeps exactly its own legacy check (Decision 2 in Notes). |
+| `access.password.rules.ts` | rules | Signup/password validation (four required fields, at least 8 characters), the reset form's order (both fields, then the length) and the `used:<hash>` single-use marker key. No email rule here: each route keeps exactly its own legacy check (Decision 2 in Notes). The `mobileTokenName` rule lives in `access.device.rules.ts`, not here (the sheet's first draft said "token name", meaning the reset marker). |
 | `access.password.rules.test.ts` | rules test | Tables of input → message/valid. |
 | `access.device.rules.ts` | rules | `mobileTokenName` (`Android — <deviceName>`, trimmed, 60-char cap, `Android` default) and the `toMobileUser` mask. |
 | `access.device.rules.test.ts` | rules test | Device-name tables (empty, padded, 60/61/70 chars) and the guest email mask. |
 | `access.claim.rules.ts` | rules | Claim-token shape (32 random bytes hex, 15-minute TTL — `now` passed in), the guests-only rule and the uniform answer. |
 | `access.claim.rules.test.ts` | rules test | Token/email validation and the no-oracle answer. |
+| `access.person.rules.ts` | rules | The Anonymous Account predicate access branches on (`isGuestPerson`, `isRegisteredPerson`, `maskGuestEmail`). Interim: identity owns the canonical predicate but its `index.ts` exports nothing yet, so S5 must switch these call sites to identity and delete this file. |
+| `access.person.rules.test.ts` | rules test | The placeholder-domain table and the guest-safe mask (from `src/lib/utils/anonymous.test.ts:5-21`). |
+| `access.contract.test.ts` | contract test | Every request schema's coercion/refusal order, the response shapes and the exact legacy copy table. |
 | `access.email.rules.test.ts`, `access.redirect.rules.test.ts` | rules test | Kind-mismatch/legacy-token tables and the unsafe-redirect table (from the legacy `magicLink` unit tests). |
 | `access.repo.server.ts` | repo | Claim-token queries only (access owns `claimTokens`): insert, peek by hash, atomic `DELETE … RETURNING`, delete expired. |
-| `access.fixtures.server.ts` | fixtures | Written in the S2 fix-forward. `seedAccessGuest`, `seedAccessPasswordUser`, `seedAccessApiToken`, `seedAccessEmailCode` (hashed kinds, `expiresAt` overridable), `seedAccessProviderAccount`, `seedAccessSession`, `seedAccessAuthAccount`, plus `ACCESS_ANON_DOMAIN` and `ACCESS_PASSWORD_HASH`. Every name carries the `Access` noun: the module seeds foreign rows (user, provider account, session, credential row), the `seedTaskFamily` precedent. |
-| `access.repo.db.test.ts` | repo test | A `rollbackTest` per query (peek does not burn, consume is exactly once, expired is gone). |
+| `access.fixtures.server.ts` | fixtures | Written in the S2 fix-forward. `seedAccessGuest`, `seedAccessPasswordUser`, `seedAccessApiToken`, `seedAccessEmailCode` (hashed kinds, `expiresAt` overridable), `seedAccessProviderAccount`, `seedAccessSession`, plus `ACCESS_ANON_DOMAIN` and `ACCESS_PASSWORD_HASH`. S4 added `seedAccessClaimToken(db, …)` — the one builder that takes `db`, because it seeds this module's own table inside `rollbackTest`. `seedAccessAuthAccount` went with Q-104 C (no flow treats `auth_account.password` as a password store). Every name carries the `Access` noun: the module seeds foreign rows (user, provider account, session), the `seedTaskFamily` precedent. |
+| `access.repo.db.test.ts` | repo test | A `rollbackTest` per query and edge: insert stamps the caller's `createdAt`; peek does not burn and refuses an expired row (the exact-`now` boundary is live); consume is exactly once and still deletes an expired row; retention removes `< now` and counts. |
 | `access.email.service.server.ts` | service | `startEmailLink` (validation → gate and suppression → mint → email → code row), `completeEmailLink`, `verifySignupCode`, `resendSignupCode`. |
 | `access.password.service.server.ts` | service | `signInWithPassword` (dummy-compare defence, generic 401, shared by web and Android), `signUpWithPassword`, `requestPasswordReset`, `resetPassword` (single-use marker, revoke sessions + tokens). |
 | `access.claim.service.server.ts` | service | `requestClaim` (guests only, 10/15 per IP + 3/15 per address, uniform answer) and `confirmClaim` (peek → ownership → atomic consume → claim or Claim Conflict merge). |
@@ -197,7 +200,7 @@ Three kernel seams do not exist yet; they are planned here, not written in this 
 | `services/claimService.ts` — token functions | `access.repo.server.ts` + `access.claim.rules.ts`; `verifyClaimToken` → `confirmClaim`. `findActiveTokenForUser` dies (no importers). |
 | `services/claimRequest.ts` | `access.claim.service.server.ts`. |
 | `services/guestMergeService.ts` | `access.guestMerge.service.server.ts` (cookie stash moves into the sign-in flows, after success). |
-| `services/accountData.ts` — `requestEmailChange` + `UpdateEmailDeps` | `access.emailChange.service.server.ts`; the rest of `accountData` stays with the account screen/identity. |
+| `services/accountData.ts` — `requestEmailChange` + `UpdateEmailDeps` | `access.emailChange.service.server.ts`; the rest of `accountData` stays with the account screen/identity. **Done in S6 (security review finding 1):** `/account?/updateEmail` is wired to `changeEmailAction` (`access.pages.http.server.ts`, exported through `index.server.ts`), which calls the access service, so the code row is HMAC-keyed and the verify page can redeem it; the legacy `requestEmailChange`, `UpdateEmailDeps`, `defaultUpdateEmailDeps` and their two legacy route tests have been deleted. The action keeps legacy's bodies: `{success:false,message}` (+`guestNeedsClaim`), 429 `Too many attempts. Try again shortly.`, 500 `Failed to send verification email`. |
 | `utils/createNewUser.ts` | identity (user + provider account + settings); the personal-calendar call is composed in `access.password.service.server.ts` through calendar's entry. |
 | `components/auth/{AuthCard,AuthInput,ModeToggle}.svelte` | `ui/`, rebuilt on kernel/ui primitives. |
 
@@ -209,25 +212,25 @@ Every wire line below was re-read against the legacy code on 2026-11-11.
 
 - `/api/mobile/auth/signup` for a taken address answers **200** with `{token:"", user:{id:"",…}, emailVerification:"pending"}` (`src/routes/api/mobile/auth/signup/+server.ts:62-77`). `docs/guides/task-api-spec.md:711` still lists `400 "An account with this email already exists"`; the sheet's API table and the golden are right, the spec line is stale. The port must keep 200. Careful with the wording: it is not a full account oracle — nothing says whether anyone can sign in — but `token:""` and `user.id:""` are exactly how an app sees that the address is taken, so the response hides the password, not the membership.
 - `/api/me/verify-email` 429 body carries `success:false` (`src/routes/(marketing)/signup/password/verify/+server.ts:47-52`), unlike the bare `{error}` the sheet's error column implies. Pinned by the golden.
-- `/api/mobile/auth/forgot` with a malformed body answers **500** `Failed to send reset email`, not 400: the web handler's unguarded `request.json()` throws inside its own `try` (`src/routes/(marketing)/forgot-password/+server.ts:47-92`). Pinned as today's wire; see the owner question.
-- `/api/mobile/auth/reset` with a malformed body answers **500** `Failed to reset password` for the same reason (`src/routes/(marketing)/forgot-password/reset/+server.ts:68-135`). Pinned.
+- `/api/mobile/auth/forgot` with a malformed or empty body answered **500** `Failed to send reset email` before Q-062's fix (the web handler's unguarded `request.json()` threw inside its own `try`); **Q-062 B landed**: both doors answer the house `400 {"error":"Invalid JSON"}` (`bodyMode: 'strict'`).
+- `/api/mobile/auth/reset` answered **500** `Failed to reset password` for the same reason before the fix; **Q-062 B landed** — `400 {"error":"Invalid JSON"}`, on the web form too.
 - The mobile routes: a **non-string but truthy** `email` (e.g. `123`) throws in `.toLowerCase()` and lands in the same 500 (`forgot`). Not pinned: it is a defect, and pinning it would bless the TypeError.
 - `/api/logout`'s "delete the session row and clear `locals`" half cannot be driven through `invoke` — the harness pins `locals.session` to `null` — so the golden pins the signed-out 302 only; the S5 service test pins the deletion.
 - `/api/me/claim`'s rate limits cannot be reached without sending real emails: the per-address allowance is 3, so the fourth request both fills and trips it, and the per-IP allowance (10) needs ten addresses. Both 429 cases are skipped spec-goldens (`claimRequest.ts:63,66`), each with a control request that pins the key shape.
-- The 9 spec-goldens at the bottom of `access.http.db.test.ts` (claim fresh address, claim registered address, claim per-address 429, claim per-IP 429, me/email success, resend send, mobile email login + fresh signup, mobile signup create, forgot send) are `it.skip` with the required marker: the legacy handlers send through the module-scope Resend client, so running them would hit the network. Each already asserts the rows it writes — the Claim token hash and TTL, the `email_change` row bound to the current address with the pending one, the `password-signup` rows — because **S6 may only delete the `.skip`s**: the complete assertion set has to be there now.
-- Every budget golden pins its key shape, not just the 429: after the refusal it sends a control from a new IP and one from a new address (or person), and pins both answers. `/api/me/verify-email` and the mobile reset wrapper are IP-only, so their "new address on the same IP" control is the *same* 429 — that is the pin.
+- The 9 spec-goldens at the bottom of `access.http.db.test.ts` (claim fresh address, claim registered address, claim per-address 429, claim per-IP 429, me/email success, resend send, mobile email login + fresh signup, mobile signup create, forgot send) were `it.skip` while the legacy handlers sent through the module-scope Resend client. **Q-067 landed**: the ported handlers take `ctx.mail`, so all nine run (the email-change one reads its code from the outbox and asserts the keyed digest, Q-065). The claim row's TTL window is the *request's*, not one millisecond of the test's: it asserts `before + 15 min <= expiresAt <= after + 15 min` (`after` read once the response arrives), because the handler's own clock read sits between the two and a spec row must not race it.
+- Every budget golden pins its key shape, not just the 429: after the refusal it sends a control from a new IP and one from a new address (or person), and pins both answers. `/api/me/verify-email` and the reset service (both doors, Q-066) are IP-only, so their "new address on the same IP" control is the *same* 429 — that is the pin.
 - Masked-by-construction branch: `/api/me/verify-email` forwards the caller's own address (`src/routes/api/me/verify-email/+server.ts:17-25`), so the web verify's "code whose user row is gone" branch (`signup/password/verify/+server.ts:68-72`) cannot be reached from HTTP; the golden pins the reachable half (a code for another address is refused and its row survives) and that branch moves to `access.password.service.db.test.ts`.
-- Owner accidents pinned on purpose, ids in the test comments: Q-102 a sign-in magic link resets a password; Q-103 an email-change request deletes the `reset_used` marker; Q-104 reset leaves `auth_account.password` stale; Q-105 `/api/logout` sends no `Set-Cookie` (its thrown Kit redirect carries no header channel at all, so the golden's exact `{ status, location, setCookie }` shape is the pin).
+- Owner accidents were pinned on purpose until their fix landed, ids in the test comments: Q-102 a sign-in magic link reset a password; Q-103 an email-change request deleted the `reset_used` marker; Q-104 reset left `auth_account.password` stale; Q-105 `/api/logout` sent no `Set-Cookie`. **All four answers landed** (B, B, C, B): the reset reader requires the `password_reset` purpose claim, the change request deletes only `email_change` codes, no flow writes the credential column (and its golden assertion and fixture are gone), and logout answers a 302 that carries identity's expired `Set-Cookie`.
 - Two page-group JSON endpoints have goldens too (`POST /signup/email/code`, `POST /login/email/code`), because Q-064's flip must be observable: they are the only non-`/api` goldens in this file, and they are JSON fetches, not page loads or form actions.
 - `POST /api/mobile/auth/verify` login looks up `accounts` first (`src/lib/server/db/schema.ts:197`, via `getAccount`) and falls back to `users` (`src/lib/server/services/mobileAuth.ts:291-295`); a person with only a `users` row signs in. Pinned.
 
 ### Probably accidental, and what happens to it
 
-- **Wire-visible, kept + owner questions:** the mobile/forgot and mobile/reset 500-on-malformed-JSON (pinned); the 200-vs-201 drift between mobile and web signup (kept, question); the `signup/email/code` 500 "Account with this email already Exists" and `login/email/code` 500 "No Account found" membership/state signals (page routes, no goldens — question).
+- **Wire-visible accidents, all answered and landed:** the mobile/forgot and mobile/reset 500-on-malformed-JSON became the house 400 (Q-062 B); the `signup/email/code` 500 "Account with this email already Exists" and `login/email/code` 500 "No Account found" membership/state signals became the generic 500 (Q-064 B); the 200-vs-201 drift between mobile and web signup is kept (Q-063 A).
 - **Internal, dropped (reasons):** `findActiveTokenForUser` has no importers → dies; the duplicated `sessionCookieFor` JSDoc → dies with the file; the three copy-pasted full-pattern email validators (`magicLink.ts:112-113`, `mobileAuth.ts:102-103`, `claimRequest.ts:57`) → kernel `isEmailAddress` (`src/lib/kernel/validation/validators.ts:62-66`), which answers exactly as they do; the `guest_merge` cookie stored *before* the token is validated → stashed after success; the reset single-use marker written before hashing → written after the password update so a failed hash cannot burn the link (wire unchanged: still 500).
 - **Decision 2 — the two weaker legacy checks stay, route by route.** No access-local `emailAddress` rule: forgot-password keeps `!email` only (`forgot-password/+server.ts:50`, so `{email:'nope'}` is a 200 `{sent:true}` — pinned) and the email-change request keeps `!email || !email.includes('@')` (`accountData.ts:338`, no dot rule, case-sensitive compare — pinned). The kernel `isEmailAddress` answers differently on both, so it is not planned onto them; the difference is written into the README's invariants.
 - **The failed-signup mail logs the address in legacy** (`passwordSignup.ts:124,127`: `Verification email not sent for ${who.email}`). The port logs the event and the reason without the address — a log line is not part of the wire, and the address is personal data. Say so in the S5 commit.
-- **Email-change codes stay plaintext through S6.** The skipped golden asserts the 8-digit value in `codes.code` (that is what `/account/verify-email` looks up with `getCode`, `src/routes/(calendar)/account/verify-email/+page.server.ts:111,135`), so the port keeps writing plaintext until Q-065's answered fix (hash at rest, no wire change) lands after S6 with that golden changed first.
+- **Email-change codes are hashed at rest from S5 on.** `issueEmailCode` stores `HMAC-SHA-256(EMAILSECRET pepper, code)` for every kind (Q-116/Q-117), so the change row's code is a digest and `/account/verify-email` redeems by digest. Q-065 B landed with the spec-golden's activation: it reads the mailed code from `ctx.mail.outbox` and asserts `HMAC-SHA-256(EMAILSECRET, code)`, never the plaintext.
 
 ### Questions for the owner
 
@@ -238,20 +241,120 @@ Every wire line below was re-read against the legacy code on 2026-11-11.
 5. **Carry-over #175:** the web `/forgot-password/reset` has no throttle of its own (only the mobile wrapper adds 10/15 per IP). (Q-066) Options: port as-is with the wrapper throttle, or move the throttle into the shared service. Recommendation: move it into the service when porting; the mobile golden's 429 stays valid and the web form gains the cap. **Answer (owner): B.** One limiter, not two: if the wrapper's limiter stays and the service also counts, the bucket fills twice as fast and the golden's "10 × 400" burst turns 429 early — the wrapper's copy goes when the service's arrives.
 6. **Spec-golden activation (S6).** (Q-067) These 9 tests cannot run until the ported handler takes its email sender from `ctx` (there is no kernel email port yet). Recommendation: add the port in this module's S5 (a `ctx.mail` port in kernel, per add-a-port.md) so S6 unskips them rather than deferring again.
 
-### Decided owner fixes (after S6)
+### Decided owner fixes (landed)
 
-The owner answered seven of the questions the S1+S2 review raised. Each keeps today's behaviour pinned until S6 is green, then lands as its own `fix(access)` commit that **changes the golden first**, names the question id, and cites the ticket: no other wiring in that commit.
+The owner answered seven of the questions the S1+S2 review raised, plus Q-062 and Q-065. **All of them landed**, each in its own `fix(access)` step that changed the golden row first and names the question id; Q-067's activation (the nine `.skip`s) landed with them. The rows below keep their answers; the "golden it edits" column now names the row as it reads after the flip.
 
 | question | decision | the change | the golden it edits |
 |---|---|---|---|
-| Q-102 | **B** | Reset tokens carry a purpose claim; the reset handler refuses every other `EMAILSECRET` JWT, so a sign-in link can no longer set a password (`reset/+server.ts:88-96`). | `POST /api/mobile/auth/reset › accepts a sign-in magic link as a reset token (Q-102)` becomes a 400. |
-| Q-103 | **B** | An email-change request deletes only its own `email_change` codes, so the `reset_used` marker survives (`accountData.ts:374`). | `POST /api/me/email — mails a code to the NEW address and answers the message` (skipped until S6) keeps the marker row. |
-| Q-104 | **C** | `auth_account.password` stops being a password store: no access flow writes it (legacy reset writes `users.passwordHash` only), and the column is dropped at the next schema cleanup. | `POST /api/mobile/auth/reset › resets the password, kills every session and every token, and refuses the token again` drops the credential-row assertion. |
-| Q-105 | **B** | `/api/logout` clears the session cookie with an expired `Set-Cookie` instead of leaving it in the browser (`src/routes/api/logout/+server.ts:5-13`). | `POST /api/logout › answers 302 / when signed out (Q-105: no Set-Cookie)` asserts the clearing cookie. |
-| Q-064 | **B** | Both page-code endpoints answer the generic `Unexpected error, please try again` instead of the membership signals (`signup/email/code/+server.ts:87-95`, `login/email/code/+server.ts:94-100`). | The two page-JSON goldens change their 500 body; the signup one also pins whatever the flip does with the code row. |
-| Q-065 | **B** | Email-change codes are hashed at rest and looked up by digest like every other kind (`accountData.ts:375-383`, `account/verify-email/+page.server.ts:111,135`). | `POST /api/me/email — mails a code to the NEW address and answers the message` swaps its plaintext assertion for a digest. |
-| Q-066 | **B** | The 10 / 15 min reset throttle moves from the mobile wrapper into the shared service, so the web form gains it too (`api/mobile/auth/reset/+server.ts:11-31`). | None: the mobile 429 golden keeps its limit, message and burst. Exactly one limiter — the wrapper's copy goes, or the burst fills the bucket twice as fast. |
+| Q-102 | **B** | Reset tokens carry a purpose claim (`purpose: 'password_reset'`); the reset reader refuses every other `EMAILSECRET` JWT, so a sign-in link can no longer set a password (`reset/+server.ts:88-96`). Landed: `RESET_TOKEN_PURPOSE` in `access.email.rules.ts`, minted by `requestPasswordReset`, required by `readResetTokenPayload`. | `POST /api/mobile/auth/reset › refuses a sign-in magic link as a reset token (Q-102)` — 400 `Invalid reset token`, password untouched. |
+| Q-103 | **B** | An email-change request deletes only its own `email_change` codes, so the `reset_used` marker survives (`accountData.ts:374`). Landed: `discardEmailCodes(ctx, email, type?)` over identity's `deleteEmailCodesForEmail(db, email, type?)`, plus a `rollbackTest` for the scoped delete in identity. | `POST /api/me/email — mails a code to the NEW address and answers the message` keeps the marker row beside the `email_change` one. |
+| Q-104 | **C** | `auth_account.password` stops being a password store: no access flow writes it (legacy reset writes `users.passwordHash` only), and the column is dropped at the next schema cleanup. Landed: the golden's credential assertion and the now-dead `seedAccessAuthAccount` fixture are gone; nothing in access reads or writes the column. | `POST /api/mobile/auth/reset › resets the password, kills every session and every token, and refuses the token again` drops the credential-row assertion. |
+| Q-105 | **B** | `/api/logout` clears the session cookie with an expired `Set-Cookie` instead of leaving it in the browser (`src/routes/api/logout/+server.ts:5-13`). Landed: the endpoint answers a plain 302 carrying `sessionCookieHeader(blankSessionCookie(ctx))`. | `POST /api/logout › answers 302 / and clears the session cookie (Q-105)` pins the whole header. |
+| Q-064 | **B** | Both page-code endpoints answer the generic `Unexpected error, please try again` instead of the membership signals (`signup/email/code/+server.ts:87-95`, `login/email/code/+server.ts:94-100`). Landed: `PAGE_SIGNUP_TAKEN_MESSAGE`/`PAGE_LOGIN_ORPHAN_MESSAGE` are deleted and both branches answer `VERIFY_GENERIC_ERROR_MESSAGE`. | The two page-JSON goldens change their 500 body; the signup one also pins that the code row is still burned. |
+| Q-065 | **B** | Email-change codes are hashed at rest and looked up by digest like every other kind (`accountData.ts:375-383`, `account/verify-email/+page.server.ts:111,135`). Landed: `issueEmailCode` already stored the digest, so only the activated golden's assertion changed — it reads the mailed code and compares `HMAC-SHA-256(EMAILSECRET, code)`. | `POST /api/me/email — mails a code to the NEW address and answers the message` swaps its plaintext assertion for the digest. |
+| Q-066 | **B** | The 10 / 15 min reset throttle moves from the mobile wrapper into the shared service, so the web form gains it too (`api/mobile/auth/reset/+server.ts:11-31`). Landed: `RESET_ATTEMPT_LIMIT`/`WINDOW_MS`/`SCOPE` in `access.recovery.service.server.ts`, enforced first in `resetPassword`; both endpoints pass `clientKeyOf(request, RESET_ATTEMPT_SCOPE)` and the endpoint-level `rateLimit` is gone. | None: the mobile 429 golden keeps its limit, message and burst. Exactly one limiter — the wrapper's copy went, so the burst is not counted twice. |
 
+
+### S3/S4 decisions (landed with the port)
+
+- **The Anonymous Account predicate is duplicated for one step.** identity owns
+  `isAnonymousAccount` / `isRegisteredAccount` (`identity.person.rules.ts:18-42`)
+  and its README lists them on `index.ts`, but that entry is still `export {}`.
+  R2 forbids importing another module's rules file, so access's S3 carries
+  `access.person.rules.ts` (`isGuestPerson`, `isRegisteredPerson`,
+  `maskGuestEmail`). **S5 must switch the call sites to identity's entry and
+  delete the file**; it is the only cross-module duplication in this slice.
+- **`access.password.rules.ts` holds the reset marker, not the device name.**
+  The plan row's "token name rule" is `used:<sha256(token)>`
+  (`reset/+server.ts:101`); `mobileTokenName` is `access.device.rules.ts`'s.
+- **`MobileAuthUserResponse` / `ClaimTokenOwner` are server view types in the
+  contract,** so `access.device.rules.ts` can return the wire user shape without
+  a second definition and the repo can answer `{userId,email}` without a row type.
+- **The `seedAccessClaimToken` fixture takes `db`.** Every other access fixture
+  writes through `testDb()` because the S2 goldens run committed; a Claim seed
+  used by a `rollbackTest` would land outside the transaction. The file says so
+  in place.
+- **Q-104 C landed.** The repo and rules never read or write `authAccount.password`;
+  the reset golden's stale-credential assertion and the `seedAccessAuthAccount`
+  fixture are gone, and the reset service writes only `users.passwordHash` (via
+  identity's `setPersonPasswordHash`), so the column drops at the schema cleanup
+  without an access change.
+- **S6 needs three body details the schemas cannot express alone.** `endpoint()`'s
+  `json` mode answers the house `Invalid JSON` and maps an empty body to `{}`;
+  `lenient` maps an empty body AND a literal `null` to `null`. The frozen goldens
+  need: `mobile/auth/guest` empty body → 200 but literal `null` → 400;
+  `mobile/auth/forgot`/`reset` malformed (and empty) body → their 500 copy;
+  every other mobile route malformed → `Request body must be JSON`. The contract
+  documents this and owns the copy; the mapping is S6's.
+- **One unpinned legacy defect is not reproduced.** `forgot-password/+server.ts`
+  calls `email.toLowerCase()` on the raw body value, so a truthy non-string
+  (`{email:123}`) throws and lands in its 500. The sheet already lists that as a
+  defect and does not pin it; the contract reads a non-string as `''`, so the
+  port answers `400 Email is required`. Wire-identical for every JSON string,
+  and no golden covers the numeric case — flagging it rather than blessing the
+  TypeError.
+- **The seven post-S6 owner fixes have all landed.** Q-102 mints and requires the
+  `password_reset` purpose claim; Q-103 deletes only `email_change` codes
+  (`discardEmailCodes(ctx, email, type?)`, backed by identity's scoped
+  `deleteEmailCodesForEmail` and its own `rollbackTest`); Q-064's two membership
+  sentences and their constants are gone (both answer
+  `VERIFY_GENERIC_ERROR_MESSAGE`); Q-065's digest is what the activated golden
+  asserts; Q-066's limiter lives in `resetPassword`. Each changed its golden row
+  first.
+- **Identity calls at S5.** This slice needs no `FOREIGN_READS` entry: the repo
+  touches only `claimTokens`. S5 will need identity's services (person by
+  email/id, session create/invalidate, `fp_` token mint/revoke, email-code
+  insert/find/delete, password hashing, `setPersonPasswordHash`,
+  `claimPersonEmail`, `deleteEmailCodesForEmail`) through `identity/index.server.ts`,
+  which today exports only the two ports and `IdentityCtx`; those service
+  functions must be added there by identity's S5 before access's S5 can compile.
+
+### S6 decisions (landed with the wire)
+
+- **Two http files, not one per topic.** `access.http.server.ts` holds every
+  `/api` handler plus the page-group JSON endpoints (its test is the frozen
+  `access.http.db.test.ts`); `access.pages.http.server.ts` holds the loads,
+  form actions and callbacks (`access.pages.http.db.test.ts`). Every route file
+  is now wiring-only; the 25 obsolete legacy route tests and their `fakes.ts`
+  helper were deleted.
+- **One `signOut` home.** `signOutSession`/`signOutMobile` were deleted;
+  `access.account.service.server.ts`'s `signOut(ctx, actor, {sessionId?, token?})`
+  serves both doors and refuses a non-`fp_` bearer (the mobile golden's 401).
+- **`goldenCtx` carries the golden pepper.** `GOLDEN_CODE_PEPPER`
+  (`kernel/testing`) resolves `process.env.EMAILSECRET` with the committed test
+  fallback; `goldenCtx` passes it as `config.codePepper` and
+  `seedAccessEmailCode` hashes with the same value (Q-116/Q-117). The frozen
+  golden's only edits are that fixture and the reset marker comparison.
+- **`AppConfig.siteUrl`** carries the legacy `getUrl()` answer (dev/test/prod);
+  the mailed links build their absolute URLs from it, and the routes pass it to
+  every service that mails.
+- **A fourth body mode, `'empty-object'`,** in `endpoint()`: an empty body reads
+  `{}` while a malformed or non-object body reaches the schema as `null`. The
+  guest door needs exactly that (empty → 200, junk → its own sentence); the
+  other mobile doors use `'lenient'` (empty and junk both refused with the
+  mobile sentence).
+- **Malformed bodies on the web-forwarded page/JSON routes.** Q-062 B landed:
+  `forgot` and `reset` run `bodyMode: 'strict'` with the house
+  `400 {"error":"Invalid JSON"}` on both doors, so the legacy 500 copy is gone.
+  The routes without a golden (`/login/*`, `/signup/*`) already answered the
+  house 400; `/login/password` and `/signup/password` keep their own 500 copy
+  because legacy parsed inside its `try`.
+- **The 9 spec-goldens run (Q-067 landed).** The `.skip`s are gone and the
+  email-change send golden asserts the keyed digest, reading the mailed code from
+  `ctx.mail.outbox` (Q-065).
+- **`/family/invite/email` is not access's.** The module README and this sheet
+  both assign it to family (`acceptInvite` is family's); it stays legacy here.
+- **`ensurePersonalCalendar` landed.** calendar exports it (and the merge
+  prompt's `countGuestEvents`/`countGuestTasks`); the four signup call sites use
+  it instead of the `listCalendars` fallback.
+- **`/login/password` is allow-listed in auth-audit.** The audit reads the legacy
+  route's `locals.user` (the guest-session swap) as a user level; the door never
+  required a session and the v2 handler performs the same swap through the
+  optional actor, so `auth-audit-allow.json` carries the reason rather than a
+  cosmetic check.
+- **`invoke` gained a `cookies` option** (`kernel/testing`) so the page tests can
+  drive the `guest_merge` stash; nothing in production reads it.
 
 ### Still unpinned until S5 (service tests on the fake mail port)
 

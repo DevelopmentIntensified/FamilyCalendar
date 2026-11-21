@@ -4,7 +4,7 @@ import { conflict, notFound } from '../errors/appError';
 import { invoke } from '../testing/invokeHandlers.server';
 import { testCtx } from '../testing/testCtx.server';
 import { z } from '../validation/validators';
-import { created, endpoint, ok } from './endpoint.server';
+import { created, endpoint, ok, type BodyMode, type MalformedBody } from './endpoint.server';
 
 const member = actorFromUser({ id: 'u1', email: 'u1@example.test', roles: [] }, 'session');
 const admin = actorFromUser({ id: 'a1', email: 'a1@example.test', roles: ['admin'] }, 'token');
@@ -114,6 +114,74 @@ describe('endpoint input parsing', () => {
 	});
 });
 
+describe('endpoint query values', () => {
+	// `invoke`'s `query` option uses searchParams.set (one value), so repeated keys go in `path`.
+	const lookup = endpoint({
+		auth: 'public',
+		query: z.object({
+			eventId: z.string().optional(),
+			exclude: z.array(z.string())
+		}),
+		queryArrays: ['exclude'],
+		handle: async ({ query }) => ok({ eventId: query.eventId ?? null, exclude: query.exclude })
+	});
+
+	type QueryCase = {
+		readonly name: string;
+		readonly path: string;
+		readonly want: { readonly eventId: string | null; readonly exclude: readonly string[] };
+	};
+
+	const cases: readonly QueryCase[] = [
+		{
+			name: 'absent keys: a scalar stays absent and an array key arrives as []',
+			path: '/',
+			want: { eventId: null, exclude: [] }
+		},
+		{
+			name: 'a scalar key with one value',
+			path: '/?eventId=e1',
+			want: { eventId: 'e1', exclude: [] }
+		},
+		{
+			name: 'a repeated scalar key keeps the FIRST value (legacy get)',
+			path: '/?eventId=e1&eventId=e2',
+			want: { eventId: 'e1', exclude: [] }
+		},
+		{
+			name: 'an array key with 0 values while other keys are present',
+			path: '/?other=1',
+			want: { eventId: null, exclude: [] }
+		},
+		{
+			name: 'an array key with 1 value',
+			path: '/?exclude=a',
+			want: { eventId: null, exclude: ['a'] }
+		},
+		{
+			name: 'an array key with 2 values keeps them all, in order',
+			path: '/?exclude=b&exclude=a',
+			want: { eventId: null, exclude: ['b', 'a'] }
+		},
+		{
+			name: 'scalar and array keys together',
+			path: '/?eventId=e1&eventId=e2&exclude=a&exclude=b',
+			want: { eventId: 'e1', exclude: ['a', 'b'] }
+		},
+		{
+			name: 'an empty value stays present as "" (not absent), for both kinds',
+			path: '/?eventId=&exclude=',
+			want: { eventId: '', exclude: [''] }
+		}
+	];
+
+	it.each(cases)('$name', async ({ path, want }) => {
+		const res = await invoke(lookup.handler, { ctx: testCtx(), path });
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual(want);
+	});
+});
+
 describe('endpoint body modes', () => {
 	// Distinct copy per layer: 'Bad a' comes from the field, 'Bad body' from the object itself.
 	const schema = z.object({ a: z.string({ error: 'Bad a' }) }, { error: 'Bad body' });
@@ -128,6 +196,12 @@ describe('endpoint body modes', () => {
 			auth: 'public',
 			body: schema,
 			bodyMode: 'lenient',
+			handle: async ({ body }) => ok({ a: body.a })
+		}),
+		strict: endpoint({
+			auth: 'public',
+			body: schema,
+			bodyMode: 'strict',
 			handle: async ({ body }) => ok({ a: body.a })
 		})
 	};
@@ -154,7 +228,16 @@ describe('endpoint body modes', () => {
 		{ mode: 'lenient', name: 'the literal null', rawBody: 'null', want: refused('Bad body') },
 		{ mode: 'lenient', name: 'a string', rawBody: '"x"', want: refused('Bad body') },
 		{ mode: 'lenient', name: 'an array', rawBody: '[1]', want: refused('Bad body') },
-		{ mode: 'lenient', name: 'a valid object', rawBody: '{"a":"ok"}', want: accepted }
+		{ mode: 'lenient', name: 'a valid object', rawBody: '{"a":"ok"}', want: accepted },
+		// strict: an empty/whitespace body is refused exactly like malformed JSON,
+		// every parseable body behaves as json.
+		{ mode: 'strict', name: 'malformed JSON', rawBody: '{"a":', want: refused('Invalid JSON') },
+		{ mode: 'strict', name: 'an empty body', rawBody: '', want: refused('Invalid JSON') },
+		{ mode: 'strict', name: 'a whitespace body', rawBody: ' \n\t ', want: refused('Invalid JSON') },
+		{ mode: 'strict', name: 'the literal null', rawBody: 'null', want: refused('Bad body') },
+		{ mode: 'strict', name: 'a string', rawBody: '"x"', want: refused('Bad body') },
+		{ mode: 'strict', name: 'an array', rawBody: '[1]', want: refused('Bad body') },
+		{ mode: 'strict', name: 'a valid object', rawBody: '{"a":"ok"}', want: accepted }
 	];
 
 	it.each(cases)('$mode mode: $name -> $want.status', async ({ mode, rawBody, want }) => {
@@ -194,6 +277,164 @@ describe('endpoint body modes', () => {
 		const res = await invoke(echo.handler, { ctx: testCtx(), rawBody });
 		expect(res.status).toBe(200);
 		expect(res.body).toEqual({ got: expected });
+	});
+});
+
+describe('endpoint malformed body copy', () => {
+	// 'Bad a' comes from the field, 'Bad body' from the object itself.
+	const schema = z.object({ a: z.string({ error: 'Bad a' }) }, { error: 'Bad body' });
+	const pinned: MalformedBody = { status: 422, error: 'Invalid JSON body' };
+	const copyOnly: MalformedBody = { error: 'Invalid JSON body' };
+
+	type Row = {
+		readonly mode: BodyMode | undefined;
+		readonly copy: MalformedBody | undefined;
+		readonly name: string;
+		readonly rawBody: string;
+		readonly want: { readonly status: number; readonly body: { readonly [key: string]: string } };
+	};
+	const build = (mode: BodyMode | undefined, copy: MalformedBody | undefined) =>
+		endpoint({
+			auth: 'public',
+			body: schema,
+			...(mode ? { bodyMode: mode } : {}),
+			...(copy ? { malformedBody: copy } : {}),
+			handle: async ({ body }) => ok({ a: body.a })
+		});
+	const cases: readonly Row[] = [
+		{
+			mode: undefined,
+			copy: undefined,
+			name: 'default reader: malformed JSON keeps the house copy',
+			rawBody: '{"a":',
+			want: { status: 400, body: { error: 'Invalid JSON' } }
+		},
+		{
+			mode: 'json',
+			copy: undefined,
+			name: 'json mode: an empty body is still {} for the schema',
+			rawBody: '',
+			want: { status: 400, body: { error: 'Bad a' } }
+		},
+		{
+			mode: undefined,
+			copy: undefined,
+			name: 'default reader: a valid object is untouched',
+			rawBody: '{"a":"ok"}',
+			want: { status: 200, body: { a: 'ok' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: malformed JSON',
+			rawBody: '{"a":',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: an empty body (legacy request.json() threw)',
+			rawBody: '',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: a whitespace body',
+			rawBody: ' \n\t ',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: a valid object is untouched',
+			rawBody: '{"a":"ok"}',
+			want: { status: 200, body: { a: 'ok' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: the literal null parses, so the schema answers',
+			rawBody: 'null',
+			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		{
+			mode: 'json',
+			copy: pinned,
+			name: 'custom copy: an array parses, so the schema answers',
+			rawBody: '[1]',
+			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		{
+			mode: 'json',
+			copy: copyOnly,
+			name: 'custom copy without a status answers 400',
+			rawBody: '{"a":',
+			want: { status: 400, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'lenient',
+			copy: pinned,
+			name: 'lenient mode ignores the copy: the schema decides malformed JSON',
+			rawBody: '{"a":',
+			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		{
+			mode: 'lenient',
+			copy: pinned,
+			name: 'lenient mode ignores the copy: the schema decides an empty body',
+			rawBody: '',
+			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		// strict: the copy owns the empty-body refusal too, not just malformed JSON.
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode answers the copy for malformed JSON',
+			rawBody: '{"a":',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode answers the copy for an empty body',
+			rawBody: '',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode answers the copy for a whitespace body',
+			rawBody: ' \n\t ',
+			want: { status: 422, body: { error: 'Invalid JSON body' } }
+		},
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode: a valid object is untouched',
+			rawBody: '{"a":"ok"}',
+			want: { status: 200, body: { a: 'ok' } }
+		},
+		{
+			mode: 'strict',
+			copy: pinned,
+			name: 'strict mode: the literal null parses, so the schema answers',
+			rawBody: 'null',
+			want: { status: 400, body: { error: 'Bad body' } }
+		},
+		{
+			mode: 'strict',
+			copy: copyOnly,
+			name: 'strict mode without a status answers 400',
+			rawBody: '',
+			want: { status: 400, body: { error: 'Invalid JSON body' } }
+		}
+	];
+
+	it.each(cases)('$name -> $want.status', async ({ mode, copy, rawBody, want }) => {
+		const res = await invoke(build(mode, copy).handler, { ctx: testCtx(), rawBody });
+		expect(res.status).toBe(want.status);
+		expect(res.body).toEqual(want.body);
 	});
 });
 

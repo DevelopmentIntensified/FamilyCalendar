@@ -18,6 +18,9 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 |---|---|---|---|
 | [index.ts](index.ts) | entry | Public isomorphic interface: the two page models and the `/api` body type. | — |
 | [index.server.ts](index.server.ts) | entry | Public server interface: page loads, the detail page's actions, the board endpoint and the legacy-path redirect. | — |
+| [familyHub.contract.ts](familyHub.contract.ts) | contract | The `/api` board body in zod (the four-key wire, task/roster/category rows) and the five detail form schemas, with the legacy form coercions. | [familyHub.contract.test.ts](familyHub.contract.test.ts) |
+| [familyHub.detail.rules.ts](familyHub.detail.rules.ts) | rules | The detail page's pure decisions: the settings seed key and re-seed rule, the invite "Uses" cell, the AI bar width and one Recent Activity line. | [familyHub.detail.rules.test.ts](familyHub.detail.rules.test.ts) |
+| [familyHub.board.rules.ts](familyHub.board.rules.ts) | rules | The board's pure decisions: which empty state the active tab shows, the viewer's pending handoffs and the Public tab label. Grouping is `tasks`' rule. | [familyHub.board.rules.test.ts](familyHub.board.rules.test.ts) |
 | [ui/index.ts](ui/index.ts) | entry | Public components: the two screen bodies. | — |
 | [familyHub.http.db.test.ts](familyHub.http.db.test.ts) | golden | Pins `GET /api/families/{id}/tasks`: status, exact body, 401/404 answers and the two-family selection (#098). Runs against the real route, committed mode. | itself |
 
@@ -49,6 +52,7 @@ Why so small: those five exports are the only things a route or a test needs; ea
 - HTTP contract: `familyHub.http.db.test.ts` — committed mode (`beforeEach(truncateAll)`), importing the route module, so it stays green before and after the port. Never edit a golden after S2 except for an answered owner question (playbook [characterize-endpoints.md](../../../../docs/rewrite/playbooks/characterize-endpoints.md)).
 - Page loads and actions: `familyHub.service.db.test.ts` drives `getFamilyHub`/`getFamilyBoard` and the built `pageLoad`/`formAction` handlers with `testCtx({ db })`, `seedUser` and this module's own fixtures — page data is internal, so it gets no golden.
 - Pure rules: `familyHub.detail.rules.test.ts` and `familyHub.board.rules.test.ts` — tables of input → expected output.
+- Contract: `familyHub.contract.test.ts` — the pinned four-key body parses unchanged, and the five form schemas reproduce legacy's `formString` / `=== 'true'` coercions instead of refusing a field.
 - State classes: `familyHub.detail.state.test.ts` and `familyHub.board.state.test.ts` — a fake api + `memoryToasts()`, no DOM.
 - Components: `ui/MembersBand.svelte.test.ts`, `ui/FamilySettingsBand.svelte.test.ts`, `ui/SideRail.svelte.test.ts`, `ui/FamilyBoardScreen.svelte.test.ts` — what the user sees and which callback fired.
 - Look and speed: `npm run visual:check -- familyHub`, `npm run perf:check -- familyHub` (K-10 / K-11).
@@ -93,6 +97,6 @@ Behaviour that must not change, each with its evidence and the planned test that
   - `identity` — the viewer's display name and settings row (`hiddenDashboardModules` lives here if `dashboardModules` only composes it).
   - `billing` — `getPlanUsage` / subscription limits and AI usage for the Plan band; the member limit in the members band header.
   - `family` — the family + viewer membership + roster read, `getActiveInvite`, the `pickActiveInvite` rule, and the member use-cases behind the five form actions, plus `isFamilyAdmin`/`canEditRole`/`canRemove`/`displayName` rules.
-  - `dashboardModules` — the canonical module list, family-scoped modules, switches + the viewer's hides, `moduleRowState`/`moduleToggleValue`, and the `DashboardModuleRow` component (the settings band reuses it; it is not rebuilt here).
+  - `dashboardModules` — the canonical module list (`selectDashboardModules({ scope: 'family' })` for this band), the family switches + the viewer's hides (`listFamilyModuleSwitches`, `setFamilyModuleSwitch`, `dashboardVisibility`), the row answer (`describeDashboardModuleRow`), and the `ui/DashboardModuleRow` component (the settings band reuses it; it is not rebuilt here).
   - `tasks` — the board read (`getTasksForFamily` + `getPublicTasksForFamily` semantics), `listRecentFamilyActivity`, the board grouping rule (`groupFamilyBoard`: columns + Nobody split), `matchesTagFilter`, the task api client and the task UI components (rows, tag filter, completed list, edit dialog).
 - Called by: the `shell` routes `/family/[familyId]`, `/family/[familyId]/tasks`, `/family/tasks` and `src/routes/api/families/[id]/tasks/+server.ts` — all wiring only.

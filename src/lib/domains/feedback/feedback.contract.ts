@@ -19,7 +19,7 @@ import {
 	requiredText,
 	z
 } from '$lib/kernel/validation/validators';
-import { BUG_AREAS, UNMATCHED_SOURCES } from './feedback.rules';
+import { BUG_AREAS, isPhraseOverCap, UNMATCHED_SOURCES } from './feedback.rules';
 
 // --- Vocabularies -----------------------------------------------------------
 
@@ -80,13 +80,16 @@ export type BugReportFiledResponse = z.infer<typeof BugReportFiledResponse>;
 // --- `/api/report-phrase` ---------------------------------------------------
 
 /**
- * `POST /api/report-phrase`. The 280 cap runs on the trimmed phrase before
- * normalization (Q-006); `matched` is the client's parse sample, stored as
- * JSON text, and absent or null stores `NULL`.
+ * `POST /api/report-phrase`. The 280 cap runs on the phrase AFTER normalizing
+ * (Q-006 answer B): `a` + 280 spaces + `b` is accepted and stores `a b`, while
+ * 281 letters are still refused. `matched` is the client's parse sample,
+ * stored as JSON text, and absent or null stores `NULL`.
  */
 export const UnmatchedPhraseBody = z.object(
 	{
-		phrase: requiredText(PHRASE_INVALID_MESSAGE).max(280, { error: PHRASE_INVALID_MESSAGE }),
+		phrase: requiredText(PHRASE_INVALID_MESSAGE).refine((value) => !isPhraseOverCap(value), {
+			error: PHRASE_INVALID_MESSAGE
+		}),
 		source: oneOf(UNMATCHED_SOURCES, PHRASE_INVALID_MESSAGE),
 		matched: z.json({ error: PHRASE_INVALID_MESSAGE }).optional()
 	},
@@ -191,6 +194,24 @@ export const UnmatchedPhraseResolvedResponse = z.object({
 	phrase: UnmatchedPhraseResponse
 });
 export type UnmatchedPhraseResolvedResponse = z.infer<typeof UnmatchedPhraseResolvedResponse>;
+
+// --- Register shapes (page data, not the wire) -----------------------------
+
+/**
+ * One admin register as the page load and the register components carry it:
+ * rows with real `Date`s from the service. The `/api` twins serialize the
+ * same rows through the `*Response` schemas above.
+ */
+export type FeedbackBugRegister = {
+	readonly open: BugReportWithReporter[];
+	readonly resolved: BugReportWithReporter[];
+};
+
+/** The unmatched-phrase register, open and resolved. */
+export type FeedbackPhraseRegister = {
+	readonly open: UnmatchedPhraseView[];
+	readonly resolved: UnmatchedPhraseView[];
+};
 
 // --- Server-side row shapes ------------------------------------------------
 

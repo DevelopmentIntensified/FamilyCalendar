@@ -1,8 +1,8 @@
 /**
- * The wire contract: the contact form schemas and the `/api` response bodies.
- * The 400 copy, the check order and the absent-vs-empty rules are the legacy
- * wire (`marketing.http.db.test.ts` pins them end to end), so the handlers at
- * S6 must parse with exactly these schemas.
+ * The wire contract: the contact form schema and the `/api/contact` response
+ * bodies. The 400 copy, the check order and the absent-vs-empty rules are the
+ * legacy wire (`marketing.http.db.test.ts` pins them end to end), so the
+ * endpoint must parse with exactly this schema.
  *
  * Doc: ./README.md#invariants
  */
@@ -11,13 +11,11 @@ import { firstIssueMessage, z } from '$lib/kernel/validation/validators';
 import {
 	CONTACT_API_FAULT_MESSAGE,
 	CONTACT_EMAIL_MESSAGE,
-	CONTACT_FORM_FAULT_MESSAGE,
 	CONTACT_HONEYPOT_MESSAGE,
 	CONTACT_REQUIRED_MESSAGE,
 	CONTACT_THROTTLED_MESSAGE,
 	ContactApiBody,
 	ContactErrorResponse,
-	ContactFormBody,
 	ContactSentResponse
 } from './marketing.contract';
 
@@ -35,14 +33,12 @@ describe('contact copy', () => {
 		expect(CONTACT_REQUIRED_MESSAGE).toBe('All fields are required');
 		expect(CONTACT_EMAIL_MESSAGE).toBe('Please enter a valid email address');
 		expect(CONTACT_API_FAULT_MESSAGE).toBe('Failed to send message. Please try again later.');
-		expect(CONTACT_FORM_FAULT_MESSAGE).toBe('Something went wrong. Please try again.');
 	});
 });
 
-describe.each([
-	{ label: 'ContactApiBody (POST /api/contact)', schema: ContactApiBody },
-	{ label: 'ContactFormBody (the /contact action)', schema: ContactFormBody }
-])('$label', ({ schema }) => {
+describe('ContactApiBody (POST /api/contact)', () => {
+	const schema = ContactApiBody;
+
 	it('parses a complete form, an absent honeypot reading as empty', () => {
 		expect(schema.parse(valid)).toEqual({ ...valid, website: '' });
 	});
@@ -62,6 +58,10 @@ describe.each([
 
 	it('accepts a whitespace-only name: only an empty one is missing', () => {
 		expect(schema.parse({ ...valid, name: '   ' }).name).toBe('   ');
+	});
+
+	it('sends a whitespace-only message (the /api door never trims)', () => {
+		expect(schema.parse({ ...valid, message: '   ' }).message).toBe('   ');
 	});
 
 	type Refusal = {
@@ -140,22 +140,6 @@ describe.each([
 		}
 	])('refuses $why', ({ input, message }) => {
 		expect(messageOf(schema, input)).toBe(message);
-	});
-});
-
-describe('the one difference between the two forms: a whitespace-only message', () => {
-	const blank = { ...valid, message: '   ' };
-
-	it('is sent by /api/contact (it does not trim)', () => {
-		expect(ContactApiBody.parse(blank).message).toBe('   ');
-	});
-
-	it('is refused by /contact (it trims for the required check)', () => {
-		expect(messageOf(ContactFormBody, blank)).toBe(CONTACT_REQUIRED_MESSAGE);
-	});
-
-	it('still reaches the mail untrimmed once /contact accepts the message', () => {
-		expect(ContactFormBody.parse({ ...valid, message: '  Hi  ' }).message).toBe('  Hi  ');
 	});
 });
 

@@ -20,7 +20,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { and, eq, like, lt, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, lt, ne } from 'drizzle-orm';
 import type { Db } from '$lib/kernel/db/database.server';
 import {
 	accounts,
@@ -56,6 +56,23 @@ export async function findPersonById(db: Db, id: string): Promise<UserRow | null
 export async function findPersonByEmail(db: Db, email: string): Promise<UserRow | null> {
 	const [row] = await db.select().from(users).where(eq(users.email, email));
 	return row ?? null;
+}
+
+/**
+ * Stored names for a set of ids, in no claimed order — the display-name read
+ * another module makes for ids it already holds (tasks' stats figures and its
+ * assignee/creator fields). Unknown ids are simply absent; an empty id list
+ * spends no query.
+ */
+export async function listPersonNamesByIds(
+	db: Db,
+	ids: readonly string[]
+): Promise<{ id: string; firstName: string; lastName: string }[]> {
+	if (ids.length === 0) return [];
+	return await db
+		.select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
+		.from(users)
+		.where(inArray(users.id, [...ids]));
 }
 
 /** The timestamp columns `insertPerson` stamps itself. */
@@ -343,7 +360,11 @@ export async function insertApiToken(
 	return record;
 }
 
-/** The person's tokens, safe columns only. No ORDER BY today (Q-110 orders them after S6). */
+/**
+ * The person's tokens, safe columns only, newest first (Q-110 B:
+ * `createdAt DESC, id` — the id breaks a same-instant tie so the order is
+ * stable). The hash is never selected.
+ */
 export async function listApiTokensForPerson(db: Db, userId: string): Promise<ApiTokenListing[]> {
 	return await db
 		.select({
@@ -353,7 +374,8 @@ export async function listApiTokensForPerson(db: Db, userId: string): Promise<Ap
 			lastUsedAt: apiTokens.lastUsedAt
 		})
 		.from(apiTokens)
-		.where(eq(apiTokens.userId, userId));
+		.where(eq(apiTokens.userId, userId))
+		.orderBy(desc(apiTokens.createdAt), asc(apiTokens.id));
 }
 
 /** Revoke one token, scoped to `(id, userId)`: a foreign or unknown id deletes nothing. */
@@ -409,14 +431,14 @@ export async function touchApiTokenLastUsed(db: Db, id: string, now: Date): Prom
 
 // --- Email codes ------------------------------------------------------------
 
-/** Stores a code row exactly as given (`code` already hashed for a sign-in kind). */
+/** Stores a code row exactly as given (`code` is the SHA-256 hex, every kind). */
 export async function insertEmailCode(db: Db, values: NewCodeRow): Promise<CodeRow> {
 	const [row] = await db.insert(codes).values(values).returning();
 	if (!row) throw new Error('insertEmailCode: insert returned no row');
 	return row;
 }
 
-/** The hashed lookup: digest, email AND type must all match (#162, #154). */
+/** The lookup: digest, email AND type must all match (#162, #154). */
 export async function findEmailCodeByKey(db: Db, key: EmailCodeKey): Promise<CodeRow | null> {
 	const [row] = await db.select().from(codes).where(matchesKey(key));
 	return row ?? null;
@@ -426,19 +448,17 @@ export async function deleteEmailCodeByKey(db: Db, key: EmailCodeKey): Promise<v
 	await db.delete(codes).where(matchesKey(key));
 }
 
-/** Lookup by the stored value as-is: the email-change code and the reset marker. */
-export async function findEmailCode(db: Db, code: string): Promise<CodeRow | null> {
-	const [row] = await db.select().from(codes).where(eq(codes.code, code));
-	return row ?? null;
-}
-
-export async function deleteEmailCode(db: Db, code: string): Promise<void> {
-	await db.delete(codes).where(eq(codes.code, code));
-}
-
-/** Every code bound to an address (a new email-change request replaces the old). */
-export async function deleteEmailCodesForEmail(db: Db, email: string): Promise<void> {
-	await db.delete(codes).where(eq(codes.email, email));
+/** Every code bound to an address, or (Q-103) only those of one `type`. */
+export async function deleteEmailCodesForEmail(
+	db: Db,
+	email: string,
+	type?: string
+): Promise<void> {
+	if (type === undefined) {
+		await db.delete(codes).where(eq(codes.email, email));
+		return;
+	}
+	await db.delete(codes).where(and(eq(codes.email, email), eq(codes.type, type)));
 }
 
 /** Codes that expired strictly before `now`. Returns how many went. */

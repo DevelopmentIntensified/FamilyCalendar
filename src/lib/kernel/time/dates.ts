@@ -29,6 +29,14 @@ const LOCALE = 'en-US';
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * The four recurrence storage words a cadence collapses onto: the RFC 5545 FREQ
+ * subset every recurrence writer and reader shares. One home
+ * (K-06): calendar, tasks and parsing all import this type instead of declaring
+ * a private union, so a new frequency cannot mean two different things.
+ */
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+/**
  * The value as a luxon DateTime in `zone`, by the one offset rule in the file
  * header. A `Date` is already an instant, so it only changes zone. Null for
  * empty/invalid input or an unknown zone.
@@ -186,6 +194,78 @@ export function addMonthsClamped(date: string, months: number): string {
 	const shifted = DateTime.fromISO(date, { zone: 'utc' }).plus({ months });
 	if (!shifted.isValid || shifted.year < 1 || shifted.year > 9999) return '';
 	return shifted.toISODate() ?? '';
+}
+
+// ---------------------------------------------------------------------------
+// Calendar arithmetic (K-06): month lengths, the one rollover rule, the
+// weekday rule and the local-clock date shift that parsing's grammars share.
+// Plain year/month/day values on purpose — no zone, no `Date` probe — so a
+// caller builds its own instant from the answer.
+// ---------------------------------------------------------------------------
+
+/** A calendar date with no time and no zone. `month` is 1-based. */
+export interface CalendarDate {
+	year: number;
+	/** 1 = January … 12 = December. */
+	month: number;
+	day: number;
+}
+
+/** Month lengths for a common year, 1-based (index 0 = January). */
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
+
+/** Proleptic Gregorian leap year — the rule that gives Feb its 29th. */
+function isLeapYear(year: number): boolean {
+	return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+/**
+ * Days in a 1-based month. Pure arithmetic rather than a `Date` probe: a
+ * `Date` cannot represent "Feb 29 in a non-leap year", so asking one for the
+ * length of a February it will never hold silently rolls into March. 0 for a
+ * month outside 1..12.
+ */
+export function daysInMonth(year: number, month: number): number {
+	if (month < 1 || month > 12) return 0;
+	return month === 2 && isLeapYear(year) ? 29 : MONTH_LENGTHS[month - 1];
+}
+
+/**
+ * THE rollover rule, shared by every parser: an explicit year is
+ * authoritative, even in the past; otherwise the date is taken in the current
+ * year and rolls to next year only when it sits STRICTLY BEFORE today —
+ * **today stays today**. The day is clamped to the target month's length
+ * ("feb 30" is the 28th), and a CLAMPED day never rolls. Null when the month
+ * or day cannot name a real calendar date.
+ */
+export function resolveMonthDay(
+	now: CalendarDate,
+	month: number,
+	day: number,
+	explicitYear: number | null
+): CalendarDate | null {
+	if (!Number.isInteger(month) || month < 1 || month > 12) return null;
+	if (!Number.isInteger(day) || day < 1 || day > 31) return null;
+	const year = explicitYear ?? now.year;
+	const clamped = Math.min(day, daysInMonth(year, month));
+	const resolved: CalendarDate = { year, month, day: clamped };
+	if (explicitYear !== null) return resolved;
+	if (clamped !== day) return resolved;
+	if (month < now.month || (month === now.month && clamped < now.day)) {
+		return { ...resolved, year: year + 1 };
+	}
+	return resolved;
+}
+
+/**
+ * THE weekday rule: days from a weekday to the next occurrence of another,
+ * 1..7. Both 0-based Sunday-first (JS `Date.getDay`). Today is never "0 days
+ * away" — a bare weekday name is always the NEXT one.
+ */
+export function daysUntilWeekday(from: number, to: number): number {
+	let delta = (((to - from) % 7) + 7) % 7;
+	if (delta === 0) delta = 7;
+	return delta;
 }
 
 /**

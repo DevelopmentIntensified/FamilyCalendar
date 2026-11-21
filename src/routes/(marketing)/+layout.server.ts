@@ -1,20 +1,11 @@
-// +page.server.ts
-import type { LayoutServerLoad } from './$types';
+// Prerender/SSR follow the deploy adapter (the static build is prerendered and
+// server-rendered; every other target is CSR-only).
 import { ADAPTER } from '$env/static/private';
+import { marketingLayoutLoad } from '$lib/domains/marketing/index.server';
+import { marketingPageOptions } from '$lib/domains/marketing/index';
 
-export const prerender = ADAPTER === 'static';
-export const ssr = ADAPTER === 'static';
+export const prerender = marketingPageOptions(ADAPTER).prerender;
+export const ssr = marketingPageOptions(ADAPTER).ssr;
 
-export const load: LayoutServerLoad = async (event) => {
-	return {
-		pathname: event.url.pathname,
-		// The origin the request actually arrived on, not a hardcoded
-		// familyplanz.com: there are three environments (prod, test.familyplanz.com,
-		// a preview URL) and a canonical that points at the wrong one is worse than
-		// no canonical. og:url and <link rel=canonical> have to be absolute, and
-		// they have to self-reference.
-		origin: event.url.origin,
-		isLoggedIn: !!event.locals.user,
-		user: event.locals.user
-	};
-};
+/** Origin, pathname and the viewer — the self-referencing canonical rule. */
+export const load = marketingLayoutLoad;

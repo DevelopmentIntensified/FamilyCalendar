@@ -11,9 +11,9 @@ The /account page: one section per domain (profile, calendar settings, notificat
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
-- [ ] S3 contract + rules
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
@@ -116,7 +116,7 @@ The `/api/me/settings|profile|email|sessions/revoke-others|api-tokens|dashboard-
 
 | file | role | contents |
 |---|---|---|
-| `account.contract.ts` | contract | zod + types for the two `/api` bodies (`AccountMe`, `AccountDeleteBody`, `AccountExportDocument`) and the internal section parameter: `AccountSectionParam` is a `z.enum` built from `ACCOUNT_SECTIONS`, so the enum is the one id check (`isAccountSectionId` has no non-zod consumer and dies). `AccountSectionModel` is a discriminated union over the section ids, typed from each owning domain's section model and reconciled at their S1s — never hand-mirrored. |
+| `account.contract.ts` | contract | zod + types for the two `/api` bodies (`AccountMe`, `AccountDeleteBody`, `AccountExportDocument`) and the internal section parameter: `AccountSectionParam` is a `z.enum` built from `ACCOUNT_SECTIONS`, so the enum is the one id check (`isAccountSectionId` has no non-zod consumer and dies). `AccountSectionModel` is a discriminated union over the section ids, typed from each owning domain's section model and reconciled at their S1s — never hand-mirrored. Reconciled at S3: no owning domain exports a section model through its public entry yet (all entries are `export {}`), so the payloads are declared here as the endpoint's wire shapes; the S5 service maps the domain models into them. |
 | `account.sections.rules.ts` | rules | `ACCOUNT_SECTIONS` (moved out of `accountSections.ts`), its `AccountSectionId` union, `resolveAccountSection`, `accountSectionHref`. The one list the rail, page and endpoint read; ids are never re-listed. |
 | `account.sections.rules.test.ts` | test | order, hash resolution, fallback, unknown id. |
 | `account.export.rules.ts` | rules | `exportFileName(now)`: `familyplanz-export-YYYY-MM-DD.json` from a passed-in instant (R5); the document's top-level key order. |
@@ -322,7 +322,7 @@ legacy source files left (17/17, 2368 LOC):
   - src/lib/components/account/accountSections.ts (41 LOC, model) importers: 2
   - src/lib/components/account/accountSubscription.ts (96 LOC, model) importers: 2
   - src/lib/server/db/actions/export.ts (215 LOC, server) importers: 1
-  - src/lib/server/services/accountData.ts (467 LOC, server) importers: 12
+  - src/lib/server/services/accountData.ts (467 LOC, server) importers: 6
       NOTE: SPLIT per section: settings/profile/sessions/api tokens -> identity; notification prefs -> alerts; subscription summary -> billing; dashboard module hides -> dashboardModules; consent history -> sponsored; account screen composes.
 
 route files not yet wiring-only (7/7):
