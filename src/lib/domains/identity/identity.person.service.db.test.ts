@@ -27,11 +27,12 @@ import {
 	getTimeZone,
 	isEmailTaken,
 	listPersonNames,
+	pruneInactiveAnonymousAccounts,
 	touchLastActive,
 	updatePersonProfile,
 	type ProfileInput
 } from './identity.person.service.server';
-import { personFullName } from './identity.person.rules';
+import { ANONYMOUS_EMAIL_DOMAIN, personFullName } from './identity.person.rules';
 import { verifyPassword } from './identity.credentials.service.server';
 
 const NOW = new Date('2026-04-01T12:00:00.000Z');
@@ -263,5 +264,57 @@ describe('people', () => {
 		);
 		expect(await db.select().from(apiTokens).where(eq(apiTokens.userId, user.id))).toEqual([]);
 		expect(await db.select().from(users).where(eq(users.id, other.id))).toHaveLength(1);
+	});
+});
+
+describe('retention', () => {
+	rollbackTest('pruneInactiveAnonymousAccounts deletes only guests idle before the cutoff', async (db) => {
+		const ctx = testCtx({ db, now: NOW.toISOString() });
+		const cutoff = new Date('2026-03-01T00:00:00.000Z');
+		const staleGuest = await seedUser(db, {
+			firstName: 'Guest',
+			email: `stale${ANONYMOUS_EMAIL_DOMAIN}`,
+			lastActiveAt: new Date('2026-02-01T00:00:00.000Z')
+		});
+		const edgeGuest = await seedUser(db, {
+			firstName: 'Guest',
+			email: `edge${ANONYMOUS_EMAIL_DOMAIN}`,
+			lastActiveAt: cutoff
+		});
+		const activeGuest = await seedUser(db, {
+			firstName: 'Guest',
+			email: `active${ANONYMOUS_EMAIL_DOMAIN}`,
+			lastActiveAt: new Date('2026-03-15T00:00:00.000Z')
+		});
+		const idleRegistered = await seedUser(db, {
+			lastActiveAt: new Date('2025-01-01T00:00:00.000Z')
+		});
+		await seedIdentitySettings(staleGuest.id, {}, db);
+
+		await expect(pruneInactiveAnonymousAccounts(ctx, cutoff)).resolves.toEqual({
+			scanned: 1,
+			deleted: 1
+		});
+
+		expect(await db.select().from(users).where(eq(users.id, staleGuest.id))).toEqual([]);
+		expect(await db.select().from(userSettings).where(eq(userSettings.userId, staleGuest.id))).toEqual(
+			[]
+		);
+		expect(
+			(await db.select({ id: users.id }).from(users)).map((row) => row.id).sort()
+		).toEqual([edgeGuest.id, activeGuest.id, idleRegistered.id].sort());
+	});
+
+	rollbackTest('pruneInactiveAnonymousAccounts answers zero on an empty window', async (db) => {
+		const ctx = testCtx({ db, now: NOW.toISOString() });
+		const idleRegistered = await seedUser(db, {
+			lastActiveAt: new Date('2025-01-01T00:00:00.000Z')
+		});
+
+		await expect(
+			pruneInactiveAnonymousAccounts(ctx, new Date('2026-03-01T00:00:00.000Z'))
+		).resolves.toEqual({ scanned: 0, deleted: 0 });
+
+		expect(await db.select().from(users).where(eq(users.id, idleRegistered.id))).toHaveLength(1);
 	});
 });

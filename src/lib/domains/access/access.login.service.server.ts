@@ -19,7 +19,7 @@ import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import type { UserRow } from '$lib/kernel/db/tables.server';
 import { invalid, tooMany, unauthorized } from '$lib/kernel/errors/appError';
-import { isEmailAddress } from '$lib/kernel/validation/validators';
+import { isEmailAddress } from '$lib/kernel/validation/primitives';
 import {
 	createAnonymousAccount,
 	createEmailPerson,

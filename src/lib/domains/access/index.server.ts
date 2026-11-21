@@ -1,7 +1,8 @@
 /**
  * access — public server interface: the `/api` endpoint handlers and the page
  * handlers the route files import. The services behind them stay
- * module-internal: no other module calls one.
+ * module-internal: no other module calls one — the ONE exception is the
+ * retention prune `app`'s cleanup cron calls.
  *
  * Doc: ./README.md#public-interface
  */
@@ -52,3 +53,7 @@ export {
 	type SignupPageData,
 	type VerifyEmailActionData
 } from './access.pages.http.server';
+export { pruneExpiredClaimTokens } from './access.claim.service.server';
+
+/** The session pipeline's route gate (`src/hooks.server.ts:23-39`): admin-only, or a protected page. */
+export { isAdminRoute, isProtectedRoute } from './access.route.rules';

@@ -7,7 +7,11 @@
 	import NavbarMobileMenu from '$lib/components/NavbarMobileMenu.svelte';
 	import Mark from '$lib/components/brand/Mark.svelte';
 	import { loggedInNavItems, marketingNavItems, resolveActiveHref } from '$lib/utils/navItems';
-	import { reportBugHref } from '$lib/domains/feedback';
+	// The legacy copy of the `?from=` rule, exactly as `+error.svelte` uses it: a
+	// legacy component importing ported chrome's domain entry would pull feedback's
+	// admin-register state (and luxon) into every page's first paint. Shell takes
+	// feedback's `reportBugHref` when it rebuilds this navbar.
+	import { reportBugHref } from '$lib/utils/reportBug';
 
 	export let isLoggedIn = false;
 	export let user: {
