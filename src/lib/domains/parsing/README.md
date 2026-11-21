@@ -9,7 +9,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 - Owns: the phrase grammars behind quick-add — one event parse (date, time, recurrence, place, attendants, calendar, title), the multi-event fan-out, and the Task quick-add grammar (priority, due date, cadence, `#tags`, roster scoping).
 - Owns: the one date vocabulary (month/weekday/ordinal/unit tokens, typo-tolerant weekday matching), the one rollover + cadence resolution, and the claim book that keeps two grammar families off one span.
 - Does not own: persistence — no tables, no repo. The quick-add result is a prefill hint the caller confirms, never a write.
-- Does not own: the bills grammar (`parseBillQuickAdd`, bill cues, merchant keywords) — deleted by owner ruling Q-002 before this port, with the bills module. No components: the event/task editors and previews live in their own modules.
+- Does not own: the bills grammar (bill cues, merchant keywords) — deleted by owner ruling Q-002 before this port, with the bills module. No components: the event/task editors and previews live in their own modules.
 
 ## Files
 
