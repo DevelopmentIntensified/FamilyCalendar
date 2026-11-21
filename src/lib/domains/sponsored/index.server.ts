@@ -30,8 +30,10 @@ import {
 export function sponsoredAdConsentPort(ctx: Ctx): AdConsentPort {
 	return {
 		listConsentHistory: (userId) => listSponsoredConsentHistory(ctx, userId),
-		recordConsentChange: (userId, previous, next) =>
-			recordSponsoredConsentChange(ctx, userId, { previous, next })
+		// The port answers `void`: the save needs the record, not the decision.
+		recordConsentChange: async (userId, previous, next) => {
+			await recordSponsoredConsentChange(ctx, userId, { previous, next });
+		}
 	};
 }
 
