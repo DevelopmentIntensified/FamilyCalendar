@@ -7,7 +7,7 @@
 	import NavbarMobileMenu from '$lib/components/NavbarMobileMenu.svelte';
 	import Mark from '$lib/components/brand/Mark.svelte';
 	import { loggedInNavItems, marketingNavItems, resolveActiveHref } from '$lib/utils/navItems';
-	import { reportBugHref } from '$lib/utils/reportBug';
+	import { reportBugHref } from '$lib/domains/feedback';
 
 	export let isLoggedIn = false;
 	export let user: {
