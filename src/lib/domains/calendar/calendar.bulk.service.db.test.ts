@@ -9,13 +9,14 @@
  * Doc: ./README.md#how-to-test
  */
 import { eq } from 'drizzle-orm';
-import { describe, expect } from 'vitest';
+import { describe, expect, vi } from 'vitest';
 import { actorFromUser } from '$lib/kernel/ctx/actor';
 import { AppError } from '$lib/kernel/errors/appError';
 import type { Db } from '$lib/kernel/db/database.server';
-import { eventAttendance, events, userSettings } from '$lib/kernel/db/tables.server';
+import { deviceTokens, eventAttendance, events, userSettings } from '$lib/kernel/db/tables.server';
+import { createMemoryPush } from '$lib/kernel/push/push';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { testCtx, type TestCtx } from '$lib/kernel/testing/testCtx.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { seedFamily, seedMembership } from '$lib/domains/family/family.fixtures.server';
 import {
@@ -368,5 +369,42 @@ describe('bulkEditEvents', () => {
 
 		expect(result).toEqual({ success: true, applied: 1 });
 		expect(await db.select({ id: events.id }).from(events)).toHaveLength(1);
+	});
+
+	// #272: the nudge is ONE message per REQUEST (legacy `nudge.test.ts`
+	// checked this through the routes; here the memory push port counts it).
+	rollbackTest('sends exactly ONE events_changed nudge for a three-event bulk', async (db) => {
+		const viewer = await seedUser(db, { firstName: 'Mia' });
+		const partner = await seedUser(db, { firstName: 'Sam' });
+		await seedFamily(FAMILY, { name: 'Riveras' }, db);
+		await seedMembership(FAMILY, viewer.id, 'creator', 'parent', db);
+		await seedMembership(FAMILY, partner.id, 'member', 'member', db);
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: viewer.id }, db);
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY }, db);
+		await db.insert(deviceTokens).values({ userId: partner.id, token: 'token-partner' });
+		for (const id of ['evtbulk00001', 'evtbulk00002', 'evtbulk00003']) {
+			await seedEventRow(
+				{
+					id,
+					ownerId: viewer.id,
+					calendarId: PERSONAL_CAL,
+					title: `Bulk ${id}`,
+					start: '2026-10-05T09:00:00.000Z'
+				},
+				db
+			);
+		}
+
+		const ctx: TestCtx = {
+			...testCtx({ db, now: NOW }),
+			push: createMemoryPush({ devicesConfigured: true })
+		};
+		await bulkEditEvents(ctx, actorFromUser(viewer, 'session'), {
+			ids: [{ id: 'evtbulk00001' }, { id: 'evtbulk00002' }, { id: 'evtbulk00003' }],
+			op: { type: 'delete' }
+		});
+
+		await vi.waitFor(() => expect(ctx.push.sent).toHaveLength(1));
+		expect(ctx.push.sent[0]).toMatchObject({ channel: 'device', token: 'token-partner' });
 	});
 });

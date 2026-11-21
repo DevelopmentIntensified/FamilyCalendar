@@ -37,7 +37,7 @@ import {
 	upsertRsvp
 } from './calendar.repo.server';
 import { eventTouchDecision } from './calendar.scope.rules';
-import { listAccessibleCalendarIds } from './calendar.events.service.server';
+import { listAccessibleCalendarIds } from './calendar.calendars.service.server';
 
 /**
  * `GET /api/events/[id]/rsvp`: every attendance row with its member names, the
