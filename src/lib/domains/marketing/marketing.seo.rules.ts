@@ -114,8 +114,10 @@ export const MARKETING_PAGES: Readonly<Record<string, SeoRow>> = {
 		description: 'Reset the password on your Family Planz account.',
 		noindex: true
 	},
-	'/reset': {
-		title: 'Reset Password - Family Planz',
+	'/forgot-password/reset': {
+		// The page's own `<title>`: `/reset` named no route, so this page used to
+		// fall back to the site title and stay indexable (sheet note, #095).
+		title: 'Family Planz: Set New Password',
 		description: 'Choose a new password for your Family Planz account.',
 		noindex: true
 	},
@@ -148,6 +150,15 @@ function seoFor(pathname: string): SeoRow {
 			description: SITE.defaultDescription
 		}
 	);
+}
+
+/**
+ * The `<title>` of `pathname` — the row's own string, so a page cannot advertise
+ * one title and render another (Q-069: the home page used to disagree with its
+ * row, and the old test walked child directories so the root was never read).
+ */
+export function pageTitle(pathname: string): string {
+	return seoFor(pathname).title;
 }
 
 /** An absolute URL on the given origin; og:image and og:url are dropped by every crawler if relative. */

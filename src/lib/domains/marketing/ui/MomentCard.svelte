@@ -1,8 +1,13 @@
+<!--
+	One "moment" card on `/features`: a gradient tile, the icon on a white chip and
+	the family-life blurb. The legacy `MomentCard.svelte` is the visual baseline;
+	the gradient and the glow are the page's (each moment owns its own pair).
+-->
 <script lang="ts">
-	import { FEATURE_ICONS, type FeatureIcon } from './featureIcons';
+	import { featureIcon, type FeatureIconName } from '../marketing.icons.rules';
 
 	interface Props {
-		icon: FeatureIcon;
+		icon: FeatureIconName;
 		gradient: string;
 		glow: string;
 		title: string;
@@ -11,7 +16,7 @@
 
 	let { icon, gradient, glow, title, blurb }: Props = $props();
 
-	let def = $derived(FEATURE_ICONS[icon]);
+	const def = $derived(featureIcon(icon));
 </script>
 
 <div

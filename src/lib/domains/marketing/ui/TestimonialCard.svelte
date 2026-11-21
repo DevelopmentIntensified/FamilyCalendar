@@ -1,3 +1,8 @@
+<!--
+	One testimonial card on `/features`: five stars, the quote, and the avatar
+	initial with the name and the detail line. The accent, star colour and avatar
+	gradient are the page's, one per card.
+-->
 <script lang="ts">
 	interface Props {
 		accent: string;

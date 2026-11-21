@@ -6,7 +6,6 @@ export { sendContactMessage } from './marketing.service.server';
 export {
 	androidPageLoad,
 	contactEndpoint,
-	contactFormAction,
 	marketingLayoutLoad,
 	strayRootPostAction
 } from './marketing.http.server';

@@ -1,3 +1,8 @@
+<!--
+	The before/after panel on `/features`: red "before" list with a warning glyph
+	and ✕ rows, green "after" list with a check glyph and ✓ rows. Tone is the
+	only switch, so the two panels cannot drift apart.
+-->
 <script lang="ts">
 	interface Props {
 		tone: 'before' | 'after';
