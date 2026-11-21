@@ -4,7 +4,7 @@
  * Doc: ./README.md#public-interface
  */
 
-// The wire shapes and request-body types (the zod schemas live in the contract file).
+// The wire shapes, and the request bodies both as sent (…Payload) and as parsed (…Body); the zod schemas live in the contract file.
 export type {
 	FocusCommandBody,
 	FocusCommandWire,
@@ -14,7 +14,9 @@ export type {
 	TaskCategoryNameBody,
 	TaskCategoryWire,
 	TaskCreateBody,
+	TaskCreatePayload,
 	TaskUpdateBody,
+	TaskUpdatePayload,
 	TaskWire,
 	TaskWithTagsWire
 } from './tasks.contract';

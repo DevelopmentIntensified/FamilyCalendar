@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { TasksApi } from './tasks.api';
-import type { TaskWire } from './tasks.contract';
+import type { TaskWire, TaskWithTagsWire } from './tasks.contract';
 import { EventTaskChecklistState } from './tasks.checklist.state.svelte';
 
 const AT = '2026-09-01T10:00:00.000Z';
 
-function wireTask(overrides: Partial<TaskWire> = {}): TaskWire {
+function wireTask(overrides: Partial<TaskWithTagsWire> = {}): TaskWithTagsWire {
 	return {
 		id: 't1',
 		title: 'Pack lunches',
@@ -27,6 +27,7 @@ function wireTask(overrides: Partial<TaskWire> = {}): TaskWire {
 		focusStartedAt: null,
 		category: null,
 		createdAt: AT,
+		tags: [],
 		...overrides
 	};
 }
@@ -92,7 +93,7 @@ describe('EventTaskChecklistState', () => {
 	});
 
 	it('POSTs a new row on an existing Event', async () => {
-		const create = vi.fn(async () => ({
+		const create = vi.fn<TasksApi['create']>(async () => ({
 			ok: true as const,
 			data: { success: true as const, task: wireTask({ id: 't2', title: 'Feed the dog' }) }
 		}));
