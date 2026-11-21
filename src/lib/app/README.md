@@ -35,6 +35,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 - `locals.ctx` and `locals.actor` are set on every request, before route code runs. `locals.actor` always mirrors `locals.user`: a bearer token gives `via: 'token'`, a cookie or anonymous account gives `via: 'session'`.
 - Hook order stays: security headers, then API origin check, then session. Hooks are composed by hand, not with `sequence()`, so they can be invoked directly in tests (see the comment in `src/hooks.server.ts`).
 - `process.env` is read here and nowhere else in `src/lib` (R6): `CRON_SECRET` for cron endpoints, `RESEND_API_KEY` and `NOREPLYEMAIL` for `ctx.mail`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` and `FCM_SERVICE_ACCOUNT_JSON` for `ctx.push`, `CEREBRAS_API_KEY`/`CEREBRAS_MODEL`/`CEREBRAS_API_URL` for `ctx.ai`, and `BETTER_AUTH_SECRET`, `EMAILSECRET` and `NODE_ENV` for the session cookie's signing secret, the email-code pepper and the production flag. The kernel adapters receive those values as parameters, so a kernel or module test never touches the environment.
+- The fault path is fail-safe: `ctx.faults.report` calls `feedback`'s `fileAutoBugReport`, which never throws (it skips anonymous callers, throttles itself and catches/logs a failed insert), so a failed auto-report can never change the response. `src/hooks.server.ts`'s `handleError` still files with the legacy builder until APP-03, and the cleanup cron still calls the legacy prunes until APP-01's `runRetention` calls `pruneFeedbackOlderThan`.
 
 ## Depends on
 

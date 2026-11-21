@@ -12,6 +12,10 @@
  *             AppError     -> fail(status, { success: false, error, ...extra })
  *             other        -> logged + filed, fail(500, { success: false, error: failMessage })
  *
+ * An action may `fail(…)` itself; that body is part of `handle`'s return type,
+ * so it joins the page's generated `ActionData` beside `ActionFail` (this is
+ * how a page keeps an action's own contract, e.g. `/report-bug`'s echoes).
+ *
  * Route files stay wiring-only:
  *
  *   export const load = tasksPageLoad;
@@ -31,7 +35,7 @@ import {
 import { z } from 'zod';
 import type { Actor } from '../ctx/actor';
 import type { Ctx } from '../ctx/ctx.server';
-import { isAppError, type AppErrorExtra } from '../errors/appError';
+import { isAppError } from '../errors/appError';
 import { firstIssueMessage } from '../validation/validators';
 import { requestCtx, type Parsed } from './endpoint.server';
 
@@ -64,8 +68,17 @@ export function pageLoad<A extends PageAuth, T, E extends ServerLoadEvent = Serv
 	};
 }
 
-/** The failure body every form action returns. */
-export type ActionFail = { success: false; error: string } & AppErrorExtra;
+/**
+ * The failure body the kernel itself returns (auth, form parsing, faults). No
+ * index signature: SvelteKit turns the action's return type into the page's
+ * `ActionData` with `OptionalUnion`, which adds `?: never` for every key of
+ * the other members, so an index signature would make every literal fail.
+ * `AppError.extra` fields are still spread into the body at runtime.
+ *
+ * The action's own `fail(…)` bodies join this type in `ActionData`: `handle`
+ * returns `R`, and the `ActionFailure<T>` of a `fail(…)` call is part of `R`.
+ */
+export type ActionFail = { success: false; error: string };
 
 type FormSchema = z.ZodType | undefined;
 

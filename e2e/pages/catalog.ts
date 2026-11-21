@@ -51,22 +51,22 @@ export const PAGES: PageEntry[] = [
 		seed: 'adminRegisters',
 		ready: 'h1'
 	},
-
-	// --- feedback ----------------------------------------------------------
 	{
-		module: 'feedback',
+		module: 'admin',
 		name: 'admin-bugs',
 		path: '/admin/bugs',
 		seed: 'adminRegisters',
 		ready: 'h1'
 	},
 	{
-		module: 'feedback',
+		module: 'admin',
 		name: 'admin-nlp',
 		path: '/admin/nlp',
 		seed: 'adminRegisters',
 		ready: 'h1'
 	},
+
+	// --- feedback ----------------------------------------------------------
 	{
 		module: 'feedback',
 		name: 'report-bug',

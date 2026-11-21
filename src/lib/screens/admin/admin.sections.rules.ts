@@ -15,6 +15,10 @@ import type { AdminCounts } from './admin.contract';
 export type AdminSection = {
 	readonly href: string;
 	readonly label: string;
+	/** The card's emoji; only the index renders it. */
+	readonly icon: string;
+	/** The index card's sentence; only the index renders it. */
+	readonly blurb: string;
 	/** Which badge count feeds it: one of `AdminCounts`'s keys. */
 	readonly countKey: keyof AdminCounts;
 	/** Badge colours while the tab is not the active one (the active tab is white on dark). */
@@ -24,18 +28,23 @@ export type AdminSection = {
 /**
  * Bug Reports first, Unmatched Phrases second — the legacy layout's nav order
  * and the index page's card order. Red for the bug register, slate for the
- * phrase register.
+ * phrase register. The icon and blurb are the index cards' copy, kept here so
+ * the tab and the card for one destination cannot drift apart.
  */
 export const ADMIN_SECTIONS = [
 	{
 		href: '/admin/bugs',
 		label: 'Bug Reports',
+		icon: '🐞',
+		blurb: "User-submitted reports, newest first. Resolve what's fixed.",
 		countKey: 'openBugs',
 		badge: 'bg-red-100 text-red-700'
 	},
 	{
 		href: '/admin/nlp',
 		label: 'Unmatched Phrases',
+		icon: '💬',
+		blurb: "Instructions the parsers couldn't handle. Add patterns for frequent ones.",
 		countKey: 'openPhrases',
 		badge: 'bg-slate-200 text-slate-600'
 	}
