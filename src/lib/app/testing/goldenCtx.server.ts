@@ -19,8 +19,20 @@
  * Doc: docs/architecture/testing.md#golden-contract-tests-characterization
  */
 import { wirePorts, type AppPorts } from '$lib/app/ports.server';
+import { createMemoryPush } from '$lib/kernel/push/push';
 import { testCtx, type TestCtx, type TestCtxOverrides } from '$lib/kernel/testing/testCtx.server';
 
 export function goldenCtx(overrides: TestCtxOverrides = {}): TestCtx & AppPorts {
-	return wirePorts(testCtx(overrides));
+	const ctx = testCtx(overrides);
+	return wirePorts({
+		...ctx,
+		// This file IS the app's composition root for goldens, so it owns the one
+		// environment read: the legacy VAPID route answered `VAPID_PUBLIC_KEY` at
+		// request time and the frozen alerts golden sets it before building the
+		// ctx. Device push stays off (no golden route sends push).
+		push: createMemoryPush({
+			webPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
+			devicesConfigured: false
+		})
+	});
 }
