@@ -104,7 +104,12 @@ function summarizeEvent(parsed: Partial<ParsedEvent>): { hasInfo: boolean; summa
 		parsed.reminderMinutes !== undefined ||
 		parsed.allDay === true;
 	if (!hasInfo) return { hasInfo: false, summaryLabel: null };
-	return { hasInfo, summaryLabel: parts.length > 0 ? `${parsed.date} · ${parts.join(' · ')}` : parsed.date };
+	// `applyEventDefaults` always lands a date before this runs; `?? null`
+	// only satisfies the declared `string | null` for a caller that skipped it.
+	return {
+		hasInfo,
+		summaryLabel: parts.length > 0 ? `${parsed.date} · ${parts.join(' · ')}` : (parsed.date ?? null)
+	};
 }
 
 /**
