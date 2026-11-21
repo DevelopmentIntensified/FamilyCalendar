@@ -10,6 +10,9 @@
  * for example), and the goldens may not change after S2. Create one ctx per
  * test; a rate-budget test reuses ONE ctx for every request of its burst.
  *
+ * The domain ports come from `wirePorts` itself, so the legacy bridges that
+ * identity's two ports ride on today (../ports.server.ts) are here too.
+ *
  * S5 service tests keep `testCtx` and pass a memory fake for each port they
  * exercise; they never need the real adapter.
  *
