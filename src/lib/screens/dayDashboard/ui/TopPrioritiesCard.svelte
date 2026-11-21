@@ -121,10 +121,12 @@
 								{task.visibility === 'private' ? 'Private' : 'Public'}
 							</span>
 						{/if}
-						{#if task.category}
+						{#if task.category?.trim()}
 							<span
-								class="inline-flex items-center rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
-								>{task.category}</span
+								data-testid="category-chip"
+								title="Category: {task.category.trim()}"
+								class="inline-flex max-w-[10rem] shrink-0 items-center truncate rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-medium text-teal-800"
+								>{task.category.trim()}</span
 							>
 						{/if}
 					</div>

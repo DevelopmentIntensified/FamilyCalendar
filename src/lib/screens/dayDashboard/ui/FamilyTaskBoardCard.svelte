@@ -10,8 +10,8 @@
 <script lang="ts">
 	import MentionInput from '$lib/kernel/ui/MentionInput.svelte';
 	import { idColor } from '$lib/kernel/ui/colorHash';
-	import { TaskCategoryField } from '$lib/domains/tasks/ui';
 	import { taskPriorityDot } from '$lib/domains/tasks';
+	import BoardCategoryField from './BoardCategoryField.svelte';
 	import type { DashboardFamilyTaskRow, DashboardRosterRow } from '../dayDashboard.contract';
 	import { dashboardDueTone, groupBoardTasks } from '../dayDashboard.cards.rules';
 	import type { DayDashboardState } from '../dayDashboard.state.svelte';
@@ -114,7 +114,7 @@
 				Add
 			</button>
 			<div class="min-w-0 basis-full">
-				<TaskCategoryField
+				<BoardCategoryField
 					id="board-quick-add-category"
 					value={state.quickCategory}
 					{categories}
@@ -169,10 +169,12 @@
 									title="{task.priority} priority"
 								></span>
 								<p class="min-w-0 flex-1 truncate text-sm text-slate-800">{task.title}</p>
-								{#if task.category}
+								{#if task.category?.trim()}
 									<span
-										class="shrink-0 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
-										>{task.category}</span
+										data-testid="category-chip"
+										title="Category: {task.category.trim()}"
+										class="inline-flex max-w-[10rem] shrink-0 items-center truncate rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-medium text-teal-800"
+										>{task.category.trim()}</span
 									>
 								{/if}
 								{#if task.dueDate}

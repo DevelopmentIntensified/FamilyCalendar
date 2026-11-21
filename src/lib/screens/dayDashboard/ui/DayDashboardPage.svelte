@@ -4,19 +4,19 @@
 	the cards, or the retry card) and the calendar event sheet the glance rows
 	open.
 
+	Nothing heavy waits on this file: no luxon (the labels come from `Intl` over
+	the load's `dayISO` + `zone`), no zod, and the event sheet is imported on the
+	first click (`{#await import(…)}`), so the band's first paint is cards only.
+
 	Behaviour lives in the load and `dayDashboard.state.svelte.ts`; this file is
 	layout, copy and the two client objects. Legacy reference:
 	`routes/(calendar)/calendar/dashboard/+page.svelte` + `DayDashboard.svelte`.
 -->
 <script lang="ts">
-	import { DateTime } from 'luxon';
 	import DayNav from '$lib/kernel/ui/DayNav.svelte';
 	import Toaster from '$lib/kernel/ui/Toaster.svelte';
 	import { createToasts } from '$lib/kernel/client/toasts.svelte';
-	import { createApiClient } from '$lib/kernel/client/apiClient';
 	import { systemClock } from '$lib/kernel/time/clock';
-	import { createCalendarApi, type CalendarApi } from '$lib/domains/calendar';
-	import { CalendarEventModal } from '$lib/domains/calendar/ui';
 	import { createTasksApi, type TasksApi } from '$lib/domains/tasks';
 	import type {
 		DashboardDayEventRow,
@@ -30,17 +30,11 @@
 		data: DayDashboardPageData;
 		/** SvelteKit `invalidateAll`, passed in by the route (wiring only). */
 		refresh: () => Promise<void>;
-		/** Fakes in tests; the real clients in the browser. */
+		/** A fake in tests; the real client in the browser. */
 		tasksApi?: TasksApi;
-		calendarApi?: CalendarApi;
 	}
 
-	let {
-		data,
-		refresh,
-		tasksApi = createTasksApi(),
-		calendarApi = createCalendarApi(createApiClient())
-	}: Props = $props();
+	let { data, refresh, tasksApi = createTasksApi() }: Props = $props();
 
 	const toasts = createToasts();
 	const now = systemClock.now();
@@ -54,15 +48,30 @@
 		zone: data.zone
 	});
 
-	const day = $derived(DateTime.fromISO(data.dayISO, { zone: data.zone }).startOf('day'));
-	const dateLabel = $derived(day.toFormat('cccc, LLLL d'));
-	const previousHref = $derived(`/calendar/dashboard?date=${day.minus({ days: 1 }).toISODate()}`);
-	const nextHref = $derived(`/calendar/dashboard?date=${day.plus({ days: 1 }).toISODate()}`);
-	const dayViewHref = $derived(`/calendar?date=${day.toISODate()}&view=day`);
+	/** The viewed day's local date key; `dayISO` is midnight in the viewer's zone. */
+	const dayKey = $derived(data.dayISO.slice(0, 10));
+	const dateLabel = $derived(
+		new Intl.DateTimeFormat('en-US', {
+			weekday: 'long',
+			month: 'long',
+			day: 'numeric',
+			timeZone: data.zone
+		}).format(new Date(data.dayISO))
+	);
+
+	/** `YYYY-MM-DD` shifted by whole calendar days (UTC arithmetic on the key). */
+	function shiftDay(key: string, days: number): string {
+		const at = new Date(`${key}T00:00:00.000Z`);
+		at.setUTCDate(at.getUTCDate() + days);
+		return at.toISOString().slice(0, 10);
+	}
+
+	const previousHref = $derived(`/calendar/dashboard?date=${shiftDay(dayKey, -1)}`);
+	const nextHref = $derived(`/calendar/dashboard?date=${shiftDay(dayKey, 1)}`);
+	const dayViewHref = $derived(`/calendar?date=${dayKey}&view=day`);
 	const backHref = $derived(data.defaultView === 'dashboard' ? '/calendar?dashboardView=1' : '/calendar');
 
 	let selectedEvent = $state<DashboardDayEventRow | null>(null);
-	let calendars = $state<{ id: string; name: string; color: string }[]>([]);
 	let roster = $state<DashboardRosterRow[]>([]);
 
 	// The streamed legs settle after first paint; the quick-add's `@member`
@@ -80,19 +89,6 @@
 			live = false;
 		};
 	});
-
-	async function openEvent(event: DashboardDayEventRow): Promise<void> {
-		selectedEvent = event;
-		if (calendars.length > 0) return;
-		const result = await calendarApi.listCalendars();
-		if (result.ok) {
-			calendars = result.data.calendars.map((calendar) => ({
-				id: calendar.id,
-				name: calendar.name,
-				color: calendar.color
-			}));
-		}
-	}
 </script>
 
 <svelte:head>
@@ -146,14 +142,14 @@
 			warnings={[...data.loadWarnings, ...loaded.warnings]}
 			modules={data.modules}
 			{dateLabel}
-			dayDate={day.toISODate() ?? ''}
+			dayDate={dayKey}
 			isToday={data.isToday}
 			meId={data.meId}
 			familyId={data.familyId}
 			taskCategories={data.taskCategories}
 			state={pageState}
 			{now}
-			onEventClick={openEvent}
+			onEventClick={(event) => (selectedEvent = event)}
 		/>
 	{:catch}
 		<div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
@@ -167,23 +163,19 @@
 
 {#if selectedEvent}
 	{#key selectedEvent.id}
-		<CalendarEventModal
-			open={true}
-			event={selectedEvent}
-			api={calendarApi}
-			{toasts}
-			{calendars}
-			familyMembers={roster.map((member) => ({
-				userId: member.userId,
-				firstName: member.firstName,
-				lastName: member.lastName,
-				email: member.email ?? undefined
-			}))}
-			viewerId={data.meId}
-			{now}
-			onclose={() => (selectedEvent = null)}
-			onchanged={() => void refresh()}
-		/>
+		{#await import('./DashboardEventSheet.svelte')}
+			<!-- The sheet is fixed-position: nothing to reserve, so the band cannot shift. -->
+		{:then { default: Sheet }}
+			<Sheet
+				event={selectedEvent}
+				{roster}
+				meId={data.meId}
+				{now}
+				{toasts}
+				{refresh}
+				onclose={() => (selectedEvent = null)}
+			/>
+		{/await}
 	{/key}
 {/if}
 
