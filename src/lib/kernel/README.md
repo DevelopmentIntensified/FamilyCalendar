@@ -6,7 +6,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 
 ## Purpose
 
-- **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; structured logs; db/transaction helpers; the Drizzle table definitions in `db/tables` (one file per owning module, `TABLE_OWNERS` in `scripts/arch/registry.mjs`) with their row types; the test harness.
+- **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; the mail port and its adapters; structured logs; db/transaction helpers; the Drizzle table definitions in `db/tables` (one file per owning module, `TABLE_OWNERS` in `scripts/arch/registry.mjs`) with their row types; the test harness.
 - **Does not own:** any business rule. Something like "who may edit a task" belongs in the module that owns the concept (`tasks`), even when several modules need it.
 - **Also owns:** the date formatting and month math in `kernel/time` (K-06), and the shared UI primitives in `kernel/ui`: sheet, confirm action, pill, skeleton, toaster, brand mark, day nav, mention input, colour hashes. Screens and domains import them by path; they never import a domain or `$app/*`.
 - **Client pieces** (K-07) live in `client/`: the api client, toasts, device preferences, debounced search and the offline queue; `time/ticker` is the reactive "now" for countdowns.
@@ -29,7 +29,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [client/toasts.svelte.ts](client/toasts.svelte.ts) | client | `createToasts({schedule})`: runes toast list, max four visible (oldest dropped), 6 s auto-dismiss, optional `action` (`{label, run}`) for Undo-style buttons; `memoryToasts()` records `{kind, text, action?}` for state-class tests. `Scheduler` lives in `time/scheduler.ts`. | [toasts.test.ts](client/toasts.test.ts) |
 | [client/toasts.test.ts](client/toasts.test.ts) | test | ids, four-toast cap, six-second dismissal, timers for dropped toasts, action kept, memory recorder — shared manual scheduler | — |
 | [ctx/actor.ts](ctx/actor.ts) | type | `Actor` (who is calling: id, email, isAdmin, via) + `actorFromUser`. Small on purpose: anything else about the person is asked of `identity`. | [endpoint.test.ts](http/endpoint.test.ts) |
-| [ctx/ctx.server.ts](ctx/ctx.server.ts) | type | `Ctx`: db, clock, ids, log, limiter, faults, config. Services take it as their first argument, so tests swap any dependency without `vi.mock`. | via every test that uses `testCtx` |
+| [ctx/ctx.server.ts](ctx/ctx.server.ts) | type | `Ctx`: db, clock, ids, log, limiter, mail, faults, config. Services take it as their first argument, so tests swap any dependency without `vi.mock`. | via every test that uses `testCtx` |
 | [db/database.server.ts](db/database.server.ts) | infra | `Db` (pool or transaction), `connectDb`, `withTx`. Nested transactions become savepoints. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [db/migrations/bundledMigrations.server.ts](db/migrations/bundledMigrations.server.ts) | infra | The `sql/migrations/*.sql` files imported as `?raw`, sorted by numeric prefix: the exact set the cold-start runner replays. Must equal the files on disk. | [bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) |
 | [db/migrations/bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) | test | parity gate: every `sql/migrations/` file is bundled, byte-identical, ascending numeric order | — |
@@ -61,12 +61,17 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [ids/ids.test.ts](ids/ids.test.ts) | test | id format, FIPS vector, byte-equality with the legacy node:crypto hashes | — |
 | [log/jsonLog.ts](log/jsonLog.ts) | infra | `Log` port + JSON-lines adapter (same line format as the legacy logger, so Vercel log search keeps working). | [jsonLog.test.ts](log/jsonLog.test.ts) |
 | [log/jsonLog.test.ts](log/jsonLog.test.ts) | test | line shape | — |
+| [mail/mailer.ts](mail/mailer.ts) | infra | `MailMessage`, the `Mailer` port (`send` one message: resolves when the provider accepted it, rejects when it did not) and `createMemoryMailer()` recording into `outbox`. Services reach it through `ctx.mail`, so no module imports Resend. | [mailer.test.ts](mail/mailer.test.ts) |
+| [mail/mailer.test.ts](mail/mailer.test.ts) | test | recorded order, and `text`/`from`/`replyTo` kept exactly as sent | — |
+| [mail/resendMailer.server.ts](mail/resendMailer.server.ts) | infra | `createResendMailer({ apiKey, from }, fetcher = fetch)`: posts the legacy `resend.emails.send` body (`from`, `to`, `subject`, `html`, optional `text`/`reply_to`) to the Resend API; a non-2xx rejects with the provider's message (the legacy caller's `send-failed` branch). Config is a parameter — `src/lib/app` reads the environment (R6). | [resendMailer.test.ts](mail/resendMailer.test.ts) |
+| [mail/resendMailer.test.ts](mail/resendMailer.test.ts) | test | request URL/headers/body, per-message `from`, `text`/`reply_to`, a 422 refusal and a non-JSON one — fake fetcher | — |
 | [ratelimit/rateLimiter.ts](ratelimit/rateLimiter.ts) | infra | `RateLimiter` port, in-memory sliding window driven by the clock, `clientKeyOf` (same keys as legacy). | [rateLimiter.test.ts](ratelimit/rateLimiter.test.ts) |
 | [ratelimit/rateLimiter.test.ts](ratelimit/rateLimiter.test.ts) | test | window edges, independent buckets, key derivation | — |
 | [testing/invokeHandlers.server.ts](testing/invokeHandlers.server.ts) | test infra | `invoke`, `invokeLoad`, `invokeAction`: call route handlers without a server; sets `locals.user` (legacy) and `locals.actor` (v2), so one golden test covers both. | used by every http test |
 | [testing/manualScheduler.ts](testing/manualScheduler.ts) | test infra | `manualScheduler()`: a `Scheduler` that records its callbacks and a `fireAll()` the test calls, so no unit test waits on real timers. One copy for every kernel client/time test. | used by [toasts.test.ts](client/toasts.test.ts), [searchBox.test.ts](client/searchBox.test.ts), [ticker.test.ts](time/ticker.test.ts) |
 | [testing/seedRows.server.ts](testing/seedRows.server.ts) | test infra | `seedUser`, `uniqueSuffix`. Module-specific builders live in `<module>.fixtures.server.ts`. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
-| [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret? })`: fixed clock, sequential ids, memory log/faults/limiter; no-db guard. | used by every test |
+| [testing/testCtx.server.ts](testing/testCtx.server.ts) | test infra | `testCtx({ db?, now?, cronSecret? })`: fixed clock, sequential ids, memory log/faults/limiter/mail; no-db guard. | [testCtx.test.ts](testing/testCtx.test.ts) |
+| [testing/testCtx.test.ts](testing/testCtx.test.ts) | test | the memory mailer on `ctx.mail` records sends; `config.mailFrom` is the legacy default sender | — |
 | [testing/testDb.server.ts](testing/testDb.server.ts) | test infra | `rollbackTest` (default: one rolled-back transaction per test), `inRollback`, `testDb`, `truncateAll` (committed mode: one transaction, FK triggers off, one `DELETE FROM` per table in one batch — a few ms idle, 70–110 ms measured on a saturated machine), lane guard. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [testing/testDb.db.test.ts](testing/testDb.db.test.ts) | test | migrations applied, rollback isolation, savepoints, truncate, reset under 250 ms, FKs enforced after a reset, `timestamptz` rendered in UTC | — |
 | [testing/testDbConfig.ts](testing/testDbConfig.ts) | test infra | Test DB URL + lane guard (kept apart from testDb because globalSetup must not import vitest). `V2_TEST_DB` picks a per-worktree database (`familycalendar_v2_test_<id>`) for parallel runs. | — |
@@ -159,6 +164,10 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 
 `ctx.log.info|warn|error(event, fields)`. Never log request bodies or emails.
 
+### Mail
+
+`ctx.mail.send({ to, subject, html, text?, from?, replyTo? })` sends one message and resolves when the provider accepted it; it **rejects** when it did not, which a legacy caller maps to its `send-failed` branch. The default sender is the adapter's `from`; `ctx.config.mailFrom` carries the same value (`NOREPLYEMAIL`) for a service that must pass `from` explicitly. Production builds `createResendMailer` in [src/lib/app/appCtx.server.ts](../app/appCtx.server.ts); tests get `createMemoryMailer` from `testCtx` and assert `ctx.mail.outbox`. Never log a recipient address or a message body.
+
 ### Database
 
 - Repos take `db: Db`.
@@ -227,6 +236,7 @@ Components and helpers in `kernel/ui`, imported by path. Props in, callbacks out
 - A bottom sheet closes on a downward swipe of more than 100 px, and not at exactly 100. Pinned by `sheetSwipe.test.ts › tracks the downward offset and closes past the legacy 100 px threshold`, its `drag …` table and `Sheet.svelte.test.ts › closes the bottom variant on a downward swipe past the threshold`.
 - Closing a sheet returns focus to the element that opened it. Pinned by `Sheet.svelte.test.ts › returns focus to the previously focused element when it closes`.
 - `colorHash`'s pinned outputs never change: a name keeps its store and contact colour, and an id its avatar, across the rewrite. Pinned by `colorHash.test.ts › pins the name hash for …` and `› pins the avatar colour for …` (literals taken from the legacy functions, `colorHash.test.ts:4-7`).
+- Mail posts the legacy `resend.emails.send` body: `from`, `to`, `subject`, `html`, plus `text` and `reply_to` only when the message gives them. Pinned by `resendMailer.test.ts › posts the legacy …` and `› carries text, reply_to …`; a refusal rejects, pinned by `› rejects with the provider message …`.
 
 ## Depends on
 

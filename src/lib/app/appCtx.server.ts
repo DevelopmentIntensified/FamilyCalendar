@@ -28,8 +28,11 @@ import { logEvent } from '$lib/server/services/logger';
 import { rateLimit } from '$lib/server/utils/rateLimit';
 import type { Ctx, Fault } from '$lib/kernel/ctx/ctx.server';
 import { systemIds } from '$lib/kernel/ids/ids';
+import { createResendMailer } from '$lib/kernel/mail/resendMailer.server';
 import { systemClock } from '$lib/kernel/time/clock';
 import { wirePorts } from './ports.server';
+
+const mailFrom = process.env.NOREPLYEMAIL ?? '';
 
 function fileFault(fault: Fault): void {
 	try {
@@ -55,6 +58,7 @@ export const appCtx = wirePorts({
 		error: (event, fields) => logEvent('error', event, fields)
 	},
 	limiter: { allow: (key, limit, windowMs) => rateLimit(key, limit, windowMs) },
+	mail: createResendMailer({ apiKey: process.env.RESEND_API_KEY ?? '', from: mailFrom }),
 	faults: { report: fileFault },
-	config: { cronSecret: process.env.CRON_SECRET ?? null }
+	config: { cronSecret: process.env.CRON_SECRET ?? null, mailFrom }
 } satisfies Ctx);
