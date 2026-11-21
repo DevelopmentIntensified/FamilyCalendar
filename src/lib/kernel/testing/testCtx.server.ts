@@ -51,6 +51,8 @@ export type TestCtxOverrides = {
 	readonly db?: Db;
 	readonly now?: string;
 	readonly cronSecret?: string | null;
+	readonly sessionSecret?: string;
+	readonly production?: boolean;
 };
 
 export function testCtx(overrides: TestCtxOverrides = {}): TestCtx {
@@ -70,8 +72,9 @@ export function testCtx(overrides: TestCtxOverrides = {}): TestCtx {
 		faults: memoryFaults(),
 		config: {
 			cronSecret: overrides.cronSecret ?? 'test-cron-secret',
+			sessionSecret: overrides.sessionSecret ?? 'test-session-secret',
+			production: overrides.production ?? false,
 			mailFrom: 'noReply@familyplanz.com',
-			sessionSecret: 'test-session-secret',
 			vapidPublicKey: null,
 			vapidPrivateKey: null,
 			vapidSubject: 'mailto:admin@familyplanz.com',

@@ -90,9 +90,9 @@ export type ProfileUpdateBody = z.infer<typeof ProfileUpdateBody>;
  * validation order and copy are legacy `parsePatch`'s (`calendarSettingsPatch`),
  * so this schema only lifts its refusal into a zod issue.
  *
- * Not expressible here (S6 owns it): legacy answers an EMPTY body with
- * `Invalid JSON` (`request.json()` throws), while the kernel `endpoint()`
- * reads an empty body as `{}`.
+ * The empty-body case is the endpoint's, not this schema's: legacy answered
+ * an EMPTY body with `Invalid JSON` (`request.json()` throws), so the handler
+ * sets `bodyMode: 'strict'` and only parseable bodies reach this schema.
  */
 export const CalendarSettingsPatchBody = z.unknown().transform((body, ctx) => {
 	const result = calendarSettingsPatch(body);
@@ -214,6 +214,23 @@ export const CalendarSettingsResponse = z.object({
 export type CalendarSettingsResponse = z.infer<typeof CalendarSettingsResponse>;
 
 // --- Server-side row shapes ------------------------------------------------
+
+/**
+ * The caller's own person as `getPerson`/`updatePersonProfile` answer it.
+ * `email` has passed `guestSafeEmail`, so an Anonymous Account's placeholder
+ * domain never leaves the server. No `/api` route answers a person directly
+ * (the `/api/me` shell is account's), so this is a type, not a wire schema.
+ */
+export type PersonView = {
+	readonly id: string;
+	readonly firstName: string;
+	readonly lastName: string;
+	readonly email: string | null;
+	readonly emailVerified: boolean | null;
+	readonly isAnonymous: boolean;
+	readonly roles: readonly string[];
+	readonly lastActiveAt: Date | null;
+};
 
 /**
  * A `userSettings` row as the repo returns it and the rules read it. Never

@@ -41,10 +41,12 @@ export type FaultReporter = {
 export type AppConfig = {
 	/** Shared secret for `/api/cron/*` (Vercel Cron). Null = cron endpoints refuse everyone. */
 	readonly cronSecret: string | null;
+	/** Signs session cookies (`BETTER_AUTH_SECRET`); resolved fail-closed by `src/lib/app`. */
+	readonly sessionSecret: string;
+	/** True in production: the session cookie gets `Secure`, and a missing secret refuses to boot. */
+	readonly production: boolean;
 	/** Default module-mail sender (`NOREPLYEMAIL`), for a service that must pass `from` explicitly. */
 	readonly mailFrom: string;
-	/** Signing secret for session cookies (`BETTER_AUTH_SECRET`); app refuses to boot in production without one. */
-	readonly sessionSecret: string;
 	/** Web Push public key (`VAPID_PUBLIC_KEY`) — also what `GET /api/push/public-key` answers. */
 	readonly vapidPublicKey: string | null;
 	/** Web Push private key (`VAPID_PRIVATE_KEY`); the transport stays off unless both halves are set. */
