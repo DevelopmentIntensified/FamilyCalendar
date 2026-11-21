@@ -3,7 +3,7 @@
 	 *  rows, each a named section with its cards paired inside. The day
 	 *  reads in three passes: the schedule, the actions, the household. ALL
 	 *  modules present as full cards — this reflows, it removes nothing. */
-	import { showsModule } from '$lib/dashboardModules';
+	import { showsModule } from '$lib/domains/dashboardModules';
 	import type { PrototypeProps } from './prototypeProps';
 	import TodayGlanceCard from '../TodayGlanceCard.svelte';
 	import TopPrioritiesCard from '../TopPrioritiesCard.svelte';

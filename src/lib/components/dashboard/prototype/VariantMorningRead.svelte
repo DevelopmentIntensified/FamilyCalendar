@@ -3,7 +3,7 @@
 	 *  is the morning's main read (wide left column); every action sits in a
 	 *  narrow right rail. ALL modules present as full cards — this reflows,
 	 *  it removes nothing. */
-	import { showsModule } from '$lib/dashboardModules';
+	import { showsModule } from '$lib/domains/dashboardModules';
 	import type { PrototypeProps } from './prototypeProps';
 	import TodayGlanceCard from '../TodayGlanceCard.svelte';
 	import TopPrioritiesCard from '../TopPrioritiesCard.svelte';

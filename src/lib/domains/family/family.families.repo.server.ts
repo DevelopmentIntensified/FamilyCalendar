@@ -188,6 +188,25 @@ export async function findMembershipFamilyId(db: Db, userId: string): Promise<st
 }
 
 /**
+ * The family id of the actor's FIRST membership row, with NO `ORDER BY`: which
+ * of two families this answers is the database's row order, exactly what the
+ * legacy `getUserFamilyId` did (`src/lib/server/db/actions/families.ts:251`).
+ *
+ * Deliberately NOT `findMembershipFamilyId` above: that read is Q-024's rule
+ * for a surface that names no family (the roster's default), and picking the
+ * oldest here would change the family a module's wire answers for a
+ * two-family caller — a fixed `/api` item no owner answer covers. A
+ * single-family caller gets the same answer from both.
+ */
+export async function findFirstFamilyIdForUser(db: Db, userId: string): Promise<string | null> {
+	const [row] = await db
+		.select({ familyId: familyMembers.familyId })
+		.from(familyMembers)
+		.where(eq(familyMembers.userId, userId));
+	return row?.familyId ?? null;
+}
+
+/**
  * Every family id the person holds a membership in, oldest first (`createdAt`,
  * then id) — the same order `findMembershipFamilyId` picks its first row from,
  * so `[0]` and that function always agree. An empty list, never null.

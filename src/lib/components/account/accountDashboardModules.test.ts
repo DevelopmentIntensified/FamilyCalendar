@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DASHBOARD_MODULES } from '$lib/dashboardModules';
+import { DASHBOARD_MODULES } from '$lib/domains/dashboardModules';
 import { hiddenModulesFromForm, shownModuleIds } from './accountDashboardModules';
 
 function form(...checked: string[]) {

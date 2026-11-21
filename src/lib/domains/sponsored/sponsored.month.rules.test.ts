@@ -1,7 +1,8 @@
 /**
  * The Sponsored Event month: the `YYYY-MM` key, the current month in a zone,
- * the zone window the own-row read uses, and the generation draw. The draw is
- * fed a scripted random source, so each table row states exactly which
+ * the zone window the served `created_at` comes from, the seeded draw
+ * (`sha256(userId + 'YYYY-MM')`, Q-041 B) and the generation it feeds. The
+ * draw is fed a scripted random source, so each table row states exactly which
  * template and which day every number picks (legacy `adService.ts:126-183`:
  * `floor(r × 4)` per template with redraws while a template repeats, then
  * `floor(r × daysInMonth) + 1` for the day, at 10:00 in the zone). Expected
@@ -14,9 +15,12 @@ import {
 	planSponsoredMonth,
 	SPONSORED_EVENT_MESSAGES,
 	SPONSORED_EVENTS_PER_MONTH,
+	sponsoredDrawSeed,
+	sponsoredMonthKeyOf,
 	sponsoredMonthOf,
 	sponsoredMonthOfKey,
 	sponsoredMonthWindow,
+	sponsoredSeededDraw,
 	type SponsoredMonth,
 	type SponsoredRandomSource
 } from './sponsored.month.rules';
@@ -57,6 +61,69 @@ describe('sponsoredMonthOfKey', () => {
 		['2026-12', { year: 2026, month: 12 }]
 	])('%s → %j', (key, expected) => {
 		expect(sponsoredMonthOfKey(key)).toEqual(expected);
+	});
+});
+
+describe('sponsoredMonthKeyOf — the seed half', () => {
+	it.each<[SponsoredMonth, string]>([
+		[{ year: 2026, month: 11 }, '2026-11'],
+		[{ year: 2027, month: 1 }, '2027-01'],
+		[{ year: 2026, month: 12 }, '2026-12']
+	])('%j → %s', (month, expected) => {
+		expect(sponsoredMonthKeyOf(month)).toBe(expected);
+	});
+});
+
+describe("sponsoredDrawSeed — sha256(userId + 'YYYY-MM') (Q-041 B)", () => {
+	// Digests worked with `sha256sum` over the answer's exact input: the id, then the key.
+	it.each<[string, SponsoredMonth, string]>([
+		[
+			'user-1',
+			{ year: 2026, month: 11 },
+			'219fe1abd09084e63f781253cb7db1b61320badfe085d2ba259a9c39b4310094'
+		],
+		// Same month, another person: a different seed.
+		[
+			'user-2',
+			{ year: 2026, month: 11 },
+			'f04e53ff7f34f3eca2dbc0d06567dc81a72b957a03f0d441f0766ba65729051e'
+		],
+		// Same person, another month: a different seed.
+		[
+			'user-1',
+			{ year: 2026, month: 12 },
+			'e72b94624141a27e5bee06c25defb8770bdb54bf2b845654324b2fac1316d484'
+		]
+	])('%s in %j → %s', (userId, month, expected) => {
+		expect(sponsoredDrawSeed({ userId, month })).toBe(expected);
+	});
+});
+
+describe('sponsoredSeededDraw — a uniform stream from a seed', () => {
+	it('takes eight hex digits per draw, left to right', () => {
+		const random = sponsoredSeededDraw('00000000000000000000000000000001');
+		expect([random(), random(), random(), random()]).toEqual([0, 0, 0, 1 / 0x100000000]);
+	});
+
+	it('re-hashes the block once its hex is spent', () => {
+		const random = sponsoredSeededDraw('00000000000000000000000000000001');
+		for (let i = 0; i < 4; i++) random();
+		// sha256 of that seed opens `e0cca296`; 0xe0cca296 / 2^32 is the fifth draw.
+		expect(random()).toBe(0.8781224838458002);
+	});
+
+	it('is reproducible from the seed alone, and only from it', () => {
+		const draws = (source: SponsoredRandomSource) => Array.from({ length: 12 }, () => source());
+		const seed = '219fe1abd09084e63f781253cb7db1b61320badfe085d2ba259a9c39b4310094';
+		const first = draws(sponsoredSeededDraw(seed));
+		expect(draws(sponsoredSeededDraw(seed))).toEqual(first);
+		expect(draws(sponsoredSeededDraw('f04e53ff7f34f3eca2dbc0d06567dc81a72b957a03f0d441f0766ba65729051e'))).not.toEqual(
+			first
+		);
+		for (const draw of first) {
+			expect(draw).toBeGreaterThanOrEqual(0);
+			expect(draw).toBeLessThan(1);
+		}
 	});
 });
 

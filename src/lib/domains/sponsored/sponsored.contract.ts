@@ -14,14 +14,12 @@
  */
 import { isoInstant, yearMonth, z } from '$lib/kernel/validation/validators';
 import { SPONSORED_CONSENT_DECISIONS } from './sponsored.consent.rules';
+import { SPONSORED_EVENT_COLOR } from './sponsored.display.rules';
 
 // --- Vocabularies -----------------------------------------------------------
 
 /** What a consent record records: consent given, or consent withdrawn. */
 export type SponsoredConsentDecision = (typeof SPONSORED_CONSENT_DECISIONS)[number];
-
-/** Sponsored Events render in this amber on the wire and on every calendar view (#067). */
-export const SPONSORED_EVENT_COLOR = '#f59e0b';
 
 // --- Wire copy --------------------------------------------------------------
 
@@ -45,7 +43,7 @@ export type SponsoredEventsQuery = z.infer<typeof SponsoredEventsQuery>;
 /**
  * One served Sponsored Event: the row the wire and the calendar render.
  * `start`, `end` and `date` are the same instant (an all-day row); `created_at`
- * is the response instant today (Q-042, ported as today).
+ * is the served month's start (owner Q-042 B), stable across requests.
  */
 export const SponsoredEvent = z.object({
 	id: z.string(),
@@ -74,17 +72,3 @@ export type SponsoredEvent = z.infer<typeof SponsoredEvent>;
 /** `200 {events}`; `{events: []}` when the serve gate is off. */
 export const SponsoredEventsResponse = z.object({ events: z.array(SponsoredEvent) });
 export type SponsoredEventsResponse = z.infer<typeof SponsoredEventsResponse>;
-
-// --- Server-side row shapes -------------------------------------------------
-
-/**
- * An own 📢 Event as the month read returns it: the four columns the
- * projection needs. `start` is the stored `timestamptz` as the driver hands it
- * out (e.g. `2026-11-05 10:00:00+00`); the projection normalizes it.
- */
-export type OwnedSponsoredEventRow = {
-	readonly id: string;
-	readonly title: string;
-	readonly description: string | null;
-	readonly start: string;
-};

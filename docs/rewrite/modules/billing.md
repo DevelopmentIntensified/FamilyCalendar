@@ -159,11 +159,12 @@ Implemented differences from the rows above, with their reasons:
 | `ui/PlanUsageRow.svelte` | ui | one usage row (`Unlimited` when the plan says so). |
 | `ui/planCard.svelte.test.ts` | test | renders with props: free, paid, lifetime, over-cap usage. |
 
-**Implemented difference: S7: none (pages owned by marketing/account).** No page or component belongs to billing, so nothing above was built and the visual/perf checks have no subject here.
+**Implemented difference: S7: none (pages owned by marketing/account).** No page or component belongs to billing; the plan card is the account screen's and the site's `/pricing` and `/checkout` are marketing's.
 
 - The plan card (`PlanCard`, `PlanUsageRow`) and its display copy (`formatPlanLimit`, `formatBytesLabel`, `subscriptionPeriodLabel`, `renewalDateLabel`) are the **account** screen's: the legacy files are `src/lib/components/account/AccountSubscriptionSection.svelte` and `accountSubscription.ts`, and `accountSubscription.test.ts` already pins the copy. Billing keeps only what the card reads (`getSubscriptionSummary`) and the one display rule that is policy (`isUnlimitedLimit`, 999 → "no limit").
-- The `/pricing` and `/checkout` pages are **marketing**'s S7; both stay legacy until then (the checkout stub's `Checkout is not yet available.` is still the legacy page action).
+- The `/pricing` and `/checkout` pages are **marketing**'s S7; marketing's port landed them (`ui/PricingScreen`, `ui/CheckoutScreen`) reading billing's public entries, and the checkout stub's `Checkout is not yet available.` now lives in marketing's `checkoutPurchaseAction`.
 - Consequence for this module: `ui/index.ts` stays empty (matching `sponsored`), the README's Files/Public interface/How to test record that, and the plan-card Invariant names account's test as its pin instead of a `billing.display.rules.test.ts` that no longer exists.
+- **`/pricing` and `/checkout` are marketing's pages (wave decision, 2026-11-21).** Billing's S7 is the account plan card only; the site's pricing cards and the checkout quote render in marketing's `ui/PricingScreen` / `ui/CheckoutScreen` from billing's public entries (`FREE_PLAN_LIMITS`, `getCheckoutQuote`, `listEligibleDiscounts`, `recordPlanView`, `planTypeOrDefault`). The legacy `checkoutService.ts` / `analyticsService.ts` deletion stays billing's S8; marketing's pages no longer import them.
 
 ### Where each legacy export goes — or why it dies
 

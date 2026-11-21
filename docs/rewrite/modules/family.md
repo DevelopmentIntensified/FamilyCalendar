@@ -170,6 +170,10 @@ Where each legacy export goes:
 
 ## Notes
 
+### Added for groceries' S5+S6 (2026-11-21)
+
+- `familyIdForActor(ctx, actor)` (`family.families.service.server.ts`, over the new `findFirstFamilyIdForUser` in `family.families.repo.server.ts`) answers a module whose wire names NO family at all — groceries' `scope: 'family'`. It keeps the legacy `getUserFamilyId` order (first `familyMembers` row, NO `ORDER BY`), deliberately NOT Q-024's oldest default: moving a two-family caller to a different list is a wire change no owner answer covers, and a single-family caller gets the same answer either way. It is a resolver, never a membership check. Approved by the orchestrator as an exception to groceries' file scope; pinned by `family.families.service.db.test.ts › familyIdForActor` and `family.families.repo.db.test.ts › findFirstFamilyIdForUser`.
+
 ### Inventory corrections (verified against the code, 2026-11-11)
 
 - Two route files sitting under `/api/families/**` are **not** this module's: `GET /api/families/{id}/tasks` is `familyHub` (`docs/rewrite/modules/familyHub.md`) and `PUT /api/families/{id}/modules/{module}` is `dashboardModules`. They are absent from this sheet's table and from `family.http.db.test.ts`; their goldens belong to those modules.

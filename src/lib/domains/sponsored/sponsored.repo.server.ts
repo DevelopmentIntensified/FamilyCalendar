@@ -1,57 +1,23 @@
 /**
- * sponsored repo: the own-📢-row month read, the consent trail's append and
- * read, and `adEvents` retention.
+ * sponsored repo: the consent trail's append and read, and `adEvents`
+ * retention.
  *
  * Each function takes `db: Db` first, contains no authorization and no
- * business rules (the gate, the window, the draw and the projection live in
- * the `*.rules.ts` files), and touches only this module's tables plus the
- * declared read-only `events` read (rule R3, `FOREIGN_READS.sponsored` in
- * scripts/arch/registry.mjs). Nothing here reads the process clock (rule R5):
- * the consent append takes its `recordedAt`, the prune its cutoff.
+ * business rules (the gate, the month, the draw and the projection live in the
+ * `*.rules.ts` files), and touches only this module's two tables — no foreign
+ * read (owner Q-040 B dropped the `events` read with the own-📢 rule). Nothing
+ * here reads the process clock (rule R5): the consent append takes its
+ * `recordedAt`, the prune its cutoff.
  *
  * Deliberately absent (sheet › Notes): the impression/click counters and the
  * target-plan report — `adEvents` has no writer, so neither has a consumer.
  *
  * Doc: ./README.md#invariants
  */
-import { and, asc, desc, eq, gte, like, lt } from 'drizzle-orm';
+import { desc, eq, lt } from 'drizzle-orm';
 import type { Db } from '$lib/kernel/db/database.server';
-import {
-	adConsentRecords,
-	adEvents,
-	events,
-	type AdConsentRecordRow
-} from '$lib/kernel/db/tables.server';
-import type { OwnedSponsoredEventRow, SponsoredConsentDecision } from './sponsored.contract';
-import { SPONSORED_TITLE_MARKER } from './sponsored.serve.rules';
-
-/**
- * The user's own 📢 Events in a month window, in start order: owned by
- * `ownerId`, title starting with the marker, `fromIso <= start < toIso`
- * (`adService.ts:97-108`). Four columns — the projection needs no more.
- */
-export async function listOwnedSponsoredEventRows(
-	db: Db,
-	window: { readonly ownerId: string; readonly fromIso: string; readonly toIso: string }
-): Promise<OwnedSponsoredEventRow[]> {
-	return await db
-		.select({
-			id: events.id,
-			title: events.title,
-			description: events.description,
-			start: events.start
-		})
-		.from(events)
-		.where(
-			and(
-				eq(events.ownerId, window.ownerId),
-				like(events.title, `${SPONSORED_TITLE_MARKER}%`),
-				gte(events.start, window.fromIso),
-				lt(events.start, window.toIso)
-			)
-		)
-		.orderBy(asc(events.start));
-}
+import { adConsentRecords, adEvents, type AdConsentRecordRow } from '$lib/kernel/db/tables.server';
+import type { SponsoredConsentDecision } from './sponsored.contract';
 
 /** One consent event to append; `recordedAt` is the caller's `now`. */
 export type SponsoredConsentRecordWrite = {
