@@ -13,6 +13,7 @@
  */
 import { DateTime } from 'luxon';
 import { z } from 'zod';
+import { isEmailAddress } from './primitives';
 
 export { z };
 
@@ -63,14 +64,7 @@ export function isoInstant(message = 'Invalid date') {
 	});
 }
 
-// The email rule the legacy auth flows used (magicLink.ts / mobileAuth.ts copies).
-const EMAIL_PATTERN =
-	/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-
-export function isEmailAddress(text: string): boolean {
-	return EMAIL_PATTERN.test(text);
-}
-
+/** The zod schema around the kernel's one email predicate (`./primitives`). */
 export function emailAddress(message = 'Enter a valid email address') {
 	return z.string({ error: message }).trim().refine(isEmailAddress, { error: message });
 }

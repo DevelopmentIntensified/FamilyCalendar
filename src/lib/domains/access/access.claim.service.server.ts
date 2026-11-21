@@ -38,6 +38,7 @@ import {
 } from './access.claim.rules';
 import {
 	consumeClaimToken,
+	deleteExpiredClaimTokens,
 	findClaimTokenByHash,
 	insertClaimToken
 } from './access.repo.server';
@@ -171,4 +172,13 @@ export async function confirmClaim(
 	// settings row the guest never needed.
 	await ensurePersonSettings(ctx, claimed.userId);
 	return { outcome: 'claimed' };
+}
+
+/**
+ * Retention: tokens that expired before `now` are deleted — the peek and the
+ * consume both refuse an expired row, so it can never be used again. Returns
+ * how many went; `app`'s cleanup cron passes its clock's now.
+ */
+export async function pruneExpiredClaimTokens(ctx: Ctx, now: Date): Promise<number> {
+	return await deleteExpiredClaimTokens(ctx.db, now);
 }

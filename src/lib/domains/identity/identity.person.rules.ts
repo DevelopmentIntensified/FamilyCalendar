@@ -1,8 +1,8 @@
 /**
  * identity person rules: the ONE Anonymous Account predicate (and its
  * "registered" complement), the email a client may see, the person label,
- * the guest row, the profile privilege drop, the hourly Inactivity Window
- * touch and the stored-zone resolution.
+ * the guest row, the profile privilege drop, where an Anonymous Account may be
+ * created, the hourly Inactivity Window touch and the stored-zone resolution.
  *
  * Isomorphic on purpose: client components share the exact definition the
  * server writes. "Now" is a parameter (R5).
@@ -106,6 +106,29 @@ export function profilePatch(data: {
 	if (data.firstName !== undefined) patch.firstName = data.firstName;
 	if (data.lastName !== undefined) patch.lastName = data.lastName;
 	return patch;
+}
+
+/**
+ * Whether the session pipeline silently creates an Anonymous Account for this
+ * request: a document navigation (`GET`, `Accept` includes `text/html`) on a
+ * protected route (`src/hooks.server.ts:74-95`).
+ *
+ * Every other request skips creation — a prefetch, an API call or another
+ * non-HTML request would otherwise race the document request, each creating a
+ * user+session while only one cookie survives, orphaning the data created
+ * under the lost session. The route half is the caller's, because the route
+ * list belongs to `access` (rank 2; identity may not import it).
+ */
+export function shouldCreateAnonymousAccount(input: {
+	readonly method: string;
+	readonly accept: string | null;
+	readonly isProtectedRoute: boolean;
+}): boolean {
+	return (
+		input.isProtectedRoute &&
+		input.method === 'GET' &&
+		(input.accept ? input.accept.includes('text/html') : false)
+	);
 }
 
 /**

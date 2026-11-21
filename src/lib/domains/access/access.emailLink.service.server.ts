@@ -34,7 +34,7 @@ import { TimeSpan } from 'oslo';
 import { createJWT, validateJWT } from 'oslo/jwt';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { invalid, tooMany } from '$lib/kernel/errors/appError';
-import { isEmailAddress } from '$lib/kernel/validation/validators';
+import { isEmailAddress } from '$lib/kernel/validation/primitives';
 import {
 	findPersonForSignIn,
 	issueEmailCode

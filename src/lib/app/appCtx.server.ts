@@ -1,7 +1,8 @@
 /**
  * Composition root: the ONE place real adapters are chosen. Everything else
- * receives them through `ctx` (kernel/ctx). `src/hooks.server.ts` puts
- * `appCtx` on `event.locals.ctx` for every request.
+ * receives them through `ctx` (kernel/ctx). The request pipeline
+ * (./requestPipeline.server.ts) puts `appCtx` on `event.locals.ctx` for every
+ * request; `src/hooks.server.ts` only exports its two hooks.
  *
  * Cross-module ports (a domain reading another domain's rows) are attached by
  * `wirePorts` (./ports.server.ts), the one place they are chosen; the `/api`
@@ -21,11 +22,11 @@
  *            import. Stays until the kernel grows its own FCM sender.
  *
  * `faults` is not a bridge any more: it is `feedback`'s `fileAutoBugReport`
- * through the module's public entry, so `endpoint()`'s 5xx filing reaches one
- * service that owns the #153 skip, the 10-minute throttle and its own catch.
- * `hooks.handleError` still files with the legacy builder until APP-03 moves
- * the session pipeline; the cleanup cron still calls the legacy prunes until
- * APP-01's `runRetention` calls `pruneFeedbackOlderThan`.
+ * through the module's public entry, so `endpoint()`'s 5xx filing and the
+ * pipeline's `handleError` (APP-03) reach one service that owns the #153 skip,
+ * the 10-minute throttle and its own catch. `runRetention` (./retention.server.ts)
+ * now calls the modules' prunes, so the cleanup cron no longer touches legacy
+ * code.
  *
  * Doc: src/lib/app/README.md
  */
