@@ -108,6 +108,7 @@ export type FamilyDetailCtx = FamilyCtx & IdentityPorts;
 export {
 	createFamily,
 	getFamily,
+	getViewerRole,
 	listFamilies,
 	updateFamily,
 	type FamilyListPayload

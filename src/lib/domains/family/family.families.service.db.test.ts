@@ -23,6 +23,7 @@ import { seedFamily, seedFamilyRoster, seedInvite, seedMembership } from './fami
 import {
 	createFamily,
 	getFamily,
+	getViewerRole,
 	listFamilies,
 	updateFamily
 } from './family.families.service.server';
@@ -310,5 +311,30 @@ describe('updateFamily', () => {
 		});
 		const [row] = await db.select().from(families).where(eq(families.id, 'fam-1'));
 		expect(row.name).toBe('Riveras');
+	});
+});
+
+describe('getViewerRole', () => {
+	rollbackTest('answers the stored role for a plain member', async (db) => {
+		const ann = await seedUser(db);
+		await seedFamily('fam-role', {}, db);
+		await seedMembership('fam-role', ann.id, 'member', 'parent', db);
+
+		expect(await getViewerRole(testCtx({ db }), ann.id, 'fam-role')).toBe('member');
+	});
+
+	rollbackTest('answers the stored role for an admin', async (db) => {
+		const ann = await seedUser(db);
+		await seedFamily('fam-role', {}, db);
+		await seedMembership('fam-role', ann.id, 'admin', 'parent', db);
+
+		expect(await getViewerRole(testCtx({ db }), ann.id, 'fam-role')).toBe('admin');
+	});
+
+	rollbackTest('answers null when the viewer holds no row in that family', async (db) => {
+		const ann = await seedUser(db);
+		await seedFamily('fam-role', {}, db);
+
+		expect(await getViewerRole(testCtx({ db }), ann.id, 'fam-role')).toBeNull();
 	});
 });

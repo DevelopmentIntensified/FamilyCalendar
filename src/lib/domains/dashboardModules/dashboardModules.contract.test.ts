@@ -1,19 +1,25 @@
 /**
- * The wire contract: both PUT bodies, their responses and the saved-message
- * copy. The 400 copy and the absent-vs-null rules are the legacy wire, so the
- * golden handlers must parse with exactly these schemas at S6. Expected
- * values come from the legacy routes' `typeof`/`Array.isArray` checks and the
- * goldens (`dashboardModules.http.db.test.ts`), not from running the code.
+ * The wire contract: both PUT bodies, their params, responses and the copy the
+ * services add. The 400/403 copy and the absent-vs-null rules are the legacy
+ * wire, so the golden handlers must parse with exactly these schemas at S6.
+ * Expected values come from the legacy routes' `typeof`/`Array.isArray` checks,
+ * `readJsonObject` (which refused non-object bodies with `Invalid JSON`) and
+ * the goldens (`dashboardModules.http.db.test.ts`), not from running the code.
  *
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
-import { firstIssueMessage, z } from '$lib/kernel/validation/validators';
+import { firstIssueMessage, INVALID_JSON_MESSAGE, z } from '$lib/kernel/validation/validators';
 import {
 	dashboardModulesSavedMessage,
 	FAMILY_MODULE_ENABLED_MESSAGE,
+	FAMILY_MODULE_FORBIDDEN_MESSAGE,
+	FAMILY_MODULE_REQUIRED_MESSAGE,
+	FamilyModuleParams,
 	FamilyModuleSwitchBody,
 	FamilyModuleSwitchResponse,
+	familyModuleNotFamilyScopedMessage,
+	familyModuleUnknownMessage,
 	MY_MODULES_HIDDEN_MESSAGE,
 	MyDashboardModulesBody,
 	MyDashboardModulesResponse
@@ -44,15 +50,58 @@ describe('FamilyModuleSwitchBody', () => {
 		['the number 1', { enabled: 1 }],
 		['the number 0', { enabled: 0 }],
 		['an object', { enabled: {} }],
-		['an array', { enabled: [true] }],
-		['a non-object body', 'enabled'],
-		['an array body', [true]]
+		['an array', { enabled: [true] }]
 	])('answers the one 400 copy for %s', (_label, value) => {
 		expect(messageOf(FamilyModuleSwitchBody, value)).toBe(FAMILY_MODULE_ENABLED_MESSAGE);
 	});
 
+	// Golden: `answers 400 Invalid JSON for a malformed or non-object body`.
+	// Legacy `readJsonObject` refused every non-object with that one sentence.
+	it.each<[string, unknown]>([
+		['a JSON array', [{ enabled: false }]],
+		['a JSON null', null],
+		['a JSON string', 'enabled'],
+		['a JSON number', 1]
+	])('answers "Invalid JSON" for %s (legacy readJsonObject)', (_label, value) => {
+		expect(messageOf(FamilyModuleSwitchBody, value)).toBe(INVALID_JSON_MESSAGE);
+	});
+
 	it('keeps the legacy wording', () => {
 		expect(FAMILY_MODULE_ENABLED_MESSAGE).toBe('enabled must be a boolean');
+	});
+});
+
+describe('FamilyModuleParams', () => {
+	it('passes the route parameters through untouched', () => {
+		expect(FamilyModuleParams.parse({ id: 'fam-1', module: 'board' })).toEqual({
+			id: 'fam-1',
+			module: 'board'
+		});
+	});
+
+	it('passes an empty module through, so the service owns the 400', () => {
+		expect(FamilyModuleParams.parse({ id: 'fam-1', module: '' })).toEqual({
+			id: 'fam-1',
+			module: ''
+		});
+	});
+});
+
+describe('the switch copy the service adds', () => {
+	// Legacy: `familyData.ts:258-268` (the role gate) and `:361` (the module
+	// name), then `db/actions/dashboardModules.ts:30-34` (the registry).
+	it('keeps the legacy wording verbatim', () => {
+		expect([
+			FAMILY_MODULE_FORBIDDEN_MESSAGE,
+			FAMILY_MODULE_REQUIRED_MESSAGE,
+			familyModuleUnknownMessage('weather'),
+			familyModuleNotFamilyScopedMessage('verse')
+		]).toEqual([
+			'You do not have permission to perform this action',
+			'Module is required',
+			'Unknown dashboard module: weather',
+			'Module is not family-scoped: verse'
+		]);
 	});
 });
 
@@ -91,11 +140,18 @@ describe('MyDashboardModulesBody', () => {
 		['an object', { hidden: { 0: 'board' } }],
 		['a number element', { hidden: ['board', 1] }],
 		['a null element', { hidden: [null] }],
-		['an array element', { hidden: [['board']] }],
-		['a non-object body', 'hidden'],
-		['an array body', [['board']]]
+		['an array element', { hidden: [['board']] }]
 	])('answers the one 400 copy for %s', (_label, value) => {
 		expect(messageOf(MyDashboardModulesBody, value)).toBe(MY_MODULES_HIDDEN_MESSAGE);
+	});
+
+	it.each<[string, unknown]>([
+		['a JSON array', [{ hidden: [] }]],
+		['a JSON null', null],
+		['a JSON string', 'hidden'],
+		['a JSON number', 1]
+	])('answers "Invalid JSON" for %s (legacy readJsonObject)', (_label, value) => {
+		expect(messageOf(MyDashboardModulesBody, value)).toBe(INVALID_JSON_MESSAGE);
 	});
 
 	it('keeps the legacy wording', () => {

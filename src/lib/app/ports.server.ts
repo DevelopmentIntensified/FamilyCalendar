@@ -21,8 +21,8 @@
  * calendars and consent records another module owns.
  *
  * family's five ports are bridged the same way, because family's S5+S6 ran
- * before calendar's, tasks' and dashboardModules' (the third is owner answer
- * Q-030, a family-owned port):
+ * before calendar's and tasks' (the third is owner answer Q-030, a
+ * family-owned port):
  * - `calendar.createFamilyCalendar` → legacy `createCalendar({ familyId })`.
  *   `calendar`'s S5 exports the real adapter and replaces it. The bridge cannot
  *   join family's transaction, so family calls it right after its own commit;
@@ -30,9 +30,8 @@
  * - `tasks.unassignMemberTasks` → legacy `removeFamilyMember`, which also drops
  *   the roster row, so family calls it BEFORE its own delete. `tasks`' S5
  *   exports the assignment clear alone and family's delete does the row.
- * - `moduleSwitches.listFamilyModuleSwitches` → legacy
- *   `getFamilyModuleSwitches` (dashboardModules has no S5 yet, and its entry
- *   exports no `listFamilyModuleSwitches`; the ask is in the report).
+ * - `moduleSwitches.listFamilyModuleSwitches` → dashboardModules' exported
+ *   `listFamilyModuleSwitches` (Q-030; no longer a bridge).
  * - `childAccount.createChildAccount` → legacy `createNewUser`, the one helper
  *   that writes the child's `users` row, `email` account, settings and personal
  *   calendar. Identity's S5 has no such use-case and `calendars` belongs to
@@ -41,6 +40,11 @@
  *   `getUrl()`: the legacy invite page still validates the token with that
  *   secret, and only `app` may read the environment (R6). A kernel token port
  *   would be the real home; it does not exist yet.
+ *
+ * dashboardModules' Q-030 adapter is the exception: it is not a bridge, because
+ * `family` declares that port for a HIGHER-ranked module (`dashboardModules`
+ * implements it). This module's other family need, the viewer's role, is a
+ * direct call (family is rank 4).
  *
  * Doc: docs/rewrite/playbooks/add-a-port.md#domain-ports
  */
@@ -55,6 +59,7 @@ import type {
 	FamilyPorts,
 	MemberTasksPort
 } from '$lib/domains/family/index.server';
+import { listFamilyModuleSwitches } from '$lib/domains/dashboardModules/index.server';
 import type {
 	AdConsentPort,
 	CalendarAccessPort,
@@ -62,7 +67,6 @@ import type {
 } from '$lib/domains/identity/index.server';
 import { createCalendar } from '$lib/server/db/actions/calendar';
 import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
-import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
 import { removeFamilyMember } from '$lib/server/db/actions/families';
 import { getAdConsentRecords, recordAdConsentChange } from '$lib/server/services/adConsentService';
 import { createNewUser } from '$lib/server/utils/createNewUser';
@@ -107,9 +111,9 @@ const legacyMemberTasks: MemberTasksPort = {
 	}
 };
 
-/** TRANSITION BRIDGE — `dashboardModules`' S5 exports `listFamilyModuleSwitches` (Q-030). */
-const legacyModuleSwitches: FamilyModuleSwitchesPort = {
-	listFamilyModuleSwitches: async (_ctx, familyId) => getFamilyModuleSwitches(familyId)
+/** Q-030: dashboardModules' S5 exports the real family-switch read. */
+const dashboardModuleSwitches: FamilyModuleSwitchesPort = {
+	listFamilyModuleSwitches: async (ctx, familyId) => listFamilyModuleSwitches(ctx, familyId)
 };
 
 /** TRANSITION BRIDGE — identity's + calendar's S5 replace this with one account use-case. */
@@ -152,7 +156,7 @@ export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
 		adConsent: legacyAdConsent,
 		calendar: legacyFamilyCalendar,
 		tasks: legacyMemberTasks,
-		moduleSwitches: legacyModuleSwitches,
+		moduleSwitches: dashboardModuleSwitches,
 		childAccount: legacyChildAccount,
 		inviteLink: legacyInviteLink
 	};

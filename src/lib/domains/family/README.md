@@ -15,7 +15,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | file | role | what it does — and why it exists | tested by |
 |---|---|---|---|
 | [index.ts](index.ts) | entry | Public isomorphic interface. Still `export {}`; the client `family.api.ts` and the rule/type re-exports land at S7, like identity's. | — |
-| [index.server.ts](index.server.ts) | entry | Public server interface: the five ports family declares (`FamilyCalendarPort`, `MemberTasksPort`, `FamilyModuleSwitchesPort`, `FamilyChildAccountPort`, `FamilyInviteLinkPort`) with `FamilyPorts`/`FamilyCtx`/`FamilyDetailCtx`, the fourteen services and the 18 `/api` handlers. | — |
+| [index.server.ts](index.server.ts) | entry | Public server interface: the five ports family declares (`FamilyCalendarPort`, `MemberTasksPort`, `FamilyModuleSwitchesPort`, `FamilyChildAccountPort`, `FamilyInviteLinkPort`) with `FamilyPorts`/`FamilyCtx`/`FamilyDetailCtx`, the services and the 18 `/api` handlers. | — |
 | [ui/index.ts](ui/index.ts) | entry | Public components (family card, roster rail, palette picker, invite/member tabs, join card). | — |
 | [family.contract.ts](family.contract.ts) | contract | The wire, in zod: body/query/param schemas for all 18 `/api` methods with the legacy 400 copy and coercions (absent vs null, non-string = empty, only `true` consents), ISO-string response schemas (the `/family` list's roster rows carry no email), the `/family/create` form shape, and the server-side row views with real `Date`s that never sit on the wire. | [family.contract.test.ts](family.contract.test.ts) |
 | [family.roles.rules.ts](family.roles.rules.ts) | rules | The two closed vocabularies (`FAMILY_ROLES`, `MEMBER_TYPES`) and who may do what. Every function takes a role and nothing else, so a Member Type cannot leak into a permission (ADR-0001). | [family.roles.rules.test.ts](family.roles.rules.test.ts) |
@@ -60,6 +60,7 @@ Services (each hides a whole use-case; no pass-throughs):
 
 - `listFamilies(ctx, actor)` — the `/family` list payload (cards, roster, live codes, plan usage) in a fixed number of queries.
 - `familyMemberLimitRefusal(ctx, actor, familyId)` — the creator's plan applied to that family's roster size (the 403 copy, or null).
+- `getViewerRole(ctx, actorId, familyId)` — the viewer's role in one family, or null with no membership row (legacy `getMemberRole`): the one read behind `getFamily`'s 404 and behind a higher-ranked module's "may this person manage this family?" question (`dashboardModules` calls it directly; family is rank 4, so no port).
 - `getFamily(ctx, actor, familyId)` — the family detail payload; non-member and unknown id are one `notFound`.
 - `createFamily(ctx: FamilyCtx, actor, body)` — plan gate, name/colour/pick validation; family + roster in one transaction, then the calendar through the port.
 - `updateFamily(ctx, actor, familyId, body)` — rename/recolour (admin+), absent fields unchanged.

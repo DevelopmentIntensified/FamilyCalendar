@@ -144,6 +144,23 @@ function firstUsableInvite(invites: readonly InviteCodeView[], now: Date): Invit
 }
 
 /**
+ * The viewer's role in one family, or null when they hold no membership row.
+ *
+ * This is the one read behind `getFamily`'s 404 and behind every "may this
+ * person manage this family?" question a higher-ranked module asks through this
+ * module's entry (dashboardModules and the family switches). Same answer as the
+ * legacy `getMemberRole` (`familyData.ts:236-242`): the `familyMembers.role`
+ * text, null when there is no row.
+ */
+export async function getViewerRole(
+	ctx: Ctx,
+	actorId: string,
+	familyId: string
+): Promise<string | null> {
+	return await findMemberRole(ctx.db, actorId, familyId);
+}
+
+/**
  * `GET /api/families/{id}`: the family page's data. Not a member and no such
  * family are ONE 404, so ids cannot be probed (issue 064).
  */
@@ -152,7 +169,7 @@ export async function getFamily(
 	actor: Actor,
 	familyId: string
 ): Promise<FamilyDetailView> {
-	const role = await findMemberRole(ctx.db, actor.id, familyId);
+	const role = await getViewerRole(ctx, actor.id, familyId);
 	if (!role) throw notFound(FAMILY_NOT_FOUND_MESSAGE);
 	const family = await findFamilyById(ctx.db, familyId);
 	if (!family) throw notFound(FAMILY_NOT_FOUND_MESSAGE);
