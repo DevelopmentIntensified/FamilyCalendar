@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { ReportBugForm } from '$lib/domains/feedback/ui';
+	import ReportBugForm from '$lib/domains/feedback/ui/ReportBugForm.svelte';
 	import type { PageData, ActionData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();

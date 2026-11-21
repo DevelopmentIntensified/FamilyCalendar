@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { FamilyHubScreen } from '$lib/screens/familyHub/ui';
+	import FamilyHubScreen from '$lib/screens/familyHub/ui/FamilyHubScreen.svelte';
 	let { data, form } = $props();
 </script>
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { TasksScreen } from '$lib/domains/tasks/ui';
+	import TasksScreen from '$lib/domains/tasks/ui/TasksScreen.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();

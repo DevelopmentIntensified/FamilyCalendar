@@ -11,7 +11,7 @@
 	Doc: ../README.md#public-interface
 -->
 <script lang="ts">
-	import { FamilyBreadcrumbs } from '$lib/domains/family/ui';
+	import Breadcrumbs from '$lib/kernel/ui/Breadcrumbs.svelte';
 	import type { TaskArchivePage } from '../tasks.contract';
 	import {
 		ARCHIVE_CARD_PADDING,
@@ -43,7 +43,7 @@
 
 <div class="min-h-screen bg-slate-50 px-4 py-8 pt-20">
 	<div class="mx-auto max-w-6xl">
-		<FamilyBreadcrumbs
+		<Breadcrumbs
 			crumbs={[{ label: 'Calendar', href: '/calendar' }, { label: 'Archive' }]}
 		/>
 

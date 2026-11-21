@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PricingScreen } from '$lib/domains/marketing/ui';
+	import PricingScreen from '$lib/domains/marketing/ui/PricingScreen.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();

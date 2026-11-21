@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AdminHome } from '$lib/screens/admin/ui';
+	import AdminHome from '$lib/screens/admin/ui/AdminHome.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();

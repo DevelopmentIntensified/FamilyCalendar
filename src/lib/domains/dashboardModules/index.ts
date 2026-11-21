@@ -38,11 +38,6 @@ export {
 	type DashboardModulesApi
 } from './dashboardModules.api';
 export {
-	FamilyModuleParams,
-	FamilyModuleSwitchBody,
-	FamilyModuleSwitchResponse,
-	MyDashboardModulesBody,
-	MyDashboardModulesResponse,
 	FAMILY_MODULE_ENABLED_MESSAGE,
 	FAMILY_MODULE_FORBIDDEN_MESSAGE,
 	FAMILY_MODULE_REQUIRED_MESSAGE,
@@ -50,4 +45,11 @@ export {
 	dashboardModulesSavedMessage,
 	familyModuleNotFamilyScopedMessage,
 	familyModuleUnknownMessage
+} from './dashboardModules.messages.rules';
+export type {
+	FamilyModuleParams,
+	FamilyModuleSwitchBody,
+	FamilyModuleSwitchResponse,
+	MyDashboardModulesBody,
+	MyDashboardModulesResponse
 } from './dashboardModules.contract';

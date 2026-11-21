@@ -13,7 +13,7 @@
  */
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import { isEmailAddress } from './primitives';
+import { isCalendarDate, isEmailAddress } from './primitives';
 
 export { z };
 
@@ -48,8 +48,7 @@ export function optionalText() {
 export function isoDate(message = 'Invalid date') {
 	return z
 		.string({ error: message })
-		.regex(/^\d{4}-\d{2}-\d{2}$/, { error: message })
-		.refine((value) => DateTime.fromISO(value).isValid, { error: message });
+		.refine((value) => isCalendarDate(value), { error: message });
 }
 
 /** Month `YYYY-MM`. */

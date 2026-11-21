@@ -9,7 +9,6 @@
 <script lang="ts">
 	import { createToasts } from '$lib/kernel/client/toasts.svelte';
 	import Toaster from '$lib/kernel/ui/Toaster.svelte';
-	import { TaskEditor } from '$lib/domains/tasks/ui';
 	import { createTasksApi, type TasksApi } from '$lib/domains/tasks/index';
 	import type { FamilyBoardModel } from '../familyHub.contract';
 	import { FamilyBoardState } from '../familyHub.board.state.svelte';
@@ -37,6 +36,14 @@
 	});
 
 	const empty = $derived(state.emptyState);
+
+	// The task editor opens on a row click, so it rides a lazy chunk: the board's
+	// first paint carries the columns and no editor (ADR 0010 — the tasks
+	// component entry is ~30 KB and this page has a 122 KB ceiling).
+	let editorModule = $state<Promise<typeof import('$lib/domains/tasks/ui')> | null>(null);
+	$effect(() => {
+		if (state.editing) editorModule ??= import('$lib/domains/tasks/ui');
+	});
 
 	const tabClass = (active: boolean) =>
 		`min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors ${
@@ -145,17 +152,22 @@
 	{/if}
 </div>
 
-{#if state.editing}
+{#if state.editing && editorModule}
 	{#key state.editing.id}
-		<TaskEditor
-			task={state.editing}
-			currentUserId={state.data.userId}
-			roster={state.data.familyRoster}
-			saving={state.editSaving}
-			categories={state.categoryNames}
-			onsave={(draft) => state.saveEdit(draft)}
-			onclose={() => state.closeEdit()}
-		/>
+		{#await editorModule}
+			<!-- The click that opened the sheet loads it; nothing is drawn meanwhile. -->
+		{:then tasksUi}
+			{@const Editor = tasksUi.TaskEditor}
+			<Editor
+				task={state.editing}
+				currentUserId={state.data.userId}
+				roster={state.data.familyRoster}
+				saving={state.editSaving}
+				categories={state.categoryNames}
+				onsave={(draft) => state.saveEdit(draft)}
+				onclose={() => state.closeEdit()}
+			/>
+		{/await}
 	{/key}
 {/if}
 

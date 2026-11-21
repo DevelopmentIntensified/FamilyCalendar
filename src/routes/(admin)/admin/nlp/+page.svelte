@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { createFeedbackApi } from '$lib/domains/feedback';
-	import { adminToasts, AdminPhraseRegister } from '$lib/screens/admin/ui';
+	import AdminPhraseRegister from '$lib/screens/admin/ui/AdminPhraseRegister.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 </script>
 
-<AdminPhraseRegister {data} api={createFeedbackApi()} toasts={adminToasts} />
+<AdminPhraseRegister {data} api={createFeedbackApi()} />

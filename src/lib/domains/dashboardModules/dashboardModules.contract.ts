@@ -15,29 +15,23 @@
  * Doc: ./README.md#invariants
  */
 import { INVALID_JSON_MESSAGE, z } from '$lib/kernel/validation/validators';
-import { DASHBOARD_MODULES } from './dashboardModules.registry.rules';
+import { FAMILY_MODULE_ENABLED_MESSAGE, MY_MODULES_HIDDEN_MESSAGE } from './dashboardModules.messages.rules';
 
-/** The one 400 body `PUT /api/families/{id}/modules/{module}` uses for a non-boolean. */
-export const FAMILY_MODULE_ENABLED_MESSAGE = 'enabled must be a boolean';
-
-/** The one 400 body `PUT /api/me/dashboard-modules` uses for a malformed list. */
-export const MY_MODULES_HIDDEN_MESSAGE = 'hidden must be an array of module ids';
-
-/** The 403 a family switch answers a plain member or a stranger (`familyData.ts:258-268`). */
-export const FAMILY_MODULE_FORBIDDEN_MESSAGE = 'You do not have permission to perform this action';
-
-/** An empty `{module}` is refused before the registry is consulted (`familyData.ts:361`). */
-export const FAMILY_MODULE_REQUIRED_MESSAGE = 'Module is required';
-
-/** An id the registry does not know (`db/actions/dashboardModules.ts:30`). */
-export function familyModuleUnknownMessage(module: string): string {
-	return `Unknown dashboard module: ${module}`;
-}
-
-/** A registry id with a personal scope: it has no family master switch (`db/actions/dashboardModules.ts:32-34`). */
-export function familyModuleNotFamilyScopedMessage(module: string): string {
-	return `Module is not family-scoped: ${module}`;
-}
+/**
+ * The copy for both routes lives in `dashboardModules.messages.rules.ts` (the
+ * entry exports it from there, so a page that only needs a label never loads
+ * the schema library). Re-exported here so the module's contract still answers
+ * to the names the goldens and services already import from it.
+ */
+export {
+	FAMILY_MODULE_ENABLED_MESSAGE,
+	FAMILY_MODULE_FORBIDDEN_MESSAGE,
+	FAMILY_MODULE_REQUIRED_MESSAGE,
+	familyModuleUnknownMessage,
+	familyModuleNotFamilyScopedMessage,
+	MY_MODULES_HIDDEN_MESSAGE,
+	dashboardModulesSavedMessage
+} from './dashboardModules.messages.rules';
 
 /**
  * `PUT /api/families/{id}/modules/{module}`. `enabled` is required and must be
@@ -82,14 +76,3 @@ export const MyDashboardModulesResponse = z.object({
 	hidden: z.array(z.string())
 });
 export type MyDashboardModulesResponse = z.infer<typeof MyDashboardModulesResponse>;
-
-/**
- * The per-user save's `message`: the count of cards still on, out of the
- * canonical registry. Wire copy, so it has one home here rather than in the
- * service that composes the response.
- */
-export function dashboardModulesSavedMessage(hiddenCount: number): string {
-	return hiddenCount
-		? `Dashboard modules saved — ${DASHBOARD_MODULES.length - hiddenCount} of ${DASHBOARD_MODULES.length} cards on.`
-		: `Dashboard modules saved — all ${DASHBOARD_MODULES.length} cards on.`;
-}

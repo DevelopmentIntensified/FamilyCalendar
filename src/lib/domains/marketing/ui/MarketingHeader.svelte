@@ -22,7 +22,7 @@
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { reportBugHref as bugHrefFor } from '$lib/domains/feedback';
+	import { reportBugHref as bugHrefFor } from '$lib/kernel/ui/bugReportLink';
 	import BrandMark from '$lib/kernel/ui/BrandMark.svelte';
 	import {
 		MARKETING_NAV,

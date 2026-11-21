@@ -30,7 +30,6 @@ export type {
 	PushUnsubscribeBody,
 	StoredAlertRow
 } from './alerts.contract';
-export { DEVICE_PLATFORMS, MAX_DEVICE_TOKEN_LENGTH } from './alerts.contract';
 
 export { createAlertsApi, type AlertsApi } from './alerts.api';
 

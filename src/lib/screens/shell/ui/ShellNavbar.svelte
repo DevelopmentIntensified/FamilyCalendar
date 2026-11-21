@@ -10,14 +10,14 @@
 
 	The bell itself is alerts' component, handed in as a snippet — shell owns the
 	slot, alerts owns the panel, the feed and push. `reportBugHref` comes from
-	feedback's rule with the current path and search (issue 257), and is required
-	by both menus.
+	kernel's link rule with the current path and search (issue 257), and is
+	required by both menus.
 
 	Doc: ../README.md#invariants
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { reportBugHref } from '$lib/domains/feedback';
+	import { reportBugHref } from '$lib/kernel/ui/bugReportLink';
 	import BrandMark from '$lib/kernel/ui/BrandMark.svelte';
 	import type { ShellUserSummary } from '../shell.contract';
 	import { shellActiveHref, shellNavItems } from '../shell.nav.rules';

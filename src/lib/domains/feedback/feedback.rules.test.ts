@@ -28,8 +28,6 @@ import {
 	markBugReportResolved,
 	markUnmatchedPhraseResolved,
 	normalizePhrase,
-	reportBugHref,
-	safeReportedPath,
 	unmatchedPhraseUpsert,
 	unmatchedSourceLabel,
 	UNMATCHED_SOURCE_LABEL,
@@ -37,7 +35,6 @@ import {
 } from './feedback.rules';
 import type { AutoBugReportInput } from './feedback.rules';
 
-const ORIGIN = 'https://test.familyplanz.com';
 /** The stored instant of a seeded row (any fixed date: rules never read a clock). */
 const ROW_AT = new Date('2026-11-01T09:00:00.000Z');
 /** The caller's `now` for the optimistic resolve rules. */
@@ -304,48 +301,6 @@ describe('buildAutoBugReport', () => {
 		const blank = buildAutoBugReport({ status: 500, message: 'boom', path: '' });
 		expect(blank?.url).toBeNull();
 	});
-});
-
-describe('safeReportedPath (issue 257)', () => {
-	// Legacy table, reportBug.test.ts › "safeReportedPath (issue 257)".
-	it.each<[string | null | undefined, string | undefined, string]>([
-		['/calendar/tasks', undefined, '/calendar/tasks'],
-		['/calendar?view=week', undefined, '/calendar?view=week'],
-		['  /account  ', undefined, '/account'],
-		[`${ORIGIN}/calendar/tasks?x=1`, ORIGIN, '/calendar/tasks?x=1'],
-		['https://evil.example/calendar', ORIGIN, ''],
-		['//evil.example/x', ORIGIN, ''],
-		['/\\evil.example', ORIGIN, ''],
-		['javascript:alert(1)', ORIGIN, ''],
-		['calendar', ORIGIN, ''],
-		['/report-bug', undefined, ''],
-		['/report-bug?from=%2Fcalendar', undefined, ''],
-		[`${ORIGIN}/report-bug`, ORIGIN, ''],
-		['', ORIGIN, ''],
-		[null, ORIGIN, ''],
-		[undefined, ORIGIN, '']
-	])('safeReportedPath(%j, %j) → %j', (raw, origin, expected) => {
-		expect(safeReportedPath(raw, origin)).toBe(expected);
-	});
-
-	it('caps the reported path at 500 chars', () => {
-		expect(safeReportedPath(`/${'a'.repeat(900)}`)).toHaveLength(500);
-	});
-});
-
-describe('reportBugHref (issue 257)', () => {
-	it('carries the current path', () => {
-		expect(reportBugHref('/calendar/tasks?tag=x')).toBe(
-			'/report-bug?from=%2Fcalendar%2Ftasks%3Ftag%3Dx'
-		);
-	});
-
-	it.each<[string | null | undefined]>([['/report-bug'], [null], [undefined], ['']])(
-		'falls back to the bare form link for %j',
-		(path) => {
-			expect(reportBugHref(path)).toBe('/report-bug');
-		}
-	);
 });
 
 describe('register labels', () => {

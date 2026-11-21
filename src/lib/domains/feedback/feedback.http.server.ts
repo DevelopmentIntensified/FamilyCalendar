@@ -39,7 +39,8 @@ import {
 	type UnmatchedPhrasesRegisterResponse
 } from './feedback.contract';
 import { formatBugReportsExport, formatUnmatchedPhrasesExport } from './feedback.export.rules';
-import { BUG_AREAS, safeReportedPath } from './feedback.rules';
+import { safeReportedPath } from '$lib/kernel/ui/bugReportLink';
+import { BUG_AREAS } from './feedback.rules';
 import {
 	fileBugReport,
 	listFeedback,
