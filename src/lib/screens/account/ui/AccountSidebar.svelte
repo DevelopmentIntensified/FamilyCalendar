@@ -1,0 +1,145 @@
+<!--
+	The /account rail: the prototype's two stacked cards one rem apart — the
+	section links built from `ACCOUNT_SECTIONS`, then the "Signed in as" card.
+	The legacy `AccountSidebar.svelte` is the reference for the look and copy;
+	the destinations come from the one section list, never re-listed here.
+
+	Q-080 B: the "Report a Bug" link carries the page context
+	(`?from=/account#<section>`), the same way the navbar's helper does, so a
+	report filed from a section says which section it was on.
+
+	`#242`: an Anonymous Account's placeholder email is never printed; the card
+	says "No email yet · Save your calendar" instead.
+-->
+<script lang="ts">
+	import { ACCOUNT_SECTIONS, type AccountSectionId } from '../account.sections.rules';
+	import type { AccountPersonModel } from '../account.contract';
+
+	interface Props {
+		activeSection: AccountSectionId;
+		/** The signed-in person; absent renders no card rather than an empty one. */
+		user?: AccountPersonModel | null;
+	}
+
+	let { activeSection, user = null }: Props = $props();
+
+	// Presentation of the wire's own fields: `email` already arrived masked for
+	// an Anonymous Account (`guestSafeEmail`), so a real address is simply a
+	// non-null email on a non-anonymous person. Kept local so the rail does not
+	// pull identity's whole entry (and luxon) into the first paint.
+	const label = $derived(
+		[user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || null
+	);
+	const initial = $derived((label?.[0] ?? '?').toUpperCase());
+	const registered = $derived(!!user && !user.isAnonymous && !!user.email);
+	/** Q-080 B: the reported path keeps the current section. */
+	const reportHref = $derived(
+		`/report-bug?from=${encodeURIComponent(`/account#${activeSection}`)}`
+	);
+
+	// Presentation only: which sections exist is the one list above.
+	const icons: Record<AccountSectionId, string> = {
+		profile: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+		families:
+			'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
+		notifications:
+			'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17m5 1v2a2 2 0 002 2 2 2 0 002-2v-2m7-2a2 2 0 11-4 0 2 2 0 014 0z',
+		calendar: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+		dashboard:
+			'M4 5a1 1 0 011-1h14a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm10 0a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z',
+		subscription:
+			'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z',
+		email:
+			'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+		security: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
+		api: 'M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 13a6 6 0 01-6-6H9a6 6 0 01-6-6',
+		danger:
+			'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+	};
+</script>
+
+<div
+	data-testid="account-rail"
+	class="flex w-full flex-col gap-4 min-[1000px]:sticky min-[1000px]:top-[5.25rem]"
+>
+	<nav
+		data-testid="account-rail-card"
+		aria-label="Account sections"
+		class="rounded-[1.25rem] border border-slate-200 bg-white p-4"
+	>
+		<div
+			data-testid="account-rail-title"
+			class="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400"
+		>
+			Settings
+		</div>
+		<ul>
+			{#each ACCOUNT_SECTIONS as section (section.id)}
+				<li>
+					<a
+						href="#{section.id}"
+						aria-current={activeSection === section.id ? 'true' : undefined}
+						class="flex items-center gap-2 rounded-[0.625rem] px-2.5 py-2 text-sm font-semibold transition-colors
+						{activeSection === section.id
+							? 'bg-primary-50 text-primary-700'
+							: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}"
+					>
+						<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d={icons[section.id]}
+							/>
+						</svg>
+						{section.label}
+					</a>
+				</li>
+			{/each}
+			<li>
+				<a
+					href={reportHref}
+					class="flex items-center gap-2 rounded-[0.625rem] px-2.5 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+				>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+						/>
+					</svg>
+					Report a Bug
+				</a>
+			</li>
+		</ul>
+	</nav>
+
+	{#if user}
+		<div
+			data-testid="account-identity"
+			class="flex items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white/95 p-4"
+		>
+			<span
+				data-testid="account-initial"
+				aria-hidden="true"
+				class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#FED5CF] text-sm font-bold text-[#c45e38]"
+			>
+				{initial}
+			</span>
+			<span class="min-w-0">
+				{#if label}
+					<span class="block truncate text-sm font-bold text-slate-800">{label}</span>
+				{/if}
+				{#if registered}
+					<span class="block truncate text-xs text-slate-500">{user.email}</span>
+				{:else}
+					<span class="block truncate text-xs text-slate-500">
+						No email yet ·
+						<a href="/claim" class="font-semibold text-primary-600 underline">Save your calendar</a>
+					</span>
+				{/if}
+			</span>
+		</div>
+	{/if}
+</div>

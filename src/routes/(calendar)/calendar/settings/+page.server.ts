@@ -1,7 +1,4 @@
-import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import { accountCalendarSettingsRedirect } from '$lib/screens/account/index.server';
 
-// Calendar settings moved to /account (Calendar section).
-export const load: PageServerLoad = async () => {
-	throw redirect(302, '/account#calendar');
-};
+/** `/calendar/settings` — a 302 to the account page's Calendar section only. */
+export const load = accountCalendarSettingsRedirect;
