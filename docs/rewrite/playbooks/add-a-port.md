@@ -15,7 +15,14 @@ A **port** is a side-effect dependency that services reach through `ctx`, so tes
 1. **Port type and memory adapter**, isomorphic: `src/lib/kernel/mail/mailer.ts`
 
    ```ts
-   export type MailMessage = { readonly to: string; readonly subject: string; readonly html: string; readonly text?: string };
+   export type MailMessage = {
+   	readonly to: string;
+   	readonly subject: string;
+   	readonly html: string;
+   	readonly text?: string;
+   	readonly from?: string;
+   	readonly replyTo?: string;
+   };
    export type Mailer = { send(message: MailMessage): Promise<void> };
    export type MemoryMailer = Mailer & { readonly outbox: MailMessage[] };
    export function createMemoryMailer(): MemoryMailer {
@@ -23,6 +30,8 @@ A **port** is a side-effect dependency that services reach through `ctx`, so tes
    	return { outbox, send: async (message) => void outbox.push(message) };
    }
    ```
+
+   `send` resolves when the provider accepted the message and rejects when it did not; `from` overrides the adapter's default sender (`NOREPLYEMAIL`, also on `ctx.config.mailFrom`).
 
 2. **Real adapter**, server-only: `src/lib/kernel/mail/resendMailer.server.ts`. It takes its config as parameters (`createResendMailer({ apiKey, from }, fetcher = fetch)`), so its test injects `fetcher` and never touches the network. It never reads `process.env` (rule R6).
 3. **Ctx:** add `readonly mail: Mailer` to `Ctx` in [ctx.server.ts](../../../src/lib/kernel/ctx/ctx.server.ts). If config is needed, add the fields to `AppConfig` too.
