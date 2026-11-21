@@ -10,6 +10,9 @@
  * for example), and the goldens may not change after S2. Create one ctx per
  * test; a rate-budget test reuses ONE ctx for every request of its burst.
  *
+ * The domain ports come from `wirePorts` itself, so the legacy bridges that
+ * identity's two ports ride on today (../ports.server.ts) are here too.
+ *
  * `clock` and `ids` are the REAL ones too (`systemClock`, `systemIds`), not the
  * frozen clock and `id-N` counter `testCtx` hands S5 tests: a golden
  * characterizes a legacy handler that read `new Date()` and minted row ids with
