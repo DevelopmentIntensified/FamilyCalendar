@@ -15,6 +15,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
 import type { Db } from '$lib/kernel/db/database.server';
 import { calendars, events, tasks, users, type UserRow } from '$lib/kernel/db/tables.server';
+import type { ActionFail } from '$lib/kernel/http/pageHandlers.server';
 import { sha256Hex } from '$lib/kernel/ids/ids';
 import { invoke, invokeAction, invokeLoad, isActionFailure } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
@@ -34,7 +35,8 @@ import {
 	signupCallback,
 	signupPage,
 	verifyEmailAction,
-	verifyEmailPage
+	verifyEmailPage,
+	type VerifyEmailActionData
 } from './access.pages.http.server';
 import { seedAccessClaimToken, seedAccessGuest } from './access.fixtures.server';
 
@@ -211,7 +213,8 @@ describe('/account/verify-email', () => {
 			headers: { 'x-real-ip': '10.21.0.1' },
 			form: {}
 		});
-		if (!isActionFailure(empty)) throw new Error('expected an action failure');
+		if (!isActionFailure<ActionFail | VerifyEmailActionData, VerifyEmailActionData>(empty))
+			throw new Error('expected an action failure');
 		expect({ status: empty.status, data: empty.data }).toEqual({
 			status: 400,
 			data: { success: false, message: 'Verification code is required' }
@@ -219,7 +222,7 @@ describe('/account/verify-email', () => {
 
 		await issueEmailCode(ctx, {
 			code: '13572468',
-			email: person.email,
+			email: person.email ?? '',
 			type: 'email_change',
 			pendingEmail: 'moved@example.test',
 			expiresAt: new Date('2020-01-01T00:00:00.000Z')
@@ -231,7 +234,8 @@ describe('/account/verify-email', () => {
 			headers: { 'x-real-ip': '10.21.0.2' },
 			form: { code: '13572468' }
 		});
-		if (!isActionFailure(expired)) throw new Error('expected an action failure');
+		if (!isActionFailure<ActionFail | VerifyEmailActionData, VerifyEmailActionData>(expired))
+			throw new Error('expected an action failure');
 		expect(expired.data).toEqual({
 			success: false,
 			message: 'Verification code has expired'
@@ -239,7 +243,7 @@ describe('/account/verify-email', () => {
 
 		await issueEmailCode(ctx, {
 			code: '24681357',
-			email: person.email,
+			email: person.email ?? '',
 			type: 'email_change',
 			pendingEmail: 'moved@example.test'
 		});

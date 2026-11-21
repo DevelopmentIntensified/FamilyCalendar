@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { db } from '$lib/server/db';
-import { families, familyMembers, users, calendars, sessions } from '$lib/server/db/schema';
-import { eq } from 'drizzle-orm';
-import { getSessionCookie } from '../testUtils';
-import { createFamily } from '$lib/server/db/actions/families';
-import { deleteAccount } from '$lib/server/db/actions/accounts';
-import { deleteUser } from '$lib/server/db/actions/users';
-import { deleteCodesByEmail } from '$lib/server/db/actions/codes';
+import {
+	createFamily,
+	createNewUser,
+	db,
+	eq,
+	families,
+	familyMembers,
+	getSessionCookie,
+	teardownTestUser
+} from '../testUtils';
 
 const uniqueId = Date.now() + Math.floor(Math.random() * 100000);
 const ownerEmail = `delivered+owner${uniqueId}@resend.dev`;
@@ -16,42 +18,14 @@ let searchUserId = '';
 let familyId = '';
 
 test.beforeEach(async () => {
-	await db
-		.delete(sessions)
-		.where(eq(sessions.userId, ownerId))
-		.catch(() => {});
-	await db
-		.delete(sessions)
-		.where(eq(sessions.userId, searchUserId))
-		.catch(() => {});
+	await teardownTestUser({ email: ownerEmail });
+	await teardownTestUser({ email: searchUserEmail });
+	if (familyId) await db.delete(families).where(eq(families.id, familyId));
 
-	const existingOwner = await db.select().from(users).where(eq(users.email, ownerEmail));
-	if (existingOwner[0]) {
-		await db.delete(familyMembers).where(eq(familyMembers.userId, existingOwner[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, existingOwner[0].id));
-		await db.delete(families).where(eq(families.id, familyId));
-		await db.delete(sessions).where(eq(sessions.userId, existingOwner[0].id));
-		await deleteCodesByEmail(ownerEmail);
-		await deleteUser(existingOwner[0].id);
-	}
-
-	const existingSearch = await db.select().from(users).where(eq(users.email, searchUserEmail));
-	if (existingSearch[0]) {
-		await db.delete(familyMembers).where(eq(familyMembers.userId, existingSearch[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, existingSearch[0].id));
-		await db.delete(sessions).where(eq(sessions.userId, existingSearch[0].id));
-		await deleteCodesByEmail(searchUserEmail);
-		await deleteUser(existingSearch[0].id);
-	}
-
-	const owner = await import('$lib/server/utils/createNewUser').then((m) =>
-		m.createNewUser('Test', 'Owner', ownerEmail)
-	);
+	const owner = await createNewUser('Test', 'Owner', ownerEmail);
 	ownerId = owner.id;
 
-	const searchUser = await import('$lib/server/utils/createNewUser').then((m) =>
-		m.createNewUser('Search', 'User', searchUserEmail)
-	);
+	const searchUser = await createNewUser('Search', 'User', searchUserEmail);
 	searchUserId = searchUser.id;
 
 	const family = await createFamily({ name: 'Test Family', color: '#3b82f6' });
@@ -61,26 +35,9 @@ test.beforeEach(async () => {
 });
 
 test.afterEach(async () => {
-	const owner = await db.select().from(users).where(eq(users.email, ownerEmail));
-	if (owner[0]) {
-		await db.delete(familyMembers).where(eq(familyMembers.userId, owner[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, owner[0].id));
-		await db.delete(families).where(eq(families.id, familyId));
-		await db.delete(sessions).where(eq(sessions.userId, owner[0].id));
-		await deleteCodesByEmail(ownerEmail);
-		await deleteUser(owner[0].id);
-		await deleteAccount(ownerEmail);
-	}
-
-	const searchUser = await db.select().from(users).where(eq(users.email, searchUserEmail));
-	if (searchUser[0]) {
-		await db.delete(familyMembers).where(eq(familyMembers.userId, searchUser[0].id));
-		await db.delete(calendars).where(eq(calendars.ownerId, searchUser[0].id));
-		await db.delete(sessions).where(eq(sessions.userId, searchUser[0].id));
-		await deleteCodesByEmail(searchUserEmail);
-		await deleteUser(searchUser[0].id);
-		await deleteAccount(searchUserEmail);
-	}
+	await teardownTestUser({ email: ownerEmail });
+	await teardownTestUser({ email: searchUserEmail });
+	if (familyId) await db.delete(families).where(eq(families.id, familyId));
 });
 
 test('Member search and selection', async ({ page }) => {

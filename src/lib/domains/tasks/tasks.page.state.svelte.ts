@@ -201,7 +201,7 @@ export class TasksPageState {
 	);
 	visibleDone = $derived(this.filteredDone.filter((row) => this.inView(row)));
 	matched = $derived([...this.visibleOpen, ...this.visibleDone]);
-	counts = $derived(taskBucketCounts(this.matched, this.clock()));
+	counts = $derived.by(() => taskBucketCounts(this.matched, this.clock()));
 	rows = $derived(
 		this.matched
 			.filter(
@@ -212,7 +212,7 @@ export class TasksPageState {
 			.sort((a, b) => sortTaskRows(a, b, this.sortBy, this.clock()))
 	);
 	split = $derived(splitTasksByRecurrence(this.rows));
-	completedThisWeek = $derived(countTasksCompletedThisWeek(this.completedTasks, this.clock()));
+	completedThisWeek = $derived.by(() => countTasksCompletedThisWeek(this.completedTasks, this.clock()));
 
 	tagFilterActive = $derived(this.tagFilter.trim().length > 0);
 	queryActive = $derived(this.searchQuery.trim().length > 0);

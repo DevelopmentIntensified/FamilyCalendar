@@ -105,7 +105,7 @@ describe('canReadTask', () => {
 describe('canMutateTask', () => {
 	const personal = {
 		userId: 'owner',
-		familyId: null,
+		familyId: null as string | null,
 		assignedTo: null as string | null,
 		assignmentStatus: null as string | null
 	};

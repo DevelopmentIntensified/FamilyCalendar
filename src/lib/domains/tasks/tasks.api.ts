@@ -11,9 +11,9 @@ import { createApiClient, type ApiResult } from '$lib/kernel/client/apiClient';
 import type {
 	FocusSessionWire,
 	TaskCategoryWire,
-	TaskCreateBody,
+	TaskCreatePayload,
 	TaskListRowWire,
-	TaskUpdateBody,
+	TaskUpdatePayload,
 	TaskWithTagsWire,
 	TaskWire
 } from './tasks.contract';
@@ -29,9 +29,9 @@ export function createTasksApi(client = createApiClient()) {
 		// --- Tasks --------------------------------------------------------------
 		listForEvent: (eventId: string): Promise<ApiResult<{ tasks: TaskListRowWire[] }>> =>
 			client.request('GET', `/api/tasks?eventId=${encodeURIComponent(eventId)}`),
-		create: (body: TaskCreateBody): Promise<ApiResult<{ success: true; task: TaskWithTagsWire }>> =>
+		create: (body: TaskCreatePayload): Promise<ApiResult<{ success: true; task: TaskWithTagsWire }>> =>
 			client.request('POST', '/api/tasks', body),
-		update: (taskId: string, body: TaskUpdateBody): Promise<ApiResult<TaskMutationAnswer>> =>
+		update: (taskId: string, body: TaskUpdatePayload): Promise<ApiResult<TaskMutationAnswer>> =>
 			client.request('PUT', `/api/tasks/${encodeURIComponent(taskId)}`, body),
 		remove: (taskId: string): Promise<ApiResult<{ success: true }>> =>
 			client.request('DELETE', `/api/tasks/${encodeURIComponent(taskId)}`),
