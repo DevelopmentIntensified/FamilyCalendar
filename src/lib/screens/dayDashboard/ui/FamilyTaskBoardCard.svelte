@@ -11,9 +11,9 @@
 	import MentionInput from '$lib/kernel/ui/MentionInput.svelte';
 	import { idColor } from '$lib/kernel/ui/colorHash';
 	import { TaskCategoryField } from '$lib/domains/tasks/ui';
-	import { taskPriorityDot } from '$lib/domains/tasks';
+	import { groupFamilyBoard, taskPriorityDot } from '$lib/domains/tasks';
 	import type { DashboardFamilyTaskRow, DashboardRosterRow } from '../dayDashboard.contract';
-	import { dashboardDueTone, groupBoardTasks } from '../dayDashboard.cards.rules';
+	import { dashboardDueTone } from '../dayDashboard.cards.rules';
 	import type { DayDashboardState } from '../dayDashboard.state.svelte';
 
 	interface Props {
@@ -46,9 +46,9 @@
 	}
 
 	const columns = $derived(
-		groupBoardTasks(tasks, {
+		groupFamilyBoard(tasks, {
 			rosterIds: members.map((member) => member.userId),
-			meId,
+			viewerId: meId,
 			nameFor: memberName,
 			now
 		})

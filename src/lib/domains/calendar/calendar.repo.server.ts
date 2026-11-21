@@ -187,6 +187,23 @@ export async function findWindowEventRows(db: Db, query: WindowQuery): Promise<E
 }
 
 /**
+ * The archive read's rows: every Event on ONE calendar that started at or
+ * before `beforeIso`, in start order. No occurrence expansion and no window
+ * upper bound — the archive shows the masters as they were entered, which is
+ * why a moved occurrence still appears at its original time (#292 G16).
+ */
+export async function findArchivedEventRows(
+	db: Db,
+	query: { readonly calendarId: string; readonly beforeIso: string }
+): Promise<EventRow[]> {
+	return await db
+		.select()
+		.from(events)
+		.where(and(eq(events.calendarId, query.calendarId), lte(events.start, query.beforeIso)))
+		.orderBy(events.start);
+}
+
+/**
  * Ids among `eventIds` the viewer may read: their own Events plus Events on a
  * calendar they can see (the bulk edit's editable set).
  */

@@ -11,7 +11,6 @@ import {
 	dashboardDueTone,
 	familyBoardTaskBody,
 	glanceRsvpVisual,
-	groupBoardTasks,
 	groupKidsSchedule,
 	initialsFromName,
 	orderGlanceEvents,
@@ -187,77 +186,6 @@ describe('glanceRsvpVisual', () => {
 	it('dims a declined row and rings a going one (the legacy container classes)', () => {
 		expect(glanceRsvpVisual('declined')?.containerClass).toBe('opacity-60 saturate-50');
 		expect(glanceRsvpVisual('going')?.containerClass).toContain('ring-emerald-400/60');
-	});
-});
-
-type BoardRow = {
-	readonly id: string;
-	readonly title: string;
-	readonly dueDate: string | null;
-	readonly completedAt: string | null;
-	readonly assignedTo: string | null;
-	readonly userId: string;
-};
-
-const boardRow = (
-	id: string,
-	overrides: Partial<BoardRow> = {}
-): BoardRow => ({
-	id,
-	title: id,
-	dueDate: null,
-	completedAt: null,
-	assignedTo: null,
-	userId: 'user-me',
-	...overrides
-});
-
-describe('groupBoardTasks', () => {
-	const NOW = new Date(2026, 10, 2, 12, 0, 0, 0);
-	const names: Record<string, string> = {
-		'user-me': 'Riley Chen',
-		'user-mia': 'Mia Rivera',
-		'user-zed': 'Zed Rivera'
-	};
-
-	it('keeps a column for a member with nothing assigned, viewer first then by name', () => {
-		const columns = groupBoardTasks([], {
-			rosterIds: ['user-mia', 'user-me', 'user-zed'],
-			meId: 'user-me',
-			nameFor: (id) => names[id] ?? id,
-			now: NOW
-		});
-		expect(columns.map((column) => [column.ownerId, column.name, column.tasks.length])).toEqual([
-			['user-me', 'Riley Chen', 0],
-			['user-mia', 'Mia Rivera', 0],
-			['user-zed', 'Zed Rivera', 0]
-		]);
-	});
-
-	it('falls back to the creator when a Task is unassigned, and keeps an ex-member column', () => {
-		const columns = groupBoardTasks(
-			[
-				boardRow('task-unassigned', { userId: 'user-mia' }),
-				boardRow('task-gone', { userId: 'user-left', assignedTo: 'user-left' })
-			],
-			{ rosterIds: ['user-me', 'user-mia'], meId: 'user-me', nameFor: (id) => names[id] ?? id, now: NOW }
-		);
-		expect(columns.map((column) => column.ownerId)).toEqual(['user-me', 'user-mia', 'user-left']);
-		expect(columns[1]?.tasks.map((row) => row.id)).toEqual(['task-unassigned']);
-	});
-
-	it('orders a column overdue → today → later → none, then earliest due, then title', () => {
-		const columns = groupBoardTasks(
-			[
-				boardRow('none-b', { title: 'B', assignedTo: 'user-me' }),
-				boardRow('later', { dueDate: '2026-11-05T09:00:00.000Z', assignedTo: 'user-me' }),
-				boardRow('none-a', { title: 'A', assignedTo: 'user-me' }),
-				boardRow('today', { dueDate: '2026-11-02T18:00:00.000Z', assignedTo: 'user-me' }),
-				boardRow('overdue', { dueDate: '2026-11-01T09:00:00.000Z', assignedTo: 'user-me' })
-			],
-			{ rosterIds: ['user-me'], meId: 'user-me', nameFor: (id) => names[id] ?? id, now: NOW }
-		);
-		expect(columns[0]?.tasks.map((row) => row.id)).toEqual(['overdue', 'today', 'later', 'none-a', 'none-b']);
 	});
 });
 

@@ -36,10 +36,12 @@ export {
 } from './calendar.calendars.service.server';
 export {
 	listEventsInWindow,
+	listArchivedEvents,
 	createEvent,
 	updateEvent,
 	deleteEvent,
 	getEventForViewer,
+	type CalendarArchivedEvent,
 	type CalendarRangedEvents,
 	type CalendarRangedEvent,
 	type CalendarEventWriteResult,

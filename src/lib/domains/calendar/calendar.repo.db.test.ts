@@ -28,6 +28,7 @@ import {
 	deleteMirrorRows,
 	ensurePersonalCalendarRow,
 	findAccessibleCalendarIds,
+	findArchivedEventRows,
 	findCalendar,
 	findEvent,
 	findException,
@@ -289,6 +290,43 @@ describe('event reads', () => {
 		const rows = await listEventsByCalendar(db, PERSONAL);
 		expect(rows.map((row) => row.id)).toEqual(['evtearlier01', 'evtlater0001']);
 	});
+
+	rollbackTest(
+		'findArchivedEventRows takes one calendar, cuts off after beforeIso and orders by start',
+		async (db) => {
+			const viewer = await seedUser(db);
+			await seedCalendarRow(PERSONAL, { ownerId: viewer.id }, db);
+			await seedFamilyCalendar(FAMILY_CAL, 'famone000001', db);
+			for (const [id, start] of [
+				['evtold000001', '2026-01-10T09:00:00.000Z'],
+				['evtolder0001', '2025-12-01T09:00:00.000Z'],
+				['evtfuture001', '2026-12-01T09:00:00.000Z']
+			] as const) {
+				await seedEventRow(
+					{ id, ownerId: viewer.id, calendarId: PERSONAL, title: id, start },
+					db
+				);
+			}
+			await seedEventRow(
+				{
+					id: 'evtfamilyold',
+					ownerId: viewer.id,
+					calendarId: FAMILY_CAL,
+					title: 'Family',
+					start: '2026-01-05T09:00:00.000Z'
+				},
+				db
+			);
+
+			const rows = await findArchivedEventRows(db, {
+				calendarId: PERSONAL,
+				beforeIso: '2026-02-01T00:00:00.000Z'
+			});
+
+			// Start order, the future row excluded, and never the other calendar's.
+			expect(rows.map((row) => row.id)).toEqual(['evtolder0001', 'evtold000001']);
+		}
+	);
 });
 
 describe('event writes', () => {

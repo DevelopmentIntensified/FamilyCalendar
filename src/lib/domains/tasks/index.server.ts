@@ -106,3 +106,5 @@ export {
 // --- Page loads ---------------------------------------------------------------
 
 export { tasksPageLoad } from './tasks.http.server';
+export { statsPageLoad } from './tasks.http.server';
+export { archiveEndpoint, archivePageLoad } from './tasks.archive.http.server';

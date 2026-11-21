@@ -6,8 +6,8 @@
  * Legacy homes, one definition each: `utils/taskUrgency.ts` (buckets, late
  * chip, flat comparator, jump-bar labels), `utils/taskSort.ts` (the non-urgency
  * keys), `utils/taskRecurrence.ts` (the one-off/recurring split) and the page's
- * own `matchesChip`/`matchesSearch`/`matchesTagFilter`. The legacy modules stay
- * for dashboard/family until their ports; this file is the tasks UI's copy.
+ * own `matchesChip`/`matchesSearch`/`matchesTagFilter`. Every legacy file is
+ * deleted: this file is the one home.
  */
 
 import { systemClock } from '$lib/kernel/time/clock';
@@ -117,7 +117,18 @@ export function isTaskDueToday(
 	return at >= startOfLocalDay(now).getTime() && at <= endOfLocalDay(now);
 }
 
-export function taskUrgencyBucket(task: TaskPageRow, now: Date = systemClock.now()): TaskUrgencyBucket {
+/**
+ * The fields the urgency order reads. Narrow on purpose: the board's rows
+ * (`tasks.board.rules.ts`) carry no notes, tags or priority, and they still
+ * sort through this one comparator.
+ */
+export type TaskUrgencyRow = {
+	readonly title: string;
+	readonly dueDate: string | null;
+	readonly completedAt: string | null;
+};
+
+export function taskUrgencyBucket(task: TaskUrgencyRow, now: Date = systemClock.now()): TaskUrgencyBucket {
 	if (task.completedAt) return 'done';
 	if (isTaskOverdue(task.dueDate, now)) return 'overdue';
 	if (isTaskDueToday(task.dueDate, now)) return 'today';
@@ -158,7 +169,7 @@ function priorityRank(priority: string | null | undefined): number {
 }
 
 /** overdue → today → up next → done, then by due date (undated last), then title. */
-export function compareTaskUrgency(a: TaskPageRow, b: TaskPageRow, now: Date = systemClock.now()): number {
+export function compareTaskUrgency(a: TaskUrgencyRow, b: TaskUrgencyRow, now: Date = systemClock.now()): number {
 	const rankA = BUCKET_RANK[taskUrgencyBucket(a, now)];
 	const rankB = BUCKET_RANK[taskUrgencyBucket(b, now)];
 	if (rankA !== rankB) return rankA - rankB;

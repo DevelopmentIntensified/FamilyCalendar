@@ -33,6 +33,13 @@ export { nextCursorDue } from './tasks.cursor.rules';
 export { computeWeeklyStreak } from './tasks.stats.rules';
 export { rankTasks } from './tasks.ranking.rules';
 export { mergeDayCompletions } from './tasks.list.rules';
+export {
+	familyBoardOwnerId,
+	groupFamilyBoard,
+	type FamilyBoardColumn,
+	type FamilyBoardGrouping,
+	type FamilyBoardRow
+} from './tasks.board.rules';
 
 // --- Browser client and UI state ---------------------------------------------
 
@@ -50,7 +57,9 @@ export type {
 	TaskRosterMember,
 	TaskCategoryItem,
 	TaskSections,
-	TaskPageData
+	TaskPageData,
+	TaskArchiveEvent,
+	TaskArchivePage
 } from './tasks.contract';
 export {
 	TASK_CHIPS,

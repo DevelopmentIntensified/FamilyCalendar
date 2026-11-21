@@ -774,6 +774,50 @@ export type TaskSections = {
 	readonly warnings: readonly string[];
 };
 
+/**
+ * One archived Event as `GET /api/archive` (and the archive page) carries it:
+ * the `events` row verbatim, with `start`/`end` parsed and the calendar's label.
+ *
+ * `end` is the epoch when the Event has none — what the page has always
+ * printed, and what the Android spec pins. `calendar` is the badge: 'Personal
+ * calendar', the family's name, or null for a row with no calendar at all.
+ */
+export type TaskArchiveEvent = {
+	readonly id: string;
+	readonly calendarId: string | null;
+	readonly ownerId: string;
+	readonly title: string;
+	readonly start: Date;
+	readonly end: Date;
+	readonly description: string | null;
+	readonly location: string | null;
+	readonly allDay: boolean;
+	readonly recurrenceFrequency: string | null;
+	readonly recurrenceInterval: number | null;
+	readonly recurrenceByDay: readonly string[] | null;
+	readonly recurrenceCount: number | null;
+	readonly recurrenceUntil: string | null;
+	readonly reminderMinutes: number | null;
+	readonly mirrorOf: string | null;
+	readonly created_at: string | Date;
+	readonly calendar: string | null;
+};
+
+/**
+ * The `/calendar/archive` data (and the `GET /api/archive` body): the rows —
+ * none when the plan has no archive — and the gate's own facts either way.
+ * `reason` is present only on the refusal.
+ */
+export type TaskArchivePage = {
+	readonly events: readonly TaskArchiveEvent[];
+	readonly archiveAllowed: boolean;
+	readonly reason?: string;
+	readonly planName: string;
+	readonly familyCount: number;
+	readonly retentionDays: number;
+	readonly archivedRetentionDays: number;
+};
+
 /** Everything the `/calendar/tasks` page (and its Screen) reads from `data`. */
 export type TaskPageData = {
 	readonly user?: { readonly id: string } | null;
