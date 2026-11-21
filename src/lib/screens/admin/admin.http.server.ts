@@ -87,7 +87,10 @@ async function resolveFromForm(
 	const id = (await event.request.formData()).get('id');
 	if (typeof id === 'string' && id.length > 0) {
 		try {
-			await resolveFeedback(ctx, actor, kind, id);
+			// `resolveFeedback`'s two overloads pin the row each kind returns, so
+			// a union kind cannot reach it; the branch is the same call either way.
+			if (kind === 'bug') await resolveFeedback(ctx, actor, 'bug', id);
+			else await resolveFeedback(ctx, actor, 'phrase', id);
 		} catch (cause) {
 			if (!isAppError(cause) || cause.status !== 404) throw cause;
 		}
