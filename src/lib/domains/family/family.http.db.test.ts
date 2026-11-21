@@ -1882,6 +1882,15 @@ describe('POST /api/families/{id}/members/child', () => {
 		});
 	});
 
+	// Q-115 (answered B, 2026-11-18): a non-string name reaches the door's
+	// existing missing-name 400 instead of the legacy crash.
+	it('answers First name is required for a non-string name (Q-115 B)', async () => {
+		const { bob } = await seedFamilyRoster();
+		const res = await add(bob, 'fam-1', { ...valid, firstName: 5 });
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'First name is required' });
+	});
+
 	it('creates a verified child account, a child membership and an append-only consent record', async () => {
 		const { bob } = await seedFamilyRoster();
 		const res = await add(bob, 'fam-1', {
@@ -2095,12 +2104,12 @@ describe('POST /api/families/{id}/members/email/link', () => {
 	});
 });
 
-// golden from spec: legacy handler not runnable here (imports `$env/static/private` and sends email through Resend).
-// Written from docs/guides/task-api-spec.md (G10e) and the legacy route test
+// golden from spec: written before S6 from docs/guides/task-api-spec.md (G10e)
+// and the legacy route test
 // src/routes/(family)/family/[familyId]/members/add/email/server.test.ts.
-// Unskip at S6: family S5 adds the kernel `mail` port, so goldenCtx can hand the
-// handler a fake and the success case can assert the minted row without mail.
-describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => {
+// S6 replaced the legacy handler with family's endpoint (which sends through
+// ctx.mail), so the suite runs now and the skip is gone, as that note required.
+describe('POST /api/families/{id}/members/email (golden from spec)', () => {
 	// A caller that counts the rate-limit budget passes its own `c`; every
 	// other caller gets a fresh ctx per request, as before.
 	const invokeSend = async (
@@ -2156,6 +2165,18 @@ describe.skip('POST /api/families/{id}/members/email (golden from spec)', () => 
 		const badNames = await invokeSend(ann, 'fam-1', { ...valid, lastName: '' }, '10.2.0.5');
 		expect(badNames.status).toBe(400);
 		expect(badNames.body).toEqual({
+			success: false,
+			error: 'First and last name are required'
+		});
+	});
+
+	// Q-115 (answered B, 2026-11-18): the door stops accepting a number as a
+	// name and answers its existing missing-name 400.
+	it('answers the missing-name 400 for a non-string name (Q-115 B)', async () => {
+		const { ann } = await seedFamilyRoster();
+		const res = await invokeSend(ann, 'fam-1', { ...valid, firstName: 5 }, '10.2.0.8');
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({
 			success: false,
 			error: 'First and last name are required'
 		});
