@@ -1,7 +1,4 @@
-import { test, expect } from '../testUtils';
-import { loginWithSession } from '../testUtils';
-import { createEvent } from '../../src/lib/server/db/actions/events';
-import { getUserCalendar } from '../../src/lib/server/db/actions/calendar';
+import { test, expect, createEvent, getUserCalendar, loginWithSession } from '../testUtils';
 
 function pad(n: number) {
 	return String(n).padStart(2, '0');

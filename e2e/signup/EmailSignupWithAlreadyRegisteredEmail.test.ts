@@ -1,12 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { deleteAccount } from '../../src/lib/server/db/actions/accounts';
-import { deleteUserByEmail } from '../../src/lib/server/db/actions/users';
-import { deleteCodesByEmail } from '../../src/lib/server/db/actions/codes';
-import { db } from '../../src/lib/server/db';
-import { createNewUser } from '../../src/lib/server/utils/createNewUser';
-import { calendars, users } from '../../src/lib/server/db/schema';
 import { SignUpPage } from '../pageObjects/signup';
-import { eq } from 'drizzle-orm';
+import { createNewUser, teardownTestUser } from '../testUtils';
 
 const firstName = 'test';
 const lastName = 'alreadyregistered';
@@ -17,13 +11,7 @@ test.beforeEach(async () => {
 });
 
 test.afterEach(async () => {
-	const user = await db.select().from(users).where(eq(users.email, email));
-	if (user[0]) {
-		await db.delete(calendars).where(eq(calendars.ownerId, user[0].id));
-	}
-	await deleteAccount(email);
-	await deleteUserByEmail(email);
-	await deleteCodesByEmail(email);
+	await teardownTestUser({ email });
 });
 
 test('Email Sign Up With Already Registered Email', async ({ page }) => {

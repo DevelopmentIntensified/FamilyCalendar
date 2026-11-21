@@ -250,6 +250,14 @@ export const TaskCreateBody = z.object(
 );
 export type TaskCreateBody = z.infer<typeof TaskCreateBody>;
 
+/**
+ * What a CALLER sends (`POST /api/tasks`'s input side): any subset of the keys
+ * the schema reads — the browser sends the fields it has, the schema refines
+ * them and refuses what it must. `z.input` alone still marks the preprocessed
+ * keys (`notes`, `dueDate`, `eventId`) as present, which no caller sets all of.
+ */
+export type TaskCreatePayload = Partial<z.input<typeof TaskCreateBody>>;
+
 // --- PUT /api/tasks/[id] ----------------------------------------------------
 
 /**
@@ -381,6 +389,13 @@ export const TaskUpdateBody = z.object({
 	tags: z.unknown().optional()
 });
 export type TaskUpdateBody = z.infer<typeof TaskUpdateBody>;
+
+/**
+ * What a CALLER sends (`PUT /api/tasks/[id]`'s input side): one flag, one
+ * assignment answer or a field patch — any subset, which the schema above fills
+ * in (and refuses where it must).
+ */
+export type TaskUpdatePayload = Partial<z.input<typeof TaskUpdateBody>>;
 
 // --- Route parameters -------------------------------------------------------
 

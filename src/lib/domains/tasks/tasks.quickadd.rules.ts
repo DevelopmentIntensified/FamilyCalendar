@@ -11,7 +11,7 @@
 
 import { systemClock } from '$lib/kernel/time/clock';
 import type { TaskQuickAddResult } from '$lib/domains/parsing';
-import type { TaskCreateBody } from './tasks.contract';
+import type { TaskCreatePayload } from './tasks.contract';
 import { normalizeTaskCategoryInput } from './tasks.editor.rules';
 
 /** One record of a pasted list; `tag` is the Canvas item type, '' for plain lists. */
@@ -117,13 +117,13 @@ export type TaskQuickAddFallbacks = {
 export function buildTaskQuickAddBody(
 	parsed: TaskQuickAddResult,
 	fallbacks: TaskQuickAddFallbacks
-): TaskCreateBody {
+): TaskCreatePayload {
 	const dueDate =
 		parsed.dueDate ??
 		fallbacks.dueDateFallback ??
 		(parsed.recurrenceFrequency ? endOfDayIso(fallbacks.now) : null);
 	const category = normalizeTaskCategoryInput(fallbacks.category ?? '');
-	const body: TaskCreateBody = {
+	const body: TaskCreatePayload = {
 		title: parsed.title,
 		dueDate,
 		priority: parsed.priority,
