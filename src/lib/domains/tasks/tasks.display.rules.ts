@@ -98,13 +98,14 @@ export function taskPriorityDot(priority: string): string {
 	return 'bg-slate-300';
 }
 
-/** A pending-assignment pill: amber while the handoff waits. */
+/**
+ * A pending-assignment pill: amber while the handoff waits. A decline
+ * releases the assignee (Q-053), so `declined` is a value the row never holds.
+ */
 export function taskAssignmentTone(status: string | null | undefined): string {
 	return status === 'accepted'
 		? 'bg-emerald-100 text-emerald-700'
-		: status === 'declined'
-			? 'bg-slate-100 text-slate-500'
-			: 'bg-amber-100 text-amber-700';
+		: 'bg-amber-100 text-amber-700';
 }
 
 /**

@@ -39,10 +39,10 @@ import { getStatsPage } from './tasks.stats.service.server';
 // --- Tasks --------------------------------------------------------------------
 
 /**
- * `GET /api/tasks`: the caller's list, or the parent Event's raw rows for
- * `?eventId=`. `listTasks` owns the pin, tags, attribution, private filter and
- * the phone overlay; an unknown Event is `200 {tasks:[]}`, an unreadable one
- * `403 No access to this event`.
+ * `GET /api/tasks`: the caller's list, or the parent Event's rows for
+ * `?eventId=`, both on the ONE list shape (Q-055). `listTasks` owns the pin,
+ * tags, attribution, the private read rule and the phone overlay; an unknown
+ * Event is `200 {tasks:[]}`, an unreadable one `403 No access to this event`.
  */
 export const listTasksEndpoint = endpoint({
 	auth: 'user',

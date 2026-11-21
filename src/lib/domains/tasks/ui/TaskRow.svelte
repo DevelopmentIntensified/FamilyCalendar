@@ -77,8 +77,12 @@
 			task.assignmentStatus !== 'none' &&
 			!(task.assignedTo === task.userId && task.assignmentStatus === 'accepted')
 	);
-	/** Only the owner can be the command's target; assigned-out rows stay bare. */
-	const canFocus = $derived(task.userId === currentUserId && !task.completedAt);
+	/**
+	 * Q-060: everyone who can edit a Task can focus on it. The list draws only
+	 * rows the caller may edit — their own and the assignments they accepted —
+	 * so just a completed row has no focus control.
+	 */
+	const canFocus = $derived(!task.completedAt);
 	/** The due slot turns red when the row also prints its late chip. */
 	const overdue = $derived(slots.some((slot) => slot.kind === 'late'));
 </script>

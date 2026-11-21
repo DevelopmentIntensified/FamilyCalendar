@@ -188,9 +188,10 @@ async function applyToggle(ctx: Ctx, actor: Actor, task: TaskRow): Promise<TaskR
 }
 
 /**
- * Skip the current occurrence: move the cursor forward with NO history row and
- * NO count change, and reopen the row (`completedAt: null`, legacy Q-058). A
- * non-recurring row is the same 404 as an unknown one.
+ * Skip the current occurrence: move the cursor forward with NO history row,
+ * NO count change and NO completion write (Q-058 — skip is not complete, so a
+ * completed row keeps its stamp). A non-recurring row is the same 404 as an
+ * unknown one.
  */
 export async function skipTaskOccurrence(
 	ctx: Ctx,

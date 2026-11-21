@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	canMutateTask,
+	canReadTask,
 	isTaskVisibility,
 	nextAssignmentPatch,
 	normalizeTags,
@@ -68,6 +69,36 @@ describe('normalizeTags', () => {
 	];
 	it.each(cases)('%s', (_label, input, expected) => {
 		expect(normalizeTags(input)).toEqual(expected);
+	});
+});
+
+describe('canReadTask', () => {
+	const row = {
+		userId: 'owner',
+		visibility: 'public',
+		assignedTo: null as string | null
+	};
+
+	const cases: [string, typeof row, string, boolean][] = [
+		['shows a public row to anyone', row, 'sam', true],
+		['shows an unknown-visibility row as public', { ...row, visibility: 'family' }, 'sam', true],
+		['shows a private row to its owner', { ...row, visibility: 'private' }, 'owner', true],
+		['hides a private row from another member', { ...row, visibility: 'private' }, 'sam', false],
+		[
+			'shows a private row to its assignee while assigned',
+			{ ...row, visibility: 'private', assignedTo: 'sam' },
+			'sam',
+			true
+		],
+		[
+			'hides a private row from an onlooker while it is assigned',
+			{ ...row, visibility: 'private', assignedTo: 'sam' },
+			'ada',
+			false
+		]
+	];
+	it.each(cases)('%s', (_label, task, viewer, expected) => {
+		expect(canReadTask(task, viewer)).toBe(expected);
 	});
 });
 

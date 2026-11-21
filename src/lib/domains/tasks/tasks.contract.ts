@@ -37,10 +37,14 @@ import {
 
 // --- Wire copy --------------------------------------------------------------
 
-/** POST/PUT: a title is required (POST) and trimmed. */
+/** POST/PUT: a title is required (POST) and trimmed; a whitespace-only PUT title is refused (Q-054). */
 export const TASK_TITLE_REQUIRED = 'Title is required';
-/** POST: a dueDate that is not a parseable date-time. PUT has no such check (Q-052). */
+/** POST/PUT: a dueDate that is not a parseable date-time (Q-052 validates PUT too). */
 export const TASK_INVALID_DUEDATE = 'Invalid dueDate';
+/** PUT: the completion stamp has one writer (toggle/undo), never the patch (Q-051). */
+export const TASK_COMPLETED_AT_DIRECT = 'completedAt cannot be set directly';
+/** POST: a truthy non-text `notes` (Q-061). A falsy non-string still means "none". */
+export const TASK_NOTES_NOT_STRING = 'notes must be a string';
 /** POST: an eventId that is present but not text. */
 export const TASK_INVALID_EVENT_ID = 'Invalid eventId';
 /** POST/PUT: an explicit visibility outside the enum. */
@@ -171,10 +175,14 @@ export const TaskCreateBody = z.object(
 		title: requiredText(TASK_TITLE_REQUIRED),
 		/**
 		 * Legacy `body.notes || null`: absent and falsy → null, text stored
-		 * verbatim (no trim). Not `.optional()`: a bare title must still parse
-		 * `notes` to `null` so the create seam always writes a value.
+		 * verbatim (no trim). A truthy non-string is refused (Q-061). Not
+		 * `.optional()`: a bare title must still parse `notes` to `null` so the
+		 * create seam always writes a value.
 		 */
-		notes: z.preprocess((value) => value || null, z.string().nullable()),
+		notes: z.preprocess(
+			(value) => value || null,
+			z.string({ error: TASK_NOTES_NOT_STRING }).nullable()
+		),
 		dueDate: z.preprocess(
 			// `''` alone is "no date"; whitespace is text and then fails the parse.
 			(value) => (value === undefined || value === null || value === '' ? null : value),
@@ -250,10 +258,11 @@ export type TaskCreateBody = z.infer<typeof TaskCreateBody>;
  * patch — and this schema describes the patch branch; the three flags ride
  * along (truthiness decides, like legacy) so S6 can read them from one parse.
  *
- * Field rules kept from legacy: a whitespace-only title is ignored (Q-054
- * asks whether to reject it), `dueDate` is NEVER validated (Q-052), a raw
- * `completedAt` is written straight into the column (Q-051), and an
- * assignment response outside accept/decline is ignored.
+ * Field rules (the owner's answers Q-051/Q-052/Q-054): a whitespace-only
+ * `title` answers POST's `Title is required`; `dueDate` is validated exactly
+ * like POST (`Invalid dueDate`); a raw `completedAt` answers `completedAt
+ * cannot be set directly` — the column has one writer (toggle/undo). An
+ * assignment response outside accept/decline is still ignored.
  */
 export const TaskUpdateBody = z.object({
 	undoComplete: z
@@ -272,9 +281,16 @@ export const TaskUpdateBody = z.object({
 		.unknown()
 		.optional()
 		.transform((value): string | null => (typeof value === 'string' ? value : null)),
-	title: z.unknown().optional().transform((value): string | undefined => {
+	title: z.unknown().optional().transform((value, ctx): string | undefined => {
+		if (value === undefined) return undefined;
 		if (typeof value !== 'string') return undefined;
-		return value.trim() ? value.trim() : undefined;
+		const trimmed = value.trim();
+		// Q-054: a whitespace-only title is a refusal, with POST's own copy.
+		if (!trimmed) {
+			ctx.addIssue({ code: 'custom', message: TASK_TITLE_REQUIRED, input: value });
+			return z.NEVER;
+		}
+		return trimmed;
 	}),
 	notes: z
 		.preprocess(
@@ -284,10 +300,16 @@ export const TaskUpdateBody = z.object({
 	dueDate: z
 		.unknown()
 		.optional()
-		.transform((value): string | null | undefined => {
+		.transform((value, ctx): string | null | undefined => {
 			if (value === undefined) return undefined;
-			if (value === null) return null;
-			return typeof value === 'string' ? value || null : undefined;
+			if (value === null || value === '') return null;
+			if (typeof value !== 'string') return undefined;
+			// Q-052: same rule and same copy as POST.
+			if (!isoInstant(TASK_INVALID_DUEDATE).safeParse(value).success) {
+				ctx.addIssue({ code: 'custom', message: TASK_INVALID_DUEDATE, input: value });
+				return z.NEVER;
+			}
+			return value;
 		}),
 	priority: z
 		.unknown()
@@ -350,9 +372,11 @@ export const TaskUpdateBody = z.object({
 		.unknown()
 		.optional()
 		.transform((value, ctx) => categoryValue(value, ctx)),
-	completedAt: z.unknown().optional().transform((value): string | undefined => {
-		if (typeof value !== 'string') return undefined;
-		return Number.isNaN(Date.parse(value)) ? undefined : value;
+	completedAt: z.unknown().optional().transform((value, ctx): undefined => {
+		if (value === undefined) return undefined;
+		// Q-051: the completion stamp is written only by toggle/undo.
+		ctx.addIssue({ code: 'custom', message: TASK_COMPLETED_AT_DIRECT, input: value });
+		return z.NEVER;
 	}),
 	tags: z.unknown().optional()
 });
@@ -535,27 +559,14 @@ export const TaskSectionRowWire = TaskWithTagsWire.extend({
 });
 export type TaskSectionRowWire = z.infer<typeof TaskSectionRowWire>;
 
-/**
- * The `?eventId=` row: the raw table row plus the derived event calendar and
- * phone overlay — no tags, no names, no `eventTitle` (Q-055 keeps today's
- * second shape until the owner decides).
- */
-export const TaskEventRowWire = TaskWire.extend({
-	eventCalendarId: z.string().nullable(),
-	phoneFocusMinutes: z.number().int(),
-	phoneFocusStartedAt: isoInstant().nullable()
-});
-export type TaskEventRowWire = z.infer<typeof TaskEventRowWire>;
-
 // --- Responses --------------------------------------------------------------
 
-/** `GET /api/tasks` (no `?eventId=`). */
+/**
+ * `GET /api/tasks` — both legs (the caller's list and `?eventId=…`, including
+ * the unknown-event `{tasks:[]}` answer) carry the ONE list shape (Q-055).
+ */
 export const TaskListResponse = z.object({ tasks: z.array(TaskListRowWire) });
 export type TaskListResponse = z.infer<typeof TaskListResponse>;
-
-/** `GET /api/tasks?eventId=…` — including the unknown-event `{tasks:[]}` answer. */
-export const TaskEventListResponse = z.object({ tasks: z.array(TaskEventRowWire) });
-export type TaskEventListResponse = z.infer<typeof TaskEventListResponse>;
 
 /** `201` from `POST /api/tasks`. */
 export const TaskCreatedResponse = z.object({ success: z.literal(true), task: TaskWithTagsWire });

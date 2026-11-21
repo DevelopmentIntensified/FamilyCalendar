@@ -102,15 +102,13 @@
 							</p>
 						</div>
 						<Pill
-							tone={task.assignmentStatus === 'accepted'
-								? 'success'
-								: task.assignmentStatus === 'declined'
-									? 'neutral'
-									: 'warning'}
+							tone={task.assignmentStatus === 'accepted' ? 'success' : 'warning'}
 							size="compact"
 							testid="inbox-status"
 						>
-							{task.assignmentStatus ?? 'pending'}
+							<!-- Q-053: a decline releases the assignee, so a row here is
+							     pending or accepted — never a "Declined" state. -->
+							{task.assignmentStatus === 'accepted' ? 'Accepted' : 'Pending'}
 						</Pill>
 					</div>
 				</div>

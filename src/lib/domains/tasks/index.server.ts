@@ -26,7 +26,6 @@ export {
 	clearCompletedTasks,
 	type TaskWithTagsRow,
 	type TaskListRow,
-	type TaskEventRow,
 	type TaskSectionRow,
 	type TaskFamilyBoardRows,
 	type TaskListInput

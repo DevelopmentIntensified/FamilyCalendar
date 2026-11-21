@@ -12,6 +12,7 @@ import type {
 	FocusSessionWire,
 	TaskCategoryWire,
 	TaskCreateBody,
+	TaskListRowWire,
 	TaskUpdateBody,
 	TaskWithTagsWire,
 	TaskWire
@@ -26,7 +27,7 @@ export type TaskFocusSessionList = { sessions: FocusSessionWire[] };
 export function createTasksApi(client = createApiClient()) {
 	return {
 		// --- Tasks --------------------------------------------------------------
-		listForEvent: (eventId: string): Promise<ApiResult<{ tasks: TaskWire[] }>> =>
+		listForEvent: (eventId: string): Promise<ApiResult<{ tasks: TaskListRowWire[] }>> =>
 			client.request('GET', `/api/tasks?eventId=${encodeURIComponent(eventId)}`),
 		create: (body: TaskCreateBody): Promise<ApiResult<{ success: true; task: TaskWithTagsWire }>> =>
 			client.request('POST', '/api/tasks', body),

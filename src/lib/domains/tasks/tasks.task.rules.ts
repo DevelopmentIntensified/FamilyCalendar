@@ -71,6 +71,27 @@ export type TaskMutabilityRow = {
 	readonly assignmentStatus: string | null;
 };
 
+/** The stored fields the read rule reads. */
+export type TaskReadableRow = {
+	readonly userId: string;
+	readonly visibility: string;
+	readonly assignedTo: string | null;
+};
+
+/**
+ * Who may READ a Task out of a shared read — the family legs of `GET
+ * /api/tasks`, the Family Task Board and the Event checklist (Q-005a):
+ *
+ * - a public (or unknown) visibility row is readable by everyone the read
+ *   already scoped;
+ * - a PRIVATE row only by its owner and, while it is assigned, its assignee
+ *   (CONTEXT "Private Task").
+ */
+export function canReadTask(task: TaskReadableRow, viewerId: string): boolean {
+	if (normalizeTaskVisibility(task.visibility) !== 'private') return true;
+	return task.userId === viewerId || task.assignedTo === viewerId;
+}
+
 /**
  * Who may mutate a Task (legacy `auth.canMutateTask`):
  *

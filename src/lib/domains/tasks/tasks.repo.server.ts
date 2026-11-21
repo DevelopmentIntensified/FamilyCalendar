@@ -160,11 +160,11 @@ export async function archiveTaskById(
 }
 
 /**
- * "Clear completed": archive the caller's OWN completed, unarchived rows and
- * report how many moved. Accepted assignments the caller does not own are
- * deliberately left in place (Q-059).
+ * "Clear completed": archive the caller's completed, unarchived rows — their
+ * OWN ones and the assignments they ACCEPTED (Q-059) — and report how many
+ * moved. Another member's row they merely see stays where it is.
  */
-export async function archiveOwnedCompletedTasks(
+export async function archiveViewerCompletedTasks(
 	db: Db,
 	userId: string,
 	nowIso: string
@@ -172,7 +172,16 @@ export async function archiveOwnedCompletedTasks(
 	const archived = await db
 		.update(tasks)
 		.set({ archivedAt: nowIso })
-		.where(and(eq(tasks.userId, userId), isNotNull(tasks.completedAt), isNull(tasks.archivedAt)))
+		.where(
+			and(
+				or(
+					eq(tasks.userId, userId),
+					and(eq(tasks.assignedTo, userId), eq(tasks.assignmentStatus, 'accepted'))
+				),
+				isNotNull(tasks.completedAt),
+				isNull(tasks.archivedAt)
+			)
+		)
 		.returning({ id: tasks.id });
 	return archived.length;
 }
@@ -196,14 +205,15 @@ export async function listTasksForUser(
 }
 
 /**
- * The `?eventId=` read: the event's archived-excluded Task rows, OLDEST first.
- * The raw row shape on purpose — the route adds `eventCalendarId` from its
- * access check, and this read never runs the overdue pin (Q-055).
+ * The `?eventId=` read: the event's archived-excluded Task rows OLDEST first,
+ * on the same Event-joined projection as the main list (Q-055 made the two
+ * answers one shape). This read never runs the overdue pin.
  */
-export async function listTasksForEvent(db: Db, eventId: string): Promise<TaskRow[]> {
-	return await db
-		.select()
-		.from(tasks)
+export async function listTasksForEvent(
+	db: Db,
+	eventId: string
+): Promise<TaskRowWithEvent[]> {
+	return await tasksWithEvent(db)
 		.where(and(eq(tasks.eventId, eventId), isNull(tasks.archivedAt)))
 		.orderBy(tasks.createdAt);
 }
@@ -414,8 +424,8 @@ export async function toggleCompletionGuarded(
 }
 
 /**
- * The skip's cursor move: the next due and a `completedAt: null` — legacy
- * reopens a completed recurring row on skip (Q-058 keeps today's behaviour).
+ * The skip's cursor move: the next due only — skip is not complete, so a
+ * completed row keeps its stamp (Q-058).
  */
 export async function skipCursor(
 	db: Db,
@@ -423,7 +433,7 @@ export async function skipCursor(
 ): Promise<TaskRow | null> {
 	const [row] = await db
 		.update(tasks)
-		.set({ dueDate: values.dueDate, completedAt: null })
+		.set({ dueDate: values.dueDate })
 		.where(eq(tasks.id, values.taskId))
 		.returning();
 	return row ?? null;

@@ -6,8 +6,9 @@
  * route file by PATH (`/api/tasks/<id>`) exactly as legacy read the id:
  * `url.pathname.split('/').pop()`, never `params`. Statuses and bodies are the
  * golden's: `200 {success, task}` for the four PUT branches, `200 {success:true}`
- * for DELETE, and the route's own 500 copy when the raw patch reaches the
- * database (`dueDate: 'not-a-date'` stays unvalidated, Q-052).
+ * for DELETE, and the route's own 500 copy for anything the database refuses.
+ * The body contract now refuses a whitespace-only title (Q-054), a garbage
+ * `dueDate` (Q-052) and a raw `completedAt` (Q-051) before any write.
  *
  * Doc: ./README.md#public-interface
  */

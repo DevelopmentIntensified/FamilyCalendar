@@ -31,6 +31,21 @@ function wireTask(overrides: Partial<TaskWire> = {}): TaskWire {
 	};
 }
 
+/** The `?eventId=` answer carries the list shape (Q-055); this is one such row. */
+function listRow(overrides: Partial<TaskWire> = {}) {
+	return {
+		...wireTask(overrides),
+		tags: [],
+		assigneeFirstName: null,
+		assigneeLastName: null,
+		eventTitle: null,
+		eventStart: null,
+		eventCalendarId: null,
+		phoneFocusMinutes: 0,
+		phoneFocusStartedAt: null
+	};
+}
+
 function fakeApi(overrides: Partial<TasksApi> = {}): TasksApi {
 	const unexpected = async () => {
 		throw new Error('unexpected api call');
@@ -53,7 +68,7 @@ function fakeApi(overrides: Partial<TasksApi> = {}): TasksApi {
 
 describe('EventTaskChecklistState', () => {
 	it('reads the Event rows once per id', async () => {
-		const listForEvent = vi.fn(async () => ({ ok: true as const, data: { tasks: [wireTask()] } }));
+		const listForEvent = vi.fn(async () => ({ ok: true as const, data: { tasks: [listRow()] } }));
 		const state = new EventTaskChecklistState({ api: fakeApi({ listForEvent }), eventId: 'e1' });
 		await state.load('e1');
 		await state.load('e1');
@@ -115,7 +130,7 @@ describe('EventTaskChecklistState', () => {
 		const remove = vi.fn(async () => ({ ok: true as const, data: { success: true as const } }));
 		const state = new EventTaskChecklistState({
 			api: fakeApi({
-				listForEvent: vi.fn(async () => ({ ok: true as const, data: { tasks: [wireTask()] } })),
+				listForEvent: vi.fn(async () => ({ ok: true as const, data: { tasks: [listRow()] } })),
 				update,
 				remove
 			}),
