@@ -166,7 +166,7 @@ describe('the detail form schemas', () => {
 		});
 	});
 
-	it.each<[string, unknown, string, boolean]>([
+	it.each<[string, unknown, string | undefined, boolean]>([
 		["only the literal 'true' enables the switch", 'true', 'groceries', true],
 		["'false' means off", 'false', 'groceries', false],
 		['an absent checkbox means off', undefined, 'groceries', false],

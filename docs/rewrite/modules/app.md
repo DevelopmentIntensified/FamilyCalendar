@@ -81,6 +81,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Notes
 
+- Local Postgres is published on loopback only (`docker-compose.yml`: `127.0.0.1:5433:5432`, `a70d2822`) so the default `postgres/postgres` credentials never answer from the LAN.
 - Cross-module ports to wire in `src/lib/app` when their modules reach S5 ([add-a-port.md](../playbooks/add-a-port.md)): identity takes `CalendarAccessPort` and `AdConsentPort`; family takes `FamilyCalendarPort` and `MemberTasksPort`, both on the caller's transaction ctx. Each module's README › Depends on names them.
 
 ## Census

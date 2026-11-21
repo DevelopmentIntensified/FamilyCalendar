@@ -103,7 +103,7 @@ Each line is a behaviour the port must keep, with the legacy evidence and the te
 
 - May import: kernel + identity, billing, alerts, family, dashboardModules, bills, parsing, calendar, tasks, groceries, verse (public entries only).
 - Owns tables: `adEvents`, `adConsentRecords`.
-- Reads: no other module's table. `FOREIGN_READS.sponsored.events` and the read it declared are gone with [Q-040](../../../../docs/rewrite/questions.md) B (the registry entry must be deleted in the pass that may edit `scripts/arch/registry.mjs`).
+- Reads: no other module's table. `FOREIGN_READS.sponsored.events` and the read it declared are gone with [Q-040](../../../../docs/rewrite/questions.md) B (the entry was deleted from `scripts/arch/registry.mjs` when this branch merged into `rewrite/v2`).
 - Calls: `identity` — `getCalendarSettings` through its `index.server.ts` (the gate's one field and the zone; the view also carries the consent trail, which the gate ignores). That is the whole dependency: the serve path never touches another module's service.
 - Implements for `identity`: `AdConsentPort`, exported as `sponsoredAdConsentPort` and attached by `src/lib/app/ports.server.ts` (identity is rank 1 and never imports this module). The adapter is built from the ctx it is attached to, so it reads that request's database and clock.
 - Declares no port of its own: the draw is seeded from `sha256(userId + 'YYYY-MM')` (Q-041 B), so `src/lib/app/ports.server.ts` wires no sponsored `random`.

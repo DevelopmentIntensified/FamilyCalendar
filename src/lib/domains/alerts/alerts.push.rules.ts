@@ -12,9 +12,28 @@
  * Doc: ./README.md#invariants
  */
 import { z } from '$lib/kernel/validation/validators';
+import type { AlertType } from './alerts.contract';
 
-/** Where an Alert push opens when the Alert carries no link. One default for every type (Q-021). */
+/** Where a task Alert push opens when the Alert carries no link (Q-021). */
 export const ALERT_PUSH_DEFAULT_LINK = '/calendar/tasks';
+
+/**
+ * Where a push opens when its Alert carries no link, by type (Q-021): "X added
+ * you to the family" opens the family page, every task Alert the task page.
+ * Declared once for the whole closed type set, so a sixth type cannot miss a row.
+ */
+const ALERT_PUSH_LINK: Record<AlertType, string> = {
+	added_to_family: '/family',
+	assignment_pending: ALERT_PUSH_DEFAULT_LINK,
+	assignment_accepted: ALERT_PUSH_DEFAULT_LINK,
+	assignment_declined: ALERT_PUSH_DEFAULT_LINK,
+	task_completed: ALERT_PUSH_DEFAULT_LINK
+};
+
+/** The tap target a push of `type` takes when the Alert has no link of its own. */
+export function alertPushLink(type: AlertType): string {
+	return ALERT_PUSH_LINK[type];
+}
 
 /** What a visible push says: the tray title and body, and the tap target. */
 export type PushPayload = {
@@ -39,12 +58,13 @@ export type FcmSendResult = 'sent' | 'unregistered' | 'failed';
 
 /**
  * The push for one new Alert: the title is the actor, the body is the message
- * and the tap target is the Alert's link, or the tasks page when it has none
- * (`added_to_family` and `task_completed` included, Q-021). An empty-string
- * link is a link, so it is kept here and left out of the FCM data by
- * `visibleMessage`.
+ * and the tap target is the Alert's link, or the page its type opens when it
+ * has none (Q-021: the family page for `added_to_family`, the task page for the
+ * rest). An empty-string link is a link, so it is kept here and left out of the
+ * FCM data by `visibleMessage`.
  */
 export function alertPushPayload(alert: {
+	readonly type: AlertType;
 	readonly actorName: string;
 	readonly message: string;
 	readonly link?: string | null;
@@ -52,7 +72,7 @@ export function alertPushPayload(alert: {
 	return {
 		title: alert.actorName,
 		body: alert.message,
-		link: alert.link ?? ALERT_PUSH_DEFAULT_LINK
+		link: alert.link ?? alertPushLink(alert.type)
 	};
 }
 

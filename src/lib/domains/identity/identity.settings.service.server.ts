@@ -132,6 +132,34 @@ export async function setHiddenDashboardModules(
 	);
 }
 
+/**
+ * The stored calendar preferences a CALLER APPLIES ITS OWN DEFAULTS to.
+ *
+ * `getCalendarSettings` answers the account card's merged view, whose no-row
+ * defaults are identity's own (`color: '#3b82f6'`); `calendar` must fall back
+ * to ITS palette (`#fa8072`, Sunday week, no family-sync), so it needs the
+ * stored values with their nulls intact. No row answers all nulls / false.
+ */
+export type StoredCalendarPreferences = {
+	readonly color: string | null;
+	readonly weekStart: string | null;
+	readonly timeZone: string | null;
+	readonly syncEventsToFamilyCalendar: boolean;
+};
+
+export async function getCalendarPreferences(
+	ctx: Ctx,
+	userId: string
+): Promise<StoredCalendarPreferences> {
+	const stored = await findSettingsByPerson(ctx.db, userId);
+	return {
+		color: stored?.color ?? null,
+		weekStart: stored?.weekStart ?? null,
+		timeZone: stored?.timeZone ?? null,
+		syncEventsToFamilyCalendar: stored?.syncEventsToFamilyCalendar ?? false
+	};
+}
+
 /** Display only: a failed trail read answers an empty trail, never a dead card. */
 async function readConsentHistory(
 	ctx: IdentityCtx,

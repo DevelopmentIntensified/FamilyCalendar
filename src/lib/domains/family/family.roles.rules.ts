@@ -12,6 +12,7 @@
  *
  * Doc: ./README.md#invariants
  */
+import { AppError, forbidden, invalid, notFound } from '$lib/kernel/errors/appError';
 
 /** The membership roles, highest first. The 400 copy lists them in this order. */
 export const FAMILY_ROLES = ['creator', 'admin', 'member'] as const;
@@ -33,6 +34,16 @@ export type FamilyRefusal = {
 	readonly status: 400 | 403 | 404;
 	readonly message: string;
 };
+
+/**
+ * The kernel error a rule's refusal becomes at the boundary: one mapping for
+ * every door, so no service invents a second status for a refusal.
+ */
+export function familyRefusalError(refusal: FamilyRefusal): AppError {
+	if (refusal.status === 400) return invalid(refusal.message);
+	if (refusal.status === 404) return notFound(refusal.message);
+	return forbidden(refusal.message);
+}
 
 export function isFamilyRole(value: string): value is FamilyRole {
 	return FAMILY_ROLES.some((role) => role === value);

@@ -11,7 +11,6 @@ import type { JsonValue } from '$lib/kernel/validation/validators';
 import type { FamilyMembershipView } from './family.contract';
 import {
 	buildFamilyCard,
-	cardMembers,
 	cleanMemberIds,
 	familyCreatedLabel,
 	familyDraft,
@@ -20,7 +19,6 @@ import {
 	firstNameOf,
 	hasUnaddablePick,
 	dayOneRosterRefusal,
-	type CardRosterRow,
 	type FamilyDraftResult,
 	type FamilyPatch
 } from './family.families.rules';
@@ -129,45 +127,6 @@ describe('familyPatch: what a rename writes', () => {
 	});
 });
 
-describe('cardMembers: the avatar id is recovered by first name (Q-023, pinned until the fix)', () => {
-	const roster: CardRosterRow[] = [
-		{ familyId: 'f1', userId: 'u-ann', firstName: 'Ann' },
-		{ familyId: 'f1', userId: 'u-sam-1', firstName: 'Sam' },
-		{ familyId: 'f1', userId: 'u-sam-2', firstName: 'Sam' },
-		{ familyId: 'f2', userId: 'u-bea', firstName: 'Bea' }
-	];
-
-	it('gives each distinct first name its own person', () => {
-		expect(cardMembers('f1', ['Ann', 'Sam'], roster)).toEqual([
-			{ firstName: 'Ann', userId: 'u-ann' },
-			{ firstName: 'Sam', userId: 'u-sam-1' }
-		]);
-	});
-
-	it('gives two members who share a first name the FIRST one\'s id', () => {
-		expect(cardMembers('f1', ['Sam', 'Sam'], roster)).toEqual([
-			{ firstName: 'Sam', userId: 'u-sam-1' },
-			{ firstName: 'Sam', userId: 'u-sam-1' }
-		]);
-	});
-
-	it('looks only inside the card\'s own family', () => {
-		expect(cardMembers('f1', ['Bea'], roster)).toEqual([{ firstName: 'Bea', userId: 'roster-0' }]);
-	});
-
-	it('falls back to roster-{index} when no row matches', () => {
-		expect(cardMembers('f1', ['Ann', 'Zed', 'Yan'], roster)).toEqual([
-			{ firstName: 'Ann', userId: 'u-ann' },
-			{ firstName: 'Zed', userId: 'roster-1' },
-			{ firstName: 'Yan', userId: 'roster-2' }
-		]);
-	});
-
-	it('is empty for a family with no names', () => {
-		expect(cardMembers('f1', [], roster)).toEqual([]);
-	});
-});
-
 describe('familyCreatedLabel', () => {
 	it.each<[string, string, string]>([
 		['2026-01-05T12:00:00.000Z', 'UTC', '1/5/2026'],
@@ -186,16 +145,15 @@ describe('buildFamilyCard', () => {
 		role: 'creator',
 		memberType: 'parent',
 		memberCount: 2,
-		firstNames: ['Ann', 'Bob'],
+		members: [
+			{ firstName: 'Ann', userId: 'u-ann' },
+			{ firstName: 'Bob', userId: 'u-bob' }
+		],
 		...overrides
 	});
-	const roster: CardRosterRow[] = [
-		{ familyId: 'f1', userId: 'u-ann', firstName: 'Ann' },
-		{ familyId: 'f1', userId: 'u-bob', firstName: 'Bob' }
-	];
 
 	it('composes the whole card', () => {
-		expect(buildFamilyCard(membership(), 3, roster, 'UTC')).toEqual({
+		expect(buildFamilyCard(membership(), 3, 'UTC')).toEqual({
 			id: 'f1',
 			name: 'Riveras',
 			color: '#c45e38',
@@ -218,14 +176,14 @@ describe('buildFamilyCard', () => {
 		['member', false],
 		[null, false]
 	])('offers "Invite by link" for the viewer\'s role %j: %s', (role, canInvite) => {
-		expect(buildFamilyCard(membership({ role }), 0, roster, 'UTC')).toMatchObject({
+		expect(buildFamilyCard(membership({ role }), 0, 'UTC')).toMatchObject({
 			canInvite,
 			role
 		});
 	});
 
 	it('keeps Member Type out of the card entirely: it gates nothing', () => {
-		const card = buildFamilyCard(membership({ memberType: 'child', role: 'member' }), 0, roster, 'UTC');
+		const card = buildFamilyCard(membership({ memberType: 'child', role: 'member' }), 0, 'UTC');
 		expect(card.canInvite).toBe(false);
 		expect(card).not.toHaveProperty('memberType');
 	});
