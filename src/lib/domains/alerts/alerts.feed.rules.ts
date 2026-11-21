@@ -53,3 +53,29 @@ export function alertCounts(rows: readonly AlertRow[]): AlertCounts {
 		unread: rows.filter(isUnread).length
 	};
 }
+
+/**
+ * The click fields a row cares about. A modified click (new tab, new window,
+ * middle button) belongs to the browser: opening a tab must not race a
+ * read-mark, and the row is a real `<a href>` either way.
+ */
+export type AlertClickEvent = {
+	readonly defaultPrevented: boolean;
+	readonly button: number;
+	readonly metaKey: boolean;
+	readonly ctrlKey: boolean;
+	readonly shiftKey: boolean;
+	readonly altKey: boolean;
+};
+
+/** True only for an unmodified left click the page has not already handled. */
+export function isPlainAlertClick(event: AlertClickEvent): boolean {
+	return (
+		!event.defaultPrevented &&
+		event.button === 0 &&
+		!event.metaKey &&
+		!event.ctrlKey &&
+		!event.shiftKey &&
+		!event.altKey
+	);
+}

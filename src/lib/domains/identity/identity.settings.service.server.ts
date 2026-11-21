@@ -24,7 +24,7 @@ import {
 	ACCOUNT_SETTINGS_DEFAULTS,
 	calendarSettingsView,
 	defaultCalendarToCheck,
-	mergeCalendarSettings
+	newCalendarSettings
 } from './identity.settings.rules';
 import {
 	findSettingsByPerson,
@@ -51,12 +51,13 @@ export async function getCalendarSettings(
 }
 
 /**
- * Applies a validated PATCH exactly as legacy did: only a default calendar
- * THIS patch sets is re-checked for access (a stale stored one is kept on an
- * unrelated change such as `{timeZone}`); the stored row is merged with every
- * null backfilled from the page defaults, then the patch; the row is created
- * or updated through the write allowlist; the ad-consent transition is
- * recorded beside the saved value. Answers the same shape as GET.
+ * Applies a validated PATCH: only a default calendar THIS patch sets is
+ * re-checked for access (a stale stored one is kept on an unrelated change
+ * such as `{timeZone}`). An existing row is written with ONLY the fields the
+ * patch sent (Q-108 B), so a sparse sign-up row keeps its nulls; a person with
+ * no row gets the page defaults plus the patch, because the required columns
+ * have no database default. The ad-consent transition is recorded beside the
+ * saved value. Answers the same shape as GET.
  */
 export async function updateCalendarSettings(
 	ctx: IdentityCtx,
@@ -70,25 +71,22 @@ export async function updateCalendarSettings(
 	}
 
 	const stored = await findSettingsByPerson(ctx.db, actor.id);
-	const previousAdsConsent = stored?.showAdsAsEvents;
-	const input = mergeCalendarSettings(stored, patch);
+	const previousAdsConsent = stored?.showAdsAsEvents ?? null;
+	const nextAdsConsent =
+		patch.showAdsAsEvents ?? previousAdsConsent ?? ACCOUNT_SETTINGS_DEFAULTS.showAdsAsEvents;
 	const now = ctx.clock.now();
 
 	if (stored) {
-		await updateSettings(ctx.db, actor.id, input, now);
+		await updateSettings(ctx.db, actor.id, patch, now);
 	} else {
-		await insertSettings(ctx.db, { userId: actor.id, ...input }, now);
+		await insertSettings(ctx.db, { userId: actor.id, ...newCalendarSettings(patch) }, now);
 	}
 
 	// Evidence beside the setting, not a second gate (#088): the settings are
 	// already written, so a failure here is logged loudly instead of failing
 	// the save.
 	try {
-		await ctx.adConsent.recordConsentChange(
-			actor.id,
-			previousAdsConsent,
-			input.showAdsAsEvents
-		);
+		await ctx.adConsent.recordConsentChange(actor.id, previousAdsConsent, nextAdsConsent);
 	} catch (error) {
 		ctx.log.error('identity_consent_record_failed', {
 			userId: actor.id,
@@ -132,6 +130,34 @@ export async function setHiddenDashboardModules(
 		},
 		now
 	);
+}
+
+/**
+ * The stored calendar preferences a CALLER APPLIES ITS OWN DEFAULTS to.
+ *
+ * `getCalendarSettings` answers the account card's merged view, whose no-row
+ * defaults are identity's own (`color: '#3b82f6'`); `calendar` must fall back
+ * to ITS palette (`#fa8072`, Sunday week, no family-sync), so it needs the
+ * stored values with their nulls intact. No row answers all nulls / false.
+ */
+export type StoredCalendarPreferences = {
+	readonly color: string | null;
+	readonly weekStart: string | null;
+	readonly timeZone: string | null;
+	readonly syncEventsToFamilyCalendar: boolean;
+};
+
+export async function getCalendarPreferences(
+	ctx: Ctx,
+	userId: string
+): Promise<StoredCalendarPreferences> {
+	const stored = await findSettingsByPerson(ctx.db, userId);
+	return {
+		color: stored?.color ?? null,
+		weekStart: stored?.weekStart ?? null,
+		timeZone: stored?.timeZone ?? null,
+		syncEventsToFamilyCalendar: stored?.syncEventsToFamilyCalendar ?? false
+	};
 }
 
 /** Display only: a failed trail read answers an empty trail, never a dead card. */

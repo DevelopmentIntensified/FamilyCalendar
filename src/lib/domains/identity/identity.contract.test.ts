@@ -52,14 +52,13 @@ describe('wire copy', () => {
 });
 
 describe('ApiTokenCreateBody', () => {
-	// accountData.ts:429-443: `name.trim()`, blank refused, then `.slice(0, 60)`.
+	// Q-109 B: cut at 60 code points, then trimmed (accountData.ts:429-443 had
+	// `name.trim().slice(0, 60)` on UTF-16 units).
 	it.each<[string, string, string]>([
 		['trims both ends', '  My phone  ', 'My phone'],
 		['keeps at most 60 characters', 'x'.repeat(70), 'x'.repeat(60)],
-		// Q-109 (post-S6): the cut is on UTF-16 units, so the emoji's high
-		// surrogate is left alone at unit 60 (Postgres then stores U+FFFD).
-		['cuts at 60 UTF-16 units, splitting an emoji', `${'a'.repeat(59)}😀tail`, `${'a'.repeat(59)}\uD83D`],
-		['keeps whitespace that sits before the cut', `${'w'.repeat(58)}   more`, `${'w'.repeat(58)}  `]
+		['keeps an emoji on the boundary whole', `${'a'.repeat(59)}😀tail`, `${'a'.repeat(59)}😀`],
+		['trims the whitespace the cut leaves', `${'w'.repeat(58)}   more`, `${'w'.repeat(58)}`]
 	])('%s', (_label, name, expected) => {
 		expect(ApiTokenCreateBody.parse({ name })).toEqual({ name: expected });
 	});

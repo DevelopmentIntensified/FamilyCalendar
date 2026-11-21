@@ -111,7 +111,7 @@ export const unregisterDeviceEndpoint = endpoint({
 	}
 });
 
-/** `GET /api/push/public-key`: public; the raw key, or `null` when VAPID is unset. */
+/** `GET /api/push/public-key`: public; the key, or `null` unless both VAPID halves are configured (Q-020). */
 export const pushPublicKeyEndpoint = endpoint({
 	auth: 'public',
 	handle: async ({ ctx }) => {

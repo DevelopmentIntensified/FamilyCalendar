@@ -31,7 +31,7 @@ const CARD_MEMBERS = [
 	{ firstName: 'Kim', userId: 'u-7' }
 ];
 
-function row(familyId: string, userId: string, firstName: string | null): FamilyRosterRowView {
+function row(familyId: string, userId: string, firstName: string): FamilyRosterRowView {
 	return {
 		familyId,
 		userId,

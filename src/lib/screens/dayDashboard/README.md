@@ -17,8 +17,12 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | file | role | what it does — and why it exists | tested by |
 |---|---|---|---|
 | [index.ts](index.ts) | entry | Public isomorphic interface: the one `DashboardModel` type tree (+ `DashboardData`, `DashboardPageData`). No logic. | — (types only) |
+| [dayDashboard.contract.ts](dayDashboard.contract.ts) | contract | The zod schema of `GET /api/dashboard?date=`: the regex-only `date` query (an impossible date is the service's fallback, not a 400) and the full resolved payload — header, the ten legs, `warnings` — field for field as the golden pins it. | [dayDashboard.contract.test.ts](dayDashboard.contract.test.ts) |
+| [dayDashboard.cards.rules.ts](dayDashboard.cards.rules.ts) | rules | The two card presentations no domain owns: glance row order (all-day first, then by start) and Kids' Schedule bands (one per child in first-event order, a shared event under both, initials from the name). Pure. | [dayDashboard.cards.rules.test.ts](dayDashboard.cards.rules.test.ts) |
 | [index.server.ts](index.server.ts) | entry | Public server interface: `loadDayDashboard` (page load, data streamed) and `getDayDashboard` (GET /api/dashboard). | [dayDashboard.http.db.test.ts](dayDashboard.http.db.test.ts) |
 | [ui/index.ts](ui/index.ts) | entry | Public component: `DayDashboardPage` (header + info band + card band). Cards stay internal. | — |
+| [dayDashboard.contract.test.ts](dayDashboard.contract.test.ts) | test | Parse tables for the `?date=` query (every refusal, plus the impossible date that passes) and for each wire row: the two task shapes, the day event's colour/source, the ten required legs and the nine header keys. | itself |
+| [dayDashboard.cards.rules.test.ts](dayDashboard.cards.rules.test.ts) | test | Tables for glance ordering and Kids' Schedule grouping, carried from the legacy card tests; no setup. | itself |
 | [dayDashboard.http.db.test.ts](dayDashboard.http.db.test.ts) | test | Golden contract for `GET /api/dashboard?date=`: status, full body, skip rules, warning shape. Runs unchanged before and after the port. | itself |
 
 ## Public interface
@@ -27,7 +31,7 @@ Designed before the code (S1). The deletion test is stated per export: if deleti
 
 - `index.ts`
   - `DashboardModel` — the resolved `/api/dashboard` body: `{ zone, dayISO, isToday, meId, familyId, modules, taskCategories, data, warnings }`, where `data` is `DashboardData`. Cards type their props from it (`DashboardModel['data']['kidsSchedule']`), so no card owns a second wire shape (architecture review 2026-11-10 #3). Deleting it would force every card to re-declare the shape the golden pins.
-  - `DashboardData` — the ten streamed legs (`userTasks`, `familyTasks`, `familyMembers`, `dayEvents`, `top3`, `glance`, `completedToday`, `kidsSchedule`, `familyGroceries`, `mineGroceries`), each typed by the owning domain's contract type. Not a copy: a field is added here only when the golden adds it.
+  - `DashboardData` — the ten streamed legs (`userTasks`, `familyTasks`, `familyMembers`, `dayEvents`, `top3`, `glance`, `completedToday`, `kidsSchedule`, `familyGroceries`, `mineGroceries`), each leg's wire row schema living in `dayDashboard.contract.ts` and built field for field from the golden. Not a copy of a legacy type: a field is added here only when the golden adds it, and the two task legs are separate schemas because their legacy reads select different columns.
   - `DashboardPageData` — `Omit<DashboardModel, 'data' | 'warnings'> & { data: Promise<DashboardData>; loadWarnings: string[] }`: what the page load returns while the band streams. One derivation of the model, so the page cannot drift from the API.
 - `index.server.ts`
   - `loadDayDashboard` — the page's `load`: auth `user` (302 `/login`), reads settings/family/roster from `parent()` (the group layout already loaded them), starts the category read before `parent()`, returns the header and a streamed `data` promise. The one composition, so the page has no second one.
@@ -35,10 +39,13 @@ Designed before the code (S1). The deletion test is stated per export: if deleti
 - `ui/index.ts`
   - `DayDashboardPage` — the whole page body (document title, day header + DayNav URLs, warning banner, info band, streamed card band). One export because the route renders one component; the seven cards are composition detail and stay internal (deleting an export that no screen or route may import fails the deletion test).
 
+Module-internal (not entry exports; the cards and this screen's S5/S6 composition import them directly): `dayDashboard.contract.ts` — `DASHBOARD_INVALID_DATE`, `DashboardDayQuery`, and the `DashboardModel` / `DashboardData` schemas with their row schemas; `dayDashboard.cards.rules.ts` — `orderGlanceEvents`, `groupKidsSchedule`, `initialsFromName` and their row types.
+
 ## How to test
 
 - Whole module: `npm run test:mod -- dayDashboard` (add `--legacy` while the legacy dashboard tests remain).
 - HTTP contract: `dayDashboard.http.db.test.ts` — committed mode (`beforeEach(truncateAll)`), real Postgres (`docker start familycalendar-db`), the ROUTE module imported by relative path. Verification runs with `TZ=UTC` (production parity), because two Task fields reach the wire as the driver's Postgres render rather than ISO. Covers 401, every 400 wording, the full 200 body, absent `?date=`, an impossible date, the viewer-zone read, and the module-skip case. There is no 403/404/409/429 branch on this route, so there is no golden for them.
+- Contract (S3): `dayDashboard.contract.test.ts` — parse tables for the `?date=` query (the regex, the impossible date it lets through) and for the resolved payload; no setup.
 - Pure screen rules (S3): `dayDashboard.cards.rules.test.ts` — tables for glance ordering and Kids' Schedule grouping, no setup.
 - Service (S5): `dayDashboard.service.db.test.ts` — one test per leg's degrade path (`rollbackTest`, `testCtx({ db, now })`); this is where a failing leg's warning label is pinned, because a DB failure cannot be forced in a golden that forbids `vi.mock` (R9).
 - UI (S7): `ui/*.svelte.test.ts` with props only; `ui/dayDashboard.state.test.ts` in node with a fake api (no DOM, no fetch).
