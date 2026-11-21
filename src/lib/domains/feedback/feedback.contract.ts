@@ -195,6 +195,24 @@ export const UnmatchedPhraseResolvedResponse = z.object({
 });
 export type UnmatchedPhraseResolvedResponse = z.infer<typeof UnmatchedPhraseResolvedResponse>;
 
+// --- Register shapes (page data, not the wire) -----------------------------
+
+/**
+ * One admin register as the page load and the register components carry it:
+ * rows with real `Date`s from the service. The `/api` twins serialize the
+ * same rows through the `*Response` schemas above.
+ */
+export type FeedbackBugRegister = {
+	readonly open: BugReportWithReporter[];
+	readonly resolved: BugReportWithReporter[];
+};
+
+/** The unmatched-phrase register, open and resolved. */
+export type FeedbackPhraseRegister = {
+	readonly open: UnmatchedPhraseView[];
+	readonly resolved: UnmatchedPhraseView[];
+};
+
 // --- Server-side row shapes ------------------------------------------------
 
 /**

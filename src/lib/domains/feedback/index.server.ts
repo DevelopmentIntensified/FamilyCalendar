@@ -24,7 +24,4 @@ export {
 	reportUnmatchedPhrase,
 	resolveFeedback
 } from './feedback.service.server';
-export type {
-	FeedbackBugRegister,
-	FeedbackPhraseRegister
-} from './feedback.service.server';
+export type { FeedbackBugRegister, FeedbackPhraseRegister } from './feedback.contract';

@@ -22,7 +22,9 @@ import {
 	BUG_REPORT_INVALID_MESSAGE,
 	type BugReportInput,
 	type BugReportWithReporter,
+	type FeedbackBugRegister,
 	type FeedbackKind,
+	type FeedbackPhraseRegister,
 	type UnmatchedPhraseBody,
 	type UnmatchedPhraseView
 } from './feedback.contract';
@@ -44,18 +46,6 @@ import {
 
 /** One auto report per failure key per ten minutes (legacy `THROTTLE_MS`). */
 const AUTO_REPORT_WINDOW_MS = 10 * 60 * 1000;
-
-/** The bug-report register: rows plus the reporter's names from the `users` join. */
-export type FeedbackBugRegister = {
-	readonly open: BugReportWithReporter[];
-	readonly resolved: BugReportWithReporter[];
-};
-
-/** The unmatched-phrase register, open and resolved. */
-export type FeedbackPhraseRegister = {
-	readonly open: UnmatchedPhraseView[];
-	readonly resolved: UnmatchedPhraseView[];
-};
 
 /** The 404 copy each register uses for an unknown id. */
 const NOT_FOUND_MESSAGE: Readonly<Record<FeedbackKind, string>> = {

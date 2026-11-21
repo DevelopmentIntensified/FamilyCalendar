@@ -16,7 +16,8 @@
  */
 import { fail } from '@sveltejs/kit';
 import type { BugReportRow, UnmatchedPhraseRow } from '$lib/kernel/db/tables.server';
-import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
+import { isAppError } from '$lib/kernel/errors/appError';
+import { endpoint, ok, reply } from '$lib/kernel/http/endpoint.server';
 import { formAction, pageLoad } from '$lib/kernel/http/pageHandlers.server';
 import { toInstantString } from '$lib/kernel/time/dates';
 import { firstIssueMessage } from '$lib/kernel/validation/validators';
@@ -51,6 +52,9 @@ const EXPORT_ZONE = 'UTC';
 
 /** The `/report-bug` write-failure copy (legacy `fail(500, …)` after a null row). */
 const BUG_REPORT_SAVE_FAILED = 'Could not save your report. Please try again.';
+
+/** The `/api/bug-report` write-failure copy (legacy `apiError`'s 500 message). */
+const BUG_REPORT_API_FAILED = 'Could not save report. Please try again.';
 
 /** A required wire timestamp. A stored `Date` is always valid; otherwise it is a fault. */
 function instant(value: Date): string {
@@ -95,11 +99,28 @@ export const submitBugReportEndpoint = endpoint({
 	},
 	body: BugReportBody,
 	bodyMode: 'lenient',
-	failMessage: 'Could not save report. Please try again.',
-	handle: async ({ ctx, actor, body }) => {
-		const filed = await fileBugReport(ctx, actor, body);
-		const response: BugReportFiledResponse = { success: true, id: filed.id };
-		return ok(response);
+	failMessage: BUG_REPORT_API_FAILED,
+	handle: async ({ ctx, actor, body, event }) => {
+		try {
+			const filed = await fileBugReport(ctx, actor, body);
+			const response: BugReportFiledResponse = { success: true, id: filed.id };
+			return ok(response);
+		} catch (cause) {
+			if (isAppError(cause)) throw cause;
+			// Legacy `apiError` filed its fixed copy for a failed write, never the
+			// driver text: the admin register and its agent export must not carry
+			// SQL, connection strings or a person's data (F3 security review).
+			ctx.log.error('bug_report_failed', {
+				message: cause instanceof Error ? cause.message : String(cause)
+			});
+			ctx.faults.report({
+				status: 500,
+				message: BUG_REPORT_API_FAILED,
+				path: event.url.pathname,
+				userId: actor.id
+			});
+			return reply(500, { error: BUG_REPORT_API_FAILED });
+		}
 	}
 });
 
