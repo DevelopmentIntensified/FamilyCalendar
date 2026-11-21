@@ -14,13 +14,31 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 
 ## Files
 
-The public API is designed at S1. The three entry files are empty stubs today; S3–S7 fill them, and this table grows in the same commit as each file.
+The public API is designed at S1. The entries are filled as their steps land; this table grows in the same commit as each file.
 
 | file | role | what it does — and why it exists | tested by |
 |---|---|---|---|
 | [index.ts](index.ts) | entry | Public isomorphic interface: the `CalendarPageModel` type and the `CalendarView` vocabulary. Nothing else leaves the module. | — |
 | [index.server.ts](index.server.ts) | entry | Public server interface: `calendarPageLoad`, `shareTargetLoad`, `getCalendarPage` (the one composition use-case). | `calendarPage.service.db.test.ts` |
 | [ui/index.ts](ui/index.ts) | entry | Public components: `CalendarPage`, the one component the route renders. | `ui/CalendarPage.svelte.test.ts` |
+| [calendarPage.contract.ts](calendarPage.contract.ts) | contract | The forgiving query-string schema and the `CalendarPageModel` types (shell, streamed `grid`, rendered row slices). No `/api` wire of its own. | `calendarPage.contract.test.ts` |
+| [calendarPage.url.rules.ts](calendarPage.url.rules.ts) | rules | Deep-link parsing, the Dashboard redirect, the share-target text, the create seed and `?edit=` resolution. | `calendarPage.url.rules.test.ts` |
+| [calendarPage.view.rules.ts](calendarPage.view.rules.ts) | rules | The four-view vocabulary, the 768px breakpoint, the opening-view order, current-period comparison and the swipe gate. | `calendarPage.view.rules.test.ts` |
+| [calendarPage.grid.rules.ts](calendarPage.grid.rules.ts) | rules | The month matrix, its exact bounded window, the week span, per-day bucketing and the month cell's chip budget. | `calendarPage.grid.rules.test.ts` |
+| [calendarPage.calendars.rules.ts](calendarPage.calendars.rules.ts) | rules | The hidden-calendars reading filter: key, stored-shape codec, toggles and the visibility predicate. | `calendarPage.calendars.rules.test.ts` |
+| [calendarPage.people.rules.ts](calendarPage.people.rules.ts) | rules | The hidden-people reading filter: roster, counts, key, codec and the visibility predicate. | `calendarPage.people.rules.test.ts` |
+| [calendarPage.search.rules.ts](calendarPage.search.rules.ts) | rules | The never-persisted search filter: normalize, the AND predicate over title/description/location and its count. | `calendarPage.search.rules.test.ts` |
+| [calendarPage.lanes.rules.ts](calendarPage.lanes.rules.ts) | rules | The shared day-timeline lane layout (per-overlap-cluster counts) and the now-line position. | `calendarPage.lanes.rules.test.ts` |
+| [calendarPage.select.rules.ts](calendarPage.select.rules.ts) | rules | The drag/long-press range-select machine the day and week grids share. | `calendarPage.select.rules.test.ts` |
+| [calendarPage.contract.test.ts](calendarPage.contract.test.ts) | test | The forgiving query-string table: every param optional, a junk date or view ignored field by field, free text carried. | — |
+| [calendarPage.url.rules.test.ts](calendarPage.url.rules.test.ts) | test | The deep-link table, the Dashboard redirect's four escapes, the share-target fold and `?edit=` resolution (including Q-100's miss). | — |
+| [calendarPage.view.rules.test.ts](calendarPage.view.rules.test.ts) | test | The opening-order tables (#104/#119), the breakpoint edges, current-period granularity and the swipe gate. | — |
+| [calendarPage.grid.rules.test.ts](calendarPage.grid.rules.test.ts) | test | Month-matrix tables for both week starts (four to six rows), the bounded window, bucketing and the chip budget. | — |
+| [calendarPage.calendars.rules.test.ts](calendarPage.calendars.rules.test.ts) | test | Key/codec tables, hide/show all, ad survival, and the default-calendar separation. | — |
+| [calendarPage.people.rules.test.ts](calendarPage.people.rules.test.ts) | test | Ownership tables, roster/count tables (viewer first, member-with-zero), ad survival and the value codec. | — |
+| [calendarPage.search.rules.test.ts](calendarPage.search.rules.test.ts) | test | Normalization, the AND predicate over title/description/location, and the match count. | — |
+| [calendarPage.lanes.rules.test.ts](calendarPage.lanes.rules.test.ts) | test | Lane tables including the #066 per-cluster counts, the hit-test invariant, overnight clamping and the now-line. | — |
+| [calendarPage.select.rules.test.ts](calendarPage.select.rules.test.ts) | test | Mouse drag, the long-press/Add-mode fork, stepper clamps and the one-shot click guard. | — |
 
 ## Public interface
 
@@ -64,7 +82,7 @@ Every rule below must not change, with the test that pins it. `path:line` is the
 
 ### The bounded month window and the fetched-month cache
 
-- The page load covers ONE month's grid — every cell of the month matrix (five or six week rows), which is the month plus the leading/trailing days either week start needs — not the ±2 year window `expandEventsForUser` falls back to for other callers — `src/lib/server/services/eventDisplayService.ts:53-62`, `+page.server.ts:38-41` · tests: `calendarPage.grid.rules.test.ts › "covers every cell of the month matrix and nothing else"`, `calendarPage.service.db.test.ts › "reads only the visible month's grid window"`.
+- The page load covers ONE month's grid — every cell of the month matrix (four to six week rows, depending on the month and the week start), which is the month plus the leading/trailing days either week start needs — not the ±2 year window `expandEventsForUser` falls back to for other callers — `src/lib/server/services/eventDisplayService.ts:53-62`, `+page.server.ts:38-41` · tests: `calendarPage.grid.rules.test.ts › "covers every cell of the month matrix and nothing else"`, `calendarPage.service.db.test.ts › "reads only the visible month's grid window"`.
 - Another month is fetched once through the ranged read; the month on screen is the trigger, not the arrow or the picker — `Calendar.svelte:183-247` · test: `calendarPage.range.state.test.ts › "asks for the grid window of the month it shows"`.
 - The fetched-month cache holds at most 12 months; the oldest is evicted and becomes refetchable — `Calendar.svelte:195-212` · test: `calendarPage.range.state.test.ts › "evicts the oldest month once twelve are held, and refetches it"`.
 - A refetch replaces that month wholesale (so edits and deletes land), and page-load rows win on the same occurrence key `masterId|day` across months — `Calendar.svelte:213-246,289-303` · tests: `› "a refetch replaces the month instead of appending"`, `› "page-load rows win on the same occurrence"`.
