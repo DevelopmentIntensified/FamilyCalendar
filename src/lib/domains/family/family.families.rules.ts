@@ -110,33 +110,6 @@ export function familyPatch(name: string, color: string): FamilyPatch | null {
 	return null;
 }
 
-/** One roster row of a family: the avatar's user id is looked up by first name (below). */
-export type CardRosterRow = {
-	readonly familyId: string;
-	readonly userId: string;
-	readonly firstName: string;
-};
-
-/**
- * The card's roster strip, one entry per first name. The id comes from the
- * FIRST roster row of that family with the same first name, or `roster-{i}`
- * when none matches, so two members who share a first name both show the first
- * one's id (owner question Q-023: answered B, the real ids, applied after S6;
- * until then the golden pins this).
- */
-export function cardMembers(
-	familyId: string,
-	firstNames: readonly string[],
-	roster: readonly CardRosterRow[]
-): { firstName: string; userId: string }[] {
-	return firstNames.map((firstName, i) => ({
-		firstName,
-		userId:
-			roster.find((row) => row.familyId === familyId && row.firstName === firstName)?.userId ??
-			`roster-${i}`
-	}));
-}
-
 /**
  * The card's "Created" label: `M/D/YYYY` in the zone it is given. S5 passes
  * `UTC`, the zone the legacy server printed `toLocaleDateString()` in on Vercel.
@@ -150,11 +123,15 @@ export function familyCreatedLabel(createdAt: Date, zone: string): string {
 	}).format(createdAt);
 }
 
-/** Compose one `/family` card from the membership read, the task count and the roster. */
+/**
+ * Compose one `/family` card from the membership read and the task count. The
+ * roster strip is the membership's own `members` list (first name plus the
+ * real user id, Q-023 B): no second read and no name matching, so two people
+ * who share a first name keep their own avatar colour.
+ */
 export function buildFamilyCard(
 	membership: FamilyMembershipView,
 	openTasks: number,
-	roster: readonly CardRosterRow[],
 	zone: string
 ): FamilyCardView {
 	const { family } = membership;
@@ -162,7 +139,7 @@ export function buildFamilyCard(
 		...family,
 		memberCount: membership.memberCount,
 		openTasks,
-		members: cardMembers(family.id, membership.firstNames, roster),
+		members: membership.members,
 		createdLabel: familyCreatedLabel(family.createdAt, zone),
 		canInvite: canManageInvites(membership.role),
 		role: membership.role

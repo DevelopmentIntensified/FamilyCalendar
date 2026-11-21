@@ -218,6 +218,28 @@ describe('GET /api/families', () => {
 		]);
 		expect(bodyOf<{ plan: unknown }>(res).plan).toEqual({ used: 2, limit: 1 });
 	});
+
+	// Q-023 (answered B, 2026-11-12): each avatar carries the real user id, so
+	// two people who share a first name keep their own colour.
+	it('gives two members who share a first name their own ids (Q-023 B)', async () => {
+		const viewer = await seedUser(testDb(), { firstName: 'Ann', lastName: 'Rivera' });
+		const samOne = await seedUser(testDb(), { firstName: 'Sam', lastName: 'One' });
+		const samTwo = await seedUser(testDb(), { firstName: 'Sam', lastName: 'Two' });
+		await seedFamily('fam-1', { name: 'Riveras' });
+		await seedMembership('fam-1', viewer.id, 'creator', 'parent');
+		await seedMembership('fam-1', samOne.id);
+		await seedMembership('fam-1', samTwo.id);
+
+		const res = await invoke(listFamilies, { ctx: ctx(), user: viewer, path: '/api/families' });
+		const members = bodyOf<{ families: { members: { firstName: string; userId: string }[] }[] }>(
+			res
+		).families[0].members;
+
+		expect(members.map((member) => member.firstName)).toEqual(['Ann', 'Sam', 'Sam']);
+		expect(members.map((member) => member.userId).sort()).toEqual(
+			[viewer.id, samOne.id, samTwo.id].sort()
+		);
+	});
 });
 
 describe('GET /api/families/{id}', () => {
@@ -1632,9 +1654,15 @@ describe('GET /api/family/search', () => {
 		}
 	});
 
-	it('does not find a full name: both name columns are compared to the whole query', async () => {
+	// Q-028 (answered B, 2026-11-12): the name search splits the query into a
+	// first and a last name, so a full name finds that person.
+	it('finds a full name by splitting it into first and last (Q-028 B)', async () => {
 		const { ann } = await seedFamilyRoster();
-		await seedUser(testDb(), { firstName: 'Ann', lastName: 'Lee', email: 'ann.lee@example.test' });
+		const annLee = await seedUser(testDb(), {
+			firstName: 'Ann',
+			lastName: 'Lee',
+			email: 'ann.lee@example.test'
+		});
 		const sameBoth = await seedUser(testDb(), {
 			firstName: 'Sam',
 			lastName: 'Sam',
@@ -1647,9 +1675,11 @@ describe('GET /api/family/search', () => {
 			path: `/api/family/search?q=${encodeURIComponent('Ann Lee')}&familyId=fam-1`
 		});
 		expect(fullName.status).toBe(200);
-		expect(fullName.body).toEqual({ users: [] });
+		expect(bodyOf<{ users: { id: string }[] }>(fullName).users.map((user) => user.id)).toEqual([
+			annLee.id
+		]);
 
-		// The only name query that can match is one token equal to BOTH columns.
+		// One token keeps the legacy leg: both name columns equal it.
 		const identical = await invoke(searchFamily, {
 			ctx: ctx(),
 			user: ann,

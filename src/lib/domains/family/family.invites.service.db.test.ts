@@ -92,7 +92,7 @@ describe('listInvites', () => {
 	rollbackTest('answers one 404 for a non-member and hides the codes from a plain member', async (db) => {
 		const { ann, cid, out } = await seedFamilyRoster(db);
 		await seedFamily('fam-2', {}, db);
-		await seedMembership('fam-2', out.id, 'creator', db);
+		await seedMembership('fam-2', out.id, 'creator', 'member', db);
 		await seedInvite({ code: 'SECRET0001', familyId: 'fam-1' }, db);
 
 		const elsewhere = await listInvites(

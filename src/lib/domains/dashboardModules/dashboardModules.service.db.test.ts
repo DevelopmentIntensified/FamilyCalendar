@@ -158,8 +158,8 @@ describe('setFamilyModuleSwitch', () => {
 			})
 		).rejects.toMatchObject({ code: 'forbidden' });
 
-		expect(await storedSwitches(other.family.id)).toEqual([]);
-		expect(await storedSwitches(admin.family.id)).toEqual([]);
+		expect(await storedSwitches(db, other.family.id)).toEqual([]);
+		expect(await storedSwitches(db, admin.family.id)).toEqual([]);
 	});
 
 	rollbackTest('refuses a plain member with 403 and writes nothing', async (db) => {
