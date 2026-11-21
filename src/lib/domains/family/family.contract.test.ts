@@ -6,12 +6,15 @@
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
-import { firstIssueMessage, z } from '$lib/kernel/validation/validators';
+import { firstIssueMessage, type JsonValue, z } from '$lib/kernel/validation/validators';
+import { DEFAULT_INVITE_DAYS, DEFAULT_INVITE_MAX_USES } from './family.invites.rules';
 import { INVITE_INVALID_EMAIL_MESSAGE, INVITE_NAMES_MESSAGE } from './family.members.rules';
 import {
 	AddChildBody,
 	AddDirectBody,
 	ChildAddedResponse,
+	clampInviteDays,
+	clampInviteUses,
 	CreateFamilyBody,
 	CreateFamilyFormBody,
 	CreateFamilyResponse,
@@ -38,6 +41,7 @@ import {
 	MintInviteResponse,
 	RosterQuery,
 	RosterResponse,
+	shareInvitePlan,
 	UpdateFamilyBody,
 	UpdateFamilyResponse
 } from './family.contract';
@@ -447,5 +451,68 @@ describe('response schemas', () => {
 		expect(
 			InviteEmailErrorResponse.parse({ success: false, error: INVITE_NAMES_MESSAGE })
 		).toEqual({ success: false, error: 'First and last name are required' });
+	});
+});
+
+
+type ClampCase = [string, JsonValue | undefined, number];
+
+describe('the mint body\'s two count clamps (moved from family.invites.rules.ts)', () => {
+	it('mints at the shared default when the body names neither count', () => {
+		expect(shareInvitePlan(undefined, undefined)).toEqual({
+			days: DEFAULT_INVITE_DAYS,
+			maxUses: DEFAULT_INVITE_MAX_USES
+		});
+	});
+});
+
+describe('clampInviteDays (1-30, default 7)', () => {
+	// Legacy families.test.ts:469-481, expiresInDaysCases.
+	it.each<ClampCase>([
+		['a missing value falls back to 7 days', undefined, 7],
+		['null falls back to 7 days', null, 7],
+		['an empty string falls back to 7 days', '', 7],
+		['a non-numeric string falls back to 7 days', 'never', 7],
+		['zero clamps up to 1 day', 0, 1],
+		['a negative clamps up to 1 day', -5, 1],
+		['an in-range value passes through', 14, 14],
+		['a numeric string passes through', '14', 14],
+		['a fraction truncates', 14.9, 14],
+		['a huge value clamps down to 30 days', 1000, 30],
+		['the upper edge is allowed', 30, 30],
+		['one past the upper edge clamps', 31, 30],
+		['the lower edge is allowed', 1, 1]
+	])('%s', (_what, input, expected) => {
+		expect(clampInviteDays(input)).toBe(expected);
+	});
+});
+
+describe('clampInviteUses (1-50, default 10)', () => {
+	// Legacy families.test.ts:489-495, maxUsesCases.
+	it.each<ClampCase>([
+		['a missing value falls back to 10 uses', undefined, 10],
+		['NaN falls back to 10 uses', Number.NaN, 10],
+		['zero clamps up to 1 use', 0, 1],
+		['an in-range value passes through', 25, 25],
+		['a huge value clamps down to 50 uses', 100000, 50],
+		['a numeric string passes through', '3', 3],
+		['the upper edge is allowed', 50, 50],
+		['one past the upper edge clamps', 51, 50],
+		['a boolean is junk and falls back', true, 10]
+	])('%s', (_what, input, expected) => {
+		expect(clampInviteUses(input)).toBe(expected);
+	});
+});
+
+describe('shareInvitePlan clamps each count on its own', () => {
+	it('reads the golden mint bodies: huge, zero and numeric strings', () => {
+		expect(shareInvitePlan(100, 999)).toEqual({ days: 30, maxUses: 50 });
+		expect(shareInvitePlan(0, 0)).toEqual({ days: 1, maxUses: 1 });
+		expect(shareInvitePlan('3', '3')).toEqual({ days: 3, maxUses: 3 });
+	});
+
+	it('does not let one junk count disturb the other', () => {
+		expect(shareInvitePlan('soon', 5)).toEqual({ days: 7, maxUses: 5 });
+		expect(shareInvitePlan(2, null)).toEqual({ days: 2, maxUses: 10 });
 	});
 });

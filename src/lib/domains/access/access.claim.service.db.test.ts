@@ -15,7 +15,7 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { testCtx, type TestCtx } from '$lib/kernel/testing/testCtx.server';
 import { accessTestIds, seedAccessGuest } from './access.fixtures.server';
-import { confirmClaim, requestClaim } from './access.claim.service.server';
+import { confirmClaim, pruneExpiredClaimTokens, requestClaim } from './access.claim.service.server';
 
 const NOW = new Date('2026-05-04T12:00:00.000Z');
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
@@ -200,5 +200,46 @@ describe('confirmClaim', () => {
 		expect(
 			(await db.select().from(authSession).where(eq(authSession.userId, target.id))).length
 		).toBeGreaterThanOrEqual(1);
+	});
+});
+
+describe('pruneExpiredClaimTokens', () => {
+	rollbackTest('deletes the tokens that expired before now and keeps every other row', async (db) => {
+		const ctx = ctxFor(db);
+		const guest = await seedAccessGuest();
+
+		const expired = await db
+			.insert(claimTokens)
+			.values({
+				userId: guest.id,
+				tokenHash: 'expired-hash',
+				email: 'claim@example.test',
+				expiresAt: new Date(NOW.getTime() - 1)
+			})
+			.returning({ id: claimTokens.id });
+		const edge = await db
+			.insert(claimTokens)
+			.values({
+				userId: guest.id,
+				tokenHash: 'edge-hash',
+				email: 'claim@example.test',
+				expiresAt: NOW
+			})
+			.returning({ id: claimTokens.id });
+		const live = await db
+			.insert(claimTokens)
+			.values({
+				userId: guest.id,
+				tokenHash: 'live-hash',
+				email: 'claim@example.test',
+				expiresAt: new Date(NOW.getTime() + FIFTEEN_MINUTES)
+			})
+			.returning({ id: claimTokens.id });
+
+		await expect(pruneExpiredClaimTokens(ctx, NOW)).resolves.toBe(1);
+
+		const left = await claimRows(db, guest.id);
+		expect(left.map((row) => row.id).sort()).toEqual([edge[0].id, live[0].id].sort());
+		expect(left.map((row) => row.id)).not.toContain(expired[0].id);
 	});
 });

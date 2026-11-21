@@ -125,7 +125,7 @@ Every new file, its role, and what it holds. After S1/S2 only the README, the th
 | `family.contract.ts` | contract | Zod bodies/queries/params/responses for every endpoint (legacy messages), plus the page/action input shapes designed fresh. |
 | `family.roles.rules.ts` + `.test.ts` | rules | `FamilyRole`, `MemberType` (+ `FAMILY_ROLES`, `MEMBER_TYPES`, `isFamilyRole`, `isMemberType`), `roleRank`, `meetsRole`, `canManageInvites`, `canManageMembers`, `canPromoteToCreator`, `canChangeRole`, `canSetMemberType`, `requireRole`. Table tests. |
 | `family.palette.rules.ts` + `.test.ts` | rules | `FAMILY_PALETTE`, `DEFAULT_FAMILY_COLOR`, `RETIRED_FAMILY_COLOR`, `isFamilyColor`, and `isHexColor` (the PATCH rule, Q-025: it needs one home next to its sibling). Carries the legacy pure palette cases. |
-| `family.invites.rules.ts` + `.test.ts` | rules | `DEFAULT_INVITE_MAX_USES`, `DEFAULT_INVITE_DAYS`, `clampInviteDays` (1–30, default 7), `clampInviteUses` (1–50, default 10), `shareInvitePlan`, `EMAIL_INVITE_PLAN`/`LINK_INVITE_PLAN` (replace the planned `isEmailInvite`/`isLinkInvite` predicates: the mint doors need the numbers to mint with, not a test of a cap), `inviteExpiresAt`, `isInviteUsable`, `isInviteRefusal`, `inviteRefusalCopy`. |
+| `family.invites.rules.ts` + `.test.ts` | rules | `DEFAULT_INVITE_MAX_USES`, `DEFAULT_INVITE_DAYS`, `EMAIL_INVITE_PLAN`/`LINK_INVITE_PLAN` (replace the planned `isEmailInvite`/`isLinkInvite` predicates: the mint doors need the numbers to mint with, not a test of a cap), `inviteExpiresAt`, `isInviteUsable`, `isInviteRefusal`, `inviteRefusalCopy`. The mint body's clamps (`clampInviteDays` 1–30 default 7, `clampInviteUses` 1–50 default 10, `shareInvitePlan`) moved to `family.contract.ts` at the perf pass (2026-11-21): they parse wire values with zod, and this file is imported by the screens, which must stay zod-free — see Notes. |
 | `family.search.rules.ts` + `.test.ts` | rules | `MEMBER_SEARCH_MIN_QUERY/MAX_QUERY/ROW_CAP`, `maskEmail`, `escapeIlike`, `likePrefix`, `likeExact` (the two doors' patterns, so the repo cannot forget the escaping), `searchTermProblem`, `isPickerMatch`, `isInviteFlowMatch` (the two doors' matching rules stay separate predicates). |
 | `family.members.rules.ts` + `.test.ts` | rules | Not in the S1 plan; the per-door refusals the service would otherwise inline: `managerRefusal`, `memberRefusal`, `roleChangeRefusal`, `memberTypeRefusal`, `removalRefusal`, `directAddRefusal`, `childDetailsRefusal`, `consentRefusal`, `inviteTargetRefusal`, `addedToFamilyAlert`. Legacy order and copy, table-tested. |
 | `family.families.rules.ts` + `.test.ts` | rules | Not in the S1 plan: `familyDraft`, `cleanMemberIds`, `hasUnaddablePick`, `dayOneRosterRefusal` (limits are parameters; renamed from `memberLimitRefusal`, billing's rule for an existing family), `familyPatch`, `cardMembers`, `familyCreatedLabel`, `buildFamilyCard`, `firstNameOf`. |
@@ -169,6 +169,50 @@ Where each legacy export goes:
 - `src/lib/server/services/userScope.ts` stays with calendar/dashboard until they port; family exposes `listRoster` and `findMembershipFamilyId` for them.
 
 ## Notes
+
+### Perf pass (ADR 0010, 2026-11-21): zod and luxon out of the family pages
+
+The rebuilt pages were 157–162 KB of initial JS against legacy ceilings of 102–116 KB. Three causes,
+all of them code that arrived with the barrel rather than the page, and all fixed at the root:
+
+- **zod in every family page (25.1 KB gzip).** `family.invites.rules.ts` and `family.members.rules.ts`
+  are imported by the screens, and each asked the kernel's schema module for one thing: the mint
+  body's two `clampedInt` schemas and the `isEmailAddress` predicate. `validators.ts` carries zod and
+  luxon at module scope, so one predicate shipped the whole schema library. Fixes: the clamps and
+  `shareInvitePlan` moved to `family.contract.ts` (wire parsing belongs with the schemas, and its only
+  caller is `family.invites.service.server.ts`); `isEmailAddress` moved to the new kernel
+  `validation/primitives.ts` (zod- and luxon-free). The screens now import nothing from
+  `validators.ts`.
+- **luxon in every page of the app chrome (21.1 KB gzip).** The `(family)` layout renders
+  `$lib/components/Navbar.svelte`, which asked `$lib/domains/feedback` (the module entry) for
+  `reportBugHref`; that entry re-exports the admin register state, which imports
+  `feedback.export.rules` → `kernel/time/dates` → luxon. Fixes (approved by the orchestrator,
+  2026-11-21, after this sheet first recorded them as asks): the Navbar takes the legacy
+  `$lib/utils/reportBug` copy, exactly as `+error.svelte` already does — same issue-257 rule, same
+  output — and shell takes feedback's when it rebuilds the chrome; the alerts bell's one relative
+  label moved out of `kernel/time/dates` into the luxon-free `kernel/time/relative.ts`, so the bell no
+  longer pulls luxon either (it never took `reportBugHref`; only `relativeFromNow`).
+- **Every family page shipped every family screen.** Each route imported its screen through
+  `ui/index.ts`, whose re-exports put all five screens (and the join/add-member copy) in one shared
+  chunk that all five routes load. The routes are wiring (R8) and R2 exempts them, so each of the five
+  `+page.svelte` files now imports its own `ui/<Screen>.svelte`; `ui/index.ts` stays the module's
+  public component entry. Same treatment, also approved by the orchestrator, for the `(marketing)`
+  group layout: it imports `MarketingShell.svelte` itself instead of marketing's barrel, which had
+  shipped all seventeen marketing screens (35 modules, luxon and billing included) to
+  `/family/join/[code]` and every marketing page.
+
+Expected saving, read off the chunks of the last perf run's build (`e2e/pages/perf-results/family.json`,
+2026-11-21T18:42; sizes are that build's gzip): the zod chunk (`BaXBnv2u`) is 25,736 B and the luxon
+chunk (`DP9za9M3`) 21,567 B — 47,303 B that every family page loaded and none loads now. On top of
+that come the chunks a page no longer needs from the split: the shared family chunk (`DN-EOBDz`) is
+16,248 B and holds the api, the shared rules and the join / invitations / add-member screens, so
+`/family` and `/family/create` keep a third of it and `/family/join` almost none; the `(marketing)`
+layout drops the marketing screens with it. Measured first, then expected: `/family` 161,837 →
+~100–104 KB, `/family/create` 162,049 → ~100–104 KB, `/family/invitations` 157,210 → ~95–100 KB,
+`/family/[familyId]/members/add` 157,144 → ~95–100 KB, `/family/join/[code]` 156,923 → ~85–90 KB,
+against ceilings of 116,360 / 112,453 / 113,446 / 111,785 / 102,867 B (ADR 0010 allows a ceiling plus
+2%). No behaviour change: the same components, rules and endpoints; only where they are imported from,
+plus the one-line chrome import above.
 
 ### Added for groceries' S5+S6 (2026-11-21)
 

@@ -34,7 +34,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [client/toasts.test.ts](client/toasts.test.ts) | test | ids, four-toast cap, six-second dismissal, timers for dropped toasts, action kept, memory recorder — shared manual scheduler | — |
 | [ctx/actor.ts](ctx/actor.ts) | type | `Actor` (who is calling: id, email, isAdmin, via) + `actorFromUser`. Small on purpose: anything else about the person is asked of `identity`. | [endpoint.test.ts](http/endpoint.test.ts) |
 | [ctx/ctx.server.ts](ctx/ctx.server.ts) | type | `Ctx`: db, clock, ids, log, limiter, mail, push, ai, http, faults, config. Services take it as their first argument, so tests swap any dependency without `vi.mock`. | via every test that uses `testCtx` |
-| [db/database.server.ts](db/database.server.ts) | infra | `Db` (pool or transaction), `connectDb`, `withTx`. Nested transactions become savepoints. | [testDb.db.test.ts](testing/testDb.db.test.ts) |
+| [db/database.server.ts](db/database.server.ts) | infra | `Db` (pool or transaction), `connectDb`, `withTx` (nested transactions become savepoints) and `pingDb` (the 1s-bounded `select 1` the health probe reads: `'up'`/`'down'`, never throws, never leaks a detail). | [testDb.db.test.ts](testing/testDb.db.test.ts) |
 | [db/migrations/bundledMigrations.server.ts](db/migrations/bundledMigrations.server.ts) | infra | The `sql/migrations/*.sql` files imported as `?raw`, sorted by numeric prefix: the exact set the cold-start runner replays. Must equal the files on disk. | [bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) |
 | [db/migrations/bundledMigrations.test.ts](db/migrations/bundledMigrations.test.ts) | test | parity gate: every `sql/migrations/` file is bundled, byte-identical, ascending numeric order | — |
 | [db/migrations/migrationRunner.db.test.ts](db/migrations/migrationRunner.db.test.ts) | test | runner is a no-op on the already-migrated test DB; a failing file rolls back and is reported by name | — |
@@ -92,7 +92,9 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [time/clock.ts](time/clock.ts) | infra | `Clock` port, `systemClock`, `fixedClock` (set/advance). The only source of "now" (rule R5). | [clock.test.ts](time/clock.test.ts) |
 | [time/clock.test.ts](time/clock.test.ts) | test | default instant, advance/set, copy semantics | — |
 | [time/dates.test.ts](time/dates.test.ts) | test | format tables, DST in New York and London, month ends, leap years, UTC+14, grouping, month math, timestamp normalisation | — |
-| [time/dates.ts](time/dates.ts) | rules | `formatUsDate`, `formatClockTime`, `formatDayMonth`, `formatLongDate`, `formatShortDate`, `dayKey`, `formatDateTimeMinute`, `relativeFromNow`, `groupByDay`, `addMonthsClamped`, `startOfDayIn`, `isValidZone`, `toInstantString`. Every legacy date formatter's one home; the zone (and `now` when relative) is always a parameter, so nothing reads the clock. | [dates.test.ts](time/dates.test.ts) |
+| [time/relative.ts](time/relative.ts) | rules | `relativeFromNow`: the one relative day label ("today", "3 days ago", "in 2 weeks"), counted as calendar days in the zone. The luxon-free half of `dates.ts`, because the app chrome's alerts bell asks for one label on every page: importing it never pulls luxon into a first paint (ADR 0010). | [relative.test.ts](time/relative.test.ts) |
+| [time/relative.test.ts](time/relative.test.ts) | test | the bucket edges, the zone-versus-UTC calendar day, and the parse rule's forms and refusals | — |
+| [time/dates.ts](time/dates.ts) | rules | `formatUsDate`, `formatClockTime`, `formatDayMonth`, `formatLongDate`, `formatShortDate`, `dayKey`, `formatDateTimeMinute`, `groupByDay`, `addMonthsClamped`, `startOfDayIn`, `isValidZone`, `toInstantString` (and a re-export of `relativeFromNow`). Every legacy date formatter's one home; the zone (and `now` when relative) is always a parameter, so nothing reads the clock. | [dates.test.ts](time/dates.test.ts) |
 | [time/scheduler.ts](time/scheduler.ts) | infra | `Scheduler` port and `systemScheduler` (setTimeout/clearTimeout): the one home for client timers — toasts, debounced search and the ticker; tests inject `manualScheduler` instead. | through [toasts.test.ts](client/toasts.test.ts) |
 | [time/ticker.svelte.ts](time/ticker.svelte.ts) | client | `Ticker`: reactive `now` refreshed from a `Clock` every N ms for countdowns and elapsed-time bands; injectable `Scheduler`, idempotent `start`/`stop`. | [ticker.test.ts](time/ticker.test.ts) |
 | [time/ticker.test.ts](time/ticker.test.ts) | test | initial instant, a tick per interval, repeated ticks, stop, start twice — manual scheduler | — |
@@ -121,6 +123,8 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [ui/trapFocus.ts](ui/trapFocus.ts) | action | `use:trapFocus` Svelte action: Tab/Shift+Tab cycle inside the node, focus returns on destroy. Disabled, `hidden` and `inert` subtrees and `input[type=hidden]` are skipped by walking the DOM (no layout APIs). Moved from `utils/focusTrap.ts`. | [trapFocus.svelte.test.ts](ui/trapFocus.svelte.test.ts) |
 | [ui/trapFocus.svelte.test.ts](ui/trapFocus.svelte.test.ts) | test | forward/backward wrap, native Tab, focus restore and listener removal, unreachable controls skipped | — |
 | [validation/validators.ts](validation/validators.ts) | rules | zod plus shared fields: `requiredText`, `optionalText`, `isoDate`, `yearMonth`, `isoInstant`, `emailAddress`, `oneOf`, `wholeNumber`, `formList`, `clampedInt`, `firstIssueMessage`, `JsonValue`, and `INVALID_JSON_MESSAGE` (the one `Invalid JSON` copy: `endpoint()`'s malformed-body 400 and the object-level error of contracts that reproduce legacy `readJsonObject`). | [validators.test.ts](validation/validators.test.ts) |
+| [validation/primitives.ts](validation/primitives.ts) | rules | `isEmailAddress`, the legacy auth-flow address rule. The zod- and luxon-free half of validation: a browser rules file imports it instead of `validators.ts`, so one predicate does not ship the schema library (ADR 0010). | [primitives.test.ts](validation/primitives.test.ts) |
+| [validation/primitives.test.ts](validation/primitives.test.ts) | test | the address rule's accept and refuse table | — |
 | [validation/validators.test.ts](validation/validators.test.ts) | test | one table per helper | — |
 
 ## Public interface
@@ -139,6 +143,8 @@ Throw `AppError` (via `invalid`, `unauthorized`, `forbidden`, `notFound`, `confl
 
 Parse input once, at the boundary, through the `query`/`body`/`params`/`form` schemas of the HTTP builders. Keep legacy error wording when porting.
 
+A plain predicate that browser code needs (today: `isEmailAddress`) lives in [validation/primitives.ts](validation/primitives.ts), not in `validators.ts`: the schema module carries zod and luxon at module scope, so importing it from a rules file puts both in that page's first paint (ADR 0010). Schemas — including the little schema factories like `clampedInt` — stay in `validators.ts` or in a module's contract.
+
 ### HTTP
 
 - `endpoint()` builds `+server.ts` handlers. `body` reads JSON by default (an empty body is `{}`, malformed JSON answers `400 {"error":"Invalid JSON"}`); set `bodyMode: 'lenient'` on an endpoint whose legacy route refused malformed or empty JSON with its own sentence, and a malformed, empty or unreadable body reaches the schema as `null`, so the contract decides the refusal and its wording. `bodyMode: 'strict'` refuses an empty or whitespace-only body with the same `400 {"error":"Invalid JSON"}` as malformed JSON (or with the route's `malformedBody` copy, below) and behaves as `json` otherwise (`PATCH /api/me/settings` uses it: legacy `request.json()` threw on an empty body).
@@ -152,7 +158,7 @@ Route files stay wiring-only (rule R8). Auth modes: `public`, `optional`, `user`
 
 ### Time
 
-Read `ctx.clock.now()`. Pass "now" into rules as a parameter. Format, key and group dates with [time/dates.ts](time/dates.ts) — pass the user's IANA zone (and `now` where the output is relative) explicitly; never write another formatter.
+Read `ctx.clock.now()`. Pass "now" into rules as a parameter. Format, key and group dates with [time/dates.ts](time/dates.ts) — pass the user's IANA zone (and `now` where the output is relative) explicitly; never write another formatter. A component that needs only a relative label ("3 days ago") imports [time/relative.ts](time/relative.ts): it answers the same words without luxon, which keeps luxon out of pages whose only date need is that label (ADR 0010).
 
 Client timers (toasts, debounced search, the ticker) go through the `Scheduler` port in `time/scheduler.ts`: `systemScheduler` in real code, `manualScheduler()` (kernel/testing) in tests. Never `setInterval` in a component.
 Every function parses strings by one rule (shared by the formatters and `toInstantString`):

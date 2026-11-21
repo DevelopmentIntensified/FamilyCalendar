@@ -1,13 +1,18 @@
 /**
  * family invites rules: how many people a code admits, how long it lives, the
- * presets each way of inviting mints with, the one "can this code still be
- * used" predicate and the one refusal answer for a code that cannot be.
+ * presets each way of inviting mints, the one "can this code still be used"
+ * predicate and the one refusal answer for a code that cannot be.
+ *
+ * The body's two counts reach these presets through `family.contract.ts`
+ * (`clampInviteDays`/`clampInviteUses`/`shareInvitePlan`): parsing wire values
+ * with zod is the contract's job, and the screens import this file for
+ * `isInviteUsable` alone, so keeping the schemas out of it keeps zod out of the
+ * family pages (ADR 0010).
  *
  * `now` is always a parameter (rule R5): nothing here reads the clock.
  *
  * Doc: ./README.md#invariants
  */
-import { clampedInt, type JsonValue } from '$lib/kernel/validation/validators';
 import type { FamilyRefusal } from './family.roles.rules';
 
 /**
@@ -29,21 +34,6 @@ export const INVITE_CODE_LENGTH = 10;
 
 const MS_PER_DAY = 86_400_000;
 
-// The kernel clamp is the one home for "number or numeric string, junk falls
-// back"; these two fix the family bounds around it.
-const inviteDays = clampedInt(1, 30, DEFAULT_INVITE_DAYS);
-const inviteUses = clampedInt(1, 50, DEFAULT_INVITE_MAX_USES);
-
-/** `expiresInDays` from a body: 1-30, default 7; a fraction truncates, junk is the default. */
-export function clampInviteDays(value: JsonValue | undefined): number {
-	return inviteDays.parse(value);
-}
-
-/** `maxUses` from a body: 1-50, default 10; a fraction truncates, junk is the default. */
-export function clampInviteUses(value: JsonValue | undefined): number {
-	return inviteUses.parse(value);
-}
-
 /** What one way of inviting mints: a validity in days and a use cap. */
 export type InviteMintPlan = {
 	readonly days: number;
@@ -55,14 +45,6 @@ export const EMAIL_INVITE_PLAN: InviteMintPlan = { days: 1, maxUses: 1 };
 
 /** A shareable link is the shared default cap, one day (issue 152). */
 export const LINK_INVITE_PLAN: InviteMintPlan = { days: 1, maxUses: DEFAULT_INVITE_MAX_USES };
-
-/** The mint door's plan: the body's two counts through their clamps. */
-export function shareInvitePlan(
-	expiresInDays: JsonValue | undefined,
-	maxUses: JsonValue | undefined
-): InviteMintPlan {
-	return { days: clampInviteDays(expiresInDays), maxUses: clampInviteUses(maxUses) };
-}
 
 /** When a code minted at `now` lapses: `days` whole 24-hour days later. */
 export function inviteExpiresAt(now: Date, days: number): Date {
