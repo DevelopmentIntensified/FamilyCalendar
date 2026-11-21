@@ -2,7 +2,7 @@
 
 **kernel** · kernel tasks K-04..K-08 · home: `src/lib/kernel/` · README after the port: [src/lib/kernel/README.md](../../../src/lib/kernel/README.md)
 
-Platform toolkit: ctx ports (db, clock, ids, log, limiter, faults), errors, validation, HTTP builders, test harness, shared client/UI primitives.
+Platform toolkit: ctx ports (db, clock, ids, log, limiter, mail, faults), errors, validation, HTTP builders, test harness, shared client/UI primitives.
 
 - **May import:** kernel only.
 - **Owns tables:** none.
