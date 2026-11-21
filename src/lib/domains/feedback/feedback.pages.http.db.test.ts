@@ -7,10 +7,11 @@
  *
  * Doc: ./README.md#how-to-test
  */
-import { isRedirect } from '@sveltejs/kit';
+import { isRedirect, type ActionFailure } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
 import { actorFromUser } from '$lib/kernel/ctx/actor';
 import { bugReports } from '$lib/kernel/db/tables.server';
+import type { ActionFail } from '$lib/kernel/http/pageHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import {
 	invokeAction,
@@ -23,6 +24,17 @@ import { reportBugPageLoad, submitBugReportAction } from './feedback.http.server
 
 const ORIGIN = 'http://localhost';
 const AREAS = ['calendar', 'tasks', 'account', 'payments', 'dashboard', 'other'];
+
+/** The legacy `/report-bug` failure body: the copy plus the person's inputs. */
+type SubmitFailBody = { error: string; area: string; description: string };
+
+/**
+ * The action's declared result (its own `fail(…)` bodies plus the kernel's),
+ * spelled out so `isActionFailure` is handed the whole union: left to its
+ * `T | ActionFailure<F>` inference it fixes the failure type to one member and
+ * rejects the other.
+ */
+type SubmitResult = { ok: boolean } | ActionFailure<SubmitFailBody> | ActionFailure<ActionFail>;
 
 async function redirectOf(
 	promise: Promise<object>
@@ -117,15 +129,7 @@ describe('/report-bug submit', () => {
 	// Legacy `+page.server.ts:22-58`: signed out fails 401 before the form is
 	// read (`area`/`description` blank), and each refused body echoes the
 	// posted `area` and the trimmed `description`.
-	it.each<
-		[
-			string,
-			Record<string, string>,
-			boolean,
-			number,
-			{ error: string; area: string; description: string }
-		]
-	>([
+	it.each<[string, Record<string, string>, boolean, number, SubmitFailBody]>([
 		[
 			'a signed-out POST with an invalid form (401 before the form is read)',
 			{ area: 'weather', description: '' },
@@ -168,7 +172,10 @@ describe('/report-bug submit', () => {
 				path: '/report-bug',
 				form
 			});
-			expect(isActionFailure(result) && result).toEqual({ status, data });
+			expect(isActionFailure<SubmitResult, SubmitResult>(result) && result).toEqual({
+				status,
+				data
+			});
 			expect(await db.select().from(bugReports)).toEqual([]);
 		});
 	});
@@ -182,7 +189,7 @@ describe('/report-bug submit', () => {
 			path: '/report-bug',
 			form: { area: 'tasks', description: 'boom' }
 		});
-		expect(isActionFailure(result) && result).toEqual({
+		expect(isActionFailure<SubmitResult, SubmitResult>(result) && result).toEqual({
 			status: 500,
 			data: {
 				error: 'Could not save your report. Please try again.',
