@@ -8,29 +8,30 @@
  * (`parsing.contract.ts`) owns the body and the one 400 copy; the service owns
  * the 429 monthly-cap refusal and the 200 fallback shape.
  *
+ * `bodyMode: 'lenient'` is the owner's Q-012 answer B. Legacy read the body
+ * with `await request.json()` before its `try` (`+server.ts:66-67`), so a
+ * malformed JSON body rejected with a `SyntaxError` and a JSON `null` body
+ * with a `TypeError` instead of answering the 400 shape. Now every malformed,
+ * empty or unreadable body reaches `ParseEventBody` as `null`, so the contract
+ * answers its one 400 copy, and a failure below answers the standard 500
+ * error JSON through the boundary.
+ *
  * Doc: ./README.md#public-interface
  */
-import { endpoint, ok, type Endpoint } from '$lib/kernel/http/endpoint.server';
+import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
 import { clientKeyOf } from '$lib/kernel/ratelimit/rateLimiter';
 import { ParseEventBody } from './parsing.contract';
 import { parseEventRequest } from './parsing.service.server';
 
 /**
- * The pinned Q-012 accident: legacy read the body with `await request.json()`
- * and destructured it BEFORE its `try` (`+server.ts:66-67`), so malformed JSON
- * rejected with `SyntaxError` and a JSON `null` body with `TypeError` instead
- * of answering the 400 shape. Both are frozen goldens; the owner answered
- * Q-012 B (bad bodies answer 400), which lands as its own commit AFTER S6.
- * Until then this reads a CLONE first, so the endpoint below still parses the
- * unread body itself.
+ * `POST /api/parse-event`: `{input, useCloud?}`, the contract's
+ * `400 {"error":"Input required"}`, the service's `429` for the monthly AI cap,
+ * and the local parse's 200 shapes (`regex`, `cloud`, `regex-fallback` and the
+ * `regex-list` fan-out).
  */
-async function rejectUnparseableBody(request: Request): Promise<void> {
-	const body: unknown = await request.clone().json();
-	if (body === null) throw new TypeError('parse-event: a JSON null body cannot be destructured');
-}
-
-const parseEventHandler = endpoint({
+export const submitParseEventEndpoint = endpoint({
 	auth: 'optional',
+	bodyMode: 'lenient',
 	body: ParseEventBody,
 	handle: async ({ ctx, actor, body, event }) =>
 		ok(
@@ -41,17 +42,3 @@ const parseEventHandler = endpoint({
 			})
 		)
 });
-
-/**
- * `POST /api/parse-event`: `{input, useCloud?}`, the contract's
- * `400 {"error":"Input required"}`, the service's `429` for the monthly AI cap,
- * and the local parse's 200 shapes (`regex`, `cloud`, `regex-fallback` and the
- * `regex-list` fan-out).
- */
-export const submitParseEventEndpoint: Endpoint = {
-	auth: 'optional',
-	handler: async (event) => {
-		await rejectUnparseableBody(event.request);
-		return parseEventHandler.handler(event);
-	}
-};
