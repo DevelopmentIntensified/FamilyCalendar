@@ -114,7 +114,7 @@ describe('completeEmailLoginCode', () => {
 		const result = await completeEmailLoginCode(ctx, {
 			code: '11223344',
 			email,
-			actor: actorFromUser(guest),
+			actor: actorFromUser(guest, 'session'),
 			sessionId: arriving.id,
 			clientIp: '10.22.1.1'
 		});
@@ -144,7 +144,7 @@ describe('completeEmailLoginCode', () => {
 		const signedIn = await completeEmailLoginCode(ctx, {
 			code: '55667788',
 			email: 'registered-login@example.test',
-			actor: actorFromUser(person),
+			actor: actorFromUser(person, 'session'),
 			sessionId: current.id,
 			clientIp: '10.22.1.2'
 		});
@@ -188,7 +188,7 @@ describe('completeEmailLoginLink', () => {
 		const arriving = await seedAccessSession(guest.id);
 		const result = await completeEmailLoginLink(ctx, {
 			token: mailedToken(ctx),
-			actor: actorFromUser(guest),
+			actor: actorFromUser(guest, 'session'),
 			sessionId: arriving.id
 		});
 
@@ -209,7 +209,7 @@ describe('completeEmailLoginLink', () => {
 		expect(
 			await completeEmailLoginLink(ctx, {
 				token: 'anything',
-				actor: actorFromUser(person),
+				actor: actorFromUser(person, 'session'),
 				sessionId: null
 			})
 		).toEqual({ outcome: 'already-signed-in' });
@@ -261,7 +261,7 @@ describe('signInWithPassword', () => {
 			code: 'invalid',
 			message: 'Invalid email or password'
 		});
-		await expect(attempt(guest.email, 'whatever', '10.22.3.4')).rejects.toMatchObject({
+		await expect(attempt(guest.email ?? '', 'whatever', '10.22.3.4')).rejects.toMatchObject({
 			code: 'invalid',
 			message: 'Invalid email or password'
 		});
@@ -507,14 +507,14 @@ describe('verifyMobileEmailCode', () => {
 		const person = await seedUser(db, { email: 'mobile-wrong-intent@example.test' });
 		await issueEmailCode(ctx, {
 			code: '66778899',
-			email: person.email,
+			email: person.email ?? '',
 			type: 'signup',
 			firstName: 'Ada',
 			lastName: 'Lovelace'
 		});
 		expect(
 			await verifyMobileEmailCode(ctx, {
-				email: person.email,
+				email: person.email ?? '',
 				code: '66778899',
 				intent: 'login',
 				deviceName: '',
@@ -550,7 +550,7 @@ describe('signOut', () => {
 	rollbackTest('ends exactly the given session, or nothing without one', async (db) => {
 		const ctx = ctxFor(db);
 		const person = await seedUser(db, { email: 'logout@example.test' });
-		const actor = actorFromUser(person);
+		const actor = actorFromUser(person, 'session');
 		const session = await seedAccessSession(person.id, {}, db);
 		const kept = await seedAccessSession(person.id, {}, db);
 
@@ -574,11 +574,11 @@ describe('signOut', () => {
 		const session = await seedAccessSession(person.id, {}, db);
 
 		await expect(
-			signOut(ctx, actorFromUser(person), { token: 'not-an-fp-token' })
+			signOut(ctx, actorFromUser(person, 'token'), { token: 'not-an-fp-token' })
 		).rejects.toMatchObject({ code: 'unauthorized', message: 'Unauthorized' });
 		expect(await tokensFor(db, person.id)).toHaveLength(2);
 
-		await signOut(ctx, actorFromUser(person), { token: 'fp_presented-token' });
+		await signOut(ctx, actorFromUser(person, 'token'), { token: 'fp_presented-token' });
 		const remaining = await tokensFor(db, person.id);
 		expect(remaining.map((row) => row.name)).toEqual(['Android — Tablet']);
 		expect(
