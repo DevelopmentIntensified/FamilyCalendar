@@ -41,6 +41,7 @@ import {
 	insertPerson,
 	insertSettings,
 	listPersonNamesByIds,
+	listStaleAnonymousPeople,
 	markPersonEmailVerified as markPersonEmailVerifiedRow,
 	setPersonPasswordHash as setPersonPasswordHashRow,
 	touchPersonLastActive,
@@ -302,6 +303,38 @@ export async function getTimeZone(ctx: Ctx, userId: string): Promise<string | un
  */
 export async function deletePerson(ctx: Ctx, actor: Actor): Promise<boolean> {
 	return await deletePersonRow(ctx.db, actor.id);
+}
+
+/**
+ * Retention: Anonymous Accounts idle since strictly before `cutoff` are
+ * deleted, one row at a time; a delete that throws is logged and the rest of
+ * the batch still goes (the legacy cron's per-user try/catch). `scanned`
+ * counts the rows the cutoff matched, `deleted` the deletes that did not
+ * throw. `app`'s cleanup cron computes the 90-day cutoff and passes it.
+ *
+ * Guests never bill and never hold a task assignment, so the legacy
+ * `deleteUser`'s two cross-module steps (subscription rows, the cleared
+ * assignment status) are no-ops for this population and stay the account
+ * screen's composition — identity writes no other module's table.
+ */
+export async function pruneInactiveAnonymousAccounts(
+	ctx: Ctx,
+	cutoff: Date
+): Promise<{ scanned: number; deleted: number }> {
+	const stale = await listStaleAnonymousPeople(ctx.db, cutoff);
+	let deleted = 0;
+	for (const person of stale) {
+		try {
+			await deletePersonRow(ctx.db, person.id);
+			deleted++;
+		} catch (error) {
+			ctx.log.error('anonymous_prune_failed', {
+				userId: person.id,
+				message: error instanceof Error ? error.message : String(error)
+			});
+		}
+	}
+	return { scanned: stale.length, deleted };
 }
 
 /**
