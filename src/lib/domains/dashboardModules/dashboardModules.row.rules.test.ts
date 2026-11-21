@@ -8,7 +8,9 @@
 import { describe, expect, it } from 'vitest';
 import { DASHBOARD_MODULES, type ModuleScope } from './dashboardModules.registry.rules';
 import {
+	dashboardModuleToggleValue,
 	describeDashboardModuleRow,
+	describeDashboardModuleState,
 	type DashboardModuleRowInfo,
 	type ModuleRowState
 } from './dashboardModules.row.rules';
@@ -128,5 +130,35 @@ describe('describeDashboardModuleRow — submit value', () => {
 		// submit 'false' — never 'true', which would leave the card hidden
 		// for the viewer while claiming the family has it.
 		expect(rowFor('hidden-for-me').submitValue).toBe('false');
+	});
+});
+
+describe('describeDashboardModuleState — the chip vocabulary on its own', () => {
+	// The row component gets the state from the caller (an optimistic override
+	// included), so the words and tones must be readable without the
+	// enabled/hidden facts that produced it. Same table as the row above.
+	it.each<[ModuleScope, ModuleRowState, string, string, string]>([
+		['family', 'on', 'Family-wide', 'On', 'bg-emerald-100 text-emerald-700'],
+		['family', 'off', 'Family-wide', 'Off', 'bg-slate-200 text-slate-500'],
+		['family', 'hidden-for-me', 'Family-wide', 'Hidden for you', 'bg-amber-100 text-amber-700'],
+		['personal', 'on', 'Personal', 'On', 'bg-emerald-100 text-emerald-700'],
+		['personal', 'off', 'Personal', 'Off', 'bg-slate-200 text-slate-500'],
+		['personal', 'hidden-for-me', 'Personal', 'Hidden for you', 'bg-amber-100 text-amber-700']
+	])('%s %s names its chips', (scope, state, scopeLabel, stateLabel, stateClass) => {
+		expect(describeDashboardModuleState(scope, state)).toEqual({
+			scopeLabel,
+			stateLabel,
+			stateClass
+		});
+	});
+});
+
+describe('dashboardModuleToggleValue — the ported legacy helper', () => {
+	// Legacy cases, src/lib/utils/moduleRowState.test.ts:77-92.
+	it.each<[boolean, 'true' | 'false']>([
+		[true, 'false'],
+		[false, 'true']
+	])('submits %s as %s', (enabled, expected) => {
+		expect(dashboardModuleToggleValue(enabled)).toBe(expected);
 	});
 });

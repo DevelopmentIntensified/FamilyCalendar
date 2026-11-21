@@ -1,6 +1,7 @@
 /**
  * dashboardModules — public isomorphic interface: the canonical registry, the
- * visibility answer, the row vocabulary and both routes' contract.
+ * visibility answer, the row vocabulary, the browser api client and both
+ * routes' contract.
  * Other modules import dashboardModules ONLY through this file, index.server.ts or ui/index.ts (rule R2).
  * Doc: ./README.md#public-interface
  */
@@ -24,11 +25,18 @@ export {
 	type DashboardVisibility
 } from './dashboardModules.visibility.rules';
 export {
+	dashboardModuleToggleValue,
 	describeDashboardModuleRow,
+	describeDashboardModuleState,
+	type DashboardModuleChips,
 	type ModuleRowState,
 	type ModuleToggleValue,
 	type DashboardModuleRowInfo
 } from './dashboardModules.row.rules';
+export {
+	createDashboardModulesApi,
+	type DashboardModulesApi
+} from './dashboardModules.api';
 export {
 	FamilyModuleParams,
 	FamilyModuleSwitchBody,

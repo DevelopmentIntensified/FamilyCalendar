@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import type { Event } from '$lib/types';
-	import { showsModule } from '$lib/dashboardModules';
+	import { showsModule } from '$lib/domains/dashboardModules';
 	import TodayGlanceCard, { type GlanceEvent } from './TodayGlanceCard.svelte';
 	import TopPrioritiesCard from './TopPrioritiesCard.svelte';
 	import CompletedTodayCard from './CompletedTodayCard.svelte';

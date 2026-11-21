@@ -12,7 +12,7 @@
 	 *  Throwaway: helpers are copied from the real cards, content is
 	 *  faithful, mutations are stubbed (visual-only). */
 	import { DateTime } from 'luxon';
-	import { showsModule } from '$lib/dashboardModules';
+	import { showsModule } from '$lib/domains/dashboardModules';
 	import { rsvpVisual } from '$lib/utils/eventChip';
 	import { chipShell } from '$lib/utils/chipVocabulary';
 	import { avatarColor } from '$lib/utils/avatarColor';

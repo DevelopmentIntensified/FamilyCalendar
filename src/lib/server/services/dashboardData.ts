@@ -17,7 +17,7 @@ import {
 	mergeDayCompletions
 } from '$lib/server/db/actions/dashboard';
 import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
-import { dashboardVisibility } from '$lib/dashboardModules';
+import { dashboardVisibility } from '$lib/domains/dashboardModules';
 import { zoneFromSettings, zonedNow } from '$lib/server/utils/userTimezone';
 import { guard } from '$lib/server/utils/guard';
 import { getOpenGroceries } from '$lib/server/db/actions/groceries';

@@ -1,6 +1,6 @@
 import { render, screen, cleanup } from '@testing-library/svelte';
 import { describe, it, expect, afterEach } from 'vitest';
-import { DASHBOARD_MODULES } from '$lib/dashboardModules';
+import { DASHBOARD_MODULES } from '$lib/domains/dashboardModules';
 import AccountDashboardSection from './AccountDashboardSection.svelte';
 
 function props(hiddenDashboardModules: string[] | null = []) {
