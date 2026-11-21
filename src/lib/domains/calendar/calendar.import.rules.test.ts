@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildFilePreview,
 	buildPreview,
+	calendarEarliestImportDay,
 	dedupeKey,
 	defaultSelection,
 	describeWhen,
@@ -167,5 +168,21 @@ describe('planUndo (icsImportPreview.ts:262-283)', () => {
 			changed: [],
 			missing: []
 		});
+	});
+});
+
+describe('calendarEarliestImportDay (import page +page.svelte:158-166, issue 082)', () => {
+	it('links the EARLIEST landed day, not the first row ticked', () => {
+		expect(
+			calendarEarliestImportDay([
+				{ startIso: '2026-10-14T09:00:00.000Z' },
+				{ startIso: '2026-09-29T14:00:00.000Z' },
+				{ startIso: '2026-11-02T08:30:00.000Z' }
+			])
+		).toBe('2026-09-29');
+	});
+
+	it('answers null when the commit wrote nothing', () => {
+		expect(calendarEarliestImportDay([])).toBeNull();
 	});
 });

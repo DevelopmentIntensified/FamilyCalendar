@@ -226,7 +226,7 @@ Designed at S1 (2026-11-11). New paths are under `src/lib/screens/calendarPage/`
 | `src/lib/components/calendar/FirstRunCard.svelte` | `ui/FirstRunCard.svelte` |
 | `src/lib/components/calendar/ExitSelectionAsk.svelte` | `ui/SelectionExitAsk.svelte` |
 | `src/lib/components/calendar/EventTaskFields.svelte` | `ui/TaskFields.svelte` inside `ui/CreateAnythingModal.svelte` |
-| `src/lib/server/services/calendarData.ts` | split: calendars + provisioning → the `calendar` module (its census note); ads composition → `calendarPage.service.server.ts` calling sponsored + dashboardModules. The file itself stays after our S8 because `/api/calendars` and `/api/sponsored-events` still import it |
+| `src/lib/server/services/calendarData.ts` | split: calendars + provisioning → the `calendar` module (its census note); ads composition → `calendarPage.service.server.ts` calling sponsored + dashboardModules. Deleted in the calendar S8 sweep (its last importers, `/api/calendars` and `calendarData`'s sponsored half, were already ported) |
 | `src/routes/(calendar)/calendar/+page.server.ts` | `calendarPage.http.server.ts` + `calendarPage.service.server.ts`; the route becomes wiring |
 | `src/routes/(calendar)/calendar/+page.svelte` | `ui/CalendarPage.svelte` + the two state classes; the route becomes wiring |
 | `src/routes/share-target/+page.server.ts` | `calendarPage.http.server.ts` (`shareTargetLoad`); the route becomes wiring; its `+page.svelte` frame stays with shell |
@@ -325,13 +325,17 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
   `calendarSearch`, `dayViewLayout`, `listGroup`, `rangeSelect`, `weekView`, `eventMove`, `bulkPlan`,
   with their legacy tests plus `calendarView.test.ts`, `eventModalRoster.svelte.test.ts` and
   `page.server.test.ts`.
-- **Kept**: the `EventModal` family (EventModal, EventFormModal, EventFormModel, EventModalShell/Header/
-  Bar, ChecklistSection, EventDetailList, EventRecurrenceCard, EventRsvp*, EventAttendeeGroups,
-  EventGuestNote, Event*Fields, EventQuickAdd, EventDeleteConfirm/ExportMenu, AttendantPicker,
-  AttendanceBadge, CreatorBadge, ChipKindMark) because unported routes still import it, and therefore
-  `EventTaskFields.svelte` + `chipVocabulary.ts`; `eventChip.ts` (dashboard cards), `calendarData.ts`
-  (calendar/sponsored `/api`), `components/calendar/calendarView.ts` (now unreferenced — safe to delete
-  later).
+- **Kept at S8, deleted by the calendar sweep (2026-11-21)**: the `EventModal` family (EventModal,
+  EventFormModal, EventFormModel, EventModalShell/Header/Bar, ChecklistSection, EventDetailList,
+  EventRecurrenceCard, EventRsvp*, EventAttendeeGroups, EventGuestNote, Event*Fields, EventQuickAdd,
+  EventDeleteConfirm/ExportMenu, AttendantPicker, AttendanceBadge, CreatorBadge, ChipKindMark) stayed
+  because unported routes still imported it; once the three calendar-owned pages (`/calendar/event/[id]`,
+  `/calendar/import`, `/calendar/print`) were ported on `calendar`'s own `ui/*`, that whole cluster,
+  `EventTaskFields.svelte` and `calendarView.ts` were deleted. `chipVocabulary.ts` went with it (calendar's
+  chip rules have no legacy reader left), `eventChip.ts` too (the dashboard cards own their own RSVP
+  badge), `calendarData.ts` once its last importers (`/api/calendars`, the sponsored half) were ported.
+  Only `ChecklistSection.svelte` remains, pending tasks' sweep. `/share-target/+page.svelte` is
+  wiring-only now, rendering `ui/ShareTargetPage.svelte`.
 - **Deviations**: task chips now open tasks' own `TaskDetailModal` (a row is opened by id; the sheet
   draws only the fields the calendar row carries); the day-sheet's four actions and the range
   popover keep legacy copy; the grid's hourly lane chips use calendar's `buildMovePayload`.
@@ -376,8 +380,7 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
 ### Kept for unported importers
 
 - Verse deleted 2026-11-12 (Q-031/Q-032): `/api/daily-verse` and the verse card left the page, so the loader no longer composes a verse and its section warning label is gone. The `verse` Dashboard Module id stays (the family switches and `/api/dashboard` are unchanged).
-- `src/lib/server/services/calendarData.ts` stays after our S8: `/api/calendars` and `/api/sponsored-events` still import it (calendar and sponsored). This module stops importing it at S8.
-- `EventModal`/`EventFormModal` stay with calendar until its port; this screen reaches them through its public entries.
+- Nothing is kept for this screen any more. The calendar sweep (2026-11-21) deleted `calendarData.ts`, `calendarView.ts`, `EventTaskFields.svelte` and the whole legacy `EventModal` family once the three calendar-owned pages were ported; `src/routes/share-target/+page.svelte` now renders `ui/ShareTargetPage.svelte`, so the route is wiring-only. `ChecklistSection.svelte` stays only because tasks' own sweep still owns it.
 
 ### Questions for the owner
 

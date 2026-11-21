@@ -105,3 +105,12 @@ export {
 	printMonthEndpoint,
 	searchLocationsEndpoint
 } from './calendar.bulk.http.server';
+
+// --- Page loads ---------------------------------------------------------------
+
+export {
+	calendarEventDetailPage,
+	calendarImportPage,
+	calendarPrintPage,
+	type CalendarEventDetailPageData
+} from './calendar.pages.http.server';
