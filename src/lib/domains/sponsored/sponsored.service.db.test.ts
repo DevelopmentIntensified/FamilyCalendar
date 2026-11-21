@@ -14,6 +14,7 @@ import type { IdentityPorts } from '$lib/domains/identity/index.server';
 import { actorFromUser } from '$lib/kernel/ctx/actor';
 import type { Db } from '$lib/kernel/db/database.server';
 import { adConsentRecords, adEvents, events, userSettings } from '$lib/kernel/db/tables.server';
+import { systemIds } from '$lib/kernel/ids/ids';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
@@ -49,8 +50,10 @@ function scripted(draws: readonly number[]): SponsoredRandomSource {
 }
 
 /**
- * `testCtx` plus the three ports the serve path reads. The consent fake is
- * empty by default: a test that needs the gate to IGNORE a consent record
+ * `testCtx` plus the three ports the serve path reads, and the REAL id
+ * generator (`systemIds`), so a generated Sponsored Event's wire id is the
+ * legacy-shaped row id (`generateId(15)`) production mints. The consent fake
+ * is empty by default: a test that needs the gate to IGNORE a consent record
  * seeds it here.
  */
 function sponsoredTestCtx(
@@ -72,7 +75,12 @@ function sponsoredTestCtx(
 			recordConsentChange: async () => {}
 		}
 	};
-	return { ...base, ...identityPorts, random: options.random ?? scripted(NOVEMBER_DRAWS) };
+	return {
+		...base,
+		ids: systemIds,
+		...identityPorts,
+		random: options.random ?? scripted(NOVEMBER_DRAWS)
+	};
 }
 
 describe('listSponsoredEvents', () => {
@@ -304,27 +312,6 @@ describe('listSponsoredEvents', () => {
 		// Generation is virtual: the request writes no Event and no adEvents row.
 		expect(await db.select().from(events)).toEqual([]);
 		expect(await db.select().from(adEvents)).toEqual([]);
-	});
-
-	rollbackTest('generates ids that are stable per user and month', async (db) => {
-		const user = await seedUser(db);
-		await seedSponsoredSettings(db, user.id);
-		const actor = actorFromUser(user, 'session');
-
-		const first = await listSponsoredEvents(sponsoredTestCtx(db), actor, {
-			month: '2026-11',
-			now: new Date(NOW)
-		});
-		// A different draw: templates 3, 2, 1 (days 16, 8, 28), so the titles
-		// move while the ids do not.
-		const second = await listSponsoredEvents(
-			sponsoredTestCtx(db, { random: scripted([0.75, 0.5, 0.75, 0.5, 0.25, 0.25, 0.9]) }),
-			actor,
-			{ month: '2026-11', now: new Date(NOW) }
-		);
-
-		expect(second.map((event) => event.id)).toEqual(first.map((event) => event.id));
-		expect(second.map((event) => event.title)).not.toEqual(first.map((event) => event.title));
 	});
 });
 

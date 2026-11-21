@@ -13,7 +13,6 @@
  * Doc: ./README.md#invariants
  */
 import { DateTime } from 'luxon';
-import { ROW_ID_LENGTH, sha256Hex } from '$lib/kernel/ids/ids';
 
 /** A calendar month: `month` is 1–12. */
 export type SponsoredMonth = { readonly year: number; readonly month: number };
@@ -80,25 +79,6 @@ export function sponsoredMonthWindow({
 		fromIso: start.toJSDate().toISOString(),
 		toIso: start.plus({ months: 1 }).toJSDate().toISOString()
 	};
-}
-
-/**
- * The id of one generated Sponsored Event. A generated row is virtual — the
- * request writes nothing (`adService.ts:186-221`'s writer has no caller) — so
- * the id exists only on the wire, where the golden pins the stored row-id
- * shape: 15 chars of `a-z0-9` (`AD_TEMPLATES`' `generateId(15)`). It is
- * derived from `sha256Hex(ownerId:YYYY-MM:index)`, never drawn: the same user
- * asking for the same month twice gets the same ids even while the template
- * and day draws stay per-request (Q-041, ported as today), and a domain file
- * needs no randomness beyond the `random` port.
- */
-export function sponsoredGeneratedEventId(
-	ownerId: string,
-	month: SponsoredMonth,
-	index: number
-): string {
-	const key = `${month.year}-${String(month.month).padStart(2, '0')}`;
-	return sha256Hex(`${ownerId}:${key}:${index}`).slice(0, ROW_ID_LENGTH);
 }
 
 /**

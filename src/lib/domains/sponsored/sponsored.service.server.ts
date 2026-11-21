@@ -15,11 +15,10 @@
  * the already-authorized saver, and this module must never invent an `Actor`
  * it cannot verify.
  *
- * Time: `listSponsoredEvents` takes the request instant as an INPUT (the
- * endpoint supplies it, tests pin it — the frozen golden seeds day 10 of the
- * real current month, so the wire's "now" cannot be a frozen test clock), and
- * `recordSponsoredConsentChange` reads `ctx.clock.now()`, the module's one
- * clock.
+ * Time: `listSponsoredEvents` takes the request instant as an INPUT — the
+ * endpoint supplies `ctx.clock.now()`, tests pin it — so the service itself
+ * stays a pure function of its parameters and `recordSponsoredConsentChange`
+ * reads the same `ctx.clock.now()`.
  *
  * Doc: ./README.md#public-interface
  */
@@ -31,7 +30,6 @@ import { sponsoredConsentDecision } from './sponsored.consent.rules';
 import { sponsoredSourceOfRow, toSponsoredEvent } from './sponsored.display.rules';
 import {
 	planSponsoredMonth,
-	sponsoredGeneratedEventId,
 	sponsoredMonthOf,
 	sponsoredMonthOfKey,
 	sponsoredMonthWindow
@@ -88,10 +86,10 @@ export async function listSponsoredEvents(
 		return rows.map((row) => toSponsoredEvent(sponsoredSourceOfRow(row), serving));
 	}
 
-	return planSponsoredMonth({ month, zone, random: ctx.random }).map((plan, index) =>
+	return planSponsoredMonth({ month, zone, random: ctx.random }).map((plan) =>
 		toSponsoredEvent(
 			{
-				id: sponsoredGeneratedEventId(actor.id, month, index),
+				id: ctx.ids.id(),
 				message: plan.message,
 				description: null,
 				start: plan.start

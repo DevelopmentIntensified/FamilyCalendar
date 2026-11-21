@@ -7,17 +7,15 @@
  * here.
  *
  * The request instant: the wire's absent `month` means "the current month in
- * the user's zone", and the frozen golden pins that against the REAL clock (it
- * seeds day 10 of the real current month), while a test ctx's clock is
- * deliberately frozen. So the real instant is read once at this boundary with
- * the kernel's `systemClock` and passed into the service as `now`; nothing
- * below this file reads an ambient clock, and S5 tests pin `now` themselves.
+ * the user's zone", read once here as `ctx.clock.now()` — the same clock every
+ * other rule input takes (R5). A golden gets the real `systemClock` as its
+ * `ctx.clock`, so the frozen absent-month row (day 10 of the real current
+ * month) still comes back; a service test pins `now` explicitly.
  *
  * Doc: ./README.md#public-interface
  */
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
-import { systemClock } from '$lib/kernel/time/clock';
 import { SponsoredEventsQuery, type SponsoredEventsResponse } from './sponsored.contract';
 import { listSponsoredEvents } from './sponsored.service.server';
 import type { SponsoredCtx } from './index.server';
@@ -33,7 +31,7 @@ export const listSponsoredEventsEndpoint = endpoint({
 	handle: async ({ ctx, actor, query }) => {
 		const events = await listSponsoredEvents(sponsoredCtx(ctx), actor, {
 			month: query.month,
-			now: systemClock.now()
+			now: ctx.clock.now()
 		});
 		const response: SponsoredEventsResponse = { events };
 		return ok(response);
