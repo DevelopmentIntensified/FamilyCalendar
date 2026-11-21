@@ -10,19 +10,13 @@
  * adapters meet a ctx: `appCtx` for production and `goldenCtx`
  * (./testing/goldenCtx.server.ts) for the `/api` goldens.
  *
- * TRANSITION BRIDGES (K-15; each names the module whose S5 replaces it):
- * identity's `adConsent` port is backed by the legacy functions until
- * `sponsored` ports, because identity's S5+S6 ran before calendar's and
- * sponsored's:
- * - `adConsent` → legacy `getAdConsentRecords`/`recordAdConsentChange`
- *   (services/adConsentService). `sponsored`'s S5 exports the real adapter.
- *   It must keep reading today's rows so the frozen identity goldens see the
- *   consent records another module owns.
- *
- * Calendar already ports, so its two adapters are the REAL ones from
- * `$lib/domains/calendar/index.server`:
+ * Ports wired here that are already REAL (the owning module ported):
  * - identity's `calendarAccess` → `createCalendarAccessPort(ctx)`, one home for
  *   the accessible-calendar scope read (`listAccessibleCalendarIds`).
+ * - identity's `adConsent` → sponsored's `sponsoredAdConsentPort(ctx)`, built on
+ *   sponsored's own repo and services and bound to the ctx it is attached to, so
+ *   it reads the request's database and clock (a golden's transaction-scoped
+ *   test db included).
  * - family's `calendar.createFamilyCalendar` → `createFamilyCalendarPort()`,
  *   which writes through the ctx family hands it, so the row joins family's
  *   create transaction.
@@ -66,9 +60,9 @@ import type {
 	MemberTasksPort
 } from '$lib/domains/family/index.server';
 import { listFamilyModuleSwitches } from '$lib/domains/dashboardModules/index.server';
-import type { AdConsentPort, IdentityPorts } from '$lib/domains/identity/index.server';
+import type { IdentityPorts } from '$lib/domains/identity/index.server';
+import { sponsoredAdConsentPort } from '$lib/domains/sponsored/index.server';
 import { removeFamilyMember } from '$lib/server/db/actions/families';
-import { getAdConsentRecords, recordAdConsentChange } from '$lib/server/services/adConsentService';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { getUrl } from '$lib/utils/getUrl';
 
@@ -80,17 +74,6 @@ const INVITE_TOKEN_SECRET = new TextEncoder().encode(process.env.EMAILSECRET ?? 
 
 /** One day, as both legacy invite doors minted. */
 const INVITE_TOKEN_LIFETIME = new TimeSpan(1, 'd');
-
-/** TRANSITION BRIDGE — `sponsored`'s S5 replaces this with its exported adapter. */
-const legacyAdConsent: AdConsentPort = {
-	listConsentHistory: async (userId) => {
-		const rows = await getAdConsentRecords(userId);
-		return rows.map((row) => ({ decision: row.decision, recordedAt: row.recordedAt }));
-	},
-	recordConsentChange: async (userId, previous, next) => {
-		await recordAdConsentChange(userId, previous, next);
-	}
-};
 
 /** TRANSITION BRIDGE — `tasks`' S5 replaces this with the assignment clear alone. */
 const legacyMemberTasks: MemberTasksPort = {
@@ -141,7 +124,7 @@ export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
 	return {
 		...ctx,
 		calendarAccess: createCalendarAccessPort(ctx),
-		adConsent: legacyAdConsent,
+		adConsent: sponsoredAdConsentPort(ctx),
 		calendar: createFamilyCalendarPort(),
 		tasks: legacyMemberTasks,
 		moduleSwitches: dashboardModuleSwitches,

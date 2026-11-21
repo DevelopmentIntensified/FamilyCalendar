@@ -1,25 +1,25 @@
 /**
  * The display projection every served row goes through: `📢 <message>`, an
- * all-day row on no calendar with `end` and `date` equal to `start`, the amber
- * and `isAd: true` (legacy `adService.ts:294-334`, `calendarData.ts:53-62,79-81`,
- * `+server.ts:35`). Expected rows are the golden's full body, never a run of
- * the code.
+ * all-day row on no calendar with `end` and `date` equal to `start`, the amber,
+ * `isAd: true` and `created_at` = the served month's start (Q-042 B) — legacy
+ * `adService.ts:294-334`, `calendarData.ts:53-62,79-81`, `+server.ts:35`.
+ * Expected rows are the golden's full body, never a run of the code.
  *
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
 import { SponsoredEvent } from './sponsored.contract';
 import {
-	sponsoredSourceOfRow,
+	SPONSORED_TITLE_MARKER,
 	toSponsoredEvent,
 	type SponsoredEventServing,
 	type SponsoredEventSource
 } from './sponsored.display.rules';
 
-/** The response instant every row of one response carries as `created_at` (Q-042, today). */
+/** The month start the service passes as `created_at` (Q-042 B). */
 const serving: SponsoredEventServing = {
 	ownerId: 'user-1',
-	createdAt: new Date('2026-11-19T08:30:00.000Z')
+	createdAt: new Date('2026-11-01T00:00:00.000Z')
 };
 
 /** Every field that is the same on every served row. */
@@ -30,7 +30,7 @@ const fixedFields = {
 	location: null,
 	recurrenceFrequency: null,
 	recurrenceInterval: null,
-	created_at: '2026-11-19T08:30:00.000Z',
+	created_at: '2026-11-01T00:00:00.000Z',
 	recurrenceByDay: null,
 	recurrenceCount: null,
 	recurrenceUntil: null,
@@ -40,15 +40,10 @@ const fixedFields = {
 	isAd: true
 };
 
-describe('sponsoredSourceOfRow — an own 📢 Event as a served source', () => {
-	it.each<[string, string | null, string, string | null]>([
-		['📢 20% off annual plans', 'Ends Friday', '20% off annual plans', 'Ends Friday'],
-		['📢    Extra spaces', null, 'Extra spaces', null],
-		['📢', '', '', '']
-	])('title %j, description %j → message %j, description %j', (title, description, message, served) => {
-		expect(
-			sponsoredSourceOfRow({ id: 'ev-1', title, description, start: '2026-11-05 10:00:00+00' })
-		).toEqual({ id: 'ev-1', message, description: served, start: '2026-11-05 10:00:00+00' });
+describe('the 📢 title marker', () => {
+	// adService.ts:299 — the served title is the marker, a space, then the message.
+	it('is the megaphone emoji the projection writes', () => {
+		expect(SPONSORED_TITLE_MARKER).toBe('📢');
 	});
 });
 

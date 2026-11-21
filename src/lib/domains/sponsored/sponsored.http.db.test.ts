@@ -2,9 +2,12 @@
  * Golden contract tests for `GET /api/sponsored-events` (#292 G6) — the one
  * Sponsored Events wire route, and the only surface the Android app reads.
  *
- * They pin TODAY's legacy handler: the serve gate (`showAdsAsEvents`), the
- * strict month parameter, the calendar display projection and its accidental
- * "any own event titled 📢 is an ad" rule. They run unchanged after the port.
+ * They were written against the S2 legacy handler: the serve gate
+ * (`showAdsAsEvents`), the strict month parameter, the calendar display
+ * projection and its accidental "any own event titled 📢 is an ad" rule. The
+ * rows that pinned those accidents were flipped with the owner's answers
+ * (Q-040 B: an own 📢 Event is not inventory; Q-041 B: the draw is seeded;
+ * Q-042 B: `created_at` is the month start); every other row is untouched.
  * Module README: ./README.md
  */
 import { eq } from 'drizzle-orm';
@@ -46,8 +49,6 @@ const WireEvent = z.strictObject({
 type WireEvent = z.infer<typeof WireEvent>;
 
 const SponsoredEventsBody = z.strictObject({ events: z.array(WireEvent) });
-
-const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function getSponsoredEventsFor(
 	user: LegacyUser | null,
@@ -119,7 +120,7 @@ describe('GET /api/sponsored-events', () => {
 		}
 	);
 
-	it('serves the requested month as calendar display rows marked isAd + amber', async () => {
+	it('serves the requested month as calendar display rows marked isAd + amber, and never an own 📢 row', async () => {
 		const user = await seedUser(testDb());
 		await seedSettings(user.id);
 		await seedEvent({
@@ -133,35 +134,37 @@ describe('GET /api/sponsored-events', () => {
 		const res = await getSponsoredEventsFor(user, { month: '2026-11' });
 
 		expect(res.status).toBe(200);
-		expect(res.body).toEqual({
-			events: [
-				{
-					id: 'adrowfull00001',
-					title: '📢 20% off annual plans',
-					description: 'Ends Friday',
-					start: '2026-11-05T10:00:00.000Z',
-					end: '2026-11-05T10:00:00.000Z',
-					allDay: true,
-					calendarId: '',
-					ownerId: user.id,
-					location: null,
-					recurrenceFrequency: null,
-					recurrenceInterval: null,
-					created_at: expect.stringMatching(TIMESTAMP),
-					recurrenceByDay: null,
-					recurrenceCount: null,
-					recurrenceUntil: null,
-					reminderMinutes: null,
-					mirrorOf: null,
-					date: '2026-11-05T10:00:00.000Z',
-					color: '#f59e0b',
-					isAd: true
-				}
-			]
-		});
+		const served = wireEvents(res.body);
+		expect(served).toHaveLength(3);
+		for (const event of served) {
+			expect(event).toMatchObject({
+				description: '',
+				allDay: true,
+				calendarId: '',
+				ownerId: user.id,
+				location: null,
+				recurrenceFrequency: null,
+				recurrenceInterval: null,
+				created_at: '2026-11-01T00:00:00.000Z',
+				recurrenceByDay: null,
+				recurrenceCount: null,
+				recurrenceUntil: null,
+				reminderMinutes: null,
+				mirrorOf: null,
+				color: '#f59e0b',
+				isAd: true
+			});
+			// 10:00 in the user's zone (UTC here), on a day of the month.
+			expect(event.start).toMatch(/^2026-11-(0[1-9]|[12]\d|30)T10:00:00\.000Z$/);
+			expect(event.end).toBe(event.start);
+			expect(event.date).toBe(event.start);
+			expect(event.id).toMatch(/^[a-z0-9]{15}$/);
+		}
+		// Q-040 B: an own 📢 row is the user's calendar data, never ad inventory.
+		expect(served.map((event) => event.id)).not.toContain('adrowfull00001');
 	});
 
-	it("lists the month's ad rows in start order", async () => {
+	it('draws the same month the same way on every request, and never the own 📢 rows', async () => {
 		const user = await seedUser(testDb());
 		await seedSettings(user.id);
 		await seedEvent({
@@ -177,12 +180,19 @@ describe('GET /api/sponsored-events', () => {
 			start: '2026-11-03T10:00:00.000Z'
 		});
 
-		const res = await getSponsoredEventsFor(user, { month: '2026-11' });
+		const first = await getSponsoredEventsFor(user, { month: '2026-11' });
+		const second = await getSponsoredEventsFor(user, { month: '2026-11' });
 
-		expect(wireEvents(res.body).map((event) => event.id)).toEqual([
-			'adroweary00001',
-			'adrowlate00001'
-		]);
+		const drawn = wireEvents(first.body);
+		expect(drawn).toHaveLength(3);
+		// Q-041 B: the draw is seeded per user and month, so the values repeat.
+		expect(
+			wireEvents(second.body).map((event) => [event.title, event.start, event.created_at])
+		).toEqual(drawn.map((event) => [event.title, event.start, event.created_at]));
+		// Q-040 B: neither own 📢 row is served.
+		const ids = drawn.map((event) => event.id);
+		expect(ids).not.toContain('adrowlate00001');
+		expect(ids).not.toContain('adroweary00001');
 	});
 
 	it('generates three Sponsored Events when the month has none', async () => {
@@ -220,7 +230,8 @@ describe('GET /api/sponsored-events', () => {
 			expect(event.start).toMatch(/^2026-11-(0[1-9]|[12]\d|30)T10:00:00\.000Z$/);
 			expect(event.end).toBe(event.start);
 			expect(event.date).toBe(event.start);
-			expect(event.created_at).toMatch(TIMESTAMP);
+			// Q-042 B: `created_at` is the served month's start, not the request instant.
+			expect(event.created_at).toBe('2026-11-01T00:00:00.000Z');
 			expect(event.id).toMatch(/^[a-z0-9]{15}$/);
 		}
 		// Generation is virtual: the request writes no Event and no adEvents row.
@@ -301,45 +312,46 @@ describe('GET /api/sponsored-events', () => {
 	it('uses the current month in the user zone when month is absent', async () => {
 		const user = await seedUser(testDb());
 		await seedSettings(user.id);
-		// Day 10 at 10:00 UTC is inside the current UTC month whatever today is;
-		// the legacy route reads the real clock, so only the month is asserted.
+		// The legacy route reads the real clock, so the current month is worked
+		// from the test's own clock: the starts fall inside it and `created_at`
+		// is its first instant in UTC.
 		const now = new Date();
-		const start = new Date(
-			Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 10, 10, 0, 0)
-		).toISOString();
-		await seedEvent({
-			id: 'adrowcurrent01',
-			ownerId: user.id,
-			title: '📢 This month',
-			start
-		});
+		const key = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+			.toISOString()
+			.slice(0, 7);
 
 		const res = await getSponsoredEventsFor(user);
 
 		expect(res.status).toBe(200);
-		expect(wireEvents(res.body).map((event) => event.id)).toEqual(['adrowcurrent01']);
+		const served = wireEvents(res.body);
+		expect(served).toHaveLength(3);
+		for (const event of served) {
+			expect(event.start.startsWith(key)).toBe(true);
+			expect(event.created_at).toBe(`${key}-01T00:00:00.000Z`);
+		}
 	});
 
 	it("windows the month in the user's zone, not UTC", async () => {
 		const user = await seedUser(testDb());
-		// Honolulu is UTC-10: 05:00Z on 1 November is still 31 October there.
+		// Honolulu is UTC-10: its month opens at 10:00Z, and 10:00 local is 20:00Z.
 		await seedSettings(user.id, { timeZone: 'Pacific/Honolulu' });
-		await seedEvent({
-			id: 'adrowhonolulu1',
-			ownerId: user.id,
-			title: '📢 Island time',
-			start: '2026-11-01T05:00:00.000Z'
-		});
 
-		const october = await getSponsoredEventsFor(user, { month: '2026-10' });
-		expect(wireEvents(october.body).map((event) => event.id)).toEqual(['adrowhonolulu1']);
+		const october = wireEvents((await getSponsoredEventsFor(user, { month: '2026-10' })).body);
+		expect(october).toHaveLength(3);
+		for (const event of october) {
+			expect(event.start).toMatch(/^2026-10-(0[1-9]|[12]\d|3[01])T20:00:00\.000Z$/);
+			expect(event.created_at).toBe('2026-10-01T10:00:00.000Z');
+		}
 
-		const november = await getSponsoredEventsFor(user, { month: '2026-11' });
-		expect(wireEvents(november.body).map((event) => event.id)).not.toContain('adrowhonolulu1');
-		expect(wireEvents(november.body)).toHaveLength(3);
+		const november = wireEvents((await getSponsoredEventsFor(user, { month: '2026-11' })).body);
+		expect(november).toHaveLength(3);
+		for (const event of november) {
+			expect(event.start).toMatch(/^2026-11-(0[1-9]|[12]\d|30)T20:00:00\.000Z$/);
+			expect(event.created_at).toBe('2026-11-01T10:00:00.000Z');
+		}
 	});
 
-	it('serves any own event whose title starts with 📢, trimmed, and nothing else', async () => {
+	it('does not serve an own event whose title starts with 📢, and generates the month instead', async () => {
 		const user = await seedUser(testDb());
 		await seedSettings(user.id);
 		await seedEvent({
@@ -348,20 +360,14 @@ describe('GET /api/sponsored-events', () => {
 			title: '📢    Extra spaces',
 			start: '2026-11-07T10:00:00.000Z'
 		});
-		await seedEvent({
-			id: 'adrowplain0001',
-			ownerId: user.id,
-			title: 'Dentist',
-			description: 'Not an ad',
-			start: '2026-11-08T09:00:00.000Z'
-		});
 
 		const res = await getSponsoredEventsFor(user, { month: '2026-11' });
 
 		const served = wireEvents(res.body);
-		expect(served.map((event) => event.id)).toEqual(['adrowtrimmed01']);
-		expect(served[0].title).toBe('📢 Extra spaces');
-		expect(served[0].description).toBe('');
+		expect(served).toHaveLength(3);
+		expect(served.map((event) => event.id)).not.toContain('adrowtrimmed01');
+		// The typed marker is not stripped and served back as an ad either.
+		expect(served.every((event) => event.title !== '📢 Extra spaces')).toBe(true);
 	});
 
 	it("never serves another user's 📢 event", async () => {

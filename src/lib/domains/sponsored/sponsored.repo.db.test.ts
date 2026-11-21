@@ -1,9 +1,10 @@
 /**
- * The sponsored repo against real Postgres: the own-📢 month read (owner,
- * marker, window edges, order, columns), the consent append and its
+ * The sponsored repo against real Postgres: the consent append and its
  * newest-first read, and the `adEvents` prune (anchor and cutoff edge). Each
  * test runs in `rollbackTest`, so the rows it seeds vanish afterwards; writes
- * are given their timestamps, so the tests assert them instead of a clock.
+ * are given their timestamps, so the tests assert them instead of a clock. The
+ * module reads no foreign table (owner Q-040 B), so no window read is tested
+ * here.
  *
  * Doc: ./README.md#how-to-test
  */
@@ -12,151 +13,12 @@ import { describe, expect } from 'vitest';
 import { adConsentRecords, adEvents } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
-import { toInstantString } from '$lib/kernel/time/dates';
-import {
-	seedAdConsentRecord,
-	seedAdEvent,
-	seedOwnedSponsoredEvent
-} from './sponsored.fixtures.server';
+import { seedAdConsentRecord, seedAdEvent } from './sponsored.fixtures.server';
 import {
 	deleteAdEventsCreatedBefore,
 	insertSponsoredConsentRecord,
-	listOwnedSponsoredEventRows,
 	listSponsoredConsentRecords
 } from './sponsored.repo.server';
-
-const NOVEMBER = { fromIso: '2026-11-01T00:00:00.000Z', toIso: '2026-12-01T00:00:00.000Z' };
-
-describe('listOwnedSponsoredEventRows', () => {
-	rollbackTest(
-		"keeps the user's own 📢 rows inside [from, to), in start order, four columns",
-		async (db) => {
-			const user = await seedUser(db);
-			const other = await seedUser(db);
-			// In: owned, marker first, inside the window (seeded out of order).
-			await seedOwnedSponsoredEvent(db, {
-				id: 'late',
-				ownerId: user.id,
-				title: '📢 Later',
-				start: '2026-11-20T10:00:00.000Z'
-			});
-			await seedOwnedSponsoredEvent(db, {
-				id: 'early',
-				ownerId: user.id,
-				title: '📢 Earlier',
-				description: 'Ends Friday',
-				start: '2026-11-03T10:00:00.000Z'
-			});
-			// In: exactly at the window start (inclusive).
-			await seedOwnedSponsoredEvent(db, {
-				id: 'atstart',
-				ownerId: user.id,
-				title: '📢 At start',
-				start: '2026-11-01T00:00:00.000Z'
-			});
-			// Out: exactly at the window end (exclusive), and a second before the start.
-			await seedOwnedSponsoredEvent(db, {
-				id: 'atend',
-				ownerId: user.id,
-				title: '📢 At end',
-				start: '2026-12-01T00:00:00.000Z'
-			});
-			await seedOwnedSponsoredEvent(db, {
-				id: 'before',
-				ownerId: user.id,
-				title: '📢 Before',
-				start: '2026-10-31T23:59:59.000Z'
-			});
-			// Out: no marker, the marker not first, a leading space.
-			await seedOwnedSponsoredEvent(db, {
-				id: 'plain',
-				ownerId: user.id,
-				title: 'Dentist',
-				start: '2026-11-08T09:00:00.000Z'
-			});
-			await seedOwnedSponsoredEvent(db, {
-				id: 'inner',
-				ownerId: user.id,
-				title: 'Sale 📢',
-				start: '2026-11-09T09:00:00.000Z'
-			});
-			await seedOwnedSponsoredEvent(db, {
-				id: 'leading',
-				ownerId: user.id,
-				title: ' 📢 Leading space',
-				start: '2026-11-10T09:00:00.000Z'
-			});
-			// Out: another user's 📢 row in the window.
-			await seedOwnedSponsoredEvent(db, {
-				id: 'others',
-				ownerId: other.id,
-				title: '📢 Not yours',
-				start: '2026-11-05T10:00:00.000Z'
-			});
-
-			const rows = await listOwnedSponsoredEventRows(db, { ownerId: user.id, ...NOVEMBER });
-
-			expect(rows.map((row) => Object.keys(row).sort())).toEqual([
-				['description', 'id', 'start', 'title'],
-				['description', 'id', 'start', 'title'],
-				['description', 'id', 'start', 'title']
-			]);
-			expect(rows.map((row) => ({ ...row, start: toInstantString(row.start) }))).toEqual([
-				{
-					id: 'atstart',
-					title: '📢 At start',
-					description: null,
-					start: '2026-11-01T00:00:00.000Z'
-				},
-				{
-					id: 'early',
-					title: '📢 Earlier',
-					description: 'Ends Friday',
-					start: '2026-11-03T10:00:00.000Z'
-				},
-				{ id: 'late', title: '📢 Later', description: null, start: '2026-11-20T10:00:00.000Z' }
-			]);
-		}
-	);
-
-	rollbackTest('windows on the stored instant, whatever offset it was written with', async (db) => {
-		const user = await seedUser(db);
-		// 05:00Z on 1 November: inside November in UTC, October in Honolulu.
-		await seedOwnedSponsoredEvent(db, {
-			id: 'island',
-			ownerId: user.id,
-			title: '📢 Island time',
-			start: '2026-10-31T19:00:00-10:00'
-		});
-
-		const october = await listOwnedSponsoredEventRows(db, {
-			ownerId: user.id,
-			fromIso: '2026-10-01T10:00:00.000Z',
-			toIso: '2026-11-01T10:00:00.000Z'
-		});
-		const novemberUtc = await listOwnedSponsoredEventRows(db, { ownerId: user.id, ...NOVEMBER });
-		const novemberHonolulu = await listOwnedSponsoredEventRows(db, {
-			ownerId: user.id,
-			fromIso: '2026-11-01T10:00:00.000Z',
-			toIso: '2026-12-01T10:00:00.000Z'
-		});
-
-		expect(october.map((row) => row.id)).toEqual(['island']);
-		expect(novemberUtc.map((row) => row.id)).toEqual(['island']);
-		expect(novemberHonolulu).toEqual([]);
-		expect(toInstantString(october[0].start)).toBe('2026-11-01T05:00:00.000Z');
-	});
-
-	rollbackTest('returns nothing for a month without own 📢 rows', async (db) => {
-		const user = await seedUser(db);
-		await seedOwnedSponsoredEvent(db, {
-			ownerId: user.id,
-			title: 'Dentist',
-			start: '2026-11-08T09:00:00.000Z'
-		});
-		expect(await listOwnedSponsoredEventRows(db, { ownerId: user.id, ...NOVEMBER })).toEqual([]);
-	});
-});
 
 describe('consent trail', () => {
 	rollbackTest(
