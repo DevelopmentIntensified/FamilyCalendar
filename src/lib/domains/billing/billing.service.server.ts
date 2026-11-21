@@ -155,21 +155,23 @@ export async function recordAiCreation(ctx: Ctx, actor: Actor): Promise<AiUsage>
 }
 
 /**
- * What `input.plan` costs a person with `input.membershipCount` family rows,
- * after the discounts an enabled row and their claims allow. `appliedDiscounts`
- * names the row behind each line; the checkout page only renders the quote.
+ * What `input.plan` costs a person whose fullest family has
+ * `input.familyMemberCount` members, after the discounts an enabled row and
+ * their claims allow. The count is one family's members, not the person's
+ * membership rows (Q-017 B). `appliedDiscounts` names the row behind each line;
+ * the checkout page only renders the quote.
  */
 export async function getCheckoutQuote(
 	ctx: Ctx,
 	actor: Actor,
-	input: { readonly plan: PlanType; readonly membershipCount: number }
+	input: { readonly plan: PlanType; readonly familyMemberCount: number }
 ): Promise<CheckoutQuoteView> {
 	const enabledRows = await listEnabledDiscounts(ctx.db);
 	const familyRow =
 		enabledRows.find((row) => row.appliesToAnnual || row.appliesToLifetime) ?? null;
 	const lifetimeRow = enabledRows.find((row) => row.appliesToLifetime) ?? null;
 
-	const familyRate = familyRow ? familyDiscountRate(input.membershipCount) : 0;
+	const familyRate = familyRow ? familyDiscountRate(input.familyMemberCount) : 0;
 	let lifetimeRate = 0;
 	if (lifetimeRow) {
 		const heldIds = (await listUserDiscounts(ctx.db, actor.id)).map((held) => held.discountId);
@@ -200,11 +202,11 @@ export async function getCheckoutQuote(
 export async function listEligibleDiscounts(
 	ctx: Ctx,
 	actor: Actor,
-	input: { readonly membershipCount: number }
+	input: { readonly familyMemberCount: number }
 ): Promise<EligibleDiscount[]> {
 	const enabledRows = await listEnabledDiscounts(ctx.db);
 	const lifetimeRow = enabledRows.find((row) => row.appliesToLifetime) ?? null;
-	const familyRate = familyDiscountRate(input.membershipCount);
+	const familyRate = familyDiscountRate(input.familyMemberCount);
 	const eligible: EligibleDiscount[] = [];
 
 	if (familyRate > 0) {

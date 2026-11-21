@@ -101,7 +101,7 @@ contract these files deliver.
 | `billing.contract.ts` | contract | zod schemas + types for the plan card wire (`SubscriptionSummary`, `PlanTier`, `SubscriptionWindow`, `PlanLimits`, `PlanPricing`, `AiUsage`) matching the golden bodies; `PlanType` (re-exported from the pricing rules); `CheckoutPlanInput` (one `planTypeOrDefault` transform); `AiUsagePeriod` (the counter's identity, shared by `aiPeriod` and the repo). Error messages stay in rules. |
 | `billing.limits.rules.ts` | rules | `FREE_PLAN_LIMITS` (frozen), `resolvePlanLimits(row, tier)` (override merge; no row or no tier → free), the six plan refusals (legacy comparison direction: an Invalid Date or NaN is allowed) (`memberLimitRefusal`, `familyCreationRefusal`, `retentionRefusal`, `archiveRefusal`, `attachmentRefusal`, `exportImportRefusal`) with the legacy wording, `isUnlimitedLimit`. |
 | `billing.ai.rules.ts` | rules | `aiPeriod(now)` (month/year), `aiAllowance(used, limit)` (`max(0, …)`), `aiLimitRefusal`, `isPaidTier(tierName)`. |
-| `billing.pricing.rules.ts` | rules | `PLAN_TYPES`/`PlanType`, `PLAN_PRICES` (9/90/150), `planPricing()`, `isPlanType`/`planTypeOrDefault`, `familyDiscountRate(membershipCount)` (≥4 → 40), `holdsLifetimeDiscount(discounts, heldDiscountIds)` (an enabled lifetime row among the claimed ids), `lifetimeDiscountRate(configuredRate, holdsDiscount)` (20 when held), `checkoutQuote({ plan, basePrice, familyRate, lifetimeRate })` (sum, cap 100, round2, never negative) plus its `CheckoutQuote`/`CheckoutLine` types. |
+| `billing.pricing.rules.ts` | rules | `PLAN_TYPES`/`PlanType`, `PLAN_PRICES` (9/90/150), `planPricing()`, `isPlanType`/`planTypeOrDefault`, `familyDiscountRate(familyMemberCount)` (≥5 → 40; one family's members, Q-017 B), `holdsLifetimeDiscount(discounts, heldDiscountIds)` (an enabled lifetime row among the claimed ids), `lifetimeDiscountRate(configuredRate, holdsDiscount)` (20 when held), `checkoutQuote({ plan, basePrice, familyRate, lifetimeRate })` (sum, cap 100, round2, never negative) plus its `CheckoutQuote`/`CheckoutLine` types. |
 | `billing.limits.rules.test.ts`, `billing.ai.rules.test.ts`, `billing.pricing.rules.test.ts` | tests | table-driven; expected values come from the Invariants, not from running the code. |
 | `billing.contract.test.ts` | test | the worked example's contract test: the golden free/paid bodies parse, a `Date` never passes the wire schema, and the `?plan` coercion defaults to monthly. |
 
@@ -182,9 +182,9 @@ Implemented differences from the rows above, with their reasons:
 | `checkoutService.calculateCheckoutPrice` | `getCheckoutQuote` service + `checkoutQuote` rule. |
 | `getDiscountByType` | dies: "scan the first ten enabled rows and pick by flag" is arbitrary when several match; the repo reads the row by the type flags it needs. |
 | `applyDiscountToSubscription` | `applyUserDiscount` (one discount, idempotent); the `subscriptions.updatedAt` bump dies with the checkout stub. |
-| `getUserEligibleDiscounts` | `listEligibleDiscounts(ctx, actor, { membershipCount })`, same descriptions. |
+| `getUserEligibleDiscounts` | `listEligibleDiscounts(ctx, actor, { familyMemberCount })`, same descriptions. |
 | `getBasePrice`, `getPlanPricing` | `PLAN_PRICES`, `planPricing()` — the ignored `_planType` parameter dies. |
-| `discountService.calculateFamilyMemberDiscount` | `familyDiscountRate(membershipCount)`; the count is the caller's. Today's rule (membership rows, `>= 4`) is kept in S3–S6; Q-017 B (count one family's members, threshold 5) lands after S6 (it rewrites this rule's table test). |
+| `discountService.calculateFamilyMemberDiscount` | `familyDiscountRate(familyMemberCount)`; the count is the caller's — one family's members, not the person's membership rows. Q-017 B landed after S6: threshold 5, which its own checkout copy ("5+ members") already described. |
 | `calculateLifetimeDiscount` | `lifetimeDiscountRate(configuredRate, holdsLifetimeDiscount)` + two repo reads. |
 | `calculateDiscounts` | `listEligibleDiscounts`. |
 | `getAvailableDiscounts` | repo `listEnabledDiscounts` (no export: the pages never listed them). |
@@ -210,8 +210,8 @@ Implemented differences from the rows above, with their reasons:
 |---|---|
 | `/pricing` computes `showDiscountedPrices`/`displayPrice` and never reads them | drop the dead server work; the page renders base prices (S7). |
 | `PlanTypeSelector` hardcodes `$5/$48` and `$9/$90`, 0 importers | delete the component; `PLAN_PRICES` is the one price table. |
-| pricing card says "Up to 5 family members" while the free tier allows 6 | decided, Q-018 B (owner, 2026-11-12): the copy says up to 6 family members; a post-S6 fix, S7 changes the string. The rule (6) is the Invariant. |
-| `calculateFamilyMemberDiscount` counts the user's membership rows and uses `>= 4` | keep the *threshold mechanics* (40% from four up) in `familyDiscountRate`, but take the count as an argument. Decided, Q-017 B (owner, 2026-11-12): count the members of one family, threshold 5; a post-S6 fix, so S3–S6 keep today's rule. |
+| pricing card says "Up to 5 family members" while the free tier allows 6 | decided, Q-018 B (owner, 2026-11-12): the copy says up to 6 family members; the free `memberLimit` stays 6 (`FREE_PLAN_LIMITS`). **Landed (2026-11-20)** in the legacy pricing page (`src/routes/(marketing)/pricing/+page.svelte:15`). |
+| `calculateFamilyMemberDiscount` counts the user's membership rows and uses `>= 4` | keep the *threshold mechanics* (40%) in `familyDiscountRate`, but take the count as an argument. Decided, Q-017 B (owner, 2026-11-12): count the members of one family, threshold 5. **Landed (2026-11-20)**: `>= 4` on membership rows became `>= 5` on one family's members; it rewrote this rule's table test and the service's quote inputs. |
 | `getPlanPricing(_planType)` ignores its argument | drop the parameter; `planPricing()` returns all three plans. |
 | `getUserSubscriptionLimits` duplicates the default literal | drop; `FREE_PLAN_LIMITS` is the only literal. |
 | the purchase action trusts client-posted `finalPrice` | drop; the new action recomputes the quote from the plan (it still never sells — the stub message stays). |
@@ -220,10 +220,18 @@ Implemented differences from the rows above, with their reasons:
 
 ### Owner decisions
 
-Both answered by the owner on 2026-11-12 (`docs/rewrite/questions.md`, lettering as there). Both are fixes that land **after S6**: S3+S4 port today's behaviour, so the rules below keep it.
+Both answered by the owner on 2026-11-12 (`docs/rewrite/questions.md`, lettering as there). Both were fixes that landed **after S6**: S3+S4 ported the legacy behaviour, and the S5+S6 follow-up applied them (2026-11-20).
 
-1. **Family-size discount: which count?** (Q-017, answer **B**) Context: `discountService.ts:19-34` counts the user's `familyMembers` rows (so four *different* families qualify) and its 40% threshold disagrees with the checkout copy "5+ members". Decided: count the members of one family, threshold 5. Until the post-S6 fix, `familyDiscountRate(membershipCount)` keeps `>= 4` on whatever count the caller passes, and the fix then rewrites this rule's table test. No wire change: the subscription summary carries no discount, and checkout is still a stub, so nothing can be mis-charged.
-2. **Pricing card copy: "Up to 5 family members" vs the free tier's 6.** (Q-018, answer **B**) Context: `pricing/+page.svelte:12` vs `seed.ts:19`. Decided: the copy says up to 6 family members; the free `memberLimit` stays 6 (`FREE_PLAN_LIMITS`). A string change in S7 or after; no rule moves.
+1. **Family-size discount: which count?** (Q-017, answer **B**) Context: `discountService.ts:19-34` counts the user's `familyMembers` rows (so four *different* families qualify) and its 40% threshold disagrees with the checkout copy "5+ members". Decided: count the members of one family, threshold 5. **Q-017 B landed**: `familyDiscountRate(familyMemberCount)` grants 40% at `>= 5`; the service inputs take `familyMemberCount` (the fullest family's count, supplied by the caller — billing reads no family table) and its rules table was rewritten to the answered values. No wire change: the subscription summary carries no discount, and checkout is still a stub, so nothing can be mis-charged.
+2. **Pricing card copy: "Up to 5 family members" vs the free tier's 6.** (Q-018, answer **B**) Context: `pricing/+page.svelte:12` vs `seed.ts:19`. Decided: the copy says up to 6 family members; the free `memberLimit` stays 6 (`FREE_PLAN_LIMITS`). **Q-018 B landed**: the legacy pricing page's free card now says "Up to 6 family members". The page cannot import `FREE_PLAN_LIMITS` while it stays legacy (R8: a route that imports ported code is wiring only, ≤ 25 lines), so it carries the literal until marketing's S7 port renders `FREE_PLAN_LIMITS.memberLimit`; no rule moves.
+
+### Q-017 B landed (owner answer, applied 2026-11-20)
+
+- `familyDiscountRate(familyMemberCount)` grants 40% at `>= 5`: the count is one family's members (the fullest family's when the person belongs to several), never the person's family-membership rows. The rules table is 0/3/4 → 0% and 5/6/12 → 40%; the service's `getCheckoutQuote` and `listEligibleDiscounts` inputs are `{ familyMemberCount }`. No golden row changes — the subscription summary carries no discount — and no wire change.
+
+### Q-018 B landed (owner answer, applied 2026-11-20)
+
+- The free card says "Up to 6 family members" (`src/routes/(marketing)/pricing/+page.svelte:15`), matching `FREE_PLAN_LIMITS.memberLimit`. The number stays a literal there until marketing's S7 port because R8 forbids a legacy route importing module code; the ported page must render `FREE_PLAN_LIMITS.memberLimit`. No golden row changes (the pricing page has no golden; the plan `memberLimit` goldens keep 6).
 
 ### S2 — goldens
 
