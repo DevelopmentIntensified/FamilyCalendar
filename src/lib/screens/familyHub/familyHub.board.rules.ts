@@ -11,6 +11,7 @@
  *
  * Doc: ./README.md#invariants
  */
+import { sortTaskRows, type TaskPageRow } from '$lib/domains/tasks/index';
 
 /** The board's two scopes (issue 019); the Public one is read-only. */
 export type BoardTab = 'family' | 'public';
@@ -94,4 +95,78 @@ export function pendingForViewer<T extends PendingTask>(
 /** The Public tab's label: the count is part of the tab, not of the list. */
 export function publicTabLabel(count: number): string {
 	return `Public tasks (${count})`;
+}
+
+/** The fields the completed window reads off a Task row. */
+export type CompletedWindowRow = {
+	readonly completedAt?: string | null;
+};
+
+/**
+ * Q-091 (owner, 2026-11-12): the page keeps the newest 50 completed Tasks and
+ * the heading counts every one of them. `limit` null keeps the whole list —
+ * what the `/api` twin must still answer. Open rows are never windowed, and
+ * the surviving rows keep the read's order, so a family under the limit
+ * renders exactly as before.
+ */
+export function windowCompletedTasks<T extends CompletedWindowRow>(
+	rows: readonly T[],
+	limit: number | null
+): { tasks: readonly T[]; completedTotal: number } {
+	const completedTotal = rows.reduce((count, row) => (row.completedAt ? count + 1 : count), 0);
+	if (limit === null) return { tasks: rows, completedTotal };
+	let kept = 0;
+	const tasks = rows.filter((row) => {
+		if (!row.completedAt) return true;
+		if (kept >= limit) return false;
+		kept += 1;
+		return true;
+	});
+	return { tasks, completedTotal };
+}
+
+/**
+ * One assignee column of the board. `ownerId` is the assignee — the board is
+ * fed only Tasks that have one; the Nobody card is the caller's own split.
+ */
+export type BoardColumn<T> = {
+	readonly ownerId: string;
+	readonly name: string;
+	readonly tasks: readonly T[];
+};
+
+/**
+ * The board's grouping (issue 101, decision 1; `familyTaskGroups.ts` ported):
+ * one column per assignee, the viewer first then by name, and urgency inside a
+ * column through `tasks`' own comparator (`sortTaskRows(…, 'urgency', now)` —
+ * overdue → today → up next → by date). A member with nothing assigned gets no
+ * column: an empty column is a heading about nothing.
+ *
+ * The caller passes only Tasks that HAVE an assignee; unassigned ones are the
+ * Nobody card, which is why this rule needs no creator fallback.
+ */
+export function groupBoardColumns<T extends TaskPageRow>(
+	tasks: readonly T[],
+	nameFor: (ownerId: string) => string,
+	viewerId: string,
+	now: Date
+): BoardColumn<T>[] {
+	const byOwner = new Map<string, T[]>();
+	for (const task of tasks) {
+		const ownerId = task.assignedTo ?? task.userId;
+		const column = byOwner.get(ownerId);
+		if (column) column.push(task);
+		else byOwner.set(ownerId, [task]);
+	}
+	return [...byOwner.entries()]
+		.map(([ownerId, rows]) => ({
+			ownerId,
+			name: nameFor(ownerId),
+			tasks: [...rows].sort((a, b) => sortTaskRows(a, b, 'urgency', now))
+		}))
+		.sort((a, b) => {
+			if (a.ownerId === viewerId) return -1;
+			if (b.ownerId === viewerId) return 1;
+			return a.name.localeCompare(b.name) || a.ownerId.localeCompare(b.ownerId);
+		});
 }

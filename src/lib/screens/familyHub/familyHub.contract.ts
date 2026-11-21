@@ -11,11 +11,11 @@
  * - `createdAt`, `focusStartedAt` and `eventStart` are `Date` columns, which
  *   `json()` serialises as ISO-8601 strings.
  *
- * The task, roster and category rows are the owning domains' shapes (`tasks`'
- * `TaskWire` / `TaskCategoryWire`, `family`'s `RosterMemberResponse`). They are
- * restated here because those modules do not export them from their entries
- * yet; S6 composes them from `tasks`/`family`'s `index.ts` once their S5/S6
- * land, and this file then keeps only the envelope.
+ * The task row restates `tasks`' wire row plus the three attribution columns
+ * the board queries attach (`assigneeFirstName`, `assigneeLastName`,
+ * `creatorFirstName`) and the Event's title/start; `tasks` exports that row
+ * only as a TypeScript type, so this file keeps the zod schema the golden's
+ * body is parsed by. The roster row is restated for the same reason.
  *
  * Doc: ./README.md#invariants
  */
@@ -97,6 +97,94 @@ export const FamilyBoardResponse = z.object({
 	taskCategories: z.array(BoardCategoryResponse)
 });
 export type FamilyBoardResponse = z.infer<typeof FamilyBoardResponse>;
+
+// --- The two pages' server models ------------------------------------------
+
+/**
+ * One Task row before `json()` serialises it: the wire row, but with the two
+ * `Date` columns the database hands back (`createdAt`, `focusStartedAt`).
+ * Components type their props from this, so a row never crosses the page as an
+ * untyped record; `tasks`' own service row is assignable to it (the service
+ * file asserts that at compile time).
+ */
+export type FamilyBoardTask = Omit<BoardTaskResponse, 'createdAt' | 'focusStartedAt'> & {
+	readonly createdAt: Date;
+	readonly focusStartedAt: Date | null;
+};
+
+/**
+ * The board page's one model: the chosen family, the viewer, the family's
+ * Tasks and the members' public personal ones, the roster and the editor's
+ * category options. `completedTotal` is Q-091's answer: the heading counts
+ * every completed Task while `tasks` keeps the newest window the load asked
+ * for (the endpoint is never windowed).
+ */
+export type FamilyBoardModel = {
+	readonly familyId: string;
+	readonly userId: string;
+	readonly tasks: readonly FamilyBoardTask[];
+	readonly publicTasks: readonly FamilyBoardTask[];
+	readonly familyRoster: readonly BoardRosterRowResponse[];
+	readonly taskCategories: readonly BoardCategoryResponse[];
+	readonly completedTotal: number;
+};
+
+/** One roster row of the detail page (the board's row, always present). */
+export type FamilyHubMember = BoardRosterRowResponse;
+
+/** One Recent Activity row as `family`'s read returns it. */
+export type FamilyHubActivityItem = {
+	readonly kind: 'completed' | 'assigned';
+	readonly title: string;
+	readonly actorName: string;
+	readonly targetName: string | null;
+	readonly at: string;
+};
+
+/** The one live join code, before serialisation (`expiresAt` is a real `Date`). */
+export type FamilyHubInvite = {
+	readonly code: string;
+	readonly useCount: number;
+	readonly maxUses: number | null;
+	readonly expiresAt: Date;
+};
+
+/** The Plan band's numbers; a limit the plan does not set arrives as `0` (Q-089). */
+export type FamilyHubPlanUsage = {
+	readonly tierName: string | null;
+	readonly aiUsed: number;
+	readonly aiLimit: number;
+	readonly familiesUsed: number;
+	readonly familyLimit: number;
+	readonly members: number;
+	readonly memberLimit: number;
+	readonly archivedRetentionDays: number;
+	readonly exportImportEnabled: boolean;
+};
+
+/**
+ * The detail page's one model — everything the page renders, composed from
+ * `family`, `billing` and `dashboardModules`. The service file asserts a
+ * `family` `getFamily` answer is assignable to it, so the two shapes cannot
+ * drift unnoticed.
+ */
+export type FamilyHubModel = {
+	readonly family: {
+		readonly id: string;
+		readonly name: string;
+		readonly color: string | null;
+		readonly createdAt: Date;
+	};
+	readonly members: readonly FamilyHubMember[];
+	readonly currentUserRole: string;
+	readonly currentUserId: string;
+	readonly activity: readonly FamilyHubActivityItem[];
+	readonly moduleSwitches: Readonly<Record<string, boolean>>;
+	readonly hiddenDashboardModules: readonly string[];
+	readonly activeInvite: FamilyHubInvite | null;
+	readonly inviteCreatedBy: string | null;
+	readonly planUsage: FamilyHubPlanUsage;
+};
 
 // --- The detail page's five form actions -----------------------------------
 

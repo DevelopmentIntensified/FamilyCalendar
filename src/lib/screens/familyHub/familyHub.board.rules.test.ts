@@ -9,12 +9,15 @@
 import { describe, expect, it } from 'vitest';
 import {
 	boardEmptyState,
+	groupBoardColumns,
 	pendingForViewer,
 	publicTabLabel,
+	windowCompletedTasks,
 	type BoardEmptyFacts,
 	type BoardEmptyState,
 	type PendingTask
 } from './familyHub.board.rules';
+import { buildFamilyBoardTaskWire } from './familyHub.ui.fixtures';
 
 const facts = (overrides: Partial<BoardEmptyFacts>): BoardEmptyFacts => ({
 	tab: 'family',
@@ -124,5 +127,98 @@ describe('publicTabLabel', () => {
 		['counts the rows the tab will show', 3, 'Public tasks (3)']
 	])('%s', (_title, count, expected) => {
 		expect(publicTabLabel(count)).toBe(expected);
+	});
+});
+
+type WindowRow = { id: string; completedAt: string | null };
+
+/** A board list in the read's own order: newest created first, open and done mixed. */
+const boardRows: readonly WindowRow[] = [
+	{ id: 'open-a', completedAt: null },
+	{ id: 'done-1', completedAt: '2026-01-05 10:00:00+00' },
+	{ id: 'open-b', completedAt: null },
+	{ id: 'done-2', completedAt: '2026-01-04 10:00:00+00' },
+	{ id: 'done-3', completedAt: '2026-01-03 10:00:00+00' }
+];
+
+describe('windowCompletedTasks', () => {
+	// Q-091 (owner, 2026-11-12): the board shows the newest 50 completed Tasks
+	// and the heading keeps the true count; the `/api` twin stays unbounded.
+	it('keeps the window in the read order and counts every completed row', () => {
+		expect(windowCompletedTasks(boardRows, 2)).toEqual({
+			tasks: [
+				{ id: 'open-a', completedAt: null },
+				{ id: 'done-1', completedAt: '2026-01-05 10:00:00+00' },
+				{ id: 'open-b', completedAt: null },
+				{ id: 'done-2', completedAt: '2026-01-04 10:00:00+00' }
+			],
+			completedTotal: 3
+		});
+	});
+
+	it('never windows an open row, even past the limit', () => {
+		const rows: readonly WindowRow[] = [
+			{ id: 'open-1', completedAt: null },
+			{ id: 'open-2', completedAt: null },
+			{ id: 'done', completedAt: '2026-01-05 10:00:00+00' }
+		];
+		expect(windowCompletedTasks(rows, 0).tasks.map((row) => row.id)).toEqual(['open-1', 'open-2']);
+	});
+
+	it('keeps the whole list and still counts it when no limit is asked for', () => {
+		expect(windowCompletedTasks(boardRows, null)).toEqual({
+			tasks: boardRows,
+			completedTotal: 3
+		});
+	});
+
+	it('answers a family with nothing completed as an empty count', () => {
+		const rows: readonly WindowRow[] = [{ id: 'open', completedAt: null }];
+		expect(windowCompletedTasks(rows, 50)).toEqual({ tasks: rows, completedTotal: 0 });
+	});
+});
+
+describe('groupBoardColumns', () => {
+	// Issue 101 decision 1 + the approved board: viewer first then by name,
+	// urgency inside a column, and only Tasks WITH an assignee (the Nobody card
+	// is the caller's split).
+	const NOW = new Date('2026-09-30T10:00:00.000Z');
+	const names: Record<string, string> = { u_ann: 'You', u_bob: 'Bob Roy', u_zed: 'Zed Owen' };
+	const nameFor = (id: string) => names[id] ?? id;
+
+	const rows = [
+		buildFamilyBoardTaskWire({
+			id: 'late',
+			assignedTo: 'u_ann',
+			dueDate: '2026-09-28 09:00:00+00'
+		}),
+		buildFamilyBoardTaskWire({
+			id: 'later',
+			assignedTo: 'u_ann',
+			dueDate: '2026-10-10 09:00:00+00'
+		}),
+		buildFamilyBoardTaskWire({ id: 'bobs', assignedTo: 'u_bob', userId: 'u_bob' }),
+		buildFamilyBoardTaskWire({ id: 'zeds', assignedTo: 'u_zed', userId: 'u_zed' })
+	];
+
+	it('puts the viewer first, then the other members by name', () => {
+		const columns = groupBoardColumns(rows, nameFor, 'u_ann', NOW);
+		expect(columns.map((column) => column.ownerId)).toEqual(['u_ann', 'u_bob', 'u_zed']);
+		expect(columns.map((column) => column.name)).toEqual(['You', 'Bob Roy', 'Zed Owen']);
+	});
+
+	it('orders a column by urgency, the overdue Task first', () => {
+		const columns = groupBoardColumns(rows, nameFor, 'u_ann', NOW);
+		expect(columns[0]?.tasks.map((task) => task.id)).toEqual(['late', 'later']);
+	});
+
+	it('renders no column for a member with nothing assigned', () => {
+		const columns = groupBoardColumns(
+			[buildFamilyBoardTaskWire({ assignedTo: 'u_bob' })],
+			nameFor,
+			'u_ann',
+			NOW
+		);
+		expect(columns.map((column) => column.ownerId)).toEqual(['u_bob']);
 	});
 });
