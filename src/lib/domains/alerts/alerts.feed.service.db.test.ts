@@ -164,6 +164,25 @@ describe('createAlert', () => {
 		});
 	});
 
+	// Q-021: the type decides the tap target when the Alert carries no link.
+	rollbackTest('taps an added_to_family push through to the family page', async (db) => {
+		const user = await seedUser(db);
+		const ctx = deviceCtx(db);
+		await seedDeviceToken(user.id, TOKEN, {}, db);
+
+		await createAlert(ctx, actorFromUser(user, 'session'), {
+			userId: user.id,
+			type: 'added_to_family',
+			actorName: 'Kim',
+			message: 'Kim added you to the family.'
+		});
+
+		await vi.waitFor(() => expect(ctx.push.sent).toHaveLength(1));
+		expect(ctx.push.sent[0]).toMatchObject({
+			body: { data: { type: 'notification', link: '/family' } }
+		});
+	});
+
 	rollbackTest('logs a failed write instead of failing the caller', async (db) => {
 		const user = await seedUser(db);
 		const ctx = deviceCtx(db);
@@ -197,7 +216,7 @@ describe('markAlertAsRead', () => {
 
 		const mine = await seedAlert({ userId: user.id }, db);
 		const theirs = await seedAlert({ userId: other.id }, db);
-		await markAlertAsRead(ctx, actorFromUser(other, 'session'), mine.id);
+		await markAlertAsRead(ctx, actorFromUser(other, 'session'), theirs.id);
 
 		const [mineAfter] = await db
 			.select()

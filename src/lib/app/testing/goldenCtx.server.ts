@@ -10,8 +10,9 @@
  * for example), and the goldens may not change after S2. Create one ctx per
  * test; a rate-budget test reuses ONE ctx for every request of its burst.
  *
- * The domain ports come from `wirePorts` itself, so the legacy bridges that
- * identity's two ports ride on today (../ports.server.ts) are here too.
+ * The domain ports come from `wirePorts` itself, so the one legacy bridge that
+ * identity's remaining port (`adConsent`) rides on today (../ports.server.ts) is
+ * here too, next to calendar's real `calendarAccess` adapter.
  *
  * `clock` and `ids` are the REAL ones too (`systemClock`, `systemIds`), not the
  * frozen clock and `id-N` counter `testCtx` hands S5 tests: a golden
@@ -57,7 +58,14 @@ export function goldenCtx(overrides: TestCtxOverrides = {}): GoldenCtx {
 		// This file IS the app's composition root for goldens, so it owns the one
 		// environment read: the legacy VAPID route answered `VAPID_PUBLIC_KEY` at
 		// request time and the frozen alerts golden sets it before building the
-		// ctx. Device push stays off (no golden route sends push).
+		// ctx. Since Q-020 the answer is gated on both halves, so the config's
+		// VAPID pair comes from the environment too. Device push stays off (no
+		// golden route sends push).
+		config: {
+			...ctx.config,
+			vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
+			vapidPrivateKey: process.env.VAPID_PRIVATE_KEY ?? null
+		},
 		push: createMemoryPush({
 			webPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
 			devicesConfigured: false

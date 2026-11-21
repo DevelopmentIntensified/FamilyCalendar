@@ -9,8 +9,10 @@
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
+import type { AlertType } from './alerts.contract';
 import {
 	ALERT_PUSH_DEFAULT_LINK,
+	alertPushLink,
 	alertPushPayload,
 	distinctTokens,
 	distinctUserIds,
@@ -22,25 +24,48 @@ import {
 } from './alerts.push.rules';
 
 describe('alertPushPayload: the push a new Alert fires', () => {
-	it('titles the push with the actor, bodies it with the message and taps through to the link', () => {
+	it('titles the push with the actor, bodies it with the message and keeps its own link', () => {
 		expect(
-			alertPushPayload({ actorName: 'Kim', message: 'asked you to take "Bins"', link: '/calendar/family' })
-		).toEqual({ title: 'Kim', body: 'asked you to take "Bins"', link: '/calendar/family' });
+			alertPushPayload({
+				type: 'assignment_pending',
+				actorName: 'Kim',
+				message: 'asked you to take "Bins"',
+				link: '/calendar/day'
+			})
+		).toEqual({ title: 'Kim', body: 'asked you to take "Bins"', link: '/calendar/day' });
 	});
 
-	// Q-021: one default for every type until a push-contract ticket changes it.
-	it.each<[string, string | null | undefined]>([
-		['null', null],
-		['absent', undefined]
-	])('taps through to the tasks page when the link is %s', (_label, link) => {
+	// Q-021: a push with no link of its own opens the page its type answers.
+	it.each<[string, AlertType, string | null | undefined]>([
+		['null', 'added_to_family', null],
+		['absent', 'added_to_family', undefined]
+	])(
+		'taps an added_to_family push through to the family page when the link is %s',
+		(_label, type, link) => {
+			expect(alertPushLink(type)).toBe('/family');
+			expect(alertPushPayload({ type, actorName: 'Sam', message: 'added you', link }).link).toBe(
+				'/family'
+			);
+		}
+	);
+
+	it.each<AlertType>([
+		'assignment_pending',
+		'assignment_accepted',
+		'assignment_declined',
+		'task_completed'
+	])('taps a %s push through to the tasks page when the link is absent', (type) => {
 		expect(ALERT_PUSH_DEFAULT_LINK).toBe('/calendar/tasks');
-		expect(alertPushPayload({ actorName: 'Sam', message: 'completed the bins', link }).link).toBe(
+		expect(alertPushLink(type)).toBe('/calendar/tasks');
+		expect(alertPushPayload({ type, actorName: 'Sam', message: 'completed the bins' }).link).toBe(
 			'/calendar/tasks'
 		);
 	});
 
-	it('keeps an empty-string link: only null and absent take the default', () => {
-		expect(alertPushPayload({ actorName: 'Sam', message: 'x', link: '' }).link).toBe('');
+	it('keeps an empty-string link: only null and absent take the type default', () => {
+		expect(
+			alertPushPayload({ type: 'task_completed', actorName: 'Sam', message: 'x', link: '' }).link
+		).toBe('');
 	});
 });
 

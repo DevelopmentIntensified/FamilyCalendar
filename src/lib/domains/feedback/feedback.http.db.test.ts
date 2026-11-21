@@ -367,7 +367,7 @@ describe('POST /api/report-phrase', () => {
 		expect(tooLong.body).toEqual({ error: PHRASE_INVALID });
 	});
 
-	it('refuses a whitespace-heavy phrase over 280 chars before normalizing it (Q-006)', async () => {
+	it('caps the phrase after normalizing it, so a whitespace-heavy report is stored normalized (Q-006)', async () => {
 		const user = await seedUser(testDb());
 		const res = await invoke(postReportPhrase, {
 			ctx: ctx(),
@@ -375,8 +375,24 @@ describe('POST /api/report-phrase', () => {
 			headers: { 'x-real-ip': '10.2.0.7' },
 			body: { phrase: `a${' '.repeat(280)}b`, source: 'event_parse' }
 		});
-		expect(res.status).toBe(400);
-		expect(res.body).toEqual({ error: PHRASE_INVALID });
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ success: true });
+		const row = first(await testDb().select().from(unmatchedPhrases));
+		expect({
+			source: row.source,
+			phrase: row.phrase,
+			sample: row.sample,
+			matched: row.matched,
+			count: row.count,
+			resolved: row.resolved
+		}).toEqual({
+			source: 'event_parse',
+			phrase: 'a b',
+			sample: 'a b',
+			matched: null,
+			count: 1,
+			resolved: false
+		});
 	});
 
 	it('throttles to 20 reports per IP per 5 minutes with 429', async () => {
