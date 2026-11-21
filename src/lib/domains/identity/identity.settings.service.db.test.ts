@@ -14,7 +14,7 @@ import type { Db } from '$lib/kernel/db/database.server';
 import { userSettings } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
-import { testCtx } from '$lib/kernel/testing/testCtx.server';
+import { testCtx, type TestCtx } from '$lib/kernel/testing/testCtx.server';
 import type { ConsentRecordView } from './identity.contract';
 import {
 	seedIdentityCalendar,
@@ -72,7 +72,7 @@ function ctxFor(
 	db: Db,
 	calendarAccess: CalendarAccessPort,
 	adConsent: AdConsentPort
-): IdentityCtx {
+): IdentityCtx & TestCtx {
 	return { ...testCtx({ db, now: NOW.toISOString() }), calendarAccess, adConsent };
 }
 
@@ -223,6 +223,8 @@ describe('saving', () => {
 
 	rollbackTest('accepts a default calendar the port lists', async (db) => {
 		const user = await seedUser(db);
+		// `defaultCalendarId` is a real FK: a calendar the port lists must also exist.
+		await seedIdentityCalendar(user.id, 'cal-mine', {}, db);
 		await seedIdentitySettings(user.id, {}, db);
 		const ctx = ctxFor(db, memoryCalendar(['cal-mine']), memoryConsent());
 
