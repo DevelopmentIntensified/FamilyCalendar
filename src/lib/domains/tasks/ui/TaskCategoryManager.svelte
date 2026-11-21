@@ -14,7 +14,7 @@
 		startOpen?: boolean;
 	}
 
-	let { state, startOpen = false }: Props = $props();
+	let { state: manager, startOpen = false }: Props = $props();
 
 	let open = $state(startOpen ? true : false);
 	let renamingId = $state<string | null>(null);
@@ -38,12 +38,12 @@
 		const name = renameDraft.trim();
 		renamingId = null;
 		if (name === previous) return;
-		await state.renameCategory(id, name);
+		await manager.renameCategory(id, name);
 	}
 
 	async function confirmDelete(id: string) {
 		confirmDeleteId = null;
-		await state.removeCategory(id);
+		await manager.removeCategory(id);
 	}
 </script>
 
@@ -55,7 +55,7 @@
 		aria-controls="task-category-manager"
 		class="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-semibold text-slate-900"
 	>
-		<span>Categories · {state.categories.length}</span>
+		<span>Categories · {manager.categories.length}</span>
 		<span class="text-xs font-normal text-slate-400">{open ? 'Hide' : 'Manage'}</span>
 	</button>
 
@@ -64,13 +64,13 @@
 			{#if inlineError}
 				<p role="alert" class="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{inlineError}</p>
 			{/if}
-			{#if state.categories.length === 0}
+			{#if manager.categories.length === 0}
 				<p class="text-xs text-slate-500">
 					No categories yet — set one on a task (or from TaskFocus) and it shows up here.
 				</p>
 			{:else}
 				<ul class="space-y-1">
-					{#each state.categories as category (category.id)}
+					{#each manager.categories as category (category.id)}
 						<li class="flex min-h-[40px] items-center gap-2 rounded-lg px-1.5 hover:bg-slate-50">
 							{#if renamingId === category.id}
 								<form
