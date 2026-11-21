@@ -470,9 +470,12 @@ export function readEventPlace(input: {
 		}
 	}
 
-	// Groups: "including X", "the whole department"
+	// Groups: "including X", "the whole department". No /g: `String.match`
+	// returns bare matches (no captures) for a global regex, which is why the
+	// legacy copy of this rule could never fire — the capturable form is what
+	// the ladder documents (README "Attendants priority").
 	const groupPatterns = [
-		/(?:including|expecting|investors?|about\s+\d+\s+(?:people|attendees?|volunteers?|members?|parents?|chaperones?)|the\s+whole\s+[a-z]+)\s+([^,.]+)/gi
+		/(?:including|expecting|investors?|about\s+\d+\s+(?:people|attendees?|volunteers?|members?|parents?|chaperones?)|the\s+whole\s+[a-z]+)\s+([^,.]+)/i
 	];
 
 	for (const pattern of groupPatterns) {

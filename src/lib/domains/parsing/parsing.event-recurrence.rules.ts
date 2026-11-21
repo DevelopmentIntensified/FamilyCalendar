@@ -183,7 +183,7 @@ export function readEventRecurrence(input: {
 		);
 		if (bareDay) {
 			const day = bareDay[1].toLowerCase();
-			state.date = nextWeekday(day, now);
+			state.date = nextWeekday(day, now).toFormat('yyyy-MM-dd');
 			confidence.push(0.2);
 			stripSpans.push(bareDay[0]);
 			claims.claim(bareDay[0], bareDay.index);
@@ -191,7 +191,7 @@ export function readEventRecurrence(input: {
 			const fuzzy = extractDayTokens(maskedDayInput);
 			if (fuzzy.length > 0) {
 				const name = WEEKDAY_FULL[((WEEK_ORDER as readonly string[]).indexOf(fuzzy[0].code) + 1) % 7];
-				state.date = nextWeekday(name, now);
+				state.date = nextWeekday(name, now).toFormat('yyyy-MM-dd');
 				confidence.push(0.15);
 				stripSpans.push(fuzzy[0].raw);
 				claims.claim(fuzzy[0].raw, fuzzy[0].index);

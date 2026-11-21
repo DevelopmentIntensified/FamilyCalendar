@@ -72,7 +72,10 @@ describe('date chain — first match wins', () => {
 	});
 
 	it('"returning Sunday morning" anchors an end time', () => {
-		const result = parsed('returning this Sunday morning');
+		// Legacy's `this <weekday>` rule (`:543-551`) consumes "this Sunday"
+		// before the `returning …` rule (`:638-651`) can fire, so the daypart
+		// only lands without the "this".
+		const result = parsed('returning Sunday morning');
 		expect(result.date).toBe('2026-07-19');
 		expect(result.endTime).toBe('09:00');
 	});

@@ -40,7 +40,10 @@ describe('the title is the unmatched text', () => {
 	const rows: Array<[string, string]> = [
 		['dinner on monday at 6pm', 'dinner'],
 		['run at snow flex', 'run'],
-		['gym every Monday', 'gym'],
+		// The recurrence phrase goes before the 50-char window is taken, so the
+		// window is "gym " and nothing inside it is stripped: legacy keeps the
+		// trailing space (frozen golden, parsing.http.db.test.ts:168 'payday ').
+		['gym every Monday', 'gym '],
 		['meeting at the annex', 'meeting']
 	];
 
@@ -68,7 +71,10 @@ describe('the title is the unmatched text', () => {
 describe('URLs ride whole in the description and never in the title', () => {
 	it('captures the URL, removes it from the title and puts it in description', () => {
 		const result = parsed('standup https://meet.example.com/abc-def');
-		expect(result.title).toBe('standup');
+		// The URL is replaced with a space before the window is taken, so the
+		// surviving "standup " keeps its trailing space (legacy's URL suite only
+		// asserted `toContain`; the frozen golden pins 'payday ' from the same path).
+		expect(result.title).toBe('standup ');
 		expect(result.description).toBe('https://meet.example.com/abc-def');
 	});
 

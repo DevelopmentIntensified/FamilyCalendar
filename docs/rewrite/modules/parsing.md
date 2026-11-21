@@ -181,8 +181,8 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
 **S5–S6 implementation (2026-11-20) — deviations from the plan above, with reasons:**
 
 - **No `ctx.billing` port.** Billing is rank 2 and parsing rank 7, so `getPlanLimits`/`isPaidCaller`/`assertAiAvailable`/`recordAiCreation` are imported directly from `$lib/domains/billing/index.server`, as the S5+S6 wave plan recommends ("direct import is R1-legal; the sheet's `ctx.billing` port is optional"). Only the three names the flow needs are used: `isPaidCaller` (the free/paid split of the short window), `assertAiAvailable` (the monthly cap) and `recordAiCreation` (the usage record). The vendor call is the kernel **ai** port (`ctx.ai.chatJson`/`ctx.ai.configured`), wired by `app` from `cerebrasApiKey`/`cerebrasModel`; no `ctx.llm` port was added.
-- **The parse's "now" is the process clock (`systemClock`, kernel/time), not `ctx.clock`.** The frozen golden builds every expected date from `DateTime.now()` (`parsing.http.db.test.ts`), and `testCtx`/`goldenCtx` pin `ctx.clock` to `2026-01-15`, so `ctx.clock.now()` cannot satisfy the frozen rows without editing them. Billing's period and the free tier's window still use `ctx.clock` (the S5 rows seed `now: 2026-06-01`). Recorded as a README Invariant; it is the one "now" deviation of the module.
-- **The Q-012 body read sits outside `endpoint()`.** Legacy read `await request.json()` and destructured it before its `try`, so malformed JSON rejects with `SyntaxError` and a JSON `null` body with `TypeError` (two frozen rows). `submitParseEventEndpoint` therefore pre-reads a CLONE of the request body before delegating to the `endpoint()` handler; the owner's Q-012 answer (B: bad bodies answer 400) deletes that shim in its own `fix(parsing): Q-012 …` commit, golden first.
+- **The parse's "now" is `ctx.clock.now()`; the S5 process-clock deviation is GONE.** S5 first read the process clock (`systemClock`) because `goldenCtx` froze `ctx.clock` to `2026-01-15` while the golden built every expected date from `DateTime.now()`. `goldenCtx` now hands a golden the real `systemClock` (and the real `systemIds`), so `parseEventRequest` reads `ctx.clock.now()` like every other rule input (R5). The S5 service tests derive their date assertions from the ctx clock (`NOW = 2026-06-01`) and the frozen goldens are unchanged.
+- **Q-012 B landed: bad bodies answer the 400 shape, and the S6 shim is gone.** Legacy read `await request.json()` and destructured it before its `try`, so a malformed JSON body rejected with `SyntaxError` and a JSON `null` body with `TypeError`. `submitParseEventEndpoint` is now a plain `endpoint({ auth: 'optional', bodyMode: 'lenient', body: ParseEventBody, handle })`: a malformed, empty or unreadable body reaches the contract as `null` and answers its one `400 {"error":"Input required"}`, and a settings/billing/parse failure answers the standard 500 error JSON through the boundary. Golden first: the two frozen rows now assert the 400 (`parsing.http.db.test.ts › "answers 400 \"Input required\" for malformed JSON (Q-012 B)"`, `"… for a JSON null body (Q-012 B)"`), and the route resolves again in `node scripts/arch/auth-audit.mjs`.
 - **The 429 fallback copy is unreachable.** Legacy answered `cap.reason ?? 'AI usage limit reached'`; billing's `assertAiAvailable` always supplies the monthly copy (`AI feature limit reached (N per month). Upgrade to unlock unlimited AI.`), so the S5 suite pins that copy and no reasonless refusal exists to pin.
 - **The service takes the limiter key, not a `Request`.** `parseEventRequest(ctx, actor, { input, useCloud, clientKey })`; the endpoint builds `clientKeyOf(request, 'parse-event')` (the same `${scope}:${ip}` keys as legacy), so the service stays request-free and its budget test is explicit.
 - **The legacy route test is deleted at S6.** `src/routes/api/parse-event/server.test.ts` imported `POST`'s own `ParseEventDeps` seam and called `POST(event, deps)`; the wiring-only route exports no such seam, so the file was removed (its 14 gating cases are re-homed in `parsing.service.db.test.ts` and the frozen goldens). Nothing else imported it.
@@ -192,6 +192,38 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
 
 - S7: no UI work — parsing owns no page or component (the event and task editors stay in their modules).
 - S8: `git rm` the four legacy sources (`naturalLanguageService.ts`, `dateParsing.ts`, `dateResolution.ts`, `dateVocab.ts`) and the six legacy tests (`naturalLanguageService.test.ts`, `parserClaimGuards.test.ts`, `dateResolution.test.ts`, `dateResolution.parsers.test.ts`, `dateVocab.test.ts`, `src/routes/api/parse-event/server.test.ts`); rewire `EventFormModel.svelte.ts` (type), `e2e/events/NlpTimeParsing.test.ts` and the route. `src/lib/utils/taskQuickAdd.ts` and `taskQuickAdd.test.ts` stay until the tasks port wires `parsing.task.rules.ts` in (its census row belongs to tasks); `bulkAiService.ts` stops importing `dateParsing` when its owning module ports.
+
+**S7–S8 implementation (2026-11-21) — and what stayed, with reasons:**
+
+- **S7: none.** Parsing owns no page and no component, so there is nothing to rebuild and no visual/perf check
+  to run: `ui/index.ts` stays `export {}`. The quick-add help/examples panel and the preview are **tasks**'
+  (`TaskQuickAddHelp.svelte`, `TaskQuickAddPreview.svelte`, both censused under tasks), the event editor is
+  **calendar**'s (`EventFormModel.svelte.ts`, `EventFormModal`/`EventTaskFields`), and the dashboard card is
+  **dashboardModules**'. So: `S7: none (owned by tasks and calendar)`.
+- **Deleted (4 files):** `src/lib/server/services/naturalLanguageService.ts` (the event + bill grammars),
+  `src/lib/server/services/naturalLanguageService.test.ts` (209 tests), `src/lib/server/services/parserClaimGuards.test.ts`
+  (12 cases, carried by `parsing.claims.rules.test.ts`) and `src/lib/utils/dateResolution.parsers.test.ts`
+  (it imported the deleted event/bill parsers; the bill parser died with Q-002).
+- **Re-homed, not lost:** the parser-parity rows of `dateResolution.parsers.test.ts` now live in
+  `parsing.dates.rules.test.ts` for the two surviving parsers — 33 cadence phrases × task/event, the
+  seven rollover rows × both, "typing today is today", "sept 1", the title strip, and the
+  `every 2 weeks` / `quarterly` / `every other day` shape rows. Both parsers now take the same injected
+  clock (`2026-03-15T10:00Z`, zone `UTC`) instead of the legacy suite's real `DateTime.now()`, so the rows
+  are deterministic.
+- **Rewired (legacy → v2, never the reverse):** `src/lib/components/calendar/EventFormModel.svelte.ts`
+  type-imports `ParsedEvent` from `$lib/domains/parsing/index.server` (R7 exempts type-only imports);
+  `e2e/events/NlpTimeParsing.test.ts` calls `parseEventQuickAdd(input, { now, zone })` with the runner's
+  zone, the same server-local default an anonymous caller gets. The route was already wiring-only (S6).
+  `src/lib/data/categories.ts` and `dateVocab.ts`/`dateParsing.ts` mention the old file only in comments.
+- **Kept, with their tests (3 sources + 2 tests, noted in the census):** `src/lib/utils/dateVocab.ts` and
+  `src/lib/utils/dateResolution.ts`, because unported **tasks** code still imports them
+  (`taskQuickAdd.ts`, `TaskQuickAddPreview.svelte`'s `CadenceFrequency`) — so their tests
+  (`dateVocab.test.ts` 29, `dateResolution.test.ts` 15) stay beside them until `taskQuickAdd.ts` dies;
+  `src/lib/server/utils/dateParsing.ts`, because unported **bulkAiService.ts** still imports it (its owning
+  module deletes it). Their behaviour is duplicated by `parsing.vocabulary.rules.test.ts` and
+  `parsing.dates.rules.test.ts`; nothing in v2 imports them (R14).
+- **NLP behaviour unchanged:** no rule body was touched — the only edits in the ported code are the parity
+  rows, the two imports above, and the deletions. The frozen goldens are untouched since S2/Q-012 B.
 
 ## Notes
 
@@ -216,7 +248,7 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
   - `31/12` writes the literal `"Invalid DateTime"` into `date` (`:765-771`: `withRolloverYear` returns `DateTime.invalid`, `.toFormat` stringifies it) although the sweep guards `isValid` — golden (Q-009).
   - Time rules scan the raw input, URLs included, so a clock-like substring in a link can set `startTime` (`:948-1608` vs `:483-487`) — golden (Q-010).
   - The catch-all answers `200 {…, method:"regex-fallback"}` when the throw happens AFTER a successful parse (a `canUseAiFeature` or `recordAiUsage` throw; the cloud result is discarded and the usage record lost); a thrown parse re-runs `parseEventInput` in the catch and answers 500 (`+server.ts:135-137`) — S5 (Q-011).
-  - `await request.json()` sits before the `try`, so a malformed body (and a JSON `null` body) escapes as a rejected request instead of the 400 shape (`+server.ts:67,96`) — golden (Q-012).
+  - ~~`await request.json()` sits before the `try`, so a malformed body (and a JSON `null` body) escapes as a rejected request instead of the 400 shape (`+server.ts:67,96`)~~ — Q-012 ANSWERED B and LANDED: both answer `400 {"error":"Input required"}` (`bodyMode: 'lenient'`), golden rows flipped first.
   - The multi-event shortcut runs before the cloud path, so a signed-in multi-event phrase never spends vendor money (`+server.ts:99-104`) — golden (Q-013).
   - NOT accidental (the old premise was wrong): "birthday" sets `allDay`, but a stated time is KEPT — "birthday party at 6pm" stays 18:00; the 09:00–17:00 default applies only when no start time was found (`:2027-2030`) — golden.
 - **Dropped as internal (no owner question):** the claim book is consulted only by some consumers (`:505-526`; recurrence/count/reminder/time read the unmasked text). That is ticket [#112](../../archive/issues/112-parser-claims-cannot-overlap.md)'s known gap, carried as STRUCTURE work after this port, not a wire behaviour. Likewise the three duplicated date/unit tables (`dateParsing`, `taskQuickAdd`, NLP) fold into `parsing.vocabulary.rules.ts` per review #1/#5.
@@ -229,7 +261,7 @@ All still-valid questions from S1 were filed in [questions.md](../questions.md) 
 - Q-009 — `MM/DD` with an impossible month writes `"Invalid DateTime"` into `date`.
 - Q-010 — time rules scan the raw input, URLs included.
 - Q-011 — the 200 `regex-fallback` wire shape (and the 500 a thrown parse answers).
-- Q-012 — malformed/`null` JSON escapes the error boundary.
+- ~~Q-012 — malformed/`null` JSON escapes the error boundary.~~ ANSWERED B and landed: bad bodies answer the contract's 400 copy (see the S5+S6 notes).
 - Q-013 — the multi-event shortcut runs before the cloud path.
 
 The old question 1 ("birthday at 6pm loses its time") was a FALSE PREMISE and is dropped: the stated time is kept (18:00); only `allDay` is set by the noun cue, and the 09:00–17:00 default applies only when no start time was found (`naturalLanguageService.ts:2027-2030`). The golden pins the kept time.
@@ -238,24 +270,17 @@ The old question 1 ("birthday at 6pm loses its time") was a FALSE PREMISE and is
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# parsing: 0% ported
+# parsing: 55% ported
 
-legacy source files left (4/4, 3183 LOC):
-  - src/lib/server/services/naturalLanguageService.ts (2569 LOC, server) importers: 3
-      NOTE: SPLIT inside parsing by grammar family (event, bill, segment, place, time) around the existing claim book. NLP rule: phrase tables stay green, test-first.
-  - src/lib/server/utils/dateParsing.ts (61 LOC, model) importers: 2
-  - src/lib/utils/dateResolution.ts (281 LOC, model) importers: 3
-  - src/lib/utils/dateVocab.ts (272 LOC, model) importers: 3
+legacy source files left (3/4, 614 LOC):
+  - src/lib/server/utils/dateParsing.ts (61 LOC, model) importers: 1
+  - src/lib/utils/dateResolution.ts (281 LOC, model) importers: 2
+  - src/lib/utils/dateVocab.ts (272 LOC, model) importers: 2
 
-route files not yet wiring-only (1/1):
-  - src/routes/api/parse-event/+server.ts  /api/parse-event
+route files not yet wiring-only (0/1):
 
-legacy test files left (6/6) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/server/services/naturalLanguageService.test.ts [pure, 209 tests]
-  - src/lib/server/services/parserClaimGuards.test.ts [pure, 12 tests]
-  - src/lib/utils/dateResolution.parsers.test.ts [pure, 6 tests]
+legacy test files left (2/6) — reference only, kinds explained in docs/architecture/testing.md:
   - src/lib/utils/dateResolution.test.ts [pure, 15 tests]
   - src/lib/utils/dateVocab.test.ts [pure, 29 tests]
-  - src/routes/api/parse-event/server.test.ts [route, 14 tests]
 ```
 <!-- census:end -->

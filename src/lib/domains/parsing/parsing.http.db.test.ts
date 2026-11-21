@@ -495,17 +495,22 @@ describe("POST /api/parse-event — today's accidental behaviours, pinned as the
 		});
 	});
 
-	it('lets malformed JSON escape the error boundary instead of answering the 400 shape', async () => {
-		// `await request.json()` runs before the `try` (`+server.ts:67,96`).
-		await expect(
-			invoke(postParseEvent, { ctx: ctx(), path: PATH, rawBody: '{"input": ' })
-		).rejects.toThrow(SyntaxError);
+	it('answers 400 "Input required" for malformed JSON (Q-012 B)', async () => {
+		// Legacy read the body before its `try`; Q-012 B moves bad bodies inside
+		// the boundary, so the contract's one 400 copy answers them.
+		const res = await invoke(postParseEvent, {
+			ctx: ctx(),
+			path: PATH,
+			rawBody: '{"input": '
+		});
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'Input required' });
 	});
 
-	it('lets a JSON null body throw before the error boundary instead of answering 400', async () => {
-		await expect(invoke(postParseEvent, { ctx: ctx(), path: PATH, body: null })).rejects.toThrow(
-			TypeError
-		);
+	it('answers 400 "Input required" for a JSON null body (Q-012 B)', async () => {
+		const res = await invoke(postParseEvent, { ctx: ctx(), path: PATH, body: null });
+		expect(res.status).toBe(400);
+		expect(res.body).toEqual({ error: 'Input required' });
 	});
 });
 

@@ -149,11 +149,15 @@ describe('reminders', () => {
 });
 
 describe('the recurrence phrase never leaks into the title', () => {
+	// The phrase is stripped from the title source, so the surviving window is
+	// "yoga " and the refinement never runs (nothing left to strip inside it):
+	// legacy keeps the trailing space, exactly like the frozen golden's
+	// "payday every other week" → 'payday ' row (parsing.http.db.test.ts:168).
 	it.each([
-		['yoga every Monday', 'yoga'],
-		['chores repeat every week', 'chores'],
-		['hoa dues quarterly', 'hoa dues'],
-		['gym twice a week', 'gym']
+		['yoga every Monday', 'yoga '],
+		['chores repeat every week', 'chores '],
+		['hoa dues quarterly', 'hoa dues '],
+		['gym twice a week', 'gym ']
 	])('%s → title %s', (phrase, expected) => {
 		expect(parsed(phrase).title).toBe(expected);
 	});

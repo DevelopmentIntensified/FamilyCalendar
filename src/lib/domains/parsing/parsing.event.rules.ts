@@ -169,6 +169,8 @@ export function parseEventQuickAdd(input: string, options: EventQuickAddOptions)
 	times.startTime = result.startTime;
 	times.endTime = result.endTime;
 	for (const increment of readEventTimeRanges(input, stripSpans, times)) confidence += increment;
+	result.startTime = times.startTime;
+	result.endTime = times.endTime;
 
 	// ===== ALL-DAY =====
 	if (isAllDayPhrase(lower)) {

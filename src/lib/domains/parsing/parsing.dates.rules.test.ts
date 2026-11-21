@@ -1,11 +1,13 @@
 /**
  * The one rollover rule, the weekday rule and the one cadence table.
- * Carries `src/lib/utils/dateResolution.test.ts` and the parser-independent
- * rows of `src/lib/utils/dateResolution.parsers.test.ts`.
+ * Carries `src/lib/utils/dateResolution.test.ts` and the parser-parity rows of
+ * `src/lib/utils/dateResolution.parsers.test.ts` (deleted with the bill parser,
+ * Q-002; only the event and Task parsers survive).
  *
- * The bill parser is gone (Q-002), so the parser-parity rows that remain are
- * the event and Task parsers: both read this table, and `parsing.task.rules`
- * plus `parsing.event.rules` prove it per phrase.
+ * Both surviving parsers read this table and this rule, so the parity section
+ * proves it per phrase: 33 cadence phrases through each parser, the rollover
+ * rows through each, and the "same shape in every parser" cases. Both parsers
+ * get the same injected clock, so the rows never depend on the day they run.
  *
  * Doc: ./README.md#invariants
  */
@@ -25,6 +27,9 @@ import {
 	valueToCadence,
 	type Cadence
 } from './parsing.dates.rules';
+import { parseEventQuickAdd } from './parsing.event.rules';
+import { parseTaskQuickAdd } from './parsing.task.rules';
+import { MONTH_FULL } from './parsing.vocabulary.rules';
 
 /** Sat 2026-03-15 (only the month/day relationship matters). */
 const NOW: CalendarDate = { year: 2026, month: 3, day: 15 };
@@ -260,4 +265,219 @@ describe('cadenceUnit — parsers resolve their own captures through it', () => 
 			expect(cadenceUnit(token)).toBeNull();
 		}
 	);
+});
+
+// ---------------------------------------------------------------------------
+// Parser parity — the shared phrase table and the one rollover rule, read by
+// both surviving parsers
+// ---------------------------------------------------------------------------
+
+/** 2026-03-15T10:00Z — both parsers resolve against the same instant. */
+const CLOCK = new Date('2026-03-15T10:00:00Z');
+const CLOCK_CAL: CalendarDate = { year: 2026, month: 3, day: 15 };
+const ZONE = 'UTC';
+
+const CADENCE_PHRASES: string[] = [
+	'every other day',
+	'every other week',
+	'every other month',
+	'every other year',
+	'Every Other Week',
+	'every day',
+	'every 2 days',
+	'every 3 weeks',
+	'every 10 days',
+	'every 6 months',
+	'every 2 yrs',
+	'every 2 wks',
+	'every 3 mos',
+	'quarterly',
+	'Quarterly',
+	'every quarter',
+	'per quarter',
+	'biannually',
+	'bi-annually',
+	'semiannually',
+	'twice a year',
+	'daily',
+	'nightly',
+	'weekly',
+	'monthly',
+	'yearly',
+	'annually',
+	'repeats weekly',
+	'repeat every week',
+	'repeats daily',
+	'repeat monthly',
+	'repeats annually',
+	'repeat every 3 days'
+];
+
+describe('cadence parity — the shared phrase table, both parsers', () => {
+	it.each(CADENCE_PHRASES)('task quick-add resolves "%s" to the shared cadence', (phrase) => {
+		const r = parseTaskQuickAdd(`water plants ${phrase}`, { now: CLOCK, zone: ZONE });
+		const base = r.recurrenceFrequency ? valueToCadence(r.recurrenceFrequency) : null;
+		expect(base, `quick-add found no cadence in "${phrase}"`).not.toBeNull();
+		expect({ ...base!, every: r.recurrenceInterval ?? 1 }, phrase).toEqual(
+			matchCadence(phrase)!.cadence
+		);
+	});
+
+	it.each(CADENCE_PHRASES)('the event parser resolves "%s" to the shared cadence', (phrase) => {
+		const recurring = parseEventQuickAdd(`trash pickup ${phrase}`, {
+			now: CLOCK,
+			zone: ZONE
+		}).parsed.recurring;
+		expect(valueToCadence(recurring ?? ''), `event parser found no cadence in "${phrase}"`).toEqual(
+			matchCadence(phrase)!.cadence
+		);
+	});
+
+	it('the cadence phrase is stripped from the title, so it cannot read as words', () => {
+		for (const phrase of ['quarterly', 'every other week', 'repeats monthly', 'twice a year']) {
+			const task = parseTaskQuickAdd(`hoa dues ${phrase}`, { now: CLOCK, zone: ZONE });
+			expect(task.title.toLowerCase(), phrase).not.toContain(
+				matchCadence(phrase)!.cadence.unit.slice(0, 4)
+			);
+			const eventTitle = parseEventQuickAdd(`hoa dues ${phrase}`, { now: CLOCK, zone: ZONE }).parsed
+				.title;
+			expect((eventTitle ?? '').toLowerCase(), phrase).not.toMatch(
+				/quarter|every|repeat|twice|annually|bi-?annual|semiannual/
+			);
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// The rollover decision — one rule, both parsers
+// ---------------------------------------------------------------------------
+
+interface RolloverRow {
+	what: string;
+	month: number;
+	day: number;
+	year: number | null;
+}
+
+/**
+ * Rows are built from the clock so they keep discriminating whatever "today"
+ * is. Two rows collapse on the 1st of a month ("yesterday" becomes "today")
+ * — the reference is computed from the same clock, so the assertion still
+ * tests the rule, only the label reads a day ahead of itself.
+ */
+function rolloverRows(now: CalendarDate): RolloverRow[] {
+	const lastOfMonth = daysInMonth(now.year, now.month);
+	return [
+		{ what: "today's own date", month: now.month, day: now.day, year: null },
+		{
+			what: 'a day already passed this month',
+			month: now.month,
+			day: Math.max(1, now.day - 1),
+			year: null
+		},
+		{
+			what: 'later this month',
+			month: now.month,
+			day: Math.min(lastOfMonth, now.day + 5),
+			year: null
+		},
+		{
+			what: 'a month already passed',
+			month: now.month === 1 ? 12 : now.month - 1,
+			day: 5,
+			year: null
+		},
+		{
+			what: 'a month still ahead',
+			month: now.month === 12 ? 1 : now.month + 1,
+			day: Math.min(now.day, daysInMonth(now.year, now.month === 12 ? 1 : now.month + 1)),
+			year: null
+		},
+		{ what: 'a day no month has ("feb 30")', month: 2, day: 30, year: null },
+		{ what: 'an explicit year in the past', month: now.month, day: now.day, year: now.year - 1 }
+	];
+}
+
+function rolloverPhrase(row: RolloverRow): string {
+	return `${MONTH_FULL[row.month - 1]} ${row.day}${row.year === null ? '' : ` ${row.year}`}`;
+}
+
+/** `yyyy-MM-dd` of a calendar date. */
+function iso(date: CalendarDate): string {
+	return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
+}
+
+/** The calendar day a task's end-of-day ISO timestamp lands on, read in UTC. */
+function utcDay(instant: string): string {
+	return new Date(instant).toISOString().slice(0, 10);
+}
+
+describe('rollover parity — the one rule, both parsers', () => {
+	it.each(rolloverRows(CLOCK_CAL))('task quick-add resolves $what by the shared rule', (row) => {
+		const expected = resolveMonthDay(CLOCK_CAL, row.month, row.day, row.year);
+		const phrase = rolloverPhrase(row);
+		expect(expected, `${phrase} cannot name a date`).not.toBeNull();
+		const due = parseTaskQuickAdd(`pay rent ${phrase}`, { now: CLOCK, zone: ZONE }).dueDate;
+		expect(due, `${phrase} resolved no due date`).not.toBeNull();
+		expect(utcDay(due!)).toBe(iso(expected!));
+	});
+
+	it.each(rolloverRows(CLOCK_CAL))('the event parser resolves $what by the shared rule', (row) => {
+		const expected = resolveMonthDay(CLOCK_CAL, row.month, row.day, row.year);
+		const phrase = rolloverPhrase(row);
+		expect(expected, `${phrase} cannot name a date`).not.toBeNull();
+		const date = parseEventQuickAdd(`pay rent ${phrase}`, { now: CLOCK, zone: ZONE }).parsed.date;
+		expect(date, `${phrase} resolved no date`).toBeTruthy();
+		expect(date!.slice(0, 10)).toBe(iso(expected!));
+	});
+
+	it('typing today is today, in both parsers — not a year out', () => {
+		const today = `${MONTH_FULL[CLOCK_CAL.month - 1]} ${CLOCK_CAL.day}`;
+		expect(parseEventQuickAdd(`pay rent ${today}`, { now: CLOCK, zone: ZONE }).parsed.date?.slice(0, 10)).toBe(
+			iso(CLOCK_CAL)
+		);
+		expect(utcDay(parseTaskQuickAdd(`pay rent ${today}`, { now: CLOCK, zone: ZONE }).dueDate!)).toBe(
+			iso(CLOCK_CAL)
+		);
+	});
+
+	it('a bare month-day rolls the same way in both — the "sept 1" that used to differ', () => {
+		const expected = resolveMonthDay(CLOCK_CAL, 9, 1, null)!;
+		expect(parseEventQuickAdd('pay rent sept 1', { now: CLOCK, zone: ZONE }).parsed.date?.slice(0, 10)).toBe(
+			iso(expected)
+		);
+		expect(utcDay(parseTaskQuickAdd('pay rent sept 1', { now: CLOCK, zone: ZONE }).dueDate!)).toBe(
+			iso(expected)
+		);
+	});
+});
+
+describe('a cadence means the same shape in both parsers', () => {
+	it('every 2 weeks is weekly x 2, whichever parser and whichever value word', () => {
+		// The old drift: one parser said "biweekly", another "every_2_weeks",
+		// the client had no spelling at all. Same cadence, three spellings.
+		expect(valueToCadence('biweekly')).toEqual({ unit: 'week', every: 2 });
+		expect(valueToCadence('every_2_weeks')).toEqual({ unit: 'week', every: 2 });
+		expect(parseEventQuickAdd('payday every 2 weeks', { now: CLOCK, zone: ZONE }).parsed.recurring).toBe(
+			'biweekly'
+		);
+		const task = parseTaskQuickAdd('payday every 2 weeks', { now: CLOCK, zone: ZONE });
+		expect([task.recurrenceFrequency, task.recurrenceInterval]).toEqual(['weekly', 2]);
+	});
+
+	it('quarterly is monthly x 3, in both parsers', () => {
+		expect(parseEventQuickAdd('hoa dues quarterly', { now: CLOCK, zone: ZONE }).parsed.recurring).toBe(
+			'every_3_months'
+		);
+		const task = parseTaskQuickAdd('hoa dues quarterly', { now: CLOCK, zone: ZONE });
+		expect([task.recurrenceFrequency, task.recurrenceInterval]).toEqual(['monthly', 3]);
+	});
+
+	it('every other day is NOT weekly — the old "every other day" ⇒ biweekly bug', () => {
+		expect(parseEventQuickAdd('take pills every other day', { now: CLOCK, zone: ZONE }).parsed.recurring).toBe(
+			'every_2_days'
+		);
+		const task = parseTaskQuickAdd('take pills every other day', { now: CLOCK, zone: ZONE });
+		expect([task.recurrenceFrequency, task.recurrenceInterval]).toEqual(['daily', 2]);
+	});
 });
