@@ -6,6 +6,7 @@
  *   await createTask(ctx, actor, input);
  *   expect(ctx.faults.reports).toEqual([]);
  *   expect(ctx.log.entries).toContainEqual(expect.objectContaining({ event: 'task_created' }));
+ *   expect(ctx.mail.outbox).toEqual([]);      // mail a service sent, in order
  *
  * Without a `db` override any database use throws a message telling you to
  * move the test into a `*.db.test.ts` file.
@@ -16,6 +17,7 @@ import type { Ctx, Fault, FaultReporter } from '../ctx/ctx.server';
 import type { Db } from '../db/database.server';
 import { sequentialIds } from '../ids/ids';
 import type { Log, LogFields, LogLevel } from '../log/jsonLog';
+import { createMemoryMailer, type MemoryMailer } from '../mail/mailer';
 import { createMemoryRateLimiter, type MemoryRateLimiter } from '../ratelimit/rateLimiter';
 import { fixedClock, type FixedClock } from '../time/clock';
 
@@ -34,6 +36,7 @@ export type TestCtx = Ctx & {
 	readonly log: MemoryLog;
 	readonly faults: MemoryFaults;
 	readonly limiter: MemoryRateLimiter;
+	readonly mail: MemoryMailer;
 };
 
 export type TestCtxOverrides = {
@@ -50,8 +53,12 @@ export function testCtx(overrides: TestCtxOverrides = {}): TestCtx {
 		ids: sequentialIds(),
 		log: memoryLog(),
 		limiter: createMemoryRateLimiter(clock),
+		mail: createMemoryMailer(),
 		faults: memoryFaults(),
-		config: { cronSecret: overrides.cronSecret ?? 'test-cron-secret' }
+		config: {
+			cronSecret: overrides.cronSecret ?? 'test-cron-secret',
+			mailFrom: 'noReply@familyplanz.com'
+		}
 	};
 }
 
