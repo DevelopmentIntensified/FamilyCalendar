@@ -5,14 +5,14 @@
 -->
 <script lang="ts">
 	import { idColor } from '$lib/kernel/ui/colorHash';
-	import type { BoardColumn } from '../familyHub.board.rules';
+	import type { FamilyBoardColumn } from '$lib/domains/tasks';
 	import type { FamilyBoardTask } from '../familyHub.contract';
 	import type { FamilyBoardState } from '../familyHub.board.state.svelte';
 	import BoardTaskRow from './BoardTaskRow.svelte';
 
 	interface Props {
 		state: FamilyBoardState;
-		column: BoardColumn<FamilyBoardTask>;
+		column: FamilyBoardColumn<FamilyBoardTask>;
 	}
 
 	let { state, column }: Props = $props();

@@ -24,7 +24,7 @@ import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { withTx, type Db } from '$lib/kernel/db/database.server';
 import type { CalendarRow, EventRow, NewEventRow } from '$lib/kernel/db/tables.server';
 import { forbidden, invalid, notFound } from '$lib/kernel/errors/appError';
-import { resolveMembershipFamilyId } from '$lib/domains/family/index.server';
+import { listFamilies, resolveMembershipFamilyId } from '$lib/domains/family/index.server';
 import { getCalendarPreferences, getTimeZone } from '$lib/domains/identity/index.server';
 import {
 	listAccessibleCalendarIds,
@@ -57,6 +57,7 @@ import {
 	ensurePersonalCalendarRow,
 	findCalendar,
 	findEvent,
+	findArchivedEventRows,
 	findExceptions,
 	findOwnedCalendarIds,
 	findWindowEventRows,
@@ -65,6 +66,7 @@ import {
 	listAttendance,
 	listCreatorNames,
 	listFamilyCalendars,
+	listOwnedCalendars,
 	listRsvpStatuses,
 	attendanceSummaries,
 	replaceInvites,
@@ -169,6 +171,66 @@ export async function listEventsInWindow(
 	});
 
 	return { window: range, events };
+}
+
+/** One archived Event, carrying the label of the calendar it came from. */
+export type CalendarArchivedEvent = EventRow & { readonly calendar: string | null };
+
+/** The label the archive page badges: its own, the family's name, or a neutral fallback. */
+const ARCHIVE_PERSONAL_LABEL = 'Personal calendar';
+const ARCHIVE_FAMILY_FALLBACK_LABEL = 'Family calendar';
+
+/**
+ * The `/calendar/archive` read (and its `GET /api/archive` twin, #292 G16):
+ * every Event that started at or before `beforeIso` on the caller's PERSONAL
+ * calendar and on their family's first calendar, each calendar's rows in start
+ * order (personal first, then family).
+ *
+ * Occurrences are not expanded and Exception Overrides are not applied: the
+ * archive is a record of what was entered, so a moved occurrence still shows at
+ * its original time and a cancelled one still shows at all (the page says so).
+ */
+export async function listArchivedEvents(
+	ctx: Ctx,
+	actor: Actor,
+	input: { readonly beforeIso: string }
+): Promise<CalendarArchivedEvent[]> {
+	const personal = (await listOwnedCalendars(ctx.db, actor.id)).find(
+		(row) => row.familyId === null
+	);
+	const familyId = await resolveMembershipFamilyId(ctx, actor.id);
+	const familyCalendar = familyId
+		? (await listFamilyCalendars(ctx.db, familyId))[0]
+		: undefined;
+	const familyName = familyId
+		? (await listFamilies(ctx, actor)).families.find((card) => card.id === familyId)?.name
+		: undefined;
+
+	const labels = new Map<string, string>();
+	if (personal) labels.set(personal.id, ARCHIVE_PERSONAL_LABEL);
+	if (familyCalendar) {
+		labels.set(familyCalendar.id, familyName || ARCHIVE_FAMILY_FALLBACK_LABEL);
+	}
+
+	const rows = [
+		...(personal
+			? await findArchivedEventRows(ctx.db, {
+					calendarId: personal.id,
+					beforeIso: input.beforeIso
+				})
+			: []),
+		...(familyCalendar
+			? await findArchivedEventRows(ctx.db, {
+					calendarId: familyCalendar.id,
+					beforeIso: input.beforeIso
+				})
+			: [])
+	];
+
+	return rows.map((row) => ({
+		...row,
+		calendar: row.calendarId ? (labels.get(row.calendarId) ?? null) : null
+	}));
 }
 
 /**

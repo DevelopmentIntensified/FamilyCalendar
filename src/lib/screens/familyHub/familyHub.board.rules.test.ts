@@ -9,7 +9,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	boardEmptyState,
-	groupBoardColumns,
 	pendingForViewer,
 	publicTabLabel,
 	windowCompletedTasks,
@@ -17,7 +16,6 @@ import {
 	type BoardEmptyState,
 	type PendingTask
 } from './familyHub.board.rules';
-import { buildFamilyBoardTaskWire } from './familyHub.ui.fixtures';
 
 const facts = (overrides: Partial<BoardEmptyFacts>): BoardEmptyFacts => ({
 	tab: 'family',
@@ -178,47 +176,3 @@ describe('windowCompletedTasks', () => {
 	});
 });
 
-describe('groupBoardColumns', () => {
-	// Issue 101 decision 1 + the approved board: viewer first then by name,
-	// urgency inside a column, and only Tasks WITH an assignee (the Nobody card
-	// is the caller's split).
-	const NOW = new Date('2026-09-30T10:00:00.000Z');
-	const names: Record<string, string> = { u_ann: 'You', u_bob: 'Bob Roy', u_zed: 'Zed Owen' };
-	const nameFor = (id: string) => names[id] ?? id;
-
-	const rows = [
-		buildFamilyBoardTaskWire({
-			id: 'late',
-			assignedTo: 'u_ann',
-			dueDate: '2026-09-28 09:00:00+00'
-		}),
-		buildFamilyBoardTaskWire({
-			id: 'later',
-			assignedTo: 'u_ann',
-			dueDate: '2026-10-10 09:00:00+00'
-		}),
-		buildFamilyBoardTaskWire({ id: 'bobs', assignedTo: 'u_bob', userId: 'u_bob' }),
-		buildFamilyBoardTaskWire({ id: 'zeds', assignedTo: 'u_zed', userId: 'u_zed' })
-	];
-
-	it('puts the viewer first, then the other members by name', () => {
-		const columns = groupBoardColumns(rows, nameFor, 'u_ann', NOW);
-		expect(columns.map((column) => column.ownerId)).toEqual(['u_ann', 'u_bob', 'u_zed']);
-		expect(columns.map((column) => column.name)).toEqual(['You', 'Bob Roy', 'Zed Owen']);
-	});
-
-	it('orders a column by urgency, the overdue Task first', () => {
-		const columns = groupBoardColumns(rows, nameFor, 'u_ann', NOW);
-		expect(columns[0]?.tasks.map((task) => task.id)).toEqual(['late', 'later']);
-	});
-
-	it('renders no column for a member with nothing assigned', () => {
-		const columns = groupBoardColumns(
-			[buildFamilyBoardTaskWire({ assignedTo: 'u_bob' })],
-			nameFor,
-			'u_ann',
-			NOW
-		);
-		expect(columns.map((column) => column.ownerId)).toEqual(['u_bob']);
-	});
-});

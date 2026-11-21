@@ -18,19 +18,19 @@ import type { TasksApi, TaskUpdatePayload } from '$lib/domains/tasks/index';
 import {
 	buildTaskEditPayload,
 	formatTaskDue,
+	groupFamilyBoard,
 	matchesTaskTagFilter,
 	taskLateChip,
 	taskRecurringCompleteText,
 	taskRecurringSkipText,
+	type FamilyBoardColumn,
 	type TaskEditDraft
 } from '$lib/domains/tasks/index';
 import type { FamilyBoardModel, FamilyBoardTask } from './familyHub.contract';
 import {
 	boardEmptyState,
-	groupBoardColumns,
 	pendingForViewer,
 	publicTabLabel,
-	type BoardColumn,
 	type BoardTab
 } from './familyHub.board.rules';
 
@@ -110,12 +110,14 @@ export class FamilyBoardState {
 
 	/** One card per assignee, viewer first; unassigned rows are the Nobody card. */
 	boardGroups = $derived.by(
-		(): BoardColumn<FamilyBoardTask>[] =>
-			groupBoardColumns(
+		(): FamilyBoardColumn<FamilyBoardTask>[] =>
+			groupFamilyBoard(
 				this.openTasks.filter((task) => !!task.assignedTo),
-				(ownerId) => this.memberName(ownerId),
-				this.data.userId,
-				this.clock()
+				{
+					viewerId: this.data.userId,
+					nameFor: (ownerId) => this.memberName(ownerId),
+					now: this.clock()
+				}
 			)
 	);
 

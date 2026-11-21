@@ -127,6 +127,15 @@ export const taskStatsEndpoint = endpoint({
 	handle: async ({ ctx, actor }) => ok(await getStatsPage(ctx, actor))
 });
 
+/**
+ * `GET /calendar/stats`'s load: the `/api/stats` body verbatim — the page twin
+ * this module owns, so the page and the phone cannot read two different counts.
+ */
+export const statsPageLoad = pageLoad({
+	auth: 'user',
+	handle: async ({ ctx, actor }) => await getStatsPage(ctx, actor)
+});
+
 // --- Page ----------------------------------------------------------------
 
 /**

@@ -38,6 +38,7 @@ import {
 	createEvent,
 	deleteEvent,
 	getEventForViewer,
+	listArchivedEvents,
 	listEventsInWindow,
 	updateEvent
 } from './calendar.events.service.server';
@@ -215,6 +216,100 @@ describe('listEventsInWindow', () => {
 			'evtpartner1~2026-10-09T18:00:00.000Z'
 		]);
 		expect(result.events[1].creatorName).toBe('Sam');
+	});
+});
+
+describe('listArchivedEvents', () => {
+	rollbackTest(
+		'reads personal then family rows up to the cutoff, labelled and in start order, and never expands occurrences',
+		async (db) => {
+			const viewer = await seedUser(db);
+			await seedFamily(FAMILY, { name: 'Riveras' }, db);
+			await seedMembership(FAMILY, viewer.id, 'creator', 'parent', db);
+			await seedCalendarRow(PERSONAL, { ownerId: viewer.id }, db);
+			await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY }, db);
+			await seedEventRow(
+				{
+					id: 'evtpersonal2',
+					ownerId: viewer.id,
+					calendarId: PERSONAL,
+					title: 'Later personal',
+					start: '2026-02-10T09:00:00.000Z'
+				},
+				db
+			);
+			await seedRecurringEventRow(
+				{
+					id: 'evtpersonal1',
+					ownerId: viewer.id,
+					calendarId: PERSONAL,
+					title: 'Weekly personal',
+					start: '2026-01-05T09:00:00.000Z',
+					count: 3
+				},
+				db
+			);
+			await seedEventRow(
+				{
+					id: 'evtfamily001',
+					ownerId: viewer.id,
+					calendarId: FAMILY_CAL,
+					title: 'Family memory',
+					start: '2026-01-20T09:00:00.000Z'
+				},
+				db
+			);
+			// Still viewable (after the cutoff): not archived yet.
+			await seedEventRow(
+				{
+					id: 'evtfuture001',
+					ownerId: viewer.id,
+					calendarId: PERSONAL,
+					title: 'Next month',
+					start: '2026-03-10T09:00:00.000Z'
+				},
+				db
+			);
+
+			const rows = await listArchivedEvents(testCtx({ db, now: NOW }), actorFromUser(viewer, 'session'), {
+				beforeIso: '2026-03-01T00:00:00.000Z'
+			});
+
+			// Personal calendar first, each calendar in start order; the recurring
+			// master appears ONCE (no occurrence expansion).
+			expect(rows.map((row) => row.id)).toEqual([
+				'evtpersonal1',
+				'evtpersonal2',
+				'evtfamily001'
+			]);
+			expect(rows.map((row) => row.calendar)).toEqual([
+				'Personal calendar',
+				'Personal calendar',
+				'Riveras'
+			]);
+		}
+	);
+
+	rollbackTest('with no family answers the personal rows only', async (db) => {
+		const viewer = await seedUser(db);
+		await seedCalendarRow(PERSONAL, { ownerId: viewer.id }, db);
+		await seedEventRow(
+			{
+				id: 'evtpersonal1',
+				ownerId: viewer.id,
+				calendarId: PERSONAL,
+				title: 'Old memory',
+				start: '2026-01-05T09:00:00.000Z'
+			},
+			db
+		);
+
+		const rows = await listArchivedEvents(testCtx({ db, now: NOW }), actorFromUser(viewer, 'session'), {
+			beforeIso: '2026-03-01T00:00:00.000Z'
+		});
+
+		expect(rows.map((row) => row.id)).toEqual(['evtpersonal1']);
+		expect(rows[0]?.calendar).toBe('Personal calendar');
 	});
 });
 
