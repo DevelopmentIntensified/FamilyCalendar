@@ -18,7 +18,7 @@ import {
 	findOpenSession,
 	findSession,
 	insertCommand,
-	insertSession,
+	insertFocusSession,
 	listClosedUnabsorbedSessions,
 	listCommands,
 	listUnabsorbedSessions,
@@ -86,22 +86,27 @@ describe('device commands', () => {
 });
 
 describe('phone sessions', () => {
-	rollbackTest('insertSession records an open session and findOpenSession reads it', async (db) => {
-		const mia = await seedUser(db);
-		const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
-		const created = await insertSession(db, {
-			userId: mia.id,
-			taskId: task.id,
-			startedAt: AT('2026-03-01T10:00:00Z'),
-			endedAt: null,
-			createdAt: AT('2026-03-01T10:00:00Z')
-		});
-		expect(created?.source).toBe('phone');
-		expect(created?.absorbedAt).toBeNull();
+	rollbackTest(
+		'insertFocusSession records an open session and findOpenSession reads it',
+		async (db) => {
+			const mia = await seedUser(db);
+			const task = await seedTask(db, { title: 'Focus me', userId: mia.id });
+			const created = await insertFocusSession(db, {
+				userId: mia.id,
+				taskId: task.id,
+				startedAt: AT('2026-03-01T10:00:00Z'),
+				endedAt: null,
+				createdAt: AT('2026-03-01T10:00:00Z')
+			});
+			expect(created?.source).toBe('phone');
+			expect(created?.absorbedAt).toBeNull();
 
-		expect((await findOpenSession(db, mia.id))?.id).toBe(created?.id);
-		expect((await findSession(db, { userId: mia.id, id: created?.id ?? '' }))?.id).toBe(created?.id);
-	});
+			expect((await findOpenSession(db, mia.id))?.id).toBe(created?.id);
+			expect((await findSession(db, { userId: mia.id, id: created?.id ?? '' }))?.id).toBe(
+				created?.id
+			);
+		}
+	);
 
 	rollbackTest('a second open session is rejected by the one-open index', async (db) => {
 		const mia = await seedUser(db);
@@ -116,7 +121,7 @@ describe('phone sessions', () => {
 		// catch inside the callback would leave the outer tx aborted).
 		const second = await db
 			.transaction(async (tx) =>
-				insertSession(tx, {
+				insertFocusSession(tx, {
 					userId: mia.id,
 					taskId: task.id,
 					startedAt: AT('2026-03-01T11:00:00Z'),
@@ -136,7 +141,7 @@ describe('phone sessions', () => {
 			taskId: task.id,
 			startedAt: AT('2026-03-01T10:00:00Z')
 		});
-		const finished = await insertSession(db, {
+		const finished = await insertFocusSession(db, {
 			userId: mia.id,
 			taskId: task.id,
 			startedAt: AT('2026-03-01T09:00:00Z'),

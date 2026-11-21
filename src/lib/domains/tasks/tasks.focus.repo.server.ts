@@ -94,7 +94,7 @@ function isUniqueViolation(error: unknown): boolean {
  * Open or record a phone session. `null` when the one-open-session index
  * rejected a second open start (the caller reports the running session id).
  */
-export async function insertSession(
+export async function insertFocusSession(
 	db: Db,
 	values: NewTaskfocusSessionRow
 ): Promise<TaskfocusSessionRow | null> {
