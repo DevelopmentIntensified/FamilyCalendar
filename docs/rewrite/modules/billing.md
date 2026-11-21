@@ -228,7 +228,7 @@ Both answered by the owner on 2026-11-12 (`docs/rewrite/questions.md`, lettering
 ### S2 — goldens
 
 - `billing.http.db.test.ts` covers the one `/api` route: success for a session and a Bearer caller, the free defaults, a tiered subscription with an override, this month's AI counter (under and over the cap), an expired row, newest-of-two active rows, and the degrade-on-read-failure path. All run against the legacy handler (no spec-goldens needed).
-- The AI-usage test seeds the month/year from the real clock because the legacy service reads it (`subscriptionService.ts:333-334`); it asserts counts and shapes, never dates. The other goldens use fixed far-past/far-future dates so they never depend on today.
+- The AI-usage test seeds the month/year from the real clock because the legacy service reads it (`subscriptionService.ts:333-334`); it asserts counts and shapes, never dates. The other goldens use fixed far-past/far-future dates so they never depend on today. After the port the handler reads the same real month through `ctx.clock`: `goldenCtx` gives goldens production's `systemClock` (and `systemIds`), not `testCtx`'s frozen clock. The window's edges are pinned in `billing.service.db.test.ts` (`getSubscriptionSummary` › "counts only the injected clock's UTC month"), where `testCtx({ now })` controls time.
 - The degrade golden renames `aiUsageTracking` for one request (drizzle sends unnamed statements — `prepare: false` — so the renamed relation is re-resolved by name and the read fails) and restores it in `finally`. If this proves brittle on a future drizzle upgrade, move it to `billing.service.db.test.ts` with a throwing `Db` passed to `testCtx({ db })`; it must not be deleted, the behaviour is on the wire.
 
 

@@ -13,14 +13,34 @@
  * The domain ports come from `wirePorts` itself, so the legacy bridges that
  * identity's two ports ride on today (../ports.server.ts) are here too.
  *
+ * `clock` and `ids` are the REAL ones too (`systemClock`, `systemIds`), not the
+ * frozen clock and `id-N` counter `testCtx` hands S5 tests: a golden
+ * characterizes a legacy handler that read `new Date()` and minted row ids with
+ * `generateId`, so it must see legacy-like time and ids. That is why a golden
+ * seeding from the ambient month (`billing.http.db.test.ts`, sponsored's) still
+ * passes after the port. A golden that wants time pinned passes `now`.
+ *
  * S5 service tests keep `testCtx` and pass a memory fake for each port they
  * exercise; they never need the real adapter.
  *
  * Doc: docs/architecture/testing.md#golden-contract-tests-characterization
  */
 import { wirePorts, type AppPorts } from '$lib/app/ports.server';
+import { systemIds, type Ids } from '$lib/kernel/ids/ids';
 import { testCtx, type TestCtx, type TestCtxOverrides } from '$lib/kernel/testing/testCtx.server';
+import { systemClock, type Clock } from '$lib/kernel/time/clock';
 
-export function goldenCtx(overrides: TestCtxOverrides = {}): TestCtx & AppPorts {
-	return wirePorts(testCtx(overrides));
+/** What a golden gets: `TestCtx`'s doubles, with production's clock and ids. */
+export type GoldenCtx = Omit<TestCtx, 'clock' | 'ids'> & {
+	readonly clock: Clock;
+	readonly ids: Ids;
+} & AppPorts;
+
+export function goldenCtx(overrides: TestCtxOverrides = {}): GoldenCtx {
+	const ctx = testCtx(overrides);
+	return wirePorts({
+		...ctx,
+		clock: overrides.now === undefined ? systemClock : ctx.clock,
+		ids: systemIds
+	});
 }
