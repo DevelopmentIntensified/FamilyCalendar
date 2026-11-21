@@ -8,12 +8,16 @@
  *
  * Doc: src/lib/kernel/README.md#database
  */
+import { sql } from 'drizzle-orm';
 import { drizzle, type PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js';
 import type { PgDatabase } from 'drizzle-orm/pg-core';
 import postgres from 'postgres';
 import type { Ctx } from '../ctx/ctx.server';
 
 export type Db = PgDatabase<PostgresJsQueryResultHKT>;
+
+/** The health probe's budget: the answer must arrive even when Postgres hangs. */
+const PING_TIMEOUT_MS = 1000;
 
 export type DbHandle = {
 	readonly db: Db;
@@ -32,4 +36,22 @@ export function connectDb(url: string, maxConnections = 10): DbHandle {
 /** Run `work` in one transaction; the Ctx it receives writes through that transaction. */
 export function withTx<T>(ctx: Ctx, work: (txCtx: Ctx) => Promise<T>): Promise<T> {
 	return ctx.db.transaction((tx) => work({ ...ctx, db: tx }));
+}
+
+/**
+ * 1s-bounded `select 1` ping. Resolves 'up' | 'down' and never throws — the
+ * health route only needs the boolean and must not receive stack traces or
+ * connection details (the legacy probe's contract).
+ */
+export async function pingDb(db: Db, timeoutMs: number = PING_TIMEOUT_MS): Promise<'up' | 'down'> {
+	const { promise, reject } = Promise.withResolvers<never>();
+	const timer = setTimeout(() => reject(new Error('health ping timeout')), timeoutMs);
+	try {
+		await Promise.race([db.execute(sql`select 1`), promise]);
+		return 'up';
+	} catch {
+		return 'down';
+	} finally {
+		clearTimeout(timer);
+	}
 }
