@@ -16,11 +16,12 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | file | role | what it does — and why it exists | tested by |
 |---|---|---|---|
 | [index.ts](index.ts) | entry | Public isomorphic interface: the auth wire types, `authApi`, the redirect rules and the page state classes other code may reuse. | — |
-| [index.server.ts](index.server.ts) | entry | Public server interface: the `/api` endpoint handlers and the page handlers the route files import. The services behind them stay module-internal — no other module calls one. | — |
+| [index.server.ts](index.server.ts) | entry | Public server interface: the `/api` endpoint handlers, the page handlers the route files import, and the session pipeline's route gate (`isAdminRoute`, `isProtectedRoute`). The services behind them stay module-internal — the one exception is the retention prune `app`'s cleanup cron calls. | — |
 | [access.contract.ts](access.contract.ts) | contract | Zod request/response schemas for every `/api` route, the exact legacy error copy, the response shapes, and the Claim-token owner view. | [access.contract.test.ts](access.contract.test.ts) |
 | [access.email.rules.ts](access.email.rules.ts) | rules | What a magic link and a verification code are: kind tags, 8-digit shape, 15/60-minute TTLs (clock passed in), gate keys, callback paths and the signed-payload readers. | [access.email.rules.test.ts](access.email.rules.test.ts) |
 | [access.redirect.rules.ts](access.redirect.rules.ts) | rules | `authRedirectTarget`: same-origin path-only landing, with the page `/calendar` and email `/calendar/` fallbacks. | [access.redirect.rules.test.ts](access.redirect.rules.test.ts) |
 | [access.password.rules.ts](access.password.rules.ts) | rules | The ≥8 floor, the four-field signup check, the reset check order and the `used:<hash>` marker key. | [access.password.rules.test.ts](access.password.rules.test.ts) |
+| [access.route.rules.ts](access.route.rules.ts) | rules | The session pipeline's route gate, moved out of `src/hooks.server.ts:23-39`: `isAdminRoute` (an `admin` segment) and `isProtectedRoute` (`calendar`, `account`, `claim` or `admin`), matched by path SEGMENT so `/disclaimer` never matches `claim` and a mere substring never matches either. | [access.route.rules.test.ts](access.route.rules.test.ts) |
 | [access.device.rules.ts](access.device.rules.ts) | rules | `mobileTokenName` (`Android — <device>`, trimmed, 60-char cap) and `toMobileUser` (placeholder email masked to `null`). | [access.device.rules.test.ts](access.device.rules.test.ts) |
 | [access.claim.rules.ts](access.claim.rules.ts) | rules | Claim-token bytes/hash/TTL, address trim+lowercase and dot rule, the guests-only refusal, the save/merge copy variant. | [access.claim.rules.test.ts](access.claim.rules.test.ts) |
 | [access.person.rules.ts](access.person.rules.ts) | rules | The Anonymous Account predicate access branches on (`isGuestPerson`, `isRegisteredPerson`, `maskGuestEmail`), interim until identity's entry exports it. | [access.person.rules.test.ts](access.person.rules.test.ts) |
@@ -38,7 +39,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [access.emailLink.service.server.ts](access.emailLink.service.server.ts) | service | The emailed-link seam sign-up and sign-in compose: `startEmailLink` (validate → gate once → suppress → 8-digit code + 15-minute HS256 link, mailed before the code row is written), `sendSignupVerificationCode` (the code-only `password-signup` mail), `verifyEmailLinkToken` (signature/expiry + kind tag). | [access.emailLink.service.db.test.ts](access.emailLink.service.db.test.ts) |
 | [access.signup.service.server.ts](access.signup.service.server.ts) | service | `startEmailSignup`, `completeEmailSignupCode`/`completeEmailSignupLink` (person + binding + colour + lazy personal calendar + session), `signUpWithPassword` (unverified account, pending shape for a taken address), `resendSignupCode` and `verifySignupCode`. | [access.signup.service.db.test.ts](access.signup.service.db.test.ts) |
 | [access.login.service.server.ts](access.login.service.server.ts) | service | `startEmailLogin`, `completeEmailLoginCode`/`completeEmailLoginLink`, `signInWithPassword` (web cookie + the signed-in person for the route's echo, dummy-compare defence), `signInMobileWithPassword`, `requestMobileEmailCode`, `verifyMobileEmailCode`, `createMobileGuest` — and the one guest-session kill on sign-in. Sign-out lives once, in `access.account.service.server.ts`. | [access.login.service.db.test.ts](access.login.service.db.test.ts) |
-| [access.claim.service.server.ts](access.claim.service.server.ts) | service | `requestClaim` (guests only, uniform answer, 10/15 per IP and 3/15 per address, hashed 15-minute token) and `confirmClaim` (peek → ownership → atomic consume → Claim Conflict merge or attach email + settings backfill). | [access.claim.service.db.test.ts](access.claim.service.db.test.ts) |
+| [access.claim.service.server.ts](access.claim.service.server.ts) | service | `requestClaim` (guests only, uniform answer, 10/15 per IP and 3/15 per address, hashed 15-minute token), `confirmClaim` (peek → ownership → atomic consume → Claim Conflict merge or attach email + settings backfill) and `pruneExpiredClaimTokens(ctx, now)` (the cleanup cron's retention prune). | [access.claim.service.db.test.ts](access.claim.service.db.test.ts) |
 | [access.fixtures.server.ts](access.fixtures.server.ts) | fixtures | Row builders for this module's db tests, every name carrying the `Access` noun; `seedAccessClaimToken` takes the caller's `db` so repo tests stay inside their transaction. | used by the tests below |
 | [access.http.db.test.ts](access.http.db.test.ts) | test | Golden contract for the 13 `/api` routes (status + full body + refusal + rows written) and the two page-group code JSON endpoints (Q-064), plus the nine spec-goldens that send mail (Q-067), against the ported handlers. | itself |
 | [access.faults.http.db.test.ts](access.faults.http.db.test.ts) | test | The mobile handlers' fault boundary: a dependency that throws becomes JSON 500 `Something went wrong — try again`, never an HTML page or a leaked message. | itself |
@@ -66,7 +67,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 
 Everything other modules and routes may use, grouped by entry file. One line each: `name` — what it does.
 
-Other modules call none of the services: every caller is one of this module's own routes (S8 rewires them) or a page this module owns. The services are still written one per use case, so S5 has one seam per rule — they are just not re-exported.
+Other modules call exactly one service: `app`'s cleanup cron calls `pruneExpiredClaimTokens` (re-exported from `index.server.ts`). Every other caller is one of this module's own routes or a page this module owns. The services are still written one per use case, so S5 has one seam per rule.
 
 ### `index.ts` — isomorphic
 
@@ -84,6 +85,8 @@ Other modules call none of the services: every caller is one of this module's ow
 - `/api/mobile/auth/email` → `mobileEmailEndpoint`; `/verify` → `mobileVerifyEndpoint`; `/password` → `mobilePasswordEndpoint`; `/guest` → `mobileGuestEndpoint`; `/logout` → `mobileLogoutEndpoint`; `/signup` → `mobileSignupEndpoint`; `/forgot` → `mobileForgotEndpoint`; `/reset` → `mobileResetEndpoint`.
 - The page-group JSON endpoints the auth screens fetch: `/login/email` → `loginEmailAction`; `/login/email/code` → `loginCodeEndpoint`; `/login/password` → `loginPasswordAction`; `/signup/email` → `signupEmailAction`; `/signup/email/code` → `signupCodeEndpoint`; `/signup/password` → `signupPasswordAction`; `/signup/password/resend` → `passwordResendAction`; `/signup/password/verify` → `passwordVerifyAction`; `/forgot-password` → `forgotPasswordAction`; `/forgot-password/reset` → `resetPasswordAction`. Both `/…/email/code` JSON endpoints answer the generic `Unexpected error, please try again` on a refusal (Q-064 B).
 - Page handlers, one per route: `loginPage`, `loginCallback`, `signupPage`, `signupCallback`, `claimPage`, `claimRequestAction`, `claimVerifyPage`, `claimVerifyAction`, `verifyEmailPage`, `verifyEmailAction`, `changeEmailAction` (`/account?/updateEmail` — the account screen's email change, `{success,message}` bodies), `mergeGuestPage`, `mergeGuestAction`, `mergeGuestSkipAction`. The family invite page (`/family/invite/email`) is family's, not access's.
+- `pruneExpiredClaimTokens(ctx, now)` — the one service this entry re-exports, for `app`'s cleanup cron (see Services below).
+- The session pipeline's route gate: `isAdminRoute(pathname)` and `isProtectedRoute(pathname)` — a path-SEGMENT match, so `/disclaimer` is not `claim` (see Invariants).
 
 ### Services (module-internal, one per use case)
 
@@ -98,6 +101,7 @@ Signature is `(ctx, input)` by default; a use case whose actor is the subject of
 - `requestEmailChange(ctx, actor, {email})` / `verifyEmailChange(ctx, actor, {code | token})` — identity-bound code, 10 / 15 min.
 - `requestClaim(ctx, actor, {email})` → `{sent:true}` for a guest, identical for a registered address; `confirmClaim(ctx, actor, {token})` → `{outcome:'claimed' | 'merged'}` with the Claim Conflict merge.
 - `mergeGuest(ctx, actor, {keep})` — one transaction: personal calendar, events, tasks, sessions, guest row.
+- `pruneExpiredClaimTokens(ctx, now)` — retention: deletes the tokens that expired strictly before `now` (the peek and the consume refuse an expired row, so it can never be used), answers how many went. The ONE service `app` calls: it is re-exported from `index.server.ts` and `app`'s cleanup cron passes its clock's now.
 - `signOut(ctx, actor, {sessionId?, token?})` — the ONE sign-out: ends the current session (cookie) or revokes exactly the presented `fp_` token (a non-`fp_` bearer is refused). `signOutSession`/`signOutMobile` no longer exist.
 - `createGuestAccount(ctx, {deviceName?})` — the Android Anonymous Account + token.
 
@@ -127,6 +131,10 @@ Signature is `(ctx, input)` by default; a use case whose actor is the subject of
 ## Invariants
 
 Behaviour that must not change, each with the legacy evidence and the test that pins it (`file › test title`, or the golden title for wire rules). `(planned)` marks the test a later step writes.
+
+### Route gate
+
+- The session pipeline's gate is a path-SEGMENT match on `calendar`, `account`, `claim` and `admin` (the admin subset is `admin` alone): `/disclaimer` never matches `claim`, a path that merely contains a word never matches, and every `/admin…` path is admin-only. — `src/hooks.server.ts:23-39` · `access.route.rules.test.ts`, and through the pipeline in `src/lib/app/app.requestPipeline.db.test.ts › admin gate`.
 
 ### Magic links and emailed codes
 

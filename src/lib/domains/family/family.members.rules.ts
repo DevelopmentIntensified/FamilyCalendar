@@ -9,7 +9,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { isEmailAddress } from '$lib/kernel/validation/validators';
+import { isEmailAddress } from '$lib/kernel/validation/primitives';
 import {
 	canChangeRole,
 	canManageMembers,

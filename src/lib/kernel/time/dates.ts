@@ -142,23 +142,12 @@ export function formatDateTimeMinute(instant: Date | string, zone: string): stri
  * (`accountSubscription.lastUsedLabel`), but counted in calendar days in the
  * zone, and with no "yesterday" word. `''` when the instant is empty or
  * invalid.
+ *
+ * The rule itself lives in `./relative` and needs no luxon, because the app
+ * chrome asks for one such label on every page (ADR 0010); this export keeps
+ * the one call site list for the formatters above.
  */
-export function relativeFromNow(instant: Date | string, now: Date | string, zone: string): string {
-	const dt = parseInstant(instant, zone);
-	const base = parseInstant(now, zone);
-	if (!dt || !base) return '';
-	const days = Math.round(dt.startOf('day').diff(base.startOf('day'), 'days').days);
-	if (days === 0) return 'today';
-	const magnitude = Math.abs(days);
-	const [n, noun]: [number, string] =
-		magnitude < 14
-			? [magnitude, 'day']
-			: magnitude < 60
-				? [Math.floor(magnitude / 7), 'week']
-				: [Math.floor(magnitude / 30), 'month'];
-	const text = `${n} ${noun}${n === 1 ? '' : 's'}`;
-	return days < 0 ? `${text} ago` : `in ${text}`;
-}
+export { relativeFromNow } from './relative';
 
 /**
  * Buckets items by their day key in `zone`, in one pass, replacing the

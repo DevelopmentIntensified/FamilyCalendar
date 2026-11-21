@@ -15,7 +15,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import { relativeFromNow } from '$lib/kernel/time/dates';
+	import { relativeFromNow } from '$lib/kernel/time/relative';
 	import { systemClock } from '$lib/kernel/time/clock';
 	import { systemScheduler } from '$lib/kernel/time/scheduler';
 	import { createToasts, type Toasts } from '$lib/kernel/client/toasts.svelte';
