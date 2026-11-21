@@ -1,4 +1,5 @@
 import { createSign } from 'node:crypto';
+import type { FcmBody } from './push';
 
 /**
  * Firebase Cloud Messaging HTTP v1 transport (#272). No SDK: the service
@@ -6,8 +7,13 @@ import { createSign } from 'node:crypto';
  * it for a 1h access token (cached per sender until shortly before expiry),
  * and each message is one POST to `messages:send`.
  *
- * Pure transport — no database. Token pruning is the caller's job, driven by
- * the `'unregistered'` result.
+ * Pure transport — no database, no message vocabulary: the message shapes
+ * (visible notification, `events_changed` nudge) belong to `alerts`, the
+ * module that owns the rows and their wording. Token pruning is the caller's
+ * job, driven by the `'unregistered'` result.
+ *
+ * Moved here from the legacy `services/fcmService.ts` (K-08 S8 sweep): the
+ * kernel `Push` port's device half, so no v2 code imports legacy.
  */
 
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
@@ -83,46 +89,10 @@ export function signServiceAccountJwt(sa: ServiceAccount, nowSec: number): strin
 	return `${header}.${claims}.${b64url(signer.sign(sa.privateKey))}`;
 }
 
-/** The `message` body minus `token` (FCM v1 has no multicast; one send per token). */
-export interface FcmMessage {
-	notification?: { title: string; body: string };
-	/** FCM requires every data value to be a string. */
-	data?: Record<string, string>;
-	android?: { priority?: 'high' | 'normal'; collapse_key?: string; ttl?: string };
-}
-
-/** A user-visible notification: shown by the system tray; `data.link` is the tap target. */
-export function notificationMessage(payload: {
-	title: string;
-	body: string;
-	link?: string;
-}): FcmMessage {
-	const data: Record<string, string> = { type: 'notification' };
-	if (payload.link) data.link = payload.link;
-	return {
-		notification: { title: payload.title, body: payload.body },
-		data,
-		android: { priority: 'high' }
-	};
-}
-
-/**
- * The silent sync nudge: data-only (no notification block, so nothing shows),
- * high priority so a dozing phone wakes to reschedule reminders, collapsed so a
- * burst of edits delivers once, short TTL because a stale nudge is worthless.
- * `actorId` (#281): the editor's own phone skips the "Event updates" notice.
- */
-export function eventsChangedMessage(actorId: string): FcmMessage {
-	return {
-		data: { type: 'events_changed', actorId },
-		android: { priority: 'high', collapse_key: 'events_changed', ttl: '600s' }
-	};
-}
-
-export type FcmSendResult = 'sent' | 'unregistered' | 'failed';
+export type FcmDeviceResult = 'sent' | 'unregistered' | 'failed';
 
 export interface FcmSender {
-	send(token: string, message: FcmMessage): Promise<FcmSendResult>;
+	send(token: string, body: FcmBody): Promise<FcmDeviceResult>;
 }
 
 export interface FcmSenderDeps {
@@ -195,7 +165,7 @@ export function createFcmSender(
 	}
 
 	return {
-		async send(token, message) {
+		async send(token, body) {
 			try {
 				const bearer = await accessToken();
 				const res = await deps.fetch(
@@ -206,14 +176,14 @@ export function createFcmSender(
 							authorization: `Bearer ${bearer}`,
 							'content-type': 'application/json'
 						},
-						body: JSON.stringify({ message: { token, ...message } })
+						body: JSON.stringify({ message: { token, ...body } })
 					}
 				);
 				if (res.ok) return 'sent';
 				if (res.status === 401) cached = null;
-				const body: FcmErrorBody = await res.json().catch(() => ({}));
-				if (isDeadToken(res.status, body)) return 'unregistered';
-				console.error('FCM send failed:', res.status, body.error?.status ?? '');
+				const reply: FcmErrorBody = await res.json().catch(() => ({}));
+				if (isDeadToken(res.status, reply)) return 'unregistered';
+				console.error('FCM send failed:', res.status, reply.error?.status ?? '');
 				return 'failed';
 			} catch (error) {
 				console.error('FCM send error:', error);
@@ -226,24 +196,16 @@ export function createFcmSender(
 let memo: { raw: string; sender: FcmSender } | null = null;
 
 /**
- * The process-wide sender for the configured service account, or null when
- * `FCM_SERVICE_ACCOUNT_JSON` is unset/invalid (skip silently, like VAPID).
- * Memoized per env value so the access-token cache survives across requests
- * on a warm instance.
+ * The process-wide sender for one configured service-account value, or null
+ * when it is unset/invalid (skip silently, like VAPID). The caller reads
+ * `FCM_SERVICE_ACCOUNT_JSON` (app: R6) and passes it here; memoized per value
+ * so the access-token cache survives across requests on a warm instance.
  */
-export function getFcmSender(
-	env: Record<string, string | undefined> = process.env
-): FcmSender | null {
-	const raw = env.FCM_SERVICE_ACCOUNT_JSON;
+export function getFcmSender(raw: string | undefined): FcmSender | null {
 	if (!raw) return null;
 	if (memo?.raw === raw) return memo.sender;
 	const sa = parseServiceAccount(raw);
 	if (!sa) return null;
 	memo = { raw, sender: createFcmSender(sa) };
 	return memo.sender;
-}
-
-/** Cheap synchronous gate for request paths: is FCM configured at all? */
-export function isFcmConfigured(env: Record<string, string | undefined> = process.env): boolean {
-	return getFcmSender(env) !== null;
 }

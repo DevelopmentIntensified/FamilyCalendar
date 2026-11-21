@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { FcmSender } from '$lib/server/services/fcmService';
+import type { FcmSender } from '$lib/kernel/push/fcm.server';
 import { createPushTransport, type WebPushTransport } from './pushTransport.server';
 
 type WebPushCall = {

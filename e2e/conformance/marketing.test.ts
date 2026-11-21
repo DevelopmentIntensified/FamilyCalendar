@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { collectRoute, marketingTokens, HOLD_OUT } from './helpers';
-import { findDeviations, formatDeviations } from '../../src/lib/conformance/tokens';
+import { findDeviations, formatDeviations } from '../../src/lib/kernel/conformance/tokens';
 
 /**
  * 131 — the harness must be proven on a page known to be right before it is

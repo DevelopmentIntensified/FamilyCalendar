@@ -8,7 +8,7 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 
 - **Owns:** the dependency bag (`Ctx`) and caller identity (`Actor`); the one error type; boundary validation; the HTTP builders (`endpoint`, `pageLoad`, `formAction`); clock, ids and hashing; the rate limiter; the mail, push, AI and outbound-HTTP ports with their adapters; structured logs; db/transaction helpers; the Drizzle table definitions in `db/tables` (one file per owning module, `TABLE_OWNERS` in `scripts/arch/registry.mjs`) with their row types; the test harness.
 - **Does not own:** any business rule. Something like "who may edit a task" belongs in the module that owns the concept (`tasks`), even when several modules need it.
-- **Also owns:** the date formatting and month math in `kernel/time` (K-06), and the shared UI primitives in `kernel/ui`: sheet, confirm action, pill, skeleton, toaster, brand mark, day nav, mention input, colour hashes. Screens and domains import them by path; they never import a domain or `$app/*`.
+- **Also owns:** the date formatting and month math in `kernel/time` (K-06), the shared UI primitives in `kernel/ui`: sheet, confirm action, pill, skeleton, toaster, brand mark, day nav, mention input, colour hashes, and (#131) the design-conformance harness in `kernel/conformance`. Screens and domains import them by path; they never import a domain or `$app/*`.
 - **Client pieces** (K-07) live in `client/`: the api client, toasts, device preferences, debounced search and the offline queue; `time/ticker` is the reactive "now" for countdowns.
 - **Later kernel tasks** (see [LEDGER](../../../docs/rewrite/LEDGER.md)) add the page and perf harnesses (K-10/K-11).
 
@@ -32,6 +32,11 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [client/shareText.test.ts](client/shareText.test.ts) | test | the legacy nine cases, driven through an injected navigator/document | — |
 | [client/toasts.svelte.ts](client/toasts.svelte.ts) | client | `createToasts({schedule})`: runes toast list, max four visible (oldest dropped), 6 s auto-dismiss, optional `action` (`{label, run}`) for Undo-style buttons; `memoryToasts()` records `{kind, text, action?}` for state-class tests. `Scheduler` lives in `time/scheduler.ts`. | [toasts.test.ts](client/toasts.test.ts) |
 | [client/toasts.test.ts](client/toasts.test.ts) | test | ids, four-toast cap, six-second dismissal, timers for dropped toasts, action kept, memory recorder — shared manual scheduler | — |
+| [conformance/collect.ts](conformance/collect.ts) | test infra | #131's in-page collector: walks the rendered DOM (visible elements only) and records one `Measurement` per element per property; Playwright serialises it, so it stays self-contained. | used by `e2e/conformance` |
+| [conformance/rules.ts](conformance/rules.ts) | rules | #131's property normalisers: `PROPERTIES`, `RULES`, `normaliseColor` (every Chromium colour spelling → hex), `normaliseLength`, `normaliseKeyword`, `normaliseShadow`. Property values are derived per run, never written here. | [rules.test.ts](conformance/rules.test.ts) |
+| [conformance/rules.test.ts](conformance/rules.test.ts) | test | the normaliser tables: colour spellings, lengths, keywords, shadow colours | — |
+| [conformance/tokens.ts](conformance/tokens.ts) | rules | #131's harness core: `deriveTokens(pages)` builds the reference token set from the marketing pages' own measurements, `findDeviations(measurements, tokens)` compares a route, `formatDeviations` prints one line per finding. | [tokens.test.ts](conformance/tokens.test.ts) |
+| [conformance/tokens.test.ts](conformance/tokens.test.ts) | test | token derivation and ordering, the missing-reference skip, deviation formatting | — |
 | [ctx/actor.ts](ctx/actor.ts) | type | `Actor` (who is calling: id, email, isAdmin, via) + `actorFromUser`. Small on purpose: anything else about the person is asked of `identity`. | [endpoint.test.ts](http/endpoint.test.ts) |
 | [ctx/ctx.server.ts](ctx/ctx.server.ts) | type | `Ctx`: db, clock, ids, log, limiter, mail, push, ai, http, faults, config. Services take it as their first argument, so tests swap any dependency without `vi.mock`. | via every test that uses `testCtx` |
 | [db/database.server.ts](db/database.server.ts) | infra | `Db` (pool or transaction), `connectDb`, `withTx` (nested transactions become savepoints) and `pingDb` (the 1s-bounded `select 1` the health probe reads: `'up'`/`'down'`, never throws, never leaks a detail). | [testDb.db.test.ts](testing/testDb.db.test.ts) |
@@ -73,6 +78,8 @@ Domain words come from [CONTEXT.md](../../../CONTEXT.md). Architecture rules: [d
 | [mail/mailer.test.ts](mail/mailer.test.ts) | test | recorded order, and `text`/`from`/`replyTo` kept exactly as sent | — |
 | [mail/resendMailer.server.ts](mail/resendMailer.server.ts) | infra | `createResendMailer({ apiKey, from }, fetcher = fetch)`: posts the legacy `resend.emails.send` body (`from`, `to`, `subject`, `html`, optional `text`/`reply_to`) to the Resend API; a non-2xx rejects with the provider's message (the legacy caller's `send-failed` branch). Config is a parameter — `src/lib/app` reads the environment (R6). | [resendMailer.test.ts](mail/resendMailer.test.ts) |
 | [mail/resendMailer.test.ts](mail/resendMailer.test.ts) | test | request URL/headers/body, per-message `from`, `text`/`reply_to`, a 422 refusal and a non-JSON one — fake fetcher | — |
+| [push/fcm.server.ts](push/fcm.server.ts) | infra | Firebase Cloud Messaging HTTP v1 sender (#272), moved from legacy `services/fcmService.ts`: `parseServiceAccount` (raw or base64 key), `signServiceAccountJwt` (RS256), `createFcmSender` (1 h access-token cache shared per sender; `sent \| unregistered \| failed`), `getFcmSender(raw)` memoized per service-account value. Transport only — the message shapes belong to `alerts`. | [fcm.test.ts](push/fcm.test.ts) |
+| [push/fcm.test.ts](push/fcm.test.ts) | test | key parsing, JWT signature, token exchange/cache/refresh, dead-token detection, the raw-value memo | — |
 | [push/push.ts](push/push.ts) | infra | `Push` port: `webPublicKey()`, `devicesConfigured()`, and `send` one `PushMessage` — one web subscription with a `PushNotice`, or one device token with an `FcmBody` — answering `sent \| dead \| skipped \| failed` (`dead` is the legacy prune signal: Web Push 404/410, FCM `unregistered`). `createMemoryPush()` records `sent` and answers scripted deliveries. The caller owns the subscription/token rows, so the port stays domain-free. | [push.test.ts](push/push.test.ts) |
 | [push/push.test.ts](push/push.test.ts) | test | recorded web/device order, scripted deliveries then `sent`, the VAPID key and FCM gate | — |
 | [ratelimit/rateLimiter.ts](ratelimit/rateLimiter.ts) | infra | `RateLimiter` port, in-memory sliding window driven by the clock, `clientKeyOf` (same keys as legacy). | [rateLimiter.test.ts](ratelimit/rateLimiter.test.ts) |
@@ -193,7 +200,7 @@ Declare `rateLimit: { scope, limit, windowMs, message }` on the endpoint. For cu
 - `ctx.push.send({ channel: 'web', subscription, notice })` sends one browser notification (`{ title, body, link? }`), and `{ channel: 'device', token, body }` one FCM message. The answer is `sent`, `dead`, `skipped` (that channel is unconfigured — the legacy silent return) or `failed` (a real error, logged where it happens, as the legacy transport's `console.error` did — the caller must not log it again).
 - Only `dead` means the **target** is gone: a Web Push 404/410, or an FCM `unregistered` token. Delete the subscription row or the device token; keep it on `failed`.
 - `ctx.push.webPublicKey()` is the VAPID public key for `GET /api/push/public-key`; `ctx.push.devicesConfigured()` is the legacy cheap gate for the silent `events_changed` nudge.
-- The port is a transport, not a fan-out: the module that owns the rows (alerts) lists the user's subscriptions and tokens and sends one message per target. Production builds `createPushTransport` in [src/lib/app/pushTransport.server.ts](../app/pushTransport.server.ts) (`web-push` plus the legacy FCM sender); tests get `createMemoryPush` and assert `ctx.push.sent`, scripting answers with `willDeliver(...)`. `testCtx`'s memory push starts **unconfigured** (`webPublicKey()` null, `devicesConfigured()` false), like a zero-env process; pass `createMemoryPush({ webPublicKey, devicesConfigured })` to model a configured one.
+- The port is a transport, not a fan-out: the module that owns the rows (alerts) lists the user's subscriptions and tokens and sends one message per target. Production builds `createPushTransport` in [src/lib/app/pushTransport.server.ts](../app/pushTransport.server.ts) (`web-push` plus [push/fcm.server.ts](push/fcm.server.ts)); tests get `createMemoryPush` and assert `ctx.push.sent`, scripting answers with `willDeliver(...)`. `testCtx`'s memory push starts **unconfigured** (`webPublicKey()` null, `devicesConfigured()` false), like a zero-env process; pass `createMemoryPush({ webPublicKey, devicesConfigured })` to model a configured one.
 
 ### AI
 
@@ -248,6 +255,14 @@ Components and helpers in `kernel/ui`, imported by path. Props in, callbacks out
 - `MentionInput` — `{ value, people?, everyone?, onsubmit?, onchange?, placeholder?, class?, id?, 'aria-label'?, testid? }`: the `@`-suggest textarea; Enter picks the highlighted row or submits while the list is open and is left alone when it is closed.
 - `mentionFilter` — `filterMentions(fragment, people)` plus the prop types `MentionPerson` and `MentionEveryoneOption`.
 - `colorHash` — `nameColor(name)`, `idColor(id)`, `initials(first, last?)`.
+
+### Conformance (#131)
+
+The design-conformance harness's shared half; the e2e side is `e2e/conformance/helpers.ts`.
+
+- `collect` — `collectMeasurements(props)`: the in-page collector, run through `page.evaluate` (visible elements only).
+- `rules` — `PROPERTIES`, `RULES` and the normalisers `normaliseColor`, `normaliseLength`, `normaliseKeyword`, `normaliseShadow`.
+- `tokens` — `deriveTokens(pages)` (the reference token set from the marketing pages), `findDeviations(measurements, tokens)`, `formatDeviations(deviations)`.
 
 ## How to test
 
