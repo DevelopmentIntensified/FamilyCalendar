@@ -6,11 +6,16 @@
  * Doc: ./README.md#invariants
  */
 import { describe, expect, it } from 'vitest';
-import { selectDashboardModules } from '$lib/domains/dashboardModules';
+import {
+	DASHBOARD_MODULES,
+	selectDashboardModules
+} from '$lib/domains/dashboardModules';
 import {
 	ACCOUNT_DASHBOARD_GROUPS,
 	ACCOUNT_UNMOUNTED_MODULE_IDS,
 	accountDashboardModules,
+	accountHiddenModulesFromForm,
+	accountModuleVisibility,
 	isAccountModuleMounted
 } from './account.dashboard.rules';
 
@@ -49,5 +54,44 @@ describe('accountDashboardModules', () => {
 		for (const id of ['verse', 'glance', 'top3', 'completed', 'board', 'kids', 'groceries']) {
 			expect(isAccountModuleMounted(id)).toBe(true);
 		}
+	});
+});
+
+describe('accountHiddenModulesFromForm', () => {
+	it('hides every module whose checkbox is absent, in registry order', () => {
+		const form = new FormData();
+		form.set('module_verse', 'on');
+		form.set('module_meals', 'on');
+		expect(accountHiddenModulesFromForm(form)).toEqual(
+			DASHBOARD_MODULES.map((module) => module.id).filter(
+				(id) => id !== 'verse' && id !== 'meals'
+			)
+		);
+	});
+
+	it('hides everything when no checkbox arrives', () => {
+		expect(accountHiddenModulesFromForm(new FormData())).toEqual(
+			DASHBOARD_MODULES.map((module) => module.id)
+		);
+	});
+
+	it('drops a retired id a hand-made form posts', () => {
+		const form = new FormData();
+		for (const module of DASHBOARD_MODULES) form.set(`module_${module.id}`, 'on');
+		form.set('module_retired', 'on');
+		expect(accountHiddenModulesFromForm(form)).toEqual([]);
+	});
+});
+
+describe('accountModuleVisibility', () => {
+	it('reads a saved hidden id as off and everything else as on', () => {
+		const shown = accountModuleVisibility(['glance']);
+		expect(shown.glance).toBe(false);
+		expect(shown.verse).toBe(true);
+	});
+
+	it('ignores a stale saved id rather than hiding everything', () => {
+		const shown = accountModuleVisibility(['retired-module']);
+		expect(Object.values(shown).every(Boolean)).toBe(true);
 	});
 });

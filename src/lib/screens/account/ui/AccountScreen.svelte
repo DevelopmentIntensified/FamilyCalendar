@@ -21,17 +21,7 @@
 		AccountScreenState,
 		type AccountFormEnhancer
 	} from '../account.state.svelte';
-	import AccountApiTokensSection from './AccountApiTokensSection.svelte';
-	import AccountCalendarSection from './AccountCalendarSection.svelte';
-	import AccountDangerSection from './AccountDangerSection.svelte';
-	import AccountDashboardSection from './AccountDashboardSection.svelte';
-	import AccountEmailSection from './AccountEmailSection.svelte';
-	import AccountFamiliesSection from './AccountFamiliesSection.svelte';
-	import AccountNotificationsSection from './AccountNotificationsSection.svelte';
-	import AccountProfileSection from './AccountProfileSection.svelte';
-	import AccountSecuritySection from './AccountSecuritySection.svelte';
 	import AccountSidebar from './AccountSidebar.svelte';
-	import AccountSubscriptionSection from './AccountSubscriptionSection.svelte';
 
 	interface Props {
 		data: AccountPagePaint;
@@ -58,6 +48,11 @@
 	});
 
 	const model = $derived(state.model());
+
+	// The ten sections load as one chunk, on demand: the first paint ships the
+	// chrome, the rail, the banner and (server-rendered) the default section
+	// only (ADR 0010 — initial JS may only shrink).
+	const sectionBody = import('./AccountSectionBody.svelte');
 </script>
 
 <svelte:head>
@@ -143,35 +138,19 @@
 								Try again
 							</button>
 						</div>
-					{:else if model?.section === 'profile'}
-						<AccountProfileSection person={model.person} {enhance} />
-					{:else if model?.section === 'families'}
-						<AccountFamiliesSection families={model.families} />
-					{:else if model?.section === 'notifications'}
-						<AccountNotificationsSection
-							preferences={model.preferences}
-							options={model.options}
-							{enhance}
-						/>
-					{:else if model?.section === 'calendar'}
-						<AccountCalendarSection model={model} {enhance} />
-					{:else if model?.section === 'dashboard'}
-						<AccountDashboardSection model={model} {enhance} />
-					{:else if model?.section === 'subscription'}
-						<AccountSubscriptionSection model={model} {now} />
-					{:else if model?.section === 'email'}
-						<AccountEmailSection model={model} {enhance} />
-					{:else if model?.section === 'security'}
-						<AccountSecuritySection {enhance} />
-					{:else if model?.section === 'api'}
-						<AccountApiTokensSection model={model} form={form} {now} {enhance} />
-					{:else if model?.section === 'danger'}
-						<AccountDangerSection
-							model={model}
-							exporting={state.exporting}
-							onExport={() => state.exportData()}
-							{enhance}
-						/>
+					{:else if model}
+						{#await sectionBody}
+							<Skeleton lines={5} label="Loading section" />
+						{:then SectionBody}
+							<SectionBody.default
+								{model}
+								{form}
+								{now}
+								{enhance}
+								exporting={state.exporting}
+								onExport={() => state.exportData()}
+							/>
+						{/await}
 					{:else}
 						<Skeleton lines={5} label="Loading section" />
 					{/if}

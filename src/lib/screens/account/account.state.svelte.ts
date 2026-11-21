@@ -8,21 +8,17 @@
  * and the error sentence on screen. The export acknowledges within 100 ms and
  * reports its outcome, exactly as the approved card does.
  *
- * The notification switches keep their own class: the flip is optimistic and a
- * failed save puts the switch back where the server still has it (alerts'
- * `saveOutcome` decides), which is a different promise from the section cache.
+ * The notification switches keep their own class in
+ * `account.notifications.state.svelte.ts`, loaded with their section: the flip
+ * is optimistic and a failed save puts the switch back where the server still
+ * has it, which is a different promise from the section cache.
  *
- * No `$effect`: every side effect is a method, so both classes run in node with
- * a fake api and no DOM.
+ * No `$effect`: every side effect is a method, so the class runs in node with a
+ * fake api and no DOM.
  *
  * Doc: ./README.md#invariants
  */
 import type { SubmitFunction } from '@sveltejs/kit';
-import type {
-	AlertPreferenceId,
-	AlertPreferences
-} from '$lib/domains/alerts';
-import { DEFAULT_ALERT_PREFERENCES, saveOutcome } from '$lib/domains/alerts';
 import type { Toasts } from '$lib/kernel/client/toasts.svelte';
 import type { AccountApi } from './account.api';
 import type { AccountSectionModel } from './account.contract';
@@ -101,78 +97,5 @@ export class AccountScreenState {
 			return;
 		}
 		this.toasts.error('Data export failed — please try again.');
-	}
-}
-
-/** What the card shows once a switch's save answers: the switches, the line, its tone. */
-export type AccountPreferenceOutcome = {
-	readonly preferences: AlertPreferences;
-	readonly status: string;
-	readonly isError: boolean;
-};
-
-/**
- * The four notification switches: the optimistic flip, its receipt, and the
- * revert to the server's value when the save refuses.
- *
- * The server value is captured before the flip; the revert never re-derives it
- * with `!intent.value`, which is only right while nothing else has moved.
- */
-export class AccountNotificationsState {
-	preferences = $state<AlertPreferences>({ ...DEFAULT_ALERT_PREFERENCES });
-	/** The switch a save is in flight for; that row alone is disabled. */
-	pendingId = $state<AlertPreferenceId | null>(null);
-	/** The receipt or the did-not-save line; always rendered (a live region). */
-	status = $state('');
-	statusIsError = $state(false);
-
-	/** The server's answer as this class last saw it. */
-	private saved: AlertPreferences;
-	/** The flip the in-flight save is asking for. */
-	private intent: { readonly id: AlertPreferenceId; readonly value: boolean } | null = null;
-
-	constructor(initial: AlertPreferences) {
-		this.saved = { ...initial };
-		this.preferences = { ...initial };
-	}
-
-	/** The loader's answer after a reload is truth again. */
-	reset(initial: AlertPreferences): void {
-		this.saved = { ...initial };
-		this.preferences = { ...initial };
-	}
-
-	valueOf(id: AlertPreferenceId): boolean {
-		return this.preferences[id];
-	}
-
-	/** The value this row's next click saves — the in-flight one while a save runs. */
-	nextValue(id: AlertPreferenceId, on: boolean): boolean {
-		if (this.intent?.id === id) return this.intent.value;
-		return !on;
-	}
-
-	/** Ack first, ask later: the switch and the receipt both move now. */
-	press(id: AlertPreferenceId): void {
-		const value = !this.preferences[id];
-		this.intent = { id, value };
-		this.pendingId = id;
-		const outcome = saveOutcome(this.saved, this.intent, true);
-		this.preferences = outcome.preferences;
-		this.status = outcome.status;
-		this.statusIsError = false;
-	}
-
-	/** The save answered: keep the flip on success, put the switch back on failure. */
-	settle(ok: boolean): void {
-		const intent = this.intent;
-		this.intent = null;
-		this.pendingId = null;
-		if (!intent) return;
-		const outcome = saveOutcome(this.saved, intent, ok);
-		this.saved = outcome.preferences;
-		this.preferences = outcome.preferences;
-		this.status = outcome.status;
-		this.statusIsError = outcome.isError;
 	}
 }

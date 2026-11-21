@@ -11,7 +11,8 @@ import type { ApiResult } from '$lib/kernel/client/apiClient';
 import type { AlertPreferences } from '$lib/domains/alerts';
 import type { AccountApi } from './account.api';
 import type { AccountSectionModel } from './account.contract';
-import { AccountNotificationsState, AccountScreenState } from './account.state.svelte';
+import { AccountNotificationsState } from './account.notifications.state.svelte';
+import { AccountScreenState } from './account.state.svelte';
 
 const NOW = new Date('2027-03-20T12:00:00.000Z');
 const PROFILE: AccountSectionModel = {

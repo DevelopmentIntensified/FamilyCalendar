@@ -16,7 +16,11 @@
  *
  * Doc: ./README.md#invariants
  */
-import { selectDashboardModules, type DashboardModule } from '$lib/domains/dashboardModules';
+import {
+	DASHBOARD_MODULES,
+	selectDashboardModules,
+	type DashboardModule
+} from '$lib/domains/dashboardModules';
 
 /** Modules with no Dashboard card mounted anywhere. */
 export const ACCOUNT_UNMOUNTED_MODULE_IDS: Readonly<Record<string, true>> = { meals: true };
@@ -57,4 +61,27 @@ export function accountDashboardModules(): AccountDashboardModule[] {
 			mounted: isAccountModuleMounted(module.id)
 		}))
 	);
+}
+
+/**
+ * Show-based form in, hidden list out (105): every checkbox named `module_<id>`
+ * that is not `'on'` is hidden, in the registry's own order — so the stored list
+ * is a pure function of which canonical ids were named, and a form carrying a
+ * retired id cannot grow it.
+ */
+export function accountHiddenModulesFromForm(form: FormData): string[] {
+	return DASHBOARD_MODULES.map((module) => module.id).filter(
+		(id) => form.get(`module_${id}`) !== 'on'
+	);
+}
+
+/**
+ * The saved hidden list as a per-module visibility map. A saved id the registry
+ * no longer carries hides nothing (103): absent is visible.
+ */
+export function accountModuleVisibility(
+	hidden: readonly string[] | null | undefined
+): Record<string, boolean> {
+	const hiddenSet = new Set(hidden ?? []);
+	return Object.fromEntries(DASHBOARD_MODULES.map(({ id }) => [id, !hiddenSet.has(id)]));
 }

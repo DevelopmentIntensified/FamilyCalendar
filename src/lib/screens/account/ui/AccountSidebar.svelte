@@ -12,7 +12,6 @@
 	says "No email yet · Save your calendar" instead.
 -->
 <script lang="ts">
-	import { displayName, isRegisteredAccount } from '$lib/domains/identity';
 	import { ACCOUNT_SECTIONS, type AccountSectionId } from '../account.sections.rules';
 	import type { AccountPersonModel } from '../account.contract';
 
@@ -24,9 +23,15 @@
 
 	let { activeSection, user = null }: Props = $props();
 
-	const label = $derived(displayName(user));
+	// Presentation of the wire's own fields: `email` already arrived masked for
+	// an Anonymous Account (`guestSafeEmail`), so a real address is simply a
+	// non-null email on a non-anonymous person. Kept local so the rail does not
+	// pull identity's whole entry (and luxon) into the first paint.
+	const label = $derived(
+		[user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || null
+	);
 	const initial = $derived((label?.[0] ?? '?').toUpperCase());
-	const registered = $derived(isRegisteredAccount(user));
+	const registered = $derived(!!user && !user.isAnonymous && !!user.email);
 	/** Q-080 B: the reported path keeps the current section. */
 	const reportHref = $derived(
 		`/report-bug?from=${encodeURIComponent(`/account#${activeSection}`)}`

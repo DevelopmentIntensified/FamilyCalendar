@@ -5,12 +5,18 @@
  *
  * Doc: ./README.md#invariants
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import type { AccountPagePaint } from '../account.contract';
 import AccountScreen from './AccountScreen.svelte';
 
 afterEach(cleanup);
+
+// The section body is a lazy chunk; load it once so a section's own read is
+// not competing with the first transform of ten components.
+beforeAll(async () => {
+	await import('./AccountSectionBody.svelte');
+});
 
 const enhance = () => ({ destroy() {} });
 
@@ -42,7 +48,7 @@ const DATA: AccountPagePaint = {
 };
 
 describe('AccountScreen', () => {
-	it('renders the approved chrome and the section the hash names', () => {
+	it('renders the approved chrome and the section the hash names', async () => {
 		render(AccountScreen, { props: { data: DATA, form: null, enhance, hash: '#profile' } });
 
 		expect(screen.getByRole('heading', { name: 'Account Settings' })).toBeInTheDocument();
@@ -50,10 +56,12 @@ describe('AccountScreen', () => {
 			'href',
 			'/calendar'
 		);
-		expect(screen.getByRole('heading', { name: 'Profile Information' })).toBeInTheDocument();
+		expect(
+			await screen.findByRole('heading', { name: 'Profile Information' })
+		).toBeInTheDocument();
 	});
 
-	it('renders the families section for its hash', () => {
+	it('renders the families section for its hash', async () => {
 		render(AccountScreen, {
 			props: {
 				data: {
@@ -71,7 +79,7 @@ describe('AccountScreen', () => {
 			}
 		});
 
-		expect(screen.getByRole('heading', { name: 'Your families' })).toBeInTheDocument();
+		expect(await screen.findByRole('heading', { name: 'Your families' })).toBeInTheDocument();
 		expect(screen.getByRole('link', { name: /Lovelace/ })).toHaveAttribute('href', '/family/f-1');
 	});
 

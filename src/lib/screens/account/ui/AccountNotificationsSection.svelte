@@ -12,7 +12,8 @@
 	import Skeleton from '$lib/kernel/ui/Skeleton.svelte';
 	import { DEFAULT_ALERT_PREFERENCES, type AlertPreferences } from '$lib/domains/alerts';
 	import type { AccountNotificationOptionModel } from '../account.contract';
-	import { AccountNotificationsState, type AccountFormEnhancer } from '../account.state.svelte';
+	import { AccountNotificationsState } from '../account.notifications.state.svelte';
+	import type { AccountFormEnhancer } from '../account.state.svelte';
 
 	interface Props {
 		/** What the section's read answered; null means it has not answered yet. */

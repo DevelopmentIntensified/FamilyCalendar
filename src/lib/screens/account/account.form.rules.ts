@@ -1,23 +1,21 @@
 /**
- * The /account forms' pure part: the one banner above the section, and the
- * show-based Dashboard Module form.
+ * The one banner above the /account section.
  *
- * The banner rule is legacy `+page.svelte:24-32` exactly: a success needs BOTH
- * `success` and a `message` (a create-token answer carries one), a failure
- * reads `message` first and `error` second (the kernel's auth refusal carries
- * `error`), and a failure with neither falls back to the approved sentence. The
- * one extra field is `guestNeedsClaim`, which makes the banner add the claim
- * link (#242).
+ * Legacy `+page.svelte:24-32` exactly: a success needs BOTH `success` and a
+ * `message` (a create-token answer carries one), a failure reads `message` first
+ * and `error` second (the kernel's auth refusal carries `error`), and a failure
+ * with neither falls back to the approved sentence. The one extra field is
+ * `guestNeedsClaim`, which makes the banner add the claim link (#242).
  *
- * The module form is 105: an unchecked checkbox is ABSENT from the payload, so
- * "absent" is how a module is hidden; only canonical ids survive, so a form
- * carrying a retired id cannot grow the saved list.
+ * Deliberately dependency-free: the shell renders this rule on every visit, so
+ * it must not drag a domain module (and its zod contract) into the initial
+ * client bundle. The Dashboard form rules live with the Dashboard section
+ * (`account.dashboard.rules.ts`), which loads lazily.
  *
  * Pure (rule R4/R5): a payload in, a value out.
  *
  * Doc: ./README.md#invariants
  */
-import { DASHBOARD_MODULES } from '$lib/domains/dashboardModules';
 
 /** What an action's `form` may carry; every key optional, one union per page. */
 export type AccountActionForm = {
@@ -57,26 +55,4 @@ export function accountBanner(form: AccountActionForm | null | undefined): Accou
 		};
 	}
 	return null;
-}
-
-/**
- * Show-based form in, hidden list out: every checkbox named `module_<id>` that
- * is not `'on'` is hidden, and the list is the registry's own order — so the
- * stored list is a pure function of which canonical ids were named.
- */
-export function accountHiddenModulesFromForm(form: FormData): string[] {
-	return DASHBOARD_MODULES.map((module) => module.id).filter(
-		(id) => form.get(`module_${id}`) !== 'on'
-	);
-}
-
-/**
- * The saved hidden list as a per-module visibility map. A saved id the registry
- * no longer carries hides nothing (103): absent is visible.
- */
-export function accountModuleVisibility(
-	hidden: readonly string[] | null | undefined
-): Record<string, boolean> {
-	const hiddenSet = new Set(hidden ?? []);
-	return Object.fromEntries(DASHBOARD_MODULES.map(({ id }) => [id, !hiddenSet.has(id)]));
 }

@@ -242,6 +242,11 @@ screen owns no tables, so fixtures belong to the owning domains.
   this worktree. Q-083's recorded default ("the shell layout takes it; the page keeps a defensive
   check") is met by `accountPageLoad`'s own `auth: 'user'` guard; the layout files go when the shell
   lands.
+- Perf (ADR 0010): the /account initial bundle carries chrome + rail + banner only — the ten
+  sections sit behind the lazily imported `ui/AccountSectionBody.svelte`; the notifications state
+  (`account.notifications.state.svelte.ts`) and the dashboard form map (`account.dashboard.rules.ts`)
+  keep alerts/dashboardModules' zod contracts out of the first paint; the rail no longer imports
+  identity's entry (luxon).
 - Deviations, all noted in the README: page-action failure bodies use the kernel's `error` key
   (the banner reads `message ?? error`, so the sentence is identical); `AccountFamilyModel.memberType`
   is `null` because family's list payload does not carry it (unused by the page);

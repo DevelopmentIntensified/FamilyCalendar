@@ -27,8 +27,8 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [ui/index.ts](ui/index.ts) | entry | Public components: `AccountScreen` only. | — |
 | [account.contract.ts](account.contract.ts) | contract | The wire: strict `GET /api/me` (`AccountMeResponse`), `DELETE /api/me` (`AccountDeleteBody` — every non-string confirmation is `''`, and a non-object body is the legacy `Invalid JSON`), the export document (hash refusal, names-only families), the section parameter built from `ACCOUNT_SECTIONS`, the ten section models, and `AccountPagePaint` (the first paint's user + default section + load instant). | [account.contract.test.ts](account.contract.test.ts) |
 | [account.sections.rules.ts](account.sections.rules.ts) | rules | `ACCOUNT_SECTIONS`, `AccountSectionId`, `resolveAccountSection`, `accountSectionHref`. The one list the rail, the page and the endpoint read. | [account.sections.rules.test.ts](account.sections.rules.test.ts) |
-| [account.form.rules.ts](account.form.rules.ts) | rules | `accountBanner` (success needs a message; failures read `message` then `error`, then the approved fallback; `guestNeedsClaim`), `accountHiddenModulesFromForm` (absent checkbox = hidden, canonical ids only), `accountModuleVisibility`. | [account.form.rules.test.ts](account.form.rules.test.ts) |
-| [account.dashboard.rules.ts](account.dashboard.rules.ts) | rules | The registry split into "Above your cards"/"Cards", and the separate mounted fact (`meals` is parked). Declared here until dashboardModules exports it. | [account.dashboard.rules.test.ts](account.dashboard.rules.test.ts) |
+| [account.form.rules.ts](account.form.rules.ts) | rules | `accountBanner` (success needs a message; failures read `message` then `error`, then the approved fallback; `guestNeedsClaim`). Dependency-free on purpose: the shell renders it on every visit. | [account.form.rules.test.ts](account.form.rules.test.ts) |
+| [account.dashboard.rules.ts](account.dashboard.rules.ts) | rules | The registry split into "Above your cards"/"Cards", the separate mounted fact (`meals` is parked, declared here until dashboardModules exports it), and the show-based form map (`accountHiddenModulesFromForm`, `accountModuleVisibility`). Loads with the Dashboard section. | [account.dashboard.rules.test.ts](account.dashboard.rules.test.ts) |
 | [account.calendar.rules.ts](account.calendar.rules.ts) | rules | The five views, the IANA zone list (labels de-underscored, sorted, UTC fallback), and the consent-trail copy. | [account.calendar.rules.test.ts](account.calendar.rules.test.ts) |
 | [account.subscription.rules.ts](account.subscription.rules.ts) | rules | The plan card's strings: period, renewal, usage, retention/archive cells, AI bar percent and reset line, and the token row's relative "last used". | [account.subscription.rules.test.ts](account.subscription.rules.test.ts) |
 | [account.export.rules.ts](account.export.rules.ts) | rules | `EXPORT_VERSION`, the key order, `exportFileName`, `exportedAccountRow` (hash stripped), `exportedPersonNames`, `exportedFamilies`, `exportedEventIds`, `composeAccountExport`. | [account.export.rules.test.ts](account.export.rules.test.ts) |
@@ -36,8 +36,9 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [account.export.service.server.ts](account.export.service.server.ts) | service | `getAccountExport`: identity first (a missing person row is a fault, never an empty document), then the slices in legacy order, then calendar by the exported tasks' event ids, then bills. | [account.export.service.db.test.ts](account.export.service.db.test.ts) |
 | [account.service.server.ts](account.service.server.ts) | service | `getAccountIdentity`, `getAccountSection` (the ten-branch lazy composition), `getAccountPaint`, and the nine mutations — settings/dashboard/notifications/profile/sessions/tokens/deletion — each delegating to the owning domain. | [account.service.db.test.ts](account.service.db.test.ts) |
 | [account.api.ts](account.api.ts) | api | `fetchSection` (typed against the section model) and `downloadExport(now)` (dated attachment). | — |
-| [account.state.svelte.ts](account.state.svelte.ts) | state | `AccountScreenState` (active section, per-section cache, pending/error, export toasts) and `AccountNotificationsState` (optimistic flip + revert through alerts' `saveOutcome`). | [account.state.test.ts](account.state.test.ts) |
-| [account.http.server.ts](account.http.server.ts) | http | `accountPageLoad`, `accountFormActions` (the nine mutations; `updateEmail` is access's action), `accountSectionEndpoint`, `accountMeGetEndpoint`, `accountMeDeleteEndpoint`, `accountExportEndpoint`, `accountCalendarSettingsRedirect`. Legacy wording kept verbatim. | [account.http.db.test.ts](account.http.db.test.ts) (goldens) |
+| [account.state.svelte.ts](account.state.svelte.ts) | state | `AccountScreenState` (active section, per-section cache, pending/error, export toasts) and `AccountFormEnhancer`. No domain import, so nothing heavy rides the first paint. | [account.state.test.ts](account.state.test.ts) |
+| [account.notifications.state.svelte.ts](account.notifications.state.svelte.ts) | state | `AccountNotificationsState`: optimistic flip, receipt, and the revert through alerts' `saveOutcome`. Loads with the Notifications section. | [account.state.test.ts](account.state.test.ts) |
+| [account.http.server.ts](account.http.server.ts) | http | `accountPageLoad`, the nine action handlers (`accountSaveCalendarSettingsAction` … `accountDeleteAccountAction`; `updateEmail` is access's `changeEmailAction` wired in the route), `accountSectionEndpoint`, `accountMeGetEndpoint`, `accountMeDeleteEndpoint`, `accountExportEndpoint`, `accountCalendarSettingsRedirect`. Legacy wording kept verbatim. | [account.http.db.test.ts](account.http.db.test.ts) (goldens) |
 | [account.contract.test.ts](account.contract.test.ts) | test | The three `/api` bodies the golden pins and the ten section models. | — |
 | [account.sections.rules.test.ts](account.sections.rules.test.ts) | test | The ten sections in order, every hash resolution, the fallback, the hrefs. | — |
 | [account.form.rules.test.ts](account.form.rules.test.ts) | test | The banner's branches and the show-based module form. | — |
@@ -50,7 +51,8 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [account.service.db.test.ts](account.service.db.test.ts) | test | Every IO Invariant in this README (see pin list). | — |
 | [account.state.test.ts](account.state.test.ts) | test | One fetch per section, retry, export toasts, optimistic flip + revert. | — |
 | [account.http.db.test.ts](account.http.db.test.ts) | test | Frozen golden for `GET`/`DELETE /api/me` and `GET /api/account/export` (unchanged since the S2 sha). | — |
-| [ui/AccountScreen.svelte](ui/AccountScreen.svelte) | ui | Chrome (breadcrumbs, header, back link), rail, banner, the hash-selected section, skeletons and retry, the one Toaster. | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) |
+| [ui/AccountScreen.svelte](ui/AccountScreen.svelte) | ui | Chrome (breadcrumbs, header, back link), rail, banner, the hash-selected section, skeletons and retry, the one Toaster. The section body is imported with `await import()`. | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) |
+| [ui/AccountSectionBody.svelte](ui/AccountSectionBody.svelte) | ui | The ten-section switch, kept in its own lazily imported chunk so the first paint does not ship every section. | — |
 | [ui/AccountSidebar.svelte](ui/AccountSidebar.svelte) | ui | Section links from `ACCOUNT_SECTIONS`, Report-a-Bug with `?from=/account#<section>` (Q-080 B), the signed-in-as card (never a guest placeholder). | [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) |
 | [ui/AccountProfileSection.svelte](ui/AccountProfileSection.svelte) | ui | The name form, `update({reset:false})`, "Saving..." → "Update Profile". | — |
 | [ui/AccountFamiliesSection.svelte](ui/AccountFamiliesSection.svelte) | ui | One row per family (initial, name, `N members · role`, "Manage →"), empty state, "+ Create a family". | — |
@@ -82,9 +84,10 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 - `index.server.ts`:
   - `accountPageLoad` — the `/account` load: auth guard, the rail's identity, the default (profile)
     section and the load instant. No section-specific query beyond the profile row.
-  - `accountFormActions` — the nine mutations (`saveCalendarSettings`, `saveDashboardModules`,
-    `setNotificationPreference`, `updateProfile`, `updateEmail`, `logoutAllDevices`,
-    `createApiToken`, `revokeApiToken`, `deleteAccount`; the export is a GET).
+  - the nine action handlers — `saveCalendarSettings`, `saveDashboardModules`,
+    `setNotificationPreference`, `updateProfile`, `logoutAllDevices`, `createApiToken`,
+    `revokeApiToken`, `deleteAccount` (the export is a GET); `updateEmail` is access's
+    `changeEmailAction`, wired by the route as legacy did.
   - `accountSectionEndpoint` — `GET /account/section/[section]`: the lazy per-section model, page
     data outside `/api` (Q-077); a signed-out caller gets the house JSON 401.
   - `accountMeGetEndpoint`, `accountMeDeleteEndpoint` — the identity and deletion wire.
@@ -227,6 +230,12 @@ Each line names the test that pins it.
   shell screen lands, the account route keeps its legacy `+layout.server.ts` / `+layout.svelte`
   (removing them today would drop the page's chrome), and the page load keeps its own auth guard.
 - Q-077: the lazy `GET /account/section/[section]` route is page data outside `/api`.
+- Bundle split (ADR 0010 / perf:check): the ten sections live behind
+  `ui/AccountSectionBody.svelte` and load with `await import()`; the notification state moved to
+  `account.notifications.state.svelte.ts` (alerts + zod) and the dashboard form map to
+  `account.dashboard.rules.ts` (dashboardModules + zod), so neither rides the first paint. The rail
+  computes its label from the wire's already-masked fields instead of importing identity's entry
+  (luxon), and `account.form.rules.ts` is dependency-free.
 - Q-080 B: the rail's Report-a-Bug link carries `?from=/account#<section>`.
 - Section models carry ISO strings (the service maps the domains' `Date`s), so the page load and the
   section endpoint serve one shape; relative labels use the page load's `now`.

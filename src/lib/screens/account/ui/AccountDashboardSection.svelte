@@ -5,8 +5,8 @@
 	that only off-switches are saved.
 -->
 <script lang="ts">
-	import { accountModuleVisibility } from '../account.form.rules';
 	import type { AccountSectionModel } from '../account.contract';
+	import { accountModuleVisibility } from '../account.dashboard.rules';
 	import type { AccountFormEnhancer } from '../account.state.svelte';
 
 	type AccountDashboardModel = Extract<AccountSectionModel, { section: 'dashboard' }>;
