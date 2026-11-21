@@ -27,12 +27,15 @@
  *   which writes through the ctx family hands it, so the row joins family's
  *   create transaction.
  *
- * family's remaining four ports are bridged, because family's S5+S6 ran before
- * tasks' and dashboardModules' (the third is owner answer Q-030, a
- * family-owned port):
- * - `tasks.unassignMemberTasks` → legacy `removeFamilyMember`, which also drops
- *   the roster row, so family calls it BEFORE its own delete. `tasks`' S5
- *   exports the assignment clear alone and family's delete does the row.
+ * Tasks already ports too: family's `tasks.unassignMemberTasks` is tasks' REAL
+ * `unassignMemberTasks(ctx, familyId, userId)` from
+ * `$lib/domains/tasks/index.server`, writing through the ctx family hands it so
+ * the clear joins family's removal transaction (family deletes the roster row
+ * itself, AFTER this call).
+ *
+ * family's remaining three ports are bridged, because family's S5+S6 ran before
+ * dashboardModules' and identity's account door (the first is owner answer
+ * Q-030, a family-owned port):
  * - `moduleSwitches.listFamilyModuleSwitches` → legacy
  *   `getFamilyModuleSwitches` (dashboardModules has no S5 yet, and its entry
  *   exports no `listFamilyModuleSwitches`; the ask is in the report).
@@ -58,12 +61,11 @@ import type {
 	FamilyChildAccountPort,
 	FamilyInviteLinkPort,
 	FamilyModuleSwitchesPort,
-	FamilyPorts,
-	MemberTasksPort
+	FamilyPorts
 } from '$lib/domains/family/index.server';
 import type { AdConsentPort, IdentityPorts } from '$lib/domains/identity/index.server';
+import { unassignMemberTasks } from '$lib/domains/tasks/index.server';
 import { getFamilyModuleSwitches } from '$lib/server/db/actions/dashboardModules';
-import { removeFamilyMember } from '$lib/server/db/actions/families';
 import { getAdConsentRecords, recordAdConsentChange } from '$lib/server/services/adConsentService';
 import { createNewUser } from '$lib/server/utils/createNewUser';
 import { getUrl } from '$lib/utils/getUrl';
@@ -85,13 +87,6 @@ const legacyAdConsent: AdConsentPort = {
 	},
 	recordConsentChange: async (userId, previous, next) => {
 		await recordAdConsentChange(userId, previous, next);
-	}
-};
-
-/** TRANSITION BRIDGE — `tasks`' S5 replaces this with the assignment clear alone. */
-const legacyMemberTasks: MemberTasksPort = {
-	unassignMemberTasks: async (_ctx, familyId, userId) => {
-		await removeFamilyMember(familyId, userId);
 	}
 };
 
@@ -139,7 +134,7 @@ export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
 		calendarAccess: createCalendarAccessPort(ctx),
 		adConsent: legacyAdConsent,
 		calendar: createFamilyCalendarPort(),
-		tasks: legacyMemberTasks,
+		tasks: { unassignMemberTasks },
 		moduleSwitches: legacyModuleSwitches,
 		childAccount: legacyChildAccount,
 		inviteLink: legacyInviteLink
