@@ -106,7 +106,7 @@ Files in `src/lib/domains/marketing/`, in build order. Roles per [conventions.md
 | `marketing.seo.rules.test.ts`, `marketing.pageOptions.rules.test.ts`, `marketing.content.rules.test.ts`, `marketing.android.rules.test.ts`, `marketing.icons.rules.test.ts` | tests | table tests from the Invariants. |
 | `marketing.pages.http.test.ts` | tests | the legacy route-scanning test, the OG image's size and the features page's icon names: it reads `src/routes/(marketing)` and `static/`, which R4 keeps out of a pure rules test. |
 | `marketing.service.db.test.ts` | tests | `rollbackTest`; the mail-failure 500. |
-| `marketing.pageActions.test.ts` | tests (S6) | the two page actions, `POST /` PRG and the Android load — page routes, so no goldens. |
+| `marketing.pageActions.http.test.ts` | tests (S6) | the two page actions, `POST /` PRG and the Android load — page routes, so no goldens. |
 | `marketing.http.db.test.ts` | tests (S2) | exists: the `/api/contact` golden. |
 | `marketing.theme.css`, `ui/*.svelte` | ui (S7) | the theme plus one section component per page and the six cards; the legacy `src/lib/components/marketing/*` are their visual baseline. |
 
