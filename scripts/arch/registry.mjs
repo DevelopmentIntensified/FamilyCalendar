@@ -63,14 +63,14 @@ export const MODULES = [
 		rank: 6,
 		parked: true,
 		purpose:
-			'PARKED (bills archived 2026-09-25): bill category vocabulary + bills/receiptItems/itemTags tables only.'
+			'PARKED (bills archived 2026-09-25; Q-002 delete-only): owns the bills/receiptItems/itemTags tables only (kept in kernel); no code.'
 	},
 	{
 		name: 'parsing',
 		kind: 'domain',
 		rank: 7,
 		purpose:
-			'Natural-language grammars: event quick-add, task quick-add (shared parse vectors with Android), bill hints, date vocabulary, the claim book.'
+			'Natural-language grammars: event quick-add, task quick-add (shared parse vectors with Android), date vocabulary, the claim book.'
 	},
 	{
 		name: 'calendar',
