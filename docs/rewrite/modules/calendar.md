@@ -325,7 +325,7 @@ legacy source files left (60/60, 9953 LOC):
   - src/lib/components/calendar/MODALS_SPEC.md (250 LOC, ui) importers: 0
   - src/lib/data/smartEventTemplates.ts (277 LOC, model) importers: 1
   - src/lib/server/db/actions/calendar.ts (91 LOC, server) importers: 9
-  - src/lib/server/db/actions/calendarScope.ts (80 LOC, server) importers: 10
+  - src/lib/server/db/actions/calendarScope.ts (80 LOC, server) importers: 11
   - src/lib/server/db/actions/events.ts (508 LOC, server) importers: 10
       NOTE: SPLIT: normalizeInvites/shiftException -> calendar rules; queries -> calendar repo; createEvent/updateEventById/deleteEventInScope/upsertException orchestration + access checks -> calendar service.
   - src/lib/server/services/archiveData.ts (138 LOC, server) importers: 2
