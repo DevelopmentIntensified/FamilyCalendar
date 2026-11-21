@@ -149,6 +149,26 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
 | `parsing.event.rules.test.ts` | test | the integrated phrase suite: every remaining `naturalLanguageService.test.ts` case (URL fidelity, `until`, defaults, real-world examples, performance corpus). |
 | `parsing.task.rules.test.ts` | test | `taskQuickAdd.test.ts` cases + `shared/parse-vectors.json` (145 vectors, `EXPECTED_VECTORS = 145`), parser-independent and client-safe. |
 
+**S3 implementation (2026-11-19) — deviations from the plan above, with reasons:**
+
+- Kernel/time gained `RecurrenceFrequency`, `CalendarDate`, `daysInMonth`, `resolveMonthDay` and
+  `daysUntilWeekday` in `src/lib/kernel/time/dates.ts` (K-06). `shiftDate` did NOT move there: the Task
+  quick-add must land its due at 23:59 in the CALLER'S zone, and a `Date`-based shift on the host clock
+  cannot honour that; `parsing.task.rules.ts` shifts through Luxon in the caller's zone instead.
+- `parsing.event-times.rules.ts` holds two passes (`readEventTimeRanges`, then `readEventTimes` after
+  recurrence) instead of one function: the legacy order interleaves the recurrence family between the
+  range rules and the single-time rules, and reordering would change both the parse and the confidence
+  floats the goldens pin.
+- `parsing.event-place.rules.ts` also owns the attendant ladder and the shared with-list pattern
+  (`WITH_LIST_PATTERN`/`withListSpans`), which `parsing.event-segment.rules.ts` imports for its vetoes.
+- `parsing.event-dates.rules.ts` additionally exports `nextWeekday`, `ordinalWeekdayOfMonth`,
+  `resolveUntilDate`, `nearestWeekday` and `WEEK_ORDER`, because the recurrence family reads them.
+- `hasInfo`/`summaryLabel` have no legacy source: the event label is `date · time · recurrence · place ·
+  calendar · reminder` and the Task label names the due day, priority, assignee, cadence, tags, visibility,
+  family and unknown member. This is an owner question (no spec, no caller yet).
+- The Task priority regex is no longer exported: `priorityStated` on the result replaces it (S8 rewires
+  `FamilyTaskAddForm.svelte`).
+
 ### S5–S6 — service + http
 
 | new file | role | what goes in it |
