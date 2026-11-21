@@ -20,6 +20,8 @@ import {
 	fileAutoBugReport,
 	fileBugReport,
 	listFeedback,
+	openBugReportCount,
+	openUnmatchedPhraseCount,
 	pruneFeedbackOlderThan,
 	reportUnmatchedPhrase,
 	resolveFeedback
@@ -349,6 +351,27 @@ describe('resolveFeedback', () => {
 				'missing-phrase'
 			)
 		).rejects.toMatchObject({ code: 'notFound', message: 'Phrase not found' });
+	});
+});
+
+describe('openBugReportCount', () => {
+	rollbackTest('counts the reports without a resolvedAt', async (db) => {
+		await seedBugReport(db, { description: 'Open one' });
+		await seedBugReport(db, { description: 'Open two' });
+		await seedBugReport(db, {
+			description: 'Closed',
+			status: 'resolved',
+			resolvedAt: new Date('2026-02-01T09:00:00.000Z')
+		});
+		expect(await openBugReportCount(testCtx({ db, now: NOW }))).toBe(2);
+	});
+});
+
+describe('openUnmatchedPhraseCount', () => {
+	rollbackTest('counts the phrases with resolved false', async (db) => {
+		await seedUnmatchedPhrase(db, { phrase: 'call mom' });
+		await seedUnmatchedPhrase(db, { phrase: 'every tuesday', resolved: true });
+		expect(await openUnmatchedPhraseCount(testCtx({ db, now: NOW }))).toBe(1);
 	});
 });
 
