@@ -4,8 +4,10 @@
  *
  * Identity is rank 1, so it cannot import the modules that own calendar
  * visibility (`calendar`) or the ad-consent trail (`sponsored`). It declares
- * what it needs here; those modules export the adapters (S5) and
- * `src/lib/app/ports.server.ts` attaches them to the ctx.
+ * what it needs here; those modules export the adapters (their S5) and
+ * `src/lib/app/ports.server.ts` attaches them to the ctx. Until they port,
+ * that file bridges both ports over the legacy implementations so the frozen
+ * goldens read the real rows.
  *
  * Doc: ./README.md#public-interface
  */
@@ -41,3 +43,78 @@ export type IdentityPorts = {
 
 /** The ctx the services that need a port take. */
 export type IdentityCtx = Ctx & IdentityPorts;
+
+// --- Services -----------------------------------------------------------------
+
+export {
+	getPerson,
+	getPersonByEmail,
+	isEmailTaken,
+	listPersonNames,
+	createPersonWithPassword,
+	updatePersonProfile,
+	createAnonymousAccount,
+	touchLastActive,
+	getTimeZone,
+	deletePerson,
+	type PersonName,
+	type ProfileInput,
+	type CreatePersonWithPasswordInput
+} from './identity.person.service.server';
+export {
+	startSession,
+	validateSession,
+	endSession,
+	endAllSessions,
+	endOtherSessions,
+	sessionCookie,
+	blankSessionCookie,
+	type StartedSession,
+	type ActiveSession,
+	type SessionValidation,
+	type SessionCookie
+} from './identity.session.service.server';
+export {
+	listApiTokens,
+	mintApiToken,
+	revokeApiToken,
+	revokeAllApiTokens,
+	revokeApiTokenByPlaintext,
+	authenticateApiToken,
+	type MintedApiToken
+} from './identity.token.service.server';
+export {
+	getCalendarPreferences,
+	getCalendarSettings,
+	updateCalendarSettings,
+	setHiddenDashboardModules,
+	type CalendarSettingsResult,
+	type StoredCalendarPreferences
+} from './identity.settings.service.server';
+export {
+	hashPassword,
+	verifyPassword,
+	issueEmailCode,
+	redeemEmailCode,
+	type IssueEmailCodeInput,
+	type RedeemEmailCodeInput
+} from './identity.credentials.service.server';
+
+/** The app resolves the fail-closed signing secret once at boot. */
+export { resolveSessionSecret } from './identity.session.rules';
+
+/** The untrimmed stored full name (`first + ' ' + last`), the legacy stats shape. */
+export { personFullName } from './identity.person.rules';
+export type { PersonView } from './identity.contract';
+
+// --- HTTP handlers ------------------------------------------------------------
+
+export {
+	listApiTokensEndpoint,
+	createApiTokenEndpoint,
+	revokeApiTokenEndpoint,
+	updateProfileEndpoint,
+	revokeOtherSessionsEndpoint,
+	getSettingsEndpoint,
+	patchSettingsEndpoint
+} from './identity.http.server';

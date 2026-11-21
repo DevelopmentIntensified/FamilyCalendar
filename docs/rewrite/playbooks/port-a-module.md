@@ -93,6 +93,7 @@ Follow [characterize-endpoints.md](characterize-endpoints.md). Every `/api/**` r
 - `npm run test:mod -- <m>`: goldens green.
 - `git diff <S2 sha> -- 'src/lib/<domains|screens>/<m>/*.http.db.test.ts'` prints nothing, or only the removal of `.skip` from spec-goldens skipped at S2.
 - `npm run arch`: R8 confirms wiring-only routes.
+- `node scripts/arch/auth-audit.mjs`: every route you wired kept its legacy auth level (a `MANUAL-OK` line means the handler checks the actor itself; a `ROLE-OK` line means a legacy family-role door still refuses in the module, `ROLE-MISSING` fails; anything else must be a deliberate, allow-listed downgrade).
 
 Commit.
 

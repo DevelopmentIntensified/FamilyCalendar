@@ -17,6 +17,7 @@ import {
 	eventExceptions,
 	events
 } from '$lib/kernel/db/tables.server';
+import type { Db } from '$lib/kernel/db/database.server';
 import { testDb } from '$lib/kernel/testing/testDb.server';
 
 /** One Event row as a test writes it; omitted columns keep the table defaults. */
@@ -31,9 +32,10 @@ export type CalendarAttendanceSeed = typeof eventAttendance.$inferInsert;
 /** A calendar: the viewer's own (`ownerId`) or a family's (`familyId`). */
 export async function seedCalendarRow(
 	id: string,
-	input: { ownerId?: string | null; familyId?: string | null } = {}
+	input: { ownerId?: string | null; familyId?: string | null } = {},
+	db: Db = testDb()
 ) {
-	const [row] = await testDb()
+	const [row] = await db
 		.insert(calendars)
 		.values({ id, ownerId: input.ownerId ?? null, familyId: input.familyId ?? null })
 		.returning();
@@ -41,8 +43,8 @@ export async function seedCalendarRow(
 }
 
 /** One Event row, exactly as given (a one-off, a master or a family mirror). */
-export async function seedEventRow(seed: CalendarEventSeed) {
-	const [row] = await testDb().insert(events).values(seed).returning();
+export async function seedEventRow(seed: CalendarEventSeed, db: Db = testDb()) {
+	const [row] = await db.insert(events).values(seed).returning();
 	return row;
 }
 
@@ -52,10 +54,11 @@ export async function seedEventRow(seed: CalendarEventSeed) {
  * read the series' shape here rather than in five column lists.
  */
 export async function seedRecurringEventRow(
-	seed: CalendarEventSeed & { count?: number | null }
+	seed: CalendarEventSeed & { count?: number | null },
+	db: Db = testDb()
 ) {
 	const { count, ...columns } = seed;
-	const [row] = await testDb()
+	const [row] = await db
 		.insert(events)
 		.values({
 			recurrenceFrequency: 'weekly',
@@ -68,15 +71,16 @@ export async function seedRecurringEventRow(
 }
 
 /** One Exception Override row (cancelled or edited), keyed by its slot. */
-export async function seedExceptionRow(seed: CalendarExceptionSeed) {
-	const [row] = await testDb().insert(eventExceptions).values(seed).returning();
+export async function seedExceptionRow(seed: CalendarExceptionSeed, db: Db = testDb()) {
+	const [row] = await db.insert(eventExceptions).values(seed).returning();
 	return row;
 }
 
 /** Attendance rows: a member invite (`userId`) or a named guest. */
 export async function seedAttendanceRow(
-	seed: CalendarAttendanceSeed | CalendarAttendanceSeed[]
+	seed: CalendarAttendanceSeed | CalendarAttendanceSeed[],
+	db: Db = testDb()
 ) {
 	const rows = Array.isArray(seed) ? seed : [seed];
-	return await testDb().insert(eventAttendance).values(rows).returning();
+	return await db.insert(eventAttendance).values(rows).returning();
 }
