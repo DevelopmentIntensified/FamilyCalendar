@@ -18,7 +18,7 @@ Natural-language grammars: event quick-add, task quick-add (shared parse vectors
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; `dateResolution`/`dateVocab` kept (see Notes)
 - [ ] S9 README final, census --write, gate:push, ledger done
 
 ## Must survive
@@ -226,6 +226,8 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
   rows, the two imports above, and the deletions. The frozen goldens are untouched since S2/Q-012 B.
 
 ## Notes
+
+- **S8 sweep (2026-11-21).** Deleted `server/utils/dateParsing.ts` (no importer left). Kept `utils/dateResolution.ts` (+ test) and `utils/dateVocab.ts` (+ test): the legacy `utils/taskQuickAdd.ts` (`client/taskSubmit.ts`, `MentionInput.svelte`) parses with them; they go with tasks' UI port.
 
 - 2026-11-11 (owner, [Q-002](../questions.md)): M-bills deletes the bill grammar (`parseBillQuickAdd`, bill cues, merchant keywords) before this port. Ignore the bill rows in the inventory above.
 - Architecture review 2026-11-10 ([report](../../archive/review/architecture-review-2026-11-10.html)), candidates for this module's design:

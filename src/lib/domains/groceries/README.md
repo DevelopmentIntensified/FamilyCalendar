@@ -164,6 +164,10 @@ Behaviour that must not change, each with its test that pins it (`file › test 
 - Empty states are per filter/search: "No items match “…”", "Your list is empty. Add the first item.", "The family list is empty. Add the first item.", "No family list yet — join or create a family to use the shared list.", "Both lists are empty. Add the first item." — `groceries.list.rules.ts › groceryEmptyCopy` · pinned by `groceries.list.rules.test.ts › groceryEmptyCopy` and the S7 visual check.
 - Check-off is optimistic (the row leaves the list before the ack) with a toast carrying Undo; failure puts the row back where it was and writes the error region — `groceries.list.state.svelte.ts › check` · pinned by `groceries.list.state.test.ts › checks a row off optimistically, then moves it to the rail with an Undo toast` and `› puts a row back when the check is refused, and names the failure`.
 
+## Legacy files (S8, 2026-11-21)
+
+None left: `server/db/actions/groceries.ts` and its `groceries.test.ts` lost their last importer when the routes and the Day Dashboard card moved to this module, and were deleted — the goldens + `groceries.service.db.test.ts` / `groceries.repo.db.test.ts` replace the stub-db test.
+
 ## Depends on
 
 - May import: kernel + identity, billing, alerts, family, dashboardModules, bills, parsing, calendar, tasks (public entries only).

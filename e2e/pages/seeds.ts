@@ -37,7 +37,7 @@ import {
 	userSettings,
 	users
 } from '$lib/kernel/db/tables.server';
-import { ANONYMOUS_EMAIL_DOMAIN } from '$lib/utils/anonymous';
+import { ANONYMOUS_EMAIL_DOMAIN } from '$lib/domains/identity';
 // The pure rule, imported directly: the page harness loads plain TS with no
 // Svelte compiler, and the module entry also re-exports the page's runes state
 // class, which a seed never needs. Same one home for the key (trim+lowercase).

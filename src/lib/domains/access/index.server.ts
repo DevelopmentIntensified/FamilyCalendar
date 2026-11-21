@@ -42,6 +42,8 @@ export {
 	mergeGuestAction,
 	mergeGuestPage,
 	mergeGuestSkipAction,
+	inviteEmailAcceptAction,
+	inviteEmailPageLoad,
 	signupCallback,
 	signupPage,
 	verifyEmailAction,

@@ -119,3 +119,9 @@ Wire rules are pinned by [billing.http.db.test.ts](billing.http.db.test.ts); eve
 - Reads (join only): none — the counts billing's rules need (family members, distinct families, an event's date, attachment bytes) arrive as rule arguments from the module that owns those tables.
 - Calls: nothing of its own; it takes `Ctx`/`Actor` from the caller. (Legacy `getUserSubscription` was also read by `parse-event`; the port replaces that with `isPaidCaller`.)
 - Called by: today only the `GET /api/me/subscription` route (`src/routes/api/me/subscription/+server.ts` re-exports `getSubscriptionEndpoint`). No other v2 module imports billing yet: `family`, `calendar`, `tasks`, `parsing`, `alerts`, the account screen, account deletion and `marketing` are still legacy and call the legacy services (see the sheet's S8 section for those files and their importers); as each lands it calls `getPlanLimits` / a refusal rule / `isPaidCaller` / `assertAiAvailable` / `recordAiCreation` / `getSubscriptionSummary` / `deleteSubscriptionsForPerson` (inside its one transaction) through `index.server.ts`, and the account screen renders the plan card from `getSubscriptionSummary`.
+
+## Legacy files (S8, 2026-11-21)
+
+Deleted (no importer was left): `server/seed.ts` (the dev seed), `server/services/analyticsService.ts`, `server/services/checkoutService.ts` and `server/services/discountService.ts` (+ its legacy `discountService.test.ts`) — the checkout/discount pair was reachable only from each other.
+
+Kept: `server/services/subscriptionService.ts` (+ its legacy `subscriptionService.test.ts`) — the legacy `db/actions/families.ts` (family plan limits, a still-unported caller) and `services/archiveData.ts` still read subscriptions through it; this module's `getPlanLimits` / `getSubscriptionSummary` are the ported reads.

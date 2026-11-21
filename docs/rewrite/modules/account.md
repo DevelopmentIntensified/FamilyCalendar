@@ -235,13 +235,13 @@ screen owns no tables, so fixtures belong to the owning domains.
   `server/db/actions/export.ts` (+test); the six legacy route tests
   (`(calendar)/account/{layout.svelte,page.server,page.svelte}.test.ts`,
   `api/account/export/server.test.ts`, `api/me/{account.,server.}test.ts`).
-- Kept: `components/account/accountNotifications.ts` — alerts' README keeps it for the legacy
-  `server/db/actions/notificationMethods.ts` importer; both are alerts' to delete.
-- Kept: `routes/(calendar)/account/+layout.server.ts` and `+layout.svelte` — they render
-  Navbar/BottomNav/Toaster and the group guard; the shell screen's layout that takes them is not on
-  this worktree. Q-083's recorded default ("the shell layout takes it; the page keeps a defensive
-  check") is met by `accountPageLoad`'s own `auth: 'user'` guard; the layout files go when the shell
-  lands.
+- Deleted (2026-11-21, alerts' S8): `components/account/accountNotifications.ts` and
+  `server/db/actions/notificationMethods.ts` — alerts' four-switch rules/read live in the alerts
+  domain, and the account section now renders them from there.
+- Deleted (2026-11-21, with shell on the same worktree): `routes/(calendar)/account/+layout.server.ts`
+  and `+layout.svelte` — the page keeps `accountPageLoad`'s own `auth: 'user'` guard (Q-083's recorded
+  default) and `shellChromeForRoute` now covers `/(calendar)/account`, so `ShellRoot` renders the
+  navbar, tab bar and toaster exactly once; the root load's guard keeps the guest's 302 `/login`.
 - Perf (ADR 0010): the /account initial bundle carries chrome + rail + banner only — the ten
   sections sit behind the lazily imported `ui/AccountSectionBody.svelte`; the notifications state
   (`account.notifications.state.svelte.ts`) and the dashboard form map (`account.dashboard.rules.ts`)

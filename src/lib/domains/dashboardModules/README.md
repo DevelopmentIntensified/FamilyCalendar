@@ -111,6 +111,10 @@ Behaviour that must not change, each with the test that pins it (`file › test 
 
 Neither route is rate limited today (`grep rateLimit` finds none in either handler), so no golden pins a 429.
 
+## Legacy files (S8, 2026-11-21)
+
+None left: `components/dashboard/DashboardModuleRow.svelte`, `dashboardModules.ts` (the registry), `server/db/actions/dashboardModules.ts` and `utils/moduleRowState.ts` all lost their last importer when `familyHub`/`account`/`dayDashboard` moved to `ui/DashboardModuleRow` and this module's rules/service, and were deleted.
+
 ## Depends on
 
 - May import: kernel + identity, billing, alerts, family (public entries only).

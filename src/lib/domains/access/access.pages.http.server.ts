@@ -14,8 +14,9 @@
  * `guest_merge` cookie at the top of the flows legacy stashed, so
  * `/merge-guest` can offer the move once the person is signed in.
  *
- * `/family/invite/email` is family's port (its sheet says so), not access's:
- * it joins a membership, and the family module owns `acceptInvite`.
+ * `/family/invite/email` is here, not in family: it joins a membership (family's
+ * `joinFamily`) but it also creates the person and its personal calendar, and
+ * family ranks below calendar, so only access can compose both.
  *
  * Doc: ./README.md#public-interface
  */
@@ -42,6 +43,18 @@ import {
 	stashGuestFromCookies
 } from './access.guestMerge.service.server';
 import { requestEmailChange, verifyEmailChange } from './access.account.service.server';
+import {
+	INVITE_EMAIL_INVALID_TOKEN,
+	INVITE_EMAIL_INVALID_TOKEN_MESSAGE,
+	INVITE_EMAIL_JOINED_MESSAGE,
+	INVITE_EMAIL_MISSING_TOKEN,
+	INVITE_EMAIL_MISSING_TOKEN_MESSAGE,
+	INVITE_EMAIL_SKIP_ACTION,
+	INVITE_EMAIL_UNAVAILABLE_MESSAGE,
+	InviteEmailForm,
+	inviteEmailPasswordRefusal
+} from './access.inviteEmail.rules';
+import { acceptInviteEmail, readInviteEmailToken } from './access.inviteEmail.service.server';
 
 // --- `/login` and `/signup` -------------------------------------------------
 
@@ -376,5 +389,77 @@ export const mergeGuestSkipAction = formAction({
 	handle: async ({ event }): Promise<never> => {
 		event.cookies.delete(GUEST_MERGE_COOKIE, { path: '/' });
 		throw redirect(302, CALENDAR_LANDING_PATH);
+	}
+});
+
+// --- `/family/invite/email` -------------------------------------------------
+
+/** The invite page's data: the token plus the claims the heading prints. */
+export type InviteEmailPageData = {
+	readonly token: string;
+	readonly email: string;
+	readonly firstName: string;
+	readonly lastName: string;
+	readonly familyId: string;
+};
+
+/**
+ * `GET /family/invite/email?token=…` — the emailed invite's password step. A
+ * missing or undecodable token is a redirect to `/login` with the legacy
+ * `error=` code, never a 404; the page itself needs no session.
+ */
+export const inviteEmailPageLoad = pageLoad<'public', InviteEmailPageData>({
+	auth: 'public',
+	handle: async ({ ctx, event }): Promise<InviteEmailPageData> => {
+		const token = event.url.searchParams.get('token');
+		if (!token) throw redirect(302, `/login?error=${INVITE_EMAIL_MISSING_TOKEN}`);
+		const payload = await readInviteEmailToken(ctx, token);
+		if (!payload) throw redirect(302, `/login?error=${INVITE_EMAIL_INVALID_TOKEN}`);
+		return {
+			token,
+			email: payload.email,
+			firstName: payload.firstName,
+			lastName: payload.lastName,
+			familyId: payload.familyId
+		};
+	}
+});
+
+/** The action's own refusal body: the legacy `{ error }`, read by the form's banner. */
+type InviteEmailFailure = { readonly error: string };
+
+/**
+ * `POST /family/invite/email` — join through the token. The checks keep the
+ * legacy order: missing token, then (password path) the length and the
+ * confirmation, then the token itself, then the join. Success is a 303 —
+ * `/family/<id>` for a newly created and signed-in person, `/login?notice=` for
+ * an existing account (which is never signed in from the link), and
+ * `/login?error=` for the one invite refusal.
+ */
+export const inviteEmailAcceptAction = formAction({
+	auth: 'public',
+	form: InviteEmailForm,
+	handle: async ({ ctx, form, event }): Promise<InviteEmailFailure | never> => {
+		if (!form.token) return fail<InviteEmailFailure>(400, { error: INVITE_EMAIL_MISSING_TOKEN_MESSAGE });
+
+		let password: string | undefined;
+		if (form._action !== INVITE_EMAIL_SKIP_ACTION) {
+			const refusal = inviteEmailPasswordRefusal(form.password, form.passwordConfirm);
+			if (refusal) return fail<InviteEmailFailure>(400, { error: refusal });
+			password = form.password;
+		}
+
+		const payload = await readInviteEmailToken(ctx, form.token);
+		if (!payload) return fail<InviteEmailFailure>(400, { error: INVITE_EMAIL_INVALID_TOKEN_MESSAGE });
+
+		const result = await acceptInviteEmail(ctx, { payload, ...(password ? { password } : {}) });
+		if (result.outcome === 'unavailable') {
+			throw redirect(303, `/login?error=${encodeURIComponent(INVITE_EMAIL_UNAVAILABLE_MESSAGE)}`);
+		}
+		if (result.outcome === 'joined-existing') {
+			throw redirect(303, `/login?notice=${encodeURIComponent(INVITE_EMAIL_JOINED_MESSAGE)}`);
+		}
+		event.cookies.set(result.cookie.name, result.cookie.value, result.cookie.attributes);
+		throw redirect(303, `/family/${encodeURIComponent(result.familyId)}`);
 	}
 });

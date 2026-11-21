@@ -1,6 +1,7 @@
-// web-push ships no types. Declared to match the WebPushModule interface in
-// pushService.ts so the static import (required for Vercel file tracing to
-// bundle the package) type-checks.
+// web-push ships no types. Declared to match `WebPushTransport` in
+// pushTransport.server.ts so its static import (required for Vercel file
+// tracing to bundle the package) type-checks. The legacy
+// `services/web-push.d.ts` declaration went with `services/pushService.ts`.
 declare module 'web-push' {
 	const webpush: {
 		sendNotification(

@@ -137,6 +137,12 @@ Behaviour that must not change, each with the test that pins it (`file › test 
 - "Export for agent" starts collapsed, reveals the readonly textarea on demand, toasts "Export copied to clipboard — paste it into your agent." after a copy, and tells the admin to copy manually ("Couldn't copy — text is selected, press Ctrl/Cmd+C.") when the clipboard is blocked; Download is named `<fileBase>-YYYY-MM-DD.txt` — `ui/FeedbackExport.svelte.test.ts › starts collapsed and reveals the readonly export text on demand`, `› toasts after copying to the clipboard`, `› tells the admin to copy manually when the clipboard is blocked`, `› downloads with the caller’s date in the filename`.
 - The export text follows a resolve without a reload (issue 262): the resolved row leaves the open list and the agent text, on success and back again on refusal — `feedback.register.state.test.ts › moves the resolved report out of the open list and out of the export`, `› rolls back and explains when the server refuses` (bugs), `FeedbackPhraseRegisterState › …` (phrases); the list edits themselves are `feedback.rules.test.ts › markBugReportResolved …`, `› markUnmatchedPhraseResolved …`.
 
+## Legacy files (S8, 2026-11-21)
+
+Deleted (superseded by this module's service and the kernel's fault boundary): `server/db/actions/bugReports.ts`, `server/db/actions/unmatchedPhrases.ts` and `server/services/autoBugReport.ts` — `app` files every authenticated 5xx through `fileAutoBugReport` (the same service `ctx.faults` wires), and the routes write through the repo.
+
+Kept: `utils/reportBug.ts` — the legacy `components/Navbar.svelte` (marketing's header until its port) still calls it; `reportBugHref` on `index.ts` is the ported home and the shell components already use it.
+
 ## Depends on
 
 - May import: kernel + identity, billing, alerts, family, dashboardModules, bills, parsing, calendar, tasks, groceries, verse, sponsored, meals (public entries only).

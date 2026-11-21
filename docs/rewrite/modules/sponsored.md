@@ -18,7 +18,7 @@ Sponsored Events: serve gate (showAdsAsEvents), month generation, impressions/cl
 - [ ] S5 service
 - [ ] S6 http + route wiring (goldens unchanged since S2)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; `adService.ts` kept (see Notes)
 - [ ] S9 README final, census --write, gate:push, ledger done
 
 ## Must survive
@@ -161,6 +161,10 @@ The module owns no page and one JSON route; its cost lands on `calendarPage` and
 | blob helpers with stale metadata | deleted with the blob store (Q-003) |
 
 ## Notes
+
+### S8 sweep (2026-11-21)
+
+Deleted: `server/db/actions/adEvents.ts` (+ `adEvents.prune.test.ts`) and `server/services/adConsentService.ts` (+ its test). Kept: `server/services/adService.ts` (+ its legacy test) — `services/calendarData.ts`, which the unported calendar page loads, still calls it.
 
 ### Decisions
 

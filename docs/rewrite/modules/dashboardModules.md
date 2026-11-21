@@ -18,7 +18,7 @@ Dashboard Module registry, family master switches, per-user hides, the one visib
 - [x] S5 service
 - [x] S6 http + route wiring (goldens unchanged since S2)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; none left (see Notes)
 - [ ] S9 README final, census --write, gate:push, ledger done
 
 ## Must survive
@@ -132,6 +132,7 @@ Every file lives in `src/lib/domains/dashboardModules/`. Roles per [conventions]
 
 ## Notes
 
+- **S8 sweep (2026-11-21).** None left: `components/dashboard/DashboardModuleRow.svelte`, `dashboardModules.ts`, `server/db/actions/dashboardModules.ts` and `utils/moduleRowState.ts` were deleted after `familyHub`/`account`/`dayDashboard` moved to `ui/DashboardModuleRow` and this module's rules/service.
 - 2026-11-11 (owner, [Q-002](../questions.md)): `meals` stays in the registry (family scope) although its card and endpoint are deleted; `UNMOUNTED_MODULES` keeps its switch off `/account`. Do not retire the id: `/api/dashboard` and the family switches would change.
 - 2026-11-12 (owner, [Q-031](../questions.md), like `meals` in Q-002): the Daily Verse feature and its endpoint are deleted, but the `verse` id and its `verse` read token STAY in the registry and the visibility vocabulary. The id is saved state (a viewer's hidden list may name it) and `showDailyVerse` still gates `modules.verse` on the wire, so retiring either would change `/api/dashboard` and the saved lists.
 - **S1 dispositions of "probably accidental" items.**

@@ -98,6 +98,10 @@ Each line is a rule read from the legacy code on 2026-11-11, with its legacy evi
 23. The band paints a skeleton in the SAME shape first, then the cards; a rejected stream draws `Couldn't load the dashboard.` with Retry; below 1024px it is one column, at ≥1024px one two-column grid of two `display: contents` groups with `items-stretch`, and a hidden card leaves no empty lane — `+page.svelte:69-86,132-141`, `DayDashboard.svelte:108-172` · S7 `ui/DayDashboardPage.svelte.test.ts` (skeleton, retry, layout tests).
 24. A glance row opens calendar's event sheet with the family roster; saving refreshes with `invalidateAll()` — `DayDashboard.svelte:82-90,180-190` · S7 page test + `ui/dayDashboard.state.test.ts`.
 
+## Legacy files (S8, 2026-11-21)
+
+Kept: `server/db/actions/dashboard.ts` — only its `getCompletionTimestamps` half is still read, by the unported stats page's `services/statsData.ts`; everything else it held moved with the screens that read it (`rankTop3` → tasks' `rankTasks`, the day-event/kids/completion reads → calendar's and tasks' services, `mergeDayCompletions` → tasks' `tasks.list.rules`). It goes with the stats screen's port.
+
 ## Depends on
 
 - May import: kernel + any domain (public entries only); never another screen.

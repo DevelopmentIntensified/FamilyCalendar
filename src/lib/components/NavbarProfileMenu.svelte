@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
-	import { isRegisteredAccount } from '$lib/utils/anonymous';
+	import { isRegisteredAccount } from '$lib/domains/identity';
 
 	interface Props {
 		user: {

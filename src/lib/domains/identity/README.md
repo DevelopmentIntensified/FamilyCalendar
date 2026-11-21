@@ -177,3 +177,12 @@ Behaviour that must not change, each with the evidence it was read from and the 
 - `userSettings.useCloudAI` / `useLocalAI` stay as columns and stay read-only on the wire (Q-014 decided): `SETTING_UPDATE_FIELDS` excludes them, so a PATCH naming either is `Unknown field`. No writer exists and none is planned; a schema ticket removes them.
 - The web-only `/calendar/setUserDefaultTimeZone` route was DELETED at S8 (Q-015 decided B) and its one caller (`src/routes/(calendar)/calendar/+layout.svelte:35-41`) now sends `PATCH /api/me/settings` with `{timeZone}` → `invalidateAll()`, so the stored zone is validated by the settings contract on the way in. It was never on the `/api` contract, so no golden pinned it. `docs/rewrite/modules/shell.md` (the layout's owner) records the new call.
 - Identity's goldens stop at the wire. The hooks-level rules — an invalid session cookie is overwritten with a blank cookie, a renewal re-issues the cookie, an invalid Bearer gets `401` even when a valid cookie is present (`src/hooks.server.ts:44-56,96-102`) — live in `access`' route rules and this module's `resolveBearer`/`resolveSessionCookie`/`shouldCreateAnonymousAccount`, and are pinned by [app.requestPipeline.db.test.ts](../../app/app.requestPipeline.db.test.ts).
+
+## Legacy files (S8, 2026-11-21)
+
+Deleted with this sweep, every importer rewired: `server/auth.ts` (the session seam — `app.d.ts` now types `Locals.user`/`Locals.session` from this module and the kernel tables), `server/db/actions/{accounts,users,apiTokens,codes}.ts`, `server/utils/password.ts`, `server/utils/createNewUser.ts` (superseded by `createEmailPerson` + calendar's `ensurePersonalCalendar`, as `app/ports.server.ts` already composed for a child account) and `utils/anonymous.ts` (the one predicate lives in `identity.person.rules`; `ANONYMOUS_EMAIL_DOMAIN` is now on `index.ts`, and `e2e/pages/{seeds,session}.ts` plus the legacy `NavbarProfileMenu` import from here).
+
+Kept, because legacy code outside this module's port still calls them:
+
+- `server/db/actions/userSettings.ts` — the legacy service layer (`adService`, `printData`, `userTimezone`, the still-legacy event detail page) reads settings rows through it; the ported reads are this module's `getStoredCalendarSettings` / `getCalendarSettings`.
+- `server/utils/userTimezone.ts` — `db/actions/tasks/cursor.ts`, `adService`, `icsImportFlow` and `printData` still resolve the viewer's zone through it.

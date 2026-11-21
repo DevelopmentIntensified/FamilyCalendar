@@ -1,14 +1,21 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
+import type { UserRow } from '$lib/kernel/db/tables.server';
+import type { ActiveSession } from '$lib/domains/identity/index.server';
+import type { Ctx } from '$lib/kernel/ctx/ctx.server';
+import type { Actor } from '$lib/kernel/ctx/actor';
+
 declare global {
 	namespace App {
 		interface Locals {
-			user: import('$lib/server/auth').SessionValidationResult['user'];
-			session: import('$lib/server/auth').SessionValidationResult['session'];
+			/** The signed-in person row the request pipeline resolved (identity owns it). */
+			user: UserRow | null;
+			/** The live session row plus `fresh`; null on a Bearer call. */
+			session: ActiveSession | null;
 			/** Dependency bag for new code; set first thing by the request pipeline (src/lib/app/requestPipeline.server.ts). Optional only so legacy test doubles still type-check. */
-			ctx?: import('$lib/kernel/ctx/ctx.server').Ctx;
+			ctx?: Ctx;
 			/** Who is calling (new code). Mirrors `user`; null when signed out. */
-			actor?: import('$lib/kernel/ctx/actor').Actor | null;
+			actor?: Actor | null;
 		}
 	}
 }

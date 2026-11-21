@@ -305,21 +305,24 @@ needed to change it: no `/api` behaviour changes in this port.
 
 ### Files kept for unported importers (as S8 found them, 2026-11-21)
 
-- `src/lib/components/Navbar.svelte` — imported by `(calendar)/account/+layout.svelte` (account, #18)
-  and `(marketing)/+layout.svelte` (marketing renders the legacy header until its port lands). Because
-  `Navbar` imports them, `NavbarProfileMenu.svelte` and `NavbarMobileMenu.svelte` also stay.
-- `src/lib/components/BottomNav.svelte` — imported by `(calendar)/account/+layout.svelte`.
-- `src/lib/utils/navItems.ts` — imported by the two legacy navs above and by
-  `(family)/family/[familyId]/links.test.ts`. Delete with the last of those.
-- `src/lib/components/Breadcrumbs.svelte` — account and familyHub route pages use it. It moves to
-  kernel/ui (K-08) and is deleted after those ports, not before.
+- `src/lib/components/Navbar.svelte` — imported only by `(marketing)/+layout.svelte` now (marketing
+  renders the legacy header until its port lands; the account layout that used it went with account's
+  port, see below). Because `Navbar` imports them, `NavbarProfileMenu.svelte` and
+  `NavbarMobileMenu.svelte` also stay.
+- `src/lib/utils/navItems.ts` — imported by the legacy `Navbar` family above. Delete with the last of
+  those.
+- `src/lib/components/Breadcrumbs.svelte` — the unported calendar archive page
+  (`(calendar)/calendar/archive/+page.svelte`, a calendarPage route) still renders it. It moves to
+  kernel/ui (K-08) and is deleted after that page's port, not before.
 - `src/lib/utils/reportBug.ts` and `src/lib/utils/offline.ts`: owned by feedback and K-07; shell does
   not delete them.
-- Legacy tests of kept files stay with them (`Navbar*`, `BottomNav`, `navItems` `.test.ts`, and the
-  repo-wide `propsDestructure.test.ts`, which also guards unported legacy components).
+- Legacy tests of kept files stay with them (`Navbar*`, `navItems` `.test.ts`, and the repo-wide
+  `propsDestructure.test.ts`, which also guards unported legacy components).
 
-`/account` and `/admin` keep their own chrome (the root chrome's rule is app-only) until account
-widens it at #18 — no double navbar in the meantime.
+`/account` no longer keeps its own chrome: account's port widened `shellChromeForRoute` to
+`/(calendar)/account` (Q-073), so the root chrome renders the navbar, tab bar and toaster for it —
+exactly one navbar, and the root load's guard keeps the 302 `/login` for a guest. `/admin` still
+keeps its own header until its port widens the rule.
 
 ### Deleted legacy files (S8)
 
@@ -336,6 +339,14 @@ widens it at #18 — no double navbar in the meantime.
 - `src/routes/(calendar)/calendar/layout.svelte.test.ts` — it mocked `$app/*` to render the legacy
   group layout; the layout is now wiring only and the same rules are pinned by
   `shell.frame.rules.test.ts` + `ui/ShellGroupFrame.svelte.test.ts`.
+- `src/lib/components/BottomNav.svelte` (+ `BottomNav.svelte.test.ts`) — its last importer was the
+  account layout; `ui/ShellTabBar.svelte` + `shell.badge.state.svelte.ts` are the port, and the tab
+  bar rules are pinned by `shell.nav.rules.test.ts`, `shell.frame.rules.test.ts
+  › hides the tab bar above a 150 px keyboard inset` and `ui/ShellTabBar.svelte.test.ts` (the badge
+  fetch, the `99+` cap and the keyboard class).
+- `src/routes/(calendar)/account/+layout.server.ts` and `+layout.svelte` (account's files, deleted in
+  account's S8) — the guard is the root load's, and chrome now comes from `ShellRoot` because
+  `shellChromeForRoute` covers `/(calendar)/account` (Q-073).
 
 ### Port notes (2026-11-21)
 
