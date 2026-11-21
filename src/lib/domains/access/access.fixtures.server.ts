@@ -10,11 +10,13 @@
  *
  * Doc: ./README.md#how-to-test
  */
+import type { Db } from '$lib/kernel/db/database.server';
 import {
 	accounts,
 	apiTokens,
 	authAccount,
 	authSession,
+	claimTokens,
 	codes
 } from '$lib/kernel/db/tables.server';
 import { sha256Hex } from '$lib/kernel/ids/ids';
@@ -118,4 +120,35 @@ export async function seedAccessAuthAccount(userId: string, password: string) {
 		accountId: userId,
 		password
 	});
+}
+
+/** What a test controls when it seeds a Claim row. */
+export type AccessClaimTokenSeed = {
+	readonly userId: string;
+	readonly tokenHash: string;
+	readonly email?: string;
+	readonly expiresAt?: Date;
+	readonly createdAt?: Date;
+};
+
+/**
+ * A Claim token row, the only table access owns. Unlike the builders above it
+ * takes the caller's `db`: the repo tests run inside `rollbackTest`'s
+ * transaction, and `testDb()` would write outside it. `createdAt` is explicit
+ * so order/retention assertions never depend on the database clock.
+ */
+export async function seedAccessClaimToken(db: Db, overrides: AccessClaimTokenSeed) {
+	const suffix = uniqueSuffix();
+	const [row] = await db
+		.insert(claimTokens)
+		.values({
+			userId: overrides.userId,
+			tokenHash: overrides.tokenHash,
+			email: overrides.email ?? `claim-${suffix}@example.test`,
+			expiresAt: overrides.expiresAt ?? new Date('2099-01-01T00:00:00.000Z'),
+			createdAt: overrides.createdAt ?? new Date('2026-01-01T00:00:00.000Z')
+		})
+		.returning();
+	if (!row) throw new Error('seedAccessClaimToken: insert returned no row');
+	return row;
 }
