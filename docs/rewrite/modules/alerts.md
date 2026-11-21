@@ -211,6 +211,37 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 - **`src/lib/app/testing/goldenCtx.server.ts` got one composition line**: it now builds the memory push with `webPublicKey: process.env.VAPID_PUBLIC_KEY ?? null` (devices stay off). The frozen public-key golden sets that env var and then builds the ctx, and the legacy route read it at request time; `goldenCtx` is the app composition root for goldens, the one place R6 allows the environment read. `testCtx` keeps its zero-env defaults.
 - **`index.ts` still `export {}`**: the isomorphic client (`alertsApi`, push client) is S7 work; the README's `index.ts` interface stays a plan until then.
 
+### S7/S8/S9 findings (2026-11-21)
+
+**S7 shape.** `alerts.api.ts` (a named `AlertsApi` interface, not `ReturnType`), `alerts.push.api.ts`, three state classes (`alerts.state.svelte.ts`, `alerts.preferences.state.svelte.ts`, `alerts.bell.state.svelte.ts`), five components (`ui/AlertsBell`, `AlertsFeed`, `AlertsToolbar`, `AlertsRow`, `PushToggle`) and the route rewritten to wiring. All behaviour, copy and Tailwind classes follow the legacy rendering, because the visual check compares against legacy screenshots (`data-testid="unread-count"` is the catalog's ready selector and stays; `unread-dot` stays too).
+
+- **S1 file names changed by R15**: `alerts.pushClient.ts` is `alerts.push.api.ts` (role `api`), and `alertsBell.state.svelte.ts` is `alerts.bell.state.svelte.ts` (module prefix + topic + role). No behaviour change.
+- **`AlertPreferencesState` is new** (not in the S1 file list): the account card needs its optimistic flip/revert now; the card's markup stays with the account screen's port. It captures the server value before flipping instead of re-deriving `!intent.value` (the "probably accidental" note above), so a failed save restores the truth.
+- **Kernel primitives where they fit**: kernel/client api client + toasts, kernel/ui `Toaster`, kernel/time clock/dates/scheduler. The toolbar keeps the legacy button/ask markup rather than kernel `ConfirmAction` (its default red destructive trigger and `h-11` form variant would repaint the baseline), and the type badges keep the vocabulary rules' tone classes rather than `Pill` (700-weight palette): both are deliberate, for the visual baseline; the behaviour is identical and pinned.
+- **Age copy uses kernel `relativeFromNow`** (R5 bans luxon's clock-reading `toRelative`). Sub-day ages read "today" where legacy said "N hours ago"; the seeded/screenshot rows are 2–3 days old, so the baseline is unaffected. Visible copy change for very recent Alerts — listed here as intentional.
+- **The bell is self-contained**: props `api`/`toasts`/`env`/`navigate`/`now`/`zone`/`pollMs`; `Navbar` and `NavbarMobileMenu` pass `goto` (legacy may import v2). A screen-owned `Toaster` mounts only when no toaster prop is given.
+- **`getPushState` catches a throwing registration** and answers `unsubscribed` (legacy would reject); the network/server split on subscribe stays: a network failure keeps the subscription, a refusal drops it locally.
+- **The page screen syncs props with one `$effect`** (legacy did the same); optimistic writes survive because only a re-run load changes the props.
+- **Page-load test added** (`alerts.pages.http.db.test.ts`): the S6 commit deleted `page.server.test.ts` and no new test pinned the 302/log line; S9 requires every invariant to name its pin.
+
+**S8 deletions (16 files).** Legacy source: `src/lib/components/NotificationBell.svelte`, `src/lib/utils/notificationTypes.ts`, `src/lib/utils/pushClient.ts` (all importers rewired to `$lib/domains/alerts`). Legacy tests (all 13 the census listed): `NotificationBell.svelte.test.ts`, `account/accountNotifications.test.ts`, `db/actions/notificationMethods.test.ts`, `db/actions/notifications.test.ts`, `services/devicePushService.test.ts`, `services/pushService.test.ts`, `utils/notificationTypes.test.ts`, `utils/pushClient.test.ts`, `(calendar)/calendar/notifications/page.server.test.ts` (already gone at S6), `page.svelte.test.ts`, `api/devices/server.test.ts` (S6), `api/notifications/server.test.ts` (S6), `api/push/unsubscribe/server.test.ts` (S6). The new rules/state/push/ui suites pin their behaviour.
+
+**Kept, with the importer that still needs it (deleted when that module ports).**
+
+| file | why it stays |
+|---|---|
+| `src/lib/components/account/accountNotifications.ts` | the account card (`AccountNotificationsSection.svelte`), `accountData.ts` and `notificationMethods.ts` import it; the rule copy has an alerts replacement (`alerts.preferences.rules.ts`) and the card's state is `AlertPreferencesState`. |
+| `src/lib/server/db/actions/notificationMethods.ts` | `accountData.ts` (account) reads/writes the stored switches through it; alerts' repo+services replace it at the account port. |
+| `src/lib/server/db/actions/notifications.ts` | `tasks`/`family` routes call `createNotification`, and `app`'s cron calls `pruneReadNotificationsOlderThan`; alerts' `createAlert`/`pruneReadAlertsOlderThan` replace them when those port. |
+| `src/lib/server/services/pushService.ts` | imported by `notifications.ts` (above). |
+| `src/lib/server/services/devicePushService.ts`, `web-push.d.ts` | imported by `pushService.ts` / `eventsChangedNudge.ts`; the kernel push port already carries the typed transport for v2. |
+
+`src/lib/kernel/db/tables/alerts.tables.server.ts` got a comment-only fix: the pointer to the closed set now names `alerts.vocabulary.rules.ts` (the legacy file it named is deleted).
+
+The behaviour inventory above still cites the legacy files' line numbers (`NotificationBell.svelte`, `pushClient.ts`, `notificationTypes.ts`, the old page); three of those files are now deleted. The current pins are the README's Invariants, which name the new suite and test per behaviour.
+
+**Checks for the orchestrator (S7/S9 gates this agent may not run).** `npm run test:mod -- alerts` (needs `docker start familycalendar-db` for the db project), `npm run typecheck`, `npm run visual:check -- alerts` (baseline must be from the same day), `npm run perf:check -- alerts`, then `npm run census -- --write` and `npm run gate:push`. The census block above is stale (81% as of this write; `--write` is not allowed to this agent).
+
 ### Questions for the owner
 
 1. **DELETE /api/devices validates `platform` it ignores.** (Q-019) Context: the shared parser 400s `{token, platform:'ios'}` on DELETE though no platform is stored or changed. Options: (a) keep the shared parser (today's wire, no client churn likely); (b) let DELETE ignore an unrecognised platform. Recommendation: (a) — nothing is broken for the Android client and a wire change needs its own ticket.

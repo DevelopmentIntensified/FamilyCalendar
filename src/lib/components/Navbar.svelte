@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { building } from '$app/environment';
-	import { afterNavigate } from '$app/navigation';
-	import NotificationBell from '$lib/components/NotificationBell.svelte';
+	import { afterNavigate, goto } from '$app/navigation';
+	import { AlertsBell } from '$lib/domains/alerts/ui';
 	import NavbarProfileMenu from '$lib/components/NavbarProfileMenu.svelte';
 	import NavbarMobileMenu from '$lib/components/NavbarMobileMenu.svelte';
 	import Mark from '$lib/components/brand/Mark.svelte';
@@ -96,7 +96,7 @@
 		</div>
 		<div class="hidden items-center gap-3 md:flex">
 			{#if isLoggedIn}
-				<NotificationBell />
+				<AlertsBell navigate={goto} />
 				<div class="relative" data-testid="profile-dropdown-container">
 					<button
 						on:click={toggleProfileDropdown}
