@@ -239,6 +239,13 @@ Where the legacy exports go, or why they die:
   - **Unpinned edge decisions (`[INFERENCE]`, owner may overrule):** a truthy non-`string` `notes` on POST now answers a zod 400 instead of reaching the driver (Q-061 recommends the 400); a non-string `familyId` is stringified so the membership check still answers `403 Not a member of this family`; a non-object PUT body is a 400 rather than today's empty-patch 200 (the kernel `endpoint()` body mode decides this at S6); PUT `dueDate` numbers are treated as absent (the string-garbage `500` golden still holds).
   - **S5 notes:** the repo returns ids for the named figures (`topAssigners`/`topAssignees`/`doneBy`) and raw rows for the list shapes — the service adds the names through identity and the creator/assignee fields through the same call; the toggle's guarded update + history insert must still move into ONE transaction (`withTx`), as planned.
 
+### Notes (S5 pass)
+
+- 2026-11-21 (S5: focus, stats, quick-add): `tasks.focus.service.server.ts`, `tasks.stats.service.server.ts` and `tasks.quickadd.service.server.ts` landed with their db tests (plus `getPhoneFocusOverlay`, which `listTasks` consumes, and `FOCUS_COMMAND_MAX_AGE_MS`/`FOCUS_COMMAND_PAGE_SIZE`/`sessionDurationError`/`completionInstantIso`/`monthStartIso` in the rules). Quick-add resolves parsing's grammar into the contract-parsed POST body and never writes a Task.
+  - **Legacy parity: UTC month start (process zone).** `/api/stats`'s "This month" cutoff stays the legacy `DateTime.now().startOf('month').toUTC()` instant — the process zone, which is UTC in production (Vercel) and in the goldens (TZ=UTC) — implemented as an explicit UTC month start in `monthStartIso`. A per-caller-zone month is an owner question, not code; the stats service test pins that a stored `Asia/Tokyo` zone does NOT move the boundary.
+  - **Names for the stats figures come from identity** (`listPersonNames` + `personFullName`, the untrimmed `first + ' ' + last` that keeps `'Sam '`), so the tasks repos join only `tasks` and no `FOREIGN_READS` entry was needed.
+  - `todayIso` renders `toISOString()` (`…Z`) where legacy's Luxon `toISO()` printed the process zone's `…+00:00`; the golden pins only the ISO prefix.
+
 ### Questions for the owner
 
 1. **`PUT` accepts a raw `completedAt`** (Q-051) (`src/routes/api/tasks/[id]/+server.ts:234-238`). Context: it writes the column directly, skipping the cursor and the history row, so stats and the cursor diverge; the spec tells clients not to send it. Options: (a) `400 completedAt cannot be set directly`, (b) honour it and also write history, (c) keep. Recommend (a).

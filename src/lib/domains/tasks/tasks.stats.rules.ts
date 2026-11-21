@@ -49,6 +49,29 @@ function gapWeeks(aKey: string, bKey: string): number {
 }
 
 /**
+ * One history instant on the wire. Postgres renders `timestamptz` as
+ * `YYYY-MM-DD HH:mm:ss[.fff]+00`; the wire (and the streak's parser) carries an
+ * ISO instant. `''` for a null or unparseable value, which the caller filters —
+ * exactly the legacy `toIsoTimestamp` (`taskStats.ts:18-22`).
+ */
+export function completionInstantIso(value: string | null): string {
+	if (!value) return '';
+	const date = new Date(value);
+	return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+}
+
+/**
+ * The UTC start of `now`'s month — the "This month" cutoff. Legacy took the
+ * PROCESS zone's month (`DateTime.now().startOf('month').toUTC()`), which is
+ * UTC in production (Vercel) and in the goldens (TZ=UTC); this pins that same
+ * instant without reading the host zone (R5). A per-caller-zone month is an
+ * owner question, not behaviour.
+ */
+export function monthStartIso(now: Date): string {
+	return DateTime.fromJSDate(now, { zone: 'UTC' }).startOf('month').toISO() ?? '';
+}
+
+/**
  * Weekly completion streak over a set of completion instants (any task).
  * Returns the current run, the best run over all history, whether the current
  * gap used its one freeze, and the last completed week key.

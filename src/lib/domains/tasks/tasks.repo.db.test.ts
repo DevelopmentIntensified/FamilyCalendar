@@ -28,7 +28,7 @@ import {
 	insertCompletion,
 	insertTask,
 	insertTaskTags,
-	listFamilyTasks,
+	listFamilyTaskRows,
 	listMyTasks,
 	listPendingAssignments,
 	listPinnableTasks,
@@ -91,7 +91,8 @@ describe('task rows', () => {
 		});
 		const updated = await updateTaskById(db, row.id, { title: 'New', dueDate: '2026-03-01T10:00:00.000Z' });
 		expect(updated).toMatchObject({ title: 'New', notes: 'keep me', priority: 'low' });
-		expect(updated?.dueDate).toBe('2026-03-01T10:00:00+00');
+		// A `mode:'string'` timestamptz reads back as Postgres text, not ISO.
+		expect(updated?.dueDate).toBe('2026-03-01 10:00:00+00');
 	});
 
 	rollbackTest('updateTaskInFamily scopes by the STORED family', async (db) => {
@@ -312,14 +313,14 @@ describe('list reads', () => {
 		expect(rows.map((row) => row.id).sort()).toEqual([pending.id, declined.id].sort());
 	});
 
-	rollbackTest('listFamilyTasks reads one family`s rows only', async (db) => {
+	rollbackTest('listFamilyTaskRows reads one family`s rows only', async (db) => {
 		const mia = await seedUser(db);
 		const home = await seedTaskFamily(db, 'Home');
 		const work = await seedTaskFamily(db, 'Work');
 		const inHome = await seedTask(db, { title: 'Home', familyId: home.id, userId: mia.id });
 		await seedTask(db, { title: 'Work', familyId: work.id, userId: mia.id });
 		await seedTask(db, { title: 'Personal', familyId: null, userId: mia.id });
-		const rows = await listFamilyTasks(db, home.id);
+		const rows = await listFamilyTaskRows(db, home.id);
 		expect(rows.map((row) => row.id)).toEqual([inHome.id]);
 	});
 

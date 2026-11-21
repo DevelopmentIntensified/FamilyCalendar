@@ -167,7 +167,7 @@ export async function listDoneByIds(
  * streak's 365-row window. Raw `mode:'string'` renders; the service normalizes
  * them (a no-op normalizer keeps the contract's ISO shape).
  */
-export async function listCompletionInstants(
+export async function listCompletionInstantRows(
 	db: Db,
 	values: { readonly userId: string; readonly limit: number }
 ): Promise<string[]> {

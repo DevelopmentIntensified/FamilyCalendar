@@ -169,8 +169,12 @@ function focusStartedAtField(raw: unknown, ctx: IssueContext): Date | null | und
 export const TaskCreateBody = z.object(
 	{
 		title: requiredText(TASK_TITLE_REQUIRED),
-		/** Legacy `body.notes || null`: falsy → null, text stored verbatim (no trim). */
-		notes: z.preprocess((value) => value || null, z.string().nullable().optional()),
+		/**
+		 * Legacy `body.notes || null`: absent and falsy → null, text stored
+		 * verbatim (no trim). Not `.optional()`: a bare title must still parse
+		 * `notes` to `null` so the create seam always writes a value.
+		 */
+		notes: z.preprocess((value) => value || null, z.string().nullable()),
 		dueDate: z.preprocess(
 			// `''` alone is "no date"; whitespace is text and then fails the parse.
 			(value) => (value === undefined || value === null || value === '' ? null : value),

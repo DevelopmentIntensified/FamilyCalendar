@@ -248,8 +248,8 @@ export async function listRequestedByMe(db: Db, userId: string): Promise<TaskRow
 		.orderBy(desc(tasks.createdAt));
 }
 
-/** The Family Task Board: every row of one family, newest first. */
-export async function listFamilyTasks(db: Db, familyId: string): Promise<TaskRowWithEvent[]> {
+/** The Family Task Board's family list: every row of one family, newest first. */
+export async function listFamilyTaskRows(db: Db, familyId: string): Promise<TaskRowWithEvent[]> {
 	return await tasksWithEvent(db)
 		.where(and(eq(tasks.familyId, familyId), isNull(tasks.archivedAt)))
 		.orderBy(desc(tasks.createdAt));
@@ -377,6 +377,37 @@ export async function advanceCursorGuarded(
 	const [row] = await db
 		.update(tasks)
 		.set({ dueDate: values.dueDate, completionCount: sql`${tasks.completionCount} + 1` })
+		.where(and(...guard))
+		.returning();
+	return row ?? null;
+}
+
+/**
+ * A one-off completion's guarded write: completing only matches a row still
+ * open, un-completing only the row the caller read. A second rapid click finds
+ * no row and writes no history (`null`), exactly like legacy
+ * `mutations.toggleCompletion` — but now inside the caller's transaction.
+ */
+export async function toggleCompletionGuarded(
+	db: Db,
+	values: {
+		readonly taskId: string;
+		/** `true` = open → completed; `false` = un-complete the read row. */
+		readonly completing: boolean;
+		/** The new stamp: an instant when completing, `null` when reopening. */
+		readonly completedAt: string | null;
+		/** The completed stamp the caller read; guards the reopen. */
+		readonly expectedCompletedAt: string | null;
+	}
+): Promise<TaskRow | null> {
+	const guard = [eq(tasks.id, values.taskId)];
+	if (values.completing) guard.push(isNull(tasks.completedAt));
+	else if (values.expectedCompletedAt !== null) {
+		guard.push(eq(tasks.completedAt, values.expectedCompletedAt));
+	}
+	const [row] = await db
+		.update(tasks)
+		.set({ completedAt: values.completedAt })
 		.where(and(...guard))
 		.returning();
 	return row ?? null;

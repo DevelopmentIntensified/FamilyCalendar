@@ -18,11 +18,17 @@ export const MAX_SESSION_MS = 12 * 60 * 60 * 1000;
 /** `GET ?unabsorbed=1` page size. */
 export const UNABSORBED_LIMIT = 200;
 
+/** A queued device command older than this never reaches the desktop (dropped on read). */
+export const FOCUS_COMMAND_MAX_AGE_MS = 10 * 60 * 1000;
+
+/** Commands one read answers — the legacy `MAX_COMMANDS` (Q-057 keeps the cap). */
+export const FOCUS_COMMAND_PAGE_SIZE = 25;
+
 /**
  * `endedAt > startedAt` and the span is at most 12 hours (inclusive at the
  * bound), in the legacy order: an at-or-before end never reports the length.
  */
-function durationError(startedAt: Date, endedAt: Date): string | null {
+export function sessionDurationError(startedAt: Date, endedAt: Date): string | null {
 	const ms = endedAt.getTime() - startedAt.getTime();
 	if (ms <= 0) return 'endedAt must be after startedAt';
 	if (ms > MAX_SESSION_MS) return 'Session is longer than 12 hours';
@@ -41,7 +47,7 @@ export function sessionTimesError(
 	if (startedAt.getTime() > now.getTime() + MAX_START_SKEW_MS) {
 		return 'startedAt is more than 5 minutes in the future';
 	}
-	return endedAt ? durationError(startedAt, endedAt) : null;
+	return endedAt ? sessionDurationError(startedAt, endedAt) : null;
 }
 
 /** What the `focusStartedAt` field means: absent, cleared, or a real instant. */

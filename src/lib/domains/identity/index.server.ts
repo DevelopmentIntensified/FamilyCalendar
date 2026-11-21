@@ -50,12 +50,14 @@ export {
 	getPerson,
 	getPersonByEmail,
 	isEmailTaken,
+	listPersonNames,
 	createPersonWithPassword,
 	updatePersonProfile,
 	createAnonymousAccount,
 	touchLastActive,
 	getTimeZone,
 	deletePerson,
+	type PersonName,
 	type ProfileInput,
 	type CreatePersonWithPasswordInput
 } from './identity.person.service.server';
@@ -100,6 +102,9 @@ export {
 
 /** The app resolves the fail-closed signing secret once at boot. */
 export { resolveSessionSecret } from './identity.session.rules';
+
+/** The untrimmed stored full name (`first + ' ' + last`), the legacy stats shape. */
+export { personFullName } from './identity.person.rules';
 export type { PersonView } from './identity.contract';
 
 // --- HTTP handlers ------------------------------------------------------------

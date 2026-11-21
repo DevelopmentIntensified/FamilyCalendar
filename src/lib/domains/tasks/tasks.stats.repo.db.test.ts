@@ -13,7 +13,7 @@ import {
 	countCompletedOnce,
 	countRecurringCompletions,
 	countRecurringTasks,
-	listCompletionInstants,
+	listCompletionInstantRows,
 	listDoneByIds,
 	listRecentCompletions,
 	listTopAssigneeIds,
@@ -50,7 +50,7 @@ describe('attribution', () => {
 
 		// TWO distinct tasks attributed to Mia: the legacy row + the one she acted on.
 		expect(await countCompletedOnce(db, mia.id)).toBe(2);
-		expect(await listCompletionInstants(db, { userId: mia.id, limit: 365 })).toEqual([
+		expect(await listCompletionInstantRows(db, { userId: mia.id, limit: 365 })).toEqual([
 			'2026-01-02 10:00:00+00',
 			'2026-01-01 10:00:00+00'
 		]);
@@ -67,7 +67,7 @@ describe('attribution', () => {
 				completedAt: `2026-01-${day} 10:00:00+00`
 			});
 		}
-		expect(await listCompletionInstants(db, { userId: mia.id, limit: 2 })).toEqual([
+		expect(await listCompletionInstantRows(db, { userId: mia.id, limit: 2 })).toEqual([
 			'2026-01-03 10:00:00+00',
 			'2026-01-02 10:00:00+00'
 		]);

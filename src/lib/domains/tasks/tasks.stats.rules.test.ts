@@ -8,7 +8,12 @@
  */
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
-import { computeWeeklyStreak, type TaskStreak } from './tasks.stats.rules';
+import {
+	completionInstantIso,
+	computeWeeklyStreak,
+	monthStartIso,
+	type TaskStreak
+} from './tasks.stats.rules';
 
 /** Monday of ISO week 35, 2026 (legacy `TODAY`). */
 const TODAY = '2026-08-24T10:00:00.000Z';
@@ -120,5 +125,34 @@ describe('computeWeeklyStreak', () => {
 
 	it('ignores an unparseable instant instead of throwing', () => {
 		expect(computeWeeklyStreak(['not-a-date'], TODAY).current).toBe(0);
+	});
+});
+
+describe('completionInstantIso', () => {
+	// legacy `toIsoTimestamp` (taskStats.ts:18-22): a Date-parseable column
+	// render becomes an ISO instant, an unparseable one becomes '' and is
+	// filtered out of the streak window and the recent list.
+	it.each<[string | null, string]>([
+		['2026-02-01 10:00:00+00', '2026-02-01T10:00:00.000Z'],
+		['2026-02-01T10:00:00.000Z', '2026-02-01T10:00:00.000Z'],
+		['2026-02-01 10:00:00.500+14', '2026-01-31T20:00:00.500Z'],
+		[null, ''],
+		['', ''],
+		['not-a-date', '']
+	])('%j → %j', (value, expected) => {
+		expect(completionInstantIso(value)).toBe(expected);
+	});
+});
+
+describe('monthStartIso', () => {
+	// Legacy `monthStart = DateTime.now().startOf('month').toUTC()`: the process
+	// zone's month, which is UTC in production (Vercel) and in the goldens.
+	it('takes the first instant of the UTC month', () => {
+		expect(monthStartIso(new Date('2026-03-18T09:00:00.000Z'))).toBe('2026-03-01T00:00:00.000Z');
+		expect(monthStartIso(new Date('2026-03-01T00:00:00.000Z'))).toBe('2026-03-01T00:00:00.000Z');
+		expect(monthStartIso(new Date('2026-02-28T23:59:59.999Z'))).toBe(
+			'2026-02-01T00:00:00.000Z'
+		);
+		expect(monthStartIso(new Date('2026-01-01T00:00:00.000Z'))).toBe('2026-01-01T00:00:00.000Z');
 	});
 });
