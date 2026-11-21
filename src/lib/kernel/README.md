@@ -278,9 +278,9 @@ The design-conformance harness's shared half; the e2e side is `e2e/conformance/h
 - Rate-limit keys are `${scope}:${ip}`, the same as legacy `clientKey`, so every endpoint shares the one bucket map (issue 288's web + mobile sign-in). Pinned by `rateLimiter.test.ts › keys …`.
 - Stored-secret hashes are byte-identical to the legacy ones. Pinned by `ids.test.ts › hashes UTF-8 bytes exactly like the legacy …`.
 - New row ids keep the legacy 15-char a-z0-9 format. Pinned by `ids.test.ts › keeps the existing row-id format …`.
-- db tests can only reach `127.0.0.1:5433/familycalendar_v2_test` (or `familycalendar_v2_test_<id>` via `V2_TEST_DB`), and unit tests can't reach any database (lane guards in `testDbConfig.ts`, `vitestSetup.unit.ts`).
+- db tests can only reach `127.0.0.1:5433/familycalendar_v2_test` (or `familycalendar_v2_test_<id>` via `V2_TEST_DB`), and unit tests can't reach any database (lane guards in `testDbConfig.ts`, `vitestSetup.unit.ts`) — enforced by those guards themselves; a guard that only throws inside the lane setup has no test of its own.
 - `unit`, `db` and `ui` run in UTC (production's Node zone), and the test database's default `timezone` is UTC, so `timestamptz` renders as `'2026-10-07 13:00:00+00'` on any machine. Pinned by `utcEnvironment.test.ts › runs in UTC, like production` and `testDb.db.test.ts › renders timestamptz in UTC, the way production does`.
-- Every `rollbackTest` leaves no rows behind, and service transactions inside it are savepoints. Pinned by `testDb.db.test.ts`.
+- Every `rollbackTest` leaves no rows behind, and service transactions inside it are savepoints. Pinned by `testDb.db.test.ts › leaves nothing behind afterwards`, `› runs service-level transactions as savepoints that can fail independently`.
 - truncateAll resets in under 250 ms (median of 5); pinned by `testDb.db.test.ts › resets in under 250 ms`.
 - truncateAll switches FK checks off only for its own transaction, so the next test's inserts are enforced again. Pinned by `testDb.db.test.ts › leaves foreign keys enforced …`.
 - The migration runner is a no-op on an up-to-date database: `{ ok: true, applied: [] }`. Pinned by `migrationRunner.db.test.ts › applies nothing to the already-migrated test database …`.

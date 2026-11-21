@@ -118,8 +118,9 @@ Each line names the test that pins it.
 - The ten sections keep their fixed order and the hash selects the body from the same list; an
   empty/unknown hash falls back to the first — `account.sections.rules.test.ts › keeps the ten
   approved sections in order`, `› resolves a hash to its section and falls back to the first`.
-- `/calendar/settings` is only a 302 to `/account#calendar` — `account.http.db.test.ts` (golden
-  runs the route module; the redirect is the handler).
+- `/calendar/settings` is only a 302 to `/account#calendar` — `account.sections.rules.test.ts › links
+  the calendar section as /calendar/settings redirects to it` pins the link and the route module is
+  the one-line `redirect(302, '/account#calendar')` (no golden of its own).
 - Both the page load and the section endpoint refuse a signed-out caller: the load 302s `/login`
   (kernel `pageLoad` auth `user`), the section endpoint answers `401 {"error":"Unauthorized"}` —
   `account.service.db.test.ts` (no actor reaches no service) and the kernel's
@@ -164,7 +165,8 @@ Each line names the test that pins it.
   fails`, `ui/AccountNotificationsSection.svelte.test.ts › flips aria-checked the moment it is
   pressed, before the save answers`.
 - Email change is access's flow (3/15 min, guest refusal with `guestNeedsClaim`), wired unchanged —
-  access's `changeEmailAction` awaits its own tests (`access.http.db.test.ts`).
+  `access.account.service.db.test.ts › throttles requests at 3 per 15 minutes per person and client`,
+  `› refuses an Anonymous Account with guestNeedsClaim`, `access.http.db.test.ts › refuses a guest with guestNeedsClaim`.
 - Logging out other devices keeps the caller's own session and every API token —
   `account.service.db.test.ts › a cookie caller keeps its own session and every token`.
 - Deleting an account requires the typed id, invalidates the sessions, then clears task
@@ -174,7 +176,8 @@ Each line names the test that pins it.
   `account.http.db.test.ts › deletes the account, its sessions, tokens and subscription after the
   typed id`.
 - Every page action is guarded: a signed-out POST gets `{success:false, error:'Not signed in'}` and
-  writes nothing — kernel `formAction` auth `user` (see `pageHandlers.test.ts`).
+  writes nothing — kernel `formAction` auth `user`, pinned by
+  `pageHandlers.test.ts › returns the legacy requireUserAction failure to signed-out callers`.
 - Profile save requires both names — `account.service.db.test.ts › refuses a profile save with an
   empty name`.
 - The families section lists one row per family with the real roster count and the user's role —
@@ -205,7 +208,12 @@ Each line names the test that pins it.
   and familyId`, `› masks an Anonymous Account placeholder email and reports isAnonymous`, `›
   reports email null with isAnonymous false for a real account with no email`.
 - `DELETE /api/me` has one refusal for every non-string confirmation and `Invalid JSON` for a
-  malformed or non-object body — `account.http.db.test.ts` (five refusals).
+  malformed or non-object body —
+  `account.http.db.test.ts › rejects a confirmation that is not the caller id and deletes nothing`,
+  `› rejects an absent confirmation with the same message`, `› rejects a null confirmation with the
+  same message`, `› rejects a non-string confirmation with the same message`, `› answers 400
+  {"error":"Invalid JSON"} for a malformed body`, `› answers 400 {"error":"Invalid JSON"} for a
+  non-object body`.
 
 ## Depends on
 

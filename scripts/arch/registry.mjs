@@ -104,7 +104,7 @@ export const MODULES = [
 		kind: 'domain',
 		rank: 13,
 		parked: true,
-		purpose: 'PARKED (meals parked by owner): meals table, endpoint and card, ported as-is.'
+		purpose: 'PARKED (meals parked by owner; Q-002 delete-only): owns the meals table only (kept in kernel) and the `meals` Dashboard Module id; no code.'
 	},
 	{
 		name: 'feedback',
