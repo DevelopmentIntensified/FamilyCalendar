@@ -75,7 +75,7 @@ Every `/api/**` endpoint is a public contract. The Android app and TaskFocus par
 
 The test must pass on legacy code before the port starts, and must keep passing, unchanged, after the route file points at the new module. The full procedure is in [characterize-endpoints.md](../rewrite/playbooks/characterize-endpoints.md).
 
-Golden tests build their ctx with `goldenCtx` from `$lib/app/testing/goldenCtx.server`, not `testCtx`: it is `testCtx` plus the real cross-module adapters wired in [ports.server.ts](../../src/lib/app/ports.server.ts), so a ported handler's `ctx.calendarAccess` reads and writes the rows the other module owns, exactly as production does. Create one ctx per test; a rate-budget test reuses one ctx for its whole burst.
+Golden tests build their ctx with `goldenCtx` from `$lib/app/testing/goldenCtx.server`, not `testCtx`: it is `testCtx` plus the real cross-module adapters wired in [ports.server.ts](../../src/lib/app/ports.server.ts), so a ported handler's `ctx.calendarAccess` reads and writes the rows the other module owns, exactly as production does. Its `clock` and `ids` are production's too (`systemClock`, `systemIds`): a golden characterizes a legacy handler that read `new Date()` and minted row ids with `generateId`, so it must see a real clock and legacy-format ids — a golden seeding from the ambient month keeps passing after the port. Pass `now` to pin time in a golden that needs it. Create one ctx per test; a rate-budget test reuses one ctx for its whole burst.
 
 ## Test doubles
 
@@ -103,6 +103,7 @@ Any change to a parser (event quick-add, task quick-add, date vocabulary, new ke
 | command | what it proves | when |
 |---|---|---|
 | `npm run arch` | rules R1–R15 | after every edit batch (about 5 s) |
+| `node scripts/arch/auth-audit.mjs` | no auth downgrade when a legacy route is rewired: each wired route export's legacy level at the S2 sha `66a11131` (site admin from `requireAdmin*`/`isAdminUser`/`users.roles`, else user, plus a page's parent layouts and the legacy hooks `admin` prefix) against its handler's kernel `auth:`. A weaker `optional`/`public` passes only when the handler checks the actor itself (MANUAL-OK). Legacy **family-role** doors (family creator/admin or any membership, never site admin) need the same refusal in the v2 module — the handler body, the service it calls, or its rules — as `ROLE-OK`; otherwise `ROLE-MISSING` fails. Anything else must be listed, with a reason, in [auth-audit-allow.json](../../scripts/arch/auth-audit-allow.json). `--ref <sha>` audits a commit; `--root <dir>` audits another checkout read-only | after S6 wiring, on every rewired route, and before cutover |
 | `npm run docs:check` | module READMEs cover their files, and links resolve | after every edit batch |
 | `npm run test:mod -- <m>` | the module you touched | after every edit batch (seconds) |
 | `npm run test:affected [-- <base>]` | only the tests whose imports reach a changed file: the changed module's tests and everything downstream of it. Without a base it looks at uncommitted changes; with one, at everything since that commit | after every edit batch |

@@ -1,7 +1,3 @@
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
-import { getVapidPublicKey } from '$lib/server/services/pushService';
+import { pushPublicKeyEndpoint } from '$lib/domains/alerts/index.server';
 
-export const GET: RequestHandler = async () => {
-	return json({ publicKey: getVapidPublicKey() });
-};
+export const GET = pushPublicKeyEndpoint.handler;

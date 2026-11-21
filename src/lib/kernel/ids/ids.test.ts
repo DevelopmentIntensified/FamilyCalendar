@@ -12,6 +12,13 @@ describe('systemIds', () => {
 	it('honours an explicit length (invite codes use 10)', () => {
 		expect(systemIds.id(10)).toMatch(/^[a-z0-9]{10}$/);
 	});
+
+	it('draws the requested number of random bytes', () => {
+		expect(systemIds.random(32)).toHaveLength(32);
+		expect(systemIds.random(0)).toHaveLength(0);
+		// Two 256-bit draws colliding is a 2^-256 event, like the row ids above.
+		expect(systemIds.random(32)).not.toEqual(systemIds.random(32));
+	});
 });
 
 describe('sequentialIds', () => {
@@ -19,6 +26,13 @@ describe('sequentialIds', () => {
 		const ids = sequentialIds('task');
 		expect([ids.id(), ids.id()]).toEqual(['task-1', 'task-2']);
 		expect(sequentialIds().id()).toBe('id-1');
+	});
+
+	it('draws bytes from their own counter, so a draw never renumbers a row id', () => {
+		const ids = sequentialIds();
+		expect([...ids.random(4)]).toEqual([0, 1, 2, 3]);
+		expect([...ids.random(2)]).toEqual([4, 5]);
+		expect(ids.id()).toBe('id-1');
 	});
 });
 

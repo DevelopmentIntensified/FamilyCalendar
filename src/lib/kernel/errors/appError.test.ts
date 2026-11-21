@@ -9,7 +9,8 @@ import {
 	notFound,
 	tooMany,
 	unauthorized,
-	unavailable
+	unavailable,
+	unprocessable
 } from './appError';
 
 describe('AppError', () => {
@@ -20,6 +21,12 @@ describe('AppError', () => {
 		[notFound('Task not found'), 404, 'Task not found'],
 		[conflict('Session already open'), 409, 'Session already open'],
 		[tooMany('Too many reports. Try again shortly.'), 429, 'Too many reports. Try again shortly.'],
+		[
+			unprocessable('Could not match that instruction. Try naming a date or the events.'),
+			422,
+			'Could not match that instruction. Try naming a date or the events.'
+		],
+		[unprocessable('No valid changes in plan', { planId: 'p1' }), 422, 'No valid changes in plan'],
 		[unavailable('AI is off'), 503, 'AI is off']
 	])('maps %s to its HTTP status and keeps the message', (error, status, message) => {
 		expect(error.status).toBe(status);

@@ -149,6 +149,26 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
 | `parsing.event.rules.test.ts` | test | the integrated phrase suite: every remaining `naturalLanguageService.test.ts` case (URL fidelity, `until`, defaults, real-world examples, performance corpus). |
 | `parsing.task.rules.test.ts` | test | `taskQuickAdd.test.ts` cases + `shared/parse-vectors.json` (145 vectors, `EXPECTED_VECTORS = 145`), parser-independent and client-safe. |
 
+**S3 implementation (2026-11-19) — deviations from the plan above, with reasons:**
+
+- Kernel/time gained `RecurrenceFrequency`, `CalendarDate`, `daysInMonth`, `resolveMonthDay` and
+  `daysUntilWeekday` in `src/lib/kernel/time/dates.ts` (K-06). `shiftDate` did NOT move there: the Task
+  quick-add must land its due at 23:59 in the CALLER'S zone, and a `Date`-based shift on the host clock
+  cannot honour that; `parsing.task.rules.ts` shifts through Luxon in the caller's zone instead.
+- `parsing.event-times.rules.ts` holds two passes (`readEventTimeRanges`, then `readEventTimes` after
+  recurrence) instead of one function: the legacy order interleaves the recurrence family between the
+  range rules and the single-time rules, and reordering would change both the parse and the confidence
+  floats the goldens pin.
+- `parsing.event-place.rules.ts` also owns the attendant ladder and the shared with-list pattern
+  (`WITH_LIST_PATTERN`/`withListSpans`), which `parsing.event-segment.rules.ts` imports for its vetoes.
+- `parsing.event-dates.rules.ts` additionally exports `nextWeekday`, `ordinalWeekdayOfMonth`,
+  `resolveUntilDate`, `nearestWeekday` and `WEEK_ORDER`, because the recurrence family reads them.
+- `hasInfo`/`summaryLabel` have no legacy source: the event label is `date · time · recurrence · place ·
+  calendar · reminder` and the Task label names the due day, priority, assignee, cadence, tags, visibility,
+  family and unknown member. This is an owner question (no spec, no caller yet).
+- The Task priority regex is no longer exported: `priorityStated` on the result replaces it (S8 rewires
+  `FamilyTaskAddForm.svelte`).
+
 ### S5–S6 — service + http
 
 | new file | role | what goes in it |
@@ -157,6 +177,16 @@ on kernel `ctx` yet, so S5 adds them — never module mocks (R1/R3/R9). No UI: n
 | `parsing.service.db.test.ts` | test | 429 with the cap reason, the 429 fallback copy, free 20/5 min silent fallback, paid uncapped, usage recorded, anonymous never gated, zone used only when signed in — `rollbackTest` + `testCtx({ db, now })`. |
 | `parsing.http.server.ts` | http | `submitParseEventEndpoint`: `endpoint()` with auth mode (anonymous allowed), `body` schema, `400 {error:'Input required'}` and the service's `429`. |
 | `src/routes/api/parse-event/+server.ts` | route | wiring only: `export const POST = submitParseEventEndpoint.handler;` (S6; goldens unchanged since S2). |
+
+**S5–S6 implementation (2026-11-20) — deviations from the plan above, with reasons:**
+
+- **No `ctx.billing` port.** Billing is rank 2 and parsing rank 7, so `getPlanLimits`/`isPaidCaller`/`assertAiAvailable`/`recordAiCreation` are imported directly from `$lib/domains/billing/index.server`, as the S5+S6 wave plan recommends ("direct import is R1-legal; the sheet's `ctx.billing` port is optional"). Only the three names the flow needs are used: `isPaidCaller` (the free/paid split of the short window), `assertAiAvailable` (the monthly cap) and `recordAiCreation` (the usage record). The vendor call is the kernel **ai** port (`ctx.ai.chatJson`/`ctx.ai.configured`), wired by `app` from `cerebrasApiKey`/`cerebrasModel`; no `ctx.llm` port was added.
+- **The parse's "now" is the process clock (`systemClock`, kernel/time), not `ctx.clock`.** The frozen golden builds every expected date from `DateTime.now()` (`parsing.http.db.test.ts`), and `testCtx`/`goldenCtx` pin `ctx.clock` to `2026-01-15`, so `ctx.clock.now()` cannot satisfy the frozen rows without editing them. Billing's period and the free tier's window still use `ctx.clock` (the S5 rows seed `now: 2026-06-01`). Recorded as a README Invariant; it is the one "now" deviation of the module.
+- **The Q-012 body read sits outside `endpoint()`.** Legacy read `await request.json()` and destructured it before its `try`, so malformed JSON rejects with `SyntaxError` and a JSON `null` body with `TypeError` (two frozen rows). `submitParseEventEndpoint` therefore pre-reads a CLONE of the request body before delegating to the `endpoint()` handler; the owner's Q-012 answer (B: bad bodies answer 400) deletes that shim in its own `fix(parsing): Q-012 …` commit, golden first.
+- **The 429 fallback copy is unreachable.** Legacy answered `cap.reason ?? 'AI usage limit reached'`; billing's `assertAiAvailable` always supplies the monthly copy (`AI feature limit reached (N per month). Upgrade to unlock unlimited AI.`), so the S5 suite pins that copy and no reasonless refusal exists to pin.
+- **The service takes the limiter key, not a `Request`.** `parseEventRequest(ctx, actor, { input, useCloud, clientKey })`; the endpoint builds `clientKeyOf(request, 'parse-event')` (the same `${scope}:${ip}` keys as legacy), so the service stays request-free and its budget test is explicit.
+- **The legacy route test is deleted at S6.** `src/routes/api/parse-event/server.test.ts` imported `POST`'s own `ParseEventDeps` seam and called `POST(event, deps)`; the wiring-only route exports no such seam, so the file was removed (its 14 gating cases are re-homed in `parsing.service.db.test.ts` and the frozen goldens). Nothing else imported it.
+- **Q-011 A: the 200 fallback wire reports the failure.** A throw after a successful parse answers `{parsed, confidence, method:'regex-fallback'}` as before, and the service logs `parse_event_fallback` plus files a `ctx.faults` report (`status: 500`, path `/api/parse-event`) so the lost usage record or discarded cloud answer is visible. A parse that throws again in the catch has no prefill and stays a 500 (the endpoint's standard error shape).
 
 ### S7–S8
 

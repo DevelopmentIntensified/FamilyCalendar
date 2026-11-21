@@ -12,6 +12,7 @@ export type AppErrorCode =
 	| 'forbidden'
 	| 'notFound'
 	| 'conflict'
+	| 'unprocessable'
 	| 'tooMany'
 	| 'unavailable';
 
@@ -21,6 +22,7 @@ const STATUS_BY_CODE: Readonly<Record<AppErrorCode, number>> = {
 	forbidden: 403,
 	notFound: 404,
 	conflict: 409,
+	unprocessable: 422,
 	tooMany: 429,
 	unavailable: 503
 };
@@ -60,6 +62,11 @@ export function notFound(message = 'Not found', extra?: AppErrorExtra): AppError
 
 export function conflict(message: string, extra?: AppErrorExtra): AppError {
 	return new AppError('conflict', message, extra);
+}
+
+/** The request is well-formed but cannot be acted on (the legacy 422 answers). */
+export function unprocessable(message: string, extra?: AppErrorExtra): AppError {
+	return new AppError('unprocessable', message, extra);
 }
 
 export function tooMany(message: string, extra?: AppErrorExtra): AppError {
