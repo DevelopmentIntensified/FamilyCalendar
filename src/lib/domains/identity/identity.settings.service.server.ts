@@ -51,6 +51,22 @@ export async function getCalendarSettings(
 }
 
 /**
+ * The merged settings view alone, from ONE read and with NO consent-trail
+ * query. The calendar group's layout (shell) needs the view the pages read, not
+ * the ad evidence, and its group entry can afford one query, not two; a caller
+ * that also shows the trail uses `getCalendarSettings` above.
+ *
+ * Takes the plain `Ctx`: nothing here reads a port, which is exactly why the
+ * group entry no longer reaches `ctx.adConsent`.
+ */
+export async function getStoredCalendarSettings(
+	ctx: Ctx,
+	actor: Actor
+): Promise<CalendarSettingsView> {
+	return calendarSettingsView(await findSettingsByPerson(ctx.db, actor.id));
+}
+
+/**
  * Applies a validated PATCH: only a default calendar THIS patch sets is
  * re-checked for access (a stale stored one is kept on an unrelated change
  * such as `{timeZone}`). An existing row is written with ONLY the fields the

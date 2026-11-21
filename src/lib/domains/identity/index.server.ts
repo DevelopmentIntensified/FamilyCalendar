@@ -98,6 +98,7 @@ export { isApiTokenFormat } from './identity.token.rules';
 export {
 	getCalendarPreferences,
 	getCalendarSettings,
+	getStoredCalendarSettings,
 	updateCalendarSettings,
 	setHiddenDashboardModules,
 	type CalendarSettingsResult,

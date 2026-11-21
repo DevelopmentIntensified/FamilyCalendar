@@ -23,6 +23,7 @@ import {
 } from './identity.fixtures.server';
 import {
 	getCalendarSettings,
+	getStoredCalendarSettings,
 	setHiddenDashboardModules,
 	updateCalendarSettings
 } from './identity.settings.service.server';
@@ -339,5 +340,43 @@ describe('Dashboard Module switches', () => {
 			color: '#112233',
 			defaultView: 'dashboard'
 		});
+	});
+});
+
+describe('getStoredCalendarSettings', () => {
+	rollbackTest('reads the stored view from ONE query and never touches a port', async (db) => {
+		const user = await seedUser(db);
+		await seedIdentitySettings(user.id, {}, db);
+		// A plain ctx: with no `adConsent` and no `calendarAccess` on it, a call
+		// that reached either port would throw instead of answering.
+		const ctx = testCtx({ db, now: NOW.toISOString() });
+
+		const view = await getStoredCalendarSettings(ctx, actorFromUser(user, 'session'));
+
+		expect(view).toMatchObject({
+			id: 'settings-a',
+			userId: user.id,
+			timeZone: 'America/Chicago',
+			hiddenDashboardModules: ['board']
+		});
+		expect('verseTranslation' in view).toBe(false);
+	});
+
+	rollbackTest('answers the no-row defaults, which carry no id marker', async (db) => {
+		const user = await seedUser(db);
+		const ctx = testCtx({ db, now: NOW.toISOString() });
+
+		const view = await getStoredCalendarSettings(ctx, actorFromUser(user, 'session'));
+
+		expect(view).toEqual({
+			weekStart: 'sunday',
+			timeZone: 'UTC',
+			color: '#3b82f6',
+			defaultView: 'dayView',
+			defaultCalendarId: null,
+			syncEventsToFamilyCalendar: false,
+			showAdsAsEvents: false
+		});
+		expect('id' in view).toBe(false);
 	});
 });
