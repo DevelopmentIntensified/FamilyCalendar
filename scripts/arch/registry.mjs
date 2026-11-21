@@ -263,6 +263,9 @@ export const FOREIGN_READS = {
 	sponsored: {
 		events:
 			'serve the 📢 rows a user already owns (Q-040 decided B: the read and this entry go with that fix)'
+	},
+	tasks: {
+		events: "the parent Event's title, start and calendar on every task list row"
 	}
 };
 
