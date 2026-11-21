@@ -18,6 +18,7 @@ import { seedFamily, seedMembership } from './family.fixtures.server';
 import {
 	countOpenFamilyTasks,
 	findFamilyById,
+	findFirstFamilyIdForUser,
 	findMembershipFamilyId,
 	insertFamilyWithRoster,
 	listMemberships,
@@ -276,6 +277,21 @@ describe('countOpenFamilyTasks', () => {
 	rollbackTest('answers an empty map for no families', async (db) => {
 		const counts = await countOpenFamilyTasks(db, []);
 		expect(counts.size).toBe(0);
+	});
+});
+
+describe('findFirstFamilyIdForUser', () => {
+	rollbackTest("answers the user's only membership family, with no ORDER BY to depend on", async (db) => {
+		const ann = await seedUser(db);
+		await seedFamily('fam-1', {}, db);
+		await seedMembership('fam-1', ann.id, 'creator', 'parent', db);
+
+		expect(await findFirstFamilyIdForUser(db, ann.id)).toBe('fam-1');
+	});
+
+	rollbackTest('answers null for a user with no family', async (db) => {
+		const loner = await seedUser(db);
+		expect(await findFirstFamilyIdForUser(db, loner.id)).toBeNull();
 	});
 });
 

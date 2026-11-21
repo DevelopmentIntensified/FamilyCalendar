@@ -22,6 +22,7 @@ import type { IdentityPorts } from '$lib/domains/identity/index.server';
 import { seedFamily, seedFamilyRoster, seedInvite, seedMembership } from './family.fixtures.server';
 import {
 	createFamily,
+	familyIdForActor,
 	getFamily,
 	listFamilies,
 	updateFamily
@@ -107,6 +108,22 @@ function countingDb(db: Db): { db: Db; count: () => number } {
 	});
 	return { db: proxy as Db, count: () => calls };
 }
+
+describe('familyIdForActor', () => {
+	rollbackTest('answers the family of the actor’s only membership', async (db) => {
+		const ann = await seedUser(db);
+		await seedFamily('fam-1', {}, db);
+		await seedMembership('fam-1', ann.id, 'member', 'parent', db);
+
+		expect(await familyIdForActor(familyCtx(db), actorFromUser(ann, 'session'))).toBe('fam-1');
+	});
+
+	rollbackTest('answers null when the actor holds no membership', async (db) => {
+		const loner = await seedUser(db);
+
+		expect(await familyIdForActor(familyCtx(db), actorFromUser(loner, 'session'))).toBeNull();
+	});
+});
 
 describe('listFamilies', () => {
 	rollbackTest('orders families oldest first and builds each card from one read', async (db) => {

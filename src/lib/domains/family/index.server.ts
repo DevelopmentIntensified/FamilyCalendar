@@ -107,6 +107,7 @@ export type FamilyDetailCtx = FamilyCtx & IdentityPorts;
 
 export {
 	createFamily,
+	familyIdForActor,
 	getFamily,
 	listFamilies,
 	updateFamily,

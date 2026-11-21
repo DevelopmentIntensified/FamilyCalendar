@@ -15,8 +15,8 @@ Grocery List (one list, scope filter), Grocery Items, Store Memory, Store Colour
 - [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
+- [x] S5 service
+- [x] S6 http + route wiring (goldens unchanged since S2, plus the three Q-111 rows)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
 - [ ] S8 rewire importers, delete legacy code and legacy tests
 - [ ] S9 README final, census --write, gate:push, ledger done
@@ -176,6 +176,14 @@ Where each legacy export goes:
 - The colour palette travels on the `GET /colours` response (Android reads it nowhere but the page does), so it stays part of the wire.
 
 **S4 repo and #086.** `upsertGroceryColour` names the right partial-index predicate on BOTH branches (`family_id IS NULL` for personal, `family_id IS NOT NULL` for family), because a repo test cannot pin a statement Postgres rejects. So the repo no longer carries the #086 fault: a handler wired straight to it would answer `200 {ok:true}` where the golden `faults with 500 on a family write` pins 500. Q-039 is answered B, but S6 is parity: the S5 service keeps ONE named `// Q-039` refusal that reproduces today's 500 on a family colour write, so the frozen golden stays green at S6. The `fix(groceries): Q-039` commit after S6 removes that refusal and flips that one golden. Q-111 answered B (2026-11-18): a JSON `null` body reaches the schema as `null` and answers the route's existing 400 (`scope must be mine or family`, or the colour route's 400) instead of the legacy 500. No golden pins that 500, so it lands with this module's S6, which adds the golden row then — not as a post-S6 `fix(groceries): Q-111 …` commit. The conflict set re-colours and re-stamps only: the row's `userId` stays its first writer (the legacy `set` never touched it), which is what Q-035 "the writer, not the owner" has meant in practice. The colour read keeps the legacy `userId = viewer OR familyId = family` predicate, so with a family it also returns rows the viewer wrote in a family they left (resolution ignores them).
+
+**S5 + S6 (2026-11-21).** The seven use-cases and `loadGroceriesPage` are in `groceries.service.server.ts`; the six `endpoint()` handlers and `groceriesPageLoad` in `groceries.http.server.ts`; the four route files are wiring only. Three things to know:
+
+- **`familyIdForActor` was added to `family`** (orchestrator-approved exception; the family entry exported no such service): `family.families.service.server.ts › familyIdForActor(ctx, actor)` over `family.families.repo.server.ts › findFirstFamilyIdForUser`, which keeps the legacy `getUserFamilyId` order (first `familyMembers` row, NO `ORDER BY`) instead of Q-024's oldest-default, because groceries' wire names no family and moving a two-family caller to a different list is an unpinned wire change. Groceries imports it through family's `index.server.ts` (rank 4 is below 10): no port, no `src/lib/app` edit.
+- **The three body routes read their own JSON** (`GROCERY_INVALID_JSON_MESSAGE` in the contract). `endpoint()`'s default mode answers the kernel's `Invalid JSON`, and its `bodyMode: 'lenient'` hands the schema `null` for a malformed body too — but the frozen golden pins `Invalid JSON body` for malformed while Q-111 pins the route's own 400 for a literal `null`. One sentence per case needs the read before the schema, in `groceries.http.server.ts › groceryJsonBody`. No kernel change was made.
+- **Q-111 B landed with S6**, adding exactly three golden rows (POST / PATCH / PATCH colours, JSON `null` body) — the only diff in `groceries.http.db.test.ts` against `66a11131`.
+- **Deferred, not applied:** Q-039 B would flip `PATCH /api/groceries/colours › faults with 500 on a family write — #086: partial index not inferred` to `200 {ok:true}` plus one written row (the one service `// Q-039` throw goes); Q-038 B is page-level (the add toast prints the stored store) and flips no golden row — both land as their own `fix(groceries)` commits after S6. Q-036 A is a recorded default with no golden row.
+- **The page model keeps legacy's keys** (`mine`, `family`, `colours`, `hasFamily`, `userId`, `familyId`) so the un-ported `+page.svelte` keeps rendering between S6 and S7; S7 designs the model it will consume.
 
 **Questions for the owner.**
 

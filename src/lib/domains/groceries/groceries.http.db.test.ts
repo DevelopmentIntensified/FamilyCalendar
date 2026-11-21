@@ -540,6 +540,22 @@ describe('POST /api/groceries', () => {
 		expect(res).toMatchObject({ status: 400, body: { error: 'Invalid JSON body' } });
 	});
 
+	// Q-111 (owner: B, 2026-11-18): a literal `null` body parses, reaches the body
+	// schema as `null`, and answers the route's existing 400 instead of the 500 the
+	// legacy field reads threw. The malformed row above keeps its own sentence.
+	it('answers 400 "scope must be mine or family" for a JSON null body (Q-111)', async () => {
+		const user = await seedUser(testDb());
+
+		const res = await invoke(postGroceries, {
+			ctx: ctx(),
+			user,
+			path: '/api/groceries',
+			body: null
+		});
+
+		expect(res).toMatchObject({ status: 400, body: { error: 'scope must be mine or family' } });
+	});
+
 	it('answers 400 "scope must be mine or family" when scope is absent or junk', async () => {
 		const user = await seedUser(testDb());
 
@@ -859,6 +875,22 @@ describe('PATCH /api/groceries/[id]', () => {
 		});
 
 		expect(res).toMatchObject({ status: 400, body: { error: 'Invalid JSON body' } });
+	});
+
+	// Q-111 (owner: B): a literal `null` body is the route's scope 400, not a 500.
+	it('answers 400 "scope must be mine or family" for a JSON null body (Q-111)', async () => {
+		const user = await seedUser(testDb());
+		const item = await seedItem({ userId: user.id, name: 'Milk' });
+
+		const res = await invoke(patchGrocery, {
+			ctx: ctx(),
+			user,
+			method: 'PATCH',
+			path: `/api/groceries/${item.id}`,
+			body: null
+		});
+
+		expect(res).toMatchObject({ status: 400, body: { error: 'scope must be mine or family' } });
 	});
 
 	it('answers 400 for every op it cannot run', async () => {
@@ -1306,6 +1338,24 @@ describe('PATCH /api/groceries/colours', () => {
 		});
 
 		expect(res).toMatchObject({ status: 400, body: { error: 'Invalid JSON body' } });
+	});
+
+	// Q-111 (owner: B): a literal `null` body is the colour route's own 400.
+	it('answers 400 "store and color are required" for a JSON null body (Q-111)', async () => {
+		const user = await seedUser(testDb());
+
+		const res = await invoke(patchColours, {
+			ctx: ctx(),
+			user,
+			method: 'PATCH',
+			path: '/api/groceries/colours',
+			body: null
+		});
+
+		expect(res).toMatchObject({
+			status: 400,
+			body: { error: 'store and color are required' }
+		});
 	});
 
 	it('answers 401 {"error":"Unauthorized"} when signed out', async () => {

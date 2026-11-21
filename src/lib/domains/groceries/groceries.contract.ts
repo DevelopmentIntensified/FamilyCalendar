@@ -32,6 +32,14 @@ export const GROCERY_ITEM_ID_MESSAGE = 'Item ID required';
 /** The one 404 body, for any row outside the requested scope. */
 export const GROCERY_ITEM_NOT_FOUND_MESSAGE = 'Item not found';
 
+/**
+ * A malformed or empty JSON body: the sentence legacy's own `request.json()`
+ * catch answered. It is the body route's, not the schema's — a literal `null`
+ * parses and reaches the schema, which then answers the route's own 400
+ * (Q-111), so the two cases keep two different answers.
+ */
+export const GROCERY_INVALID_JSON_MESSAGE = 'Invalid JSON body';
+
 /** `PATCH /api/groceries/[id]` with an op, or a `stores`/`target` payload, it cannot run. */
 export const GROCERY_OP_MESSAGE = 'op must be check, uncheck, stores, or move';
 
