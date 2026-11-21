@@ -1,3 +1,9 @@
+<!--
+	The shared auth card: every sign-in, sign-up and recovery page renders its
+	body inside this `max-w-md` white sheet. Layout only — props in, no state.
+
+	Doc: ../README.md#public-interface
+-->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
