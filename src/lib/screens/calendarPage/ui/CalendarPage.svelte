@@ -17,27 +17,15 @@
 	import { createToasts } from '$lib/kernel/client/toasts.svelte';
 	import Toaster from '$lib/kernel/ui/Toaster.svelte';
 	import { createCalendarApi, type CalendarEventView } from '$lib/domains/calendar/index';
-	import { CalendarEventModal, type CalendarParseEvent } from '$lib/domains/calendar/ui';
-	import {
-		EventTaskChecklist,
-		TaskDetailModal
-	} from '$lib/domains/tasks/ui';
+	import type { CalendarParseEvent } from '$lib/domains/calendar/ui';
 	import type { CalendarPageModel } from '../calendarPage.contract';
 	import { CALENDAR_EDIT_NOT_FOUND } from '../calendarPage.url.rules';
 	import { CalendarPageState } from '../calendarPage.state.svelte';
-	import BulkEditBar from './BulkEditBar.svelte';
 	import CalendarKeyStrip from './CalendarKeyStrip.svelte';
 	import CalendarToolbar from './CalendarToolbar.svelte';
-	import CreateAnythingModal from './CreateAnythingModal.svelte';
-	import DayActionSheet from './DayActionSheet.svelte';
-	import DayEventsModal from './DayEventsModal.svelte';
-	import DayView from './DayView.svelte';
 	import FilterEmpty from './FilterEmpty.svelte';
 	import FirstRunCard from './FirstRunCard.svelte';
-	import ListView from './ListView.svelte';
 	import MonthView from './MonthView.svelte';
-	import SelectionExitAsk from './SelectionExitAsk.svelte';
-	import WeekView from './WeekView.svelte';
 
 	interface Props {
 		model: CalendarPageModel;
@@ -275,11 +263,24 @@
 					{:else if page.view === 'month'}
 						<MonthView state={page} />
 					{:else if page.view === 'week'}
-						<WeekView state={page} />
+						{#await import('./WeekView.svelte')}
+							<!-- Reserved grid height: the card never collapses while the chunk lands. -->
+							<div class="min-h-[420px] animate-pulse rounded-xl bg-slate-50" aria-hidden="true"></div>
+						{:then { default: WeekView }}
+							<WeekView state={page} />
+						{/await}
 					{:else if page.view === 'day'}
-						<DayView state={page} />
+						{#await import('./DayView.svelte')}
+							<div class="min-h-[420px] animate-pulse rounded-xl bg-slate-50" aria-hidden="true"></div>
+						{:then { default: DayView }}
+							<DayView state={page} />
+						{/await}
 					{:else}
-						<ListView state={page} />
+						{#await import('./ListView.svelte')}
+							<div class="min-h-[420px] animate-pulse rounded-xl bg-slate-50" aria-hidden="true"></div>
+						{:then { default: ListView }}
+							<ListView state={page} />
+						{/await}
 					{/if}
 
 					{#if !page.showFilterEmpty && !page.showSearchEmpty && !page.showAssigneeEmpty}
@@ -313,7 +314,11 @@
 {/if}
 
 {#if page.selectionMode}
-	<BulkEditBar state={page} />
+	{#await import('./BulkEditBar.svelte')}
+		<!-- The bar is fixed-position: nothing to reserve, so the grid cannot shift. -->
+	{:then { default: BulkEditBar }}
+		<BulkEditBar state={page} />
+	{/await}
 {/if}
 
 {#if sliceVisible && !page.createOpen && !page.editRowId && !page.selectionMode}
@@ -327,76 +332,97 @@
 	</button>
 {/if}
 
-<SelectionExitAsk
-	open={page.exitAsk}
-	onexit={() => page.confirmExitSelection()}
-	onstay={() => page.stayInSelection()}
-/>
+{#if page.exitAsk}
+	{#await import('./SelectionExitAsk.svelte')}
+		<!-- Fixed overlay: nothing to reserve. -->
+	{:then { default: SelectionExitAsk }}
+		<SelectionExitAsk
+			open={true}
+			onexit={() => page.confirmExitSelection()}
+			onstay={() => page.stayInSelection()}
+		/>
+	{/await}
+{/if}
 
 {#if page.daySheetDate}
-	<DayActionSheet
-		state={page}
-		open={true}
-		day={page.daySheetDate}
-		onclose={() => (page.daySheetDate = null)}
-		onviewevents={() => {
-			const day = page.daySheetDate;
-			if (day) page.openDayList(day);
-		}}
-	/>
+	{#await import('./DayActionSheet.svelte')}
+		<!-- Bottom sheet: fixed overlay, so the month grid keeps its place. -->
+	{:then { default: DayActionSheet }}
+		<DayActionSheet
+			state={page}
+			open={true}
+			day={page.daySheetDate}
+			onclose={() => (page.daySheetDate = null)}
+			onviewevents={() => {
+				const day = page.daySheetDate;
+				if (day) page.openDayList(day);
+			}}
+		/>
+	{/await}
 {/if}
 
 {#if page.dayListDate}
-	<DayEventsModal
-		state={page}
-		open={true}
-		day={page.dayListDate}
-		onclose={() => (page.dayListDate = null)}
-	/>
+	{#await import('./DayEventsModal.svelte')}
+		<!-- Fixed overlay: nothing to reserve. -->
+	{:then { default: DayEventsModal }}
+		<DayEventsModal
+			state={page}
+			open={true}
+			day={page.dayListDate}
+			onclose={() => (page.dayListDate = null)}
+		/>
+	{/await}
 {/if}
 
 {#if page.taskDetail}
 	{#key page.taskDetail.id}
-		<TaskDetailModal
-			task={page.taskDetail}
-			now={page.now}
-			onclose={() => page.closeTaskDetail()}
-			onchanged={() => void page.refresh()}
-		/>
+		{#await import('$lib/domains/tasks/ui')}
+			<!-- Fixed overlay: nothing to reserve. -->
+		{:then { TaskDetailModal }}
+			<TaskDetailModal
+				task={page.taskDetail}
+				now={page.now}
+				onclose={() => page.closeTaskDetail()}
+				onchanged={() => void page.refresh()}
+			/>
+		{/await}
 	{/key}
 {/if}
 
 {#if page.createOpen}
 	{#key `${page.createSeed?.quickAdd ?? ''}|${page.createStart?.toISO() ?? ''}`}
-		<CreateAnythingModal
-			state={page}
-			seed={page.createSeed}
-			start={page.createStart}
-			{parseEvent}
-			onclose={() => page.closeCreate()}
-		/>
+		{#await import('./CreateAnythingModal.svelte')}
+			<!-- Fixed bottom sheet: the grid does not move while it lands. -->
+		{:then { default: CreateAnythingModal }}
+			<CreateAnythingModal
+				state={page}
+				seed={page.createSeed}
+				start={page.createStart}
+				{parseEvent}
+				onclose={() => page.closeCreate()}
+			/>
+		{/await}
 	{/key}
 {/if}
 
 {#if page.editRowId && editView}
 	{#key page.editRowId}
-		<CalendarEventModal
-			open={true}
-			event={editView}
-			{api}
-			toasts={page.toasts}
-			calendars={page.shell.calendars}
-			{familyMembers}
-			defaultCalendarId={page.shell.settings.defaultCalendarId}
-			viewerId={page.shell.viewerId}
-			now={page.now}
-			onclose={() => page.closeEdit()}
-			onchanged={() => void page.refresh()}
-		>
-			{#snippet checklist({ eventId })}
-				<EventTaskChecklist {eventId} />
-			{/snippet}
-		</CalendarEventModal>
+		{#await import('./EventEditSheet.svelte')}
+			<!-- Fixed overlay: nothing to reserve. -->
+		{:then { default: EventEditSheet }}
+			<EventEditSheet
+				event={editView}
+				{api}
+				toasts={page.toasts}
+				calendars={page.shell.calendars}
+				{familyMembers}
+				defaultCalendarId={page.shell.settings.defaultCalendarId}
+				viewerId={page.shell.viewerId}
+				now={page.now}
+				onclose={() => page.closeEdit()}
+				onchanged={() => void page.refresh()}
+			/>
+		{/await}
 	{/key}
 {/if}
 

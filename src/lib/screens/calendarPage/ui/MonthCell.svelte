@@ -12,7 +12,6 @@
 <script lang="ts">
 	import { DateTime } from 'luxon';
 	import type { CalendarPageState } from '../calendarPage.state.svelte';
-	import { dayKey } from '$lib/kernel/time/dates';
 	import { monthCellOverflow } from '../calendarPage.grid.rules';
 	import { VIEW_BREAKPOINT_PX } from '../calendarPage.view.rules';
 	import CalendarChip from './CalendarChip.svelte';
@@ -26,7 +25,9 @@
 
 	let { state, day, inMonth }: Props = $props();
 
-	const key = $derived(dayKey(day.toJSDate(), state.zone));
+	// The cell IS a local midnight in the grid's zone (grid rules build it), so
+	// its own ISO day is the day key: no formatter runs 35–42 times a render.
+	const key = $derived(day.toISODate() ?? '');
 	const bucket = $derived(state.days.get(key) ?? { rows: [], tasks: [] });
 	const overflow = $derived(monthCellOverflow(bucket.rows.length, bucket.tasks.length));
 	const isToday = $derived(key === state.todayKey);
@@ -80,7 +81,7 @@
 					</svg>
 				</button>
 				<a
-					href="/calendar/dashboard?date={dayKey(day.toJSDate(), state.zone)}"
+					href="/calendar/dashboard?date={key}"
 					class="pointer-events-none flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 group-hover:pointer-events-auto {state.selectionMode
 						? 'hidden'
 						: ''}"

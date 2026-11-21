@@ -12,12 +12,9 @@
  *
  * Doc: ./README.md#entry-url-and-the-opening-view
  */
-import {
-	calendarSearchParamsSchema,
-	type CalendarCreateSeed,
-	type CalendarSearchParams
-} from './calendarPage.contract';
-import type { CalendarView } from './calendarPage.view.rules';
+import { isRealDateKey } from '$lib/kernel/time/dates';
+import type { CalendarCreateSeed } from './calendarPage.contract';
+import { isCalendarView, type CalendarView } from './calendarPage.view.rules';
 
 /**
  * What `?date=`/`?view=`/`?edit=`/`?quickadd=`/the share-target params say.
@@ -42,33 +39,28 @@ export interface CalendarUrl {
 }
 
 /**
- * Read the page's params. The contract decides which values are usable; a
- * rejected value is absent, which is why one junk param cannot take a good
- * neighbour down with it.
+ * Read the page's params. Every field is independently optional: a value the
+ * contract would refuse (`?date=` not a real day, `?view=` not one of the
+ * four) is absent, which is why one junk param cannot take a good neighbour
+ * down with it. Parsed here by hand rather than with the contract's schema:
+ * the schema is the server boundary's, and a client screen must not ship zod
+ * for four query params (ADR 0010).
  */
 export function parseCalendarUrl(search: URLSearchParams): CalendarUrl {
 	// `.get` (first value), as legacy read them: a repeated `?date=` cannot
 	// silently switch the page to the last one.
-	const parsed = calendarSearchParamsSchema.safeParse({
-		date: search.get('date') ?? undefined,
-		view: search.get('view') ?? undefined,
-		quickadd: search.get('quickadd') ?? undefined,
-		title: search.get('title') ?? undefined,
-		text: search.get('text') ?? undefined,
-		url: search.get('url') ?? undefined,
-		edit: search.get('edit') ?? undefined,
-		dashboardView: search.get('dashboardView') ?? undefined
-	});
-	const params: Partial<CalendarSearchParams> = parsed.success ? parsed.data : {};
+	const date = search.get('date');
+	const view = search.get('view');
+	const quickadd = search.get('quickadd');
 	return {
-		date: params.date ?? null,
-		view: params.view ?? null,
-		edit: params.edit ? params.edit : null,
-		quickadd: params.quickadd && params.quickadd.trim().length > 0 ? params.quickadd : null,
+		date: date !== null && isRealDateKey(date) ? date : null,
+		view: isCalendarView(view) ? view : null,
+		edit: search.get('edit') || null,
+		quickadd: quickadd !== null && quickadd.trim().length > 0 ? quickadd : null,
 		dashboardView: search.has('dashboardView'),
-		title: params.title ?? null,
-		text: params.text ?? null,
-		url: params.url ?? null
+		title: search.get('title'),
+		text: search.get('text'),
+		url: search.get('url')
 	};
 }
 

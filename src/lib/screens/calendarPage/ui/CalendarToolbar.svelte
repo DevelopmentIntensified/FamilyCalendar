@@ -13,8 +13,6 @@
 	import DayNav from '$lib/kernel/ui/DayNav.svelte';
 	import type { CalendarPageCalendar } from '../calendarPage.contract';
 	import type { CalendarPageState } from '../calendarPage.state.svelte';
-	import CalendarFiltersSheet from './CalendarFiltersSheet.svelte';
-	import MiniPicker from './MiniPicker.svelte';
 
 	interface Props {
 		state: CalendarPageState;
@@ -38,11 +36,6 @@
 	let showActionMenu = $state(false);
 	let searchInput = $state<HTMLInputElement | null>(null);
 
-	const months = $derived(
-		Array.from({ length: 12 }, (_, index) =>
-			page.date.set({ month: index + 1 }).toFormat('MMMM')
-		)
-	);
 	const filterable: readonly CalendarPageCalendar[] = $derived(
 		page.shell.calendars.filter((calendar) => calendar.id)
 	);
@@ -132,14 +125,19 @@
 						>
 							{monthYear}
 						</button>
-						<MiniPicker
-							open={showPicker}
-							month={page.date}
-							{months}
-							onselectmonth={(month) => page.selectMonth(month)}
-							onselectyear={(year) => page.selectYear(year)}
-							onclose={() => (showPicker = false)}
-						/>
+						{#if showPicker}
+							{#await import('./MiniPicker.svelte')}
+								<!-- Absolutely positioned under the date pill: no space to reserve. -->
+							{:then { default: MiniPicker }}
+								<MiniPicker
+									open={true}
+									month={page.date}
+									onselectmonth={(month) => page.selectMonth(month)}
+									onselectyear={(year) => page.selectYear(year)}
+									onclose={() => (showPicker = false)}
+								/>
+							{/await}
+						{/if}
 					</div>
 					<span class="h-6 w-px shrink-0 bg-slate-200" aria-hidden="true"></span>
 				{/snippet}
@@ -353,15 +351,21 @@
 </div>
 
 <!-- The one sheet, at every width -->
-<CalendarFiltersSheet
-	open={page.filtersOpen}
-	calendars={page.shell.calendars}
-	hiddenCalendarIds={page.hiddenCalendarIds}
-	assignees={page.assigneeRows}
-	hiddenAssigneeIds={page.hiddenAssigneeIds}
-	onclose={() => (page.filtersOpen = false)}
-	ontogglecalendar={(id) => page.toggleCalendar(id)}
-	onhideall={(hide) => page.hideAllCalendars(hide)}
-	ontoggleassignee={(id) => page.toggleAssignee(id)}
-	onshoweveryone={() => page.showEveryone()}
-/>
+{#if page.filtersOpen}
+	{#await import('./CalendarFiltersSheet.svelte')}
+		<!-- Fixed overlay: nothing to reserve. -->
+	{:then { default: CalendarFiltersSheet }}
+		<CalendarFiltersSheet
+			open={true}
+			calendars={page.shell.calendars}
+			hiddenCalendarIds={page.hiddenCalendarIds}
+			assignees={page.assigneeRows}
+			hiddenAssigneeIds={page.hiddenAssigneeIds}
+			onclose={() => (page.filtersOpen = false)}
+			ontogglecalendar={(id) => page.toggleCalendar(id)}
+			onhideall={(hide) => page.hideAllCalendars(hide)}
+			ontoggleassignee={(id) => page.toggleAssignee(id)}
+			onshoweveryone={() => page.showEveryone()}
+		/>
+	{/await}
+{/if}

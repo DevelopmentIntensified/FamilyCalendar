@@ -5,7 +5,7 @@
 -->
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { CalendarPage } from '$lib/screens/calendarPage/ui';
+	import CalendarPage from '$lib/screens/calendarPage/ui/CalendarPage.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();

@@ -21,7 +21,6 @@
  * Doc: src/lib/kernel/README.md#time
  */
 import { DateTime, IANAZone } from 'luxon';
-import { isoDate } from '../validation/validators';
 
 // Formatting must not depend on the host locale: tests and servers pin English.
 const LOCALE = 'en-US';
@@ -179,10 +178,22 @@ export function groupByDay<T>(
  * not a real `yyyy-MM-dd` or `months` is not an integer.
  */
 export function addMonthsClamped(date: string, months: number): string {
-	if (!isoDate().safeParse(date).success || !Number.isInteger(months)) return '';
+	if (!isRealDateKey(date) || !Number.isInteger(months)) return '';
 	const shifted = DateTime.fromISO(date, { zone: 'utc' }).plus({ months });
 	if (!shifted.isValid || shifted.year < 1 || shifted.year > 9999) return '';
 	return shifted.toISODate() ?? '';
+}
+
+/**
+ * Whether a string names a real `yyyy-MM-dd` calendar day — the acceptance
+ * rule for a `?date=` param and a stored date key. Deliberately zod-free: a
+ * browser caller that only needs the test must not pull the validation
+ * schemas (and, through them, the contract) into its first paint (ADR 0010).
+ * `DateTime.fromISO` refuses an impossible day (`2026-02-30`), so the answer
+ * equals the contract's `isoDate()` refinement.
+ */
+export function isRealDateKey(value: string): boolean {
+	return DATE_ONLY.test(value) && DateTime.fromISO(value).isValid;
 }
 
 // ---------------------------------------------------------------------------

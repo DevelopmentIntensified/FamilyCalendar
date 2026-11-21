@@ -9,13 +9,18 @@
 	interface Props {
 		open: boolean;
 		month: DateTime;
-		months: readonly string[];
 		onselectmonth: (month: number) => void;
 		onselectyear: (year: number) => void;
 		onclose: () => void;
 	}
 
-	let { open, month, months, onselectmonth, onselectyear, onclose }: Props = $props();
+	let { open, month, onselectmonth, onselectyear, onclose }: Props = $props();
+
+	// The twelve labels belong to the picker, so a closed picker (the first
+	// paint) never formats them.
+	const months = $derived(
+		Array.from({ length: 12 }, (_, index) => month.set({ month: index + 1 }).toFormat('MMMM'))
+	);
 </script>
 
 {#if open}

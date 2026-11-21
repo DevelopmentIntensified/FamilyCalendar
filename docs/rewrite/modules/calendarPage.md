@@ -363,6 +363,33 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
 - Smart bulk phase 2 echoes the client's dry-run plan back to `/api/events/bulk` (`+page.svelte:253-259`). That trust boundary is calendar's wire, not a screen decision: this screen keeps sending the plan it reviewed until calendar's contract changes (its sheet owns that question).
 - The screen adds no client dependency of its own: it uses what kernel/time (luxon) and the domain chunks already ship, and the four views plus every modal are dynamic imports. Initial JS may only shrink against the legacy ceiling.
 
+### S7 follow-up for ADR 0010 (2026-11-21): the lazy boundaries were documented but not wired
+
+The S7 screen imported every view, sheet and modal statically, so `/calendar` and `/share-target` shipped
+279 KB of initial JS (ceiling 197 KB) and became ready in 1.2–1.3 s desktop / 2.1–3.0 s mobile repeat
+(budget 1000 ms) — the worst page in the app. Fixes, all inside the screen plus one kernel import:
+
+- `CalendarPage.svelte` now `{#await import(…)}`s `WeekView`/`DayView`/`ListView` (the default month view
+  stays static) and every sheet/modal: `BulkEditBar`, `SelectionExitAsk`, `DayActionSheet`,
+  `DayEventsModal`, `CreateAnythingModal` and the new `ui/EventEditSheet.svelte` (calendar's modal + tasks'
+  checklist, one chunk). `CalendarToolbar` lazy-loads `MiniPicker` and `CalendarFiltersSheet`.
+- What that removes from the first paint (old build's chunk graph): tasks' UI barrel 28.5 KB gzip (it was
+  imported for `TaskDetailModal`/`EventTaskChecklist`) together with the family UI barrel it pulled
+  (`TaskQuickAddHelp` chunk + `MentionInput` + parsing + five family screens, ~60 KB), calendar's UI
+  barrel 22.4 KB (imported for the edit modal; the three chip badges it also renders stay, tree-shaken to
+  their own modules) and `calendar.eventModal.state` 5.7 KB.
+- The contract's zod query schema no longer reaches the client: `calendarPage.url.rules` parses the four
+  params by hand (same acceptance table, pinned by its tests) using kernel/time's new zod-free
+  `isRealDateKey`, and `kernel/time/dates.ts` dropped its `validators` import for the same predicate. The
+  schema stays in `calendarPage.contract.ts` for the server boundary. (zod is still in *every* app page's
+  chrome through shell → alerts' push rules; that is the shell/alerts owners' fix, not this screen's.)
+- First-render work: the day map is built in one pass with mutable buckets (the port copied two arrays per
+  row — quadratic on a busy month), and a month cell's day key is its own `toISODate()` instead of a
+  formatter run 35–42 times per render.
+- Skeletons/reserved space: a non-month view landing over `{#await}` reserves 420 px of grid height, so the
+  card cannot collapse; every other lazy child is a fixed overlay with nothing to reserve. E2E hooks
+  (testids, ids, labels, copy) and the rendered DOM are unchanged once a chunk lands.
+
 ### Dropped as internal-only (reason in brackets)
 
 - `removeEvent` threaded Calendar → WeekView and voided (dead since EventModal took deletion) — `Calendar.svelte:43`, `WeekView.svelte:30,50`.

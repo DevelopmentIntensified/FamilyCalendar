@@ -311,18 +311,26 @@ export class CalendarPageState {
 
 	visibleTasks = $derived(isVisibleByAssignee(this.searchTasks, this.hiddenAssigneeIds));
 
-	/** A day's rows, built once per rows change. */
+	/**
+	 * A day's rows, built once per rows change. One pass with mutable buckets:
+	 * copying the arrays per row (as the first port did) made a busy month
+	 * quadratic in the number of chips. Day order is first appearance (events,
+	 * then tasks), as the legacy bucketers produced it.
+	 */
 	days = $derived.by((): Map<string, CalendarPageDayRows> => {
+		const rowsByDay = new Map<string, CalendarPageDisplayRow[]>();
+		const tasksByDay = new Map<string, CalendarPageTaskRow[]>();
+		const push = <T>(into: Map<string, T[]>, key: string, value: T) => {
+			const bucket = into.get(key);
+			if (bucket) bucket.push(value);
+			else into.set(key, [value]);
+		};
+		for (const row of this.visibleRows) push(rowsByDay, dayKey(row.date, this.zone), row);
+		for (const task of this.visibleTasks) push(tasksByDay, dayKey(task.dueDate, this.zone), task);
 		const map = new Map<string, CalendarPageDayRows>();
-		for (const row of this.visibleRows) {
-			const key = dayKey(row.date, this.zone);
-			const bucket = map.get(key) ?? { rows: [], tasks: [] };
-			map.set(key, { rows: [...bucket.rows, row], tasks: bucket.tasks });
-		}
-		for (const task of this.visibleTasks) {
-			const key = dayKey(task.dueDate, this.zone);
-			const bucket = map.get(key) ?? { rows: [], tasks: [] };
-			map.set(key, { rows: bucket.rows, tasks: [...bucket.tasks, task] });
+		for (const [key, bucket] of rowsByDay) map.set(key, { rows: bucket, tasks: tasksByDay.get(key) ?? [] });
+		for (const [key, bucket] of tasksByDay) {
+			if (!map.has(key)) map.set(key, { rows: [], tasks: bucket });
 		}
 		return map;
 	});
