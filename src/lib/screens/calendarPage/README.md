@@ -71,6 +71,7 @@ The public API is designed at S1. The entries are filled as their steps land; th
 | [ui/TaskFields.svelte](ui/TaskFields.svelte) | component | Task title, Visibility, optional Due Date and Category. | visual:check |
 | [ui/FirstRunCard.svelte](ui/FirstRunCard.svelte) | component | "Blank calendar!" with the Smart tasks link and its dismissal. | visual:check |
 | [ui/FilterEmpty.svelte](ui/FilterEmpty.svelte) | component | The three filter empty states (calendars, search, people), each with its one-tap recovery. | visual:check |
+| [ui/ShareTargetPage.svelte](ui/ShareTargetPage.svelte) | component | The `/share-target` landing frame for a client that ignored the loader's 302: "Opening FamilyPlanz…" plus the plain way in. | — |
 | [calendarPage.state.test.ts](calendarPage.state.test.ts) | test | The filter rung, the ad's survival, person counts, the empty-state choice, selection + Escape, the toasts, the first-run card, the merge precedence and the deep-link seeds. | — |
 | [calendarPage.range.state.test.ts](calendarPage.range.state.test.ts) | test | The matrix window asked for, the twelve-month bound and eviction, wholesale replacement, the generation guard and the failure toast. | — |
 | [calendarPage.bulk.state.test.ts](calendarPage.bulk.state.test.ts) | test | The inline delete confirm, dry run → review → apply, the past-date ask, the verbatim error and the phrase report. | — |

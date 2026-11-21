@@ -1,2 +1,5 @@
-<p>Opening FamilyPlanz…</p>
-<a href="/calendar">Open FamilyPlanz</a>
+<script lang="ts">
+	import ShareTargetPage from '$lib/screens/calendarPage/ui/ShareTargetPage.svelte';
+</script>
+
+<ShareTargetPage />

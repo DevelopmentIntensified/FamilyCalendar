@@ -9,6 +9,7 @@ export {
 	resolveMasterId,
 	resolveOccurrenceId
 } from './calendar.occurrence.rules';
+export { buildGoogleCalendarUrl, type GoogleCalendarInput } from './calendar.ics.rules';
 export {
 	describeRecurrence,
 	RECURRENCE_FREQUENCIES,
@@ -73,6 +74,10 @@ export {
 	type CalendarDisplayEventWire,
 	type CalendarEventsResponse,
 	type CalendarEventRowWire,
+	type CalendarImportCommitResponse,
+	type CalendarImportPreviewResponse,
+	type CalendarImportTargetsResponse,
+	type CalendarImportUndoResponse,
 	type CalendarKind,
 	type CalendarSummaryWire,
 	type DuplicateReason,
