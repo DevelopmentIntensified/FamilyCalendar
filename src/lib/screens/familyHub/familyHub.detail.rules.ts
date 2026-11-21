@@ -9,6 +9,7 @@
  *
  * Doc: ./README.md#invariants
  */
+import { DateTime } from 'luxon';
 
 /** The family fields the settings band edits, as the loader supplies them. */
 export type FamilySettingsSource = {
@@ -106,3 +107,30 @@ export function activityLine(item: ActivityLineItem): string {
 
 /** The feed's empty state, worded once so the card and its test cannot drift. */
 export const ACTIVITY_EMPTY_MESSAGE = 'No activity yet — complete something to get things moving.';
+
+/**
+ * The relative time beside an activity line ("2 days ago"), the legacy
+ * `relativeTime` (`dateUtils.ts:88-91` = Luxon's `toRelative()`). `now` is
+ * passed in (rule R5); an empty or unparsable instant prints nothing.
+ *
+ * A completion's stamp is the `mode: 'string'` column, which reads back as
+ * Postgres text (`2026-02-01 10:00:00+00`) rather than ISO — the legacy call
+ * answered `''` for those rows. `fromSQL` parses that form too, so a completed
+ * item finally prints its age; an ISO stamp takes the `fromISO` path.
+ */
+export function activityAgo(at: string, now: Date): string {
+	let instant = DateTime.fromISO(at);
+	if (!instant.isValid) instant = DateTime.fromSQL(at);
+	if (!instant.isValid) return '';
+	return instant.toRelative({ base: DateTime.fromJSDate(now) }) ?? '';
+}
+
+/**
+ * The rail's "Expires" cell: the live code's date in the reader's locale
+ * (legacy `inviteExpiry` = `new Date(iso).toLocaleDateString()`); an
+ * unparsable instant prints nothing.
+ */
+export function inviteExpiryLabel(expiresAt: Date | string): string {
+	const date = expiresAt instanceof Date ? expiresAt : new Date(expiresAt);
+	return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString();
+}
