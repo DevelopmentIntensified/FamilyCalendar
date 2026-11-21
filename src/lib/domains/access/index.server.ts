@@ -31,6 +31,7 @@ export {
 	verifyEmailEndpoint
 } from './access.http.server';
 export {
+	changeEmailAction,
 	claimPage,
 	claimRequestAction,
 	claimVerifyAction,
@@ -44,6 +45,7 @@ export {
 	signupPage,
 	verifyEmailAction,
 	verifyEmailPage,
+	type ChangeEmailActionData,
 	type ClaimRequestActionData,
 	type LoginPageData,
 	type MergeGuestPageData,

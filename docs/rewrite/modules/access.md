@@ -200,7 +200,7 @@ Three kernel seams do not exist yet; they are planned here, not written in this 
 | `services/claimService.ts` — token functions | `access.repo.server.ts` + `access.claim.rules.ts`; `verifyClaimToken` → `confirmClaim`. `findActiveTokenForUser` dies (no importers). |
 | `services/claimRequest.ts` | `access.claim.service.server.ts`. |
 | `services/guestMergeService.ts` | `access.guestMerge.service.server.ts` (cookie stash moves into the sign-in flows, after success). |
-| `services/accountData.ts` — `requestEmailChange` + `UpdateEmailDeps` | `access.emailChange.service.server.ts`; the rest of `accountData` stays with the account screen/identity. |
+| `services/accountData.ts` — `requestEmailChange` + `UpdateEmailDeps` | `access.emailChange.service.server.ts`; the rest of `accountData` stays with the account screen/identity. **Done in S6 (security review finding 1):** `/account?/updateEmail` is wired to `changeEmailAction` (`access.pages.http.server.ts`, exported through `index.server.ts`), which calls the access service, so the code row is HMAC-keyed and the verify page can redeem it; the legacy `requestEmailChange`, `UpdateEmailDeps`, `defaultUpdateEmailDeps` and their two legacy route tests have been deleted. The action keeps legacy's bodies: `{success:false,message}` (+`guestNeedsClaim`), 429 `Too many attempts. Try again shortly.`, 500 `Failed to send verification email`. |
 | `utils/createNewUser.ts` | identity (user + provider account + settings); the personal-calendar call is composed in `access.password.service.server.ts` through calendar's entry. |
 | `components/auth/{AuthCard,AuthInput,ModeToggle}.svelte` | `ui/`, rebuilt on kernel/ui primitives. |
 

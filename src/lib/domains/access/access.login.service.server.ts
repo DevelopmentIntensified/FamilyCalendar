@@ -146,10 +146,13 @@ export async function completeEmailLoginCode(
 		return { outcome: 'bad-code' };
 	}
 
-	// Legacy required the provider ACCOUNT here (`getAccount`) and used its
-	// owner; a live code with no binding is the "No Account found" branch.
+	// Legacy looked up the provider ACCOUNT first (`getAccount`) and fell back to
+	// `getUserByEmail` when there was no binding: password sign-ups and claimed
+	// guests have a `users` row and no `accounts` row, so the address fallback is
+	// what lets them redeem this code. `findPersonForSignIn` is that order; only
+	// "neither binding nor person" is the legacy "No Account found" branch.
 	const lookup = await findPersonForSignIn(ctx, input.email);
-	if (!lookup.bound || !lookup.person) return { outcome: 'no-account' };
+	if (!lookup.person) return { outcome: 'no-account' };
 
 	const started = await startSession(ctx, lookup.person.id);
 	await redeemEmailCode(ctx, key);

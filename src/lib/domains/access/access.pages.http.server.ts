@@ -29,7 +29,7 @@ import { getPerson, type SessionCookie } from '$lib/domains/identity/index.serve
 import { CALENDAR_LANDING_PATH, authRedirectTarget, EMAIL_LINK_LANDING_PATH } from './access.redirect.rules';
 import { isGuestPerson, isRegisteredPerson } from './access.person.rules';
 import { claimEmail } from './access.claim.rules';
-import { CLAIM_SEND_FAILED_MESSAGE } from './access.contract';
+import { CLAIM_SEND_FAILED_MESSAGE, EMAIL_CHANGE_SEND_FAILED_MESSAGE } from './access.contract';
 import { sessionCookieHeader } from './access.http.server';
 import { completeEmailLoginLink } from './access.login.service.server';
 import { completeEmailSignupLink } from './access.signup.service.server';
@@ -41,7 +41,7 @@ import {
 	mergeGuest,
 	stashGuestFromCookies
 } from './access.guestMerge.service.server';
-import { verifyEmailChange } from './access.account.service.server';
+import { requestEmailChange, verifyEmailChange } from './access.account.service.server';
 
 // --- `/login` and `/signup` -------------------------------------------------
 
@@ -215,6 +215,52 @@ export const claimVerifyAction = endpoint({
 			event.cookies.set(result.cookie.name, result.cookie.value, result.cookie.attributes);
 		}
 		throw redirect(302, '/calendar?claimed=1');
+	}
+});
+
+// --- `/account` -------------------------------------------------------------
+
+/** The action's legacy answer: `{success,message}` either way, plus the claim hint. */
+export type ChangeEmailActionData = {
+	readonly success: boolean;
+	readonly message: string;
+	readonly guestNeedsClaim?: boolean;
+};
+
+/**
+ * `?/updateEmail` on `/account` — starts an email change: mails a 15-minute
+ * code+link to the NEW address and binds the row to the current one. The page
+ * reads `form.message` on success AND failure, so the failure body keeps that
+ * field name (never the house `error`); the guest refusal also carries
+ * `guestNeedsClaim` (legacy `accountData.requestEmailChange`).
+ */
+export const changeEmailAction = formAction({
+	auth: 'user',
+	handle: async ({
+		ctx,
+		actor,
+		event
+	}): Promise<ChangeEmailActionData | ActionFailure<ChangeEmailActionData>> => {
+		try {
+			// Legacy read its form inside the flow's own `try`, after the throttle.
+			const form = await event.request.formData();
+			const email = form.get('email');
+			return await requestEmailChange(ctx, actor, {
+				email: typeof email === 'string' ? email : '',
+				clientKey: clientKeyOf(event.request, `email-change:${actor.id}`),
+				siteUrl: ctx.config.siteUrl
+			});
+		} catch (cause) {
+			if (isAppError(cause)) {
+				return fail(cause.status, {
+					success: false,
+					message: cause.message,
+					...(cause.extra.guestNeedsClaim === true ? { guestNeedsClaim: true } : {})
+				});
+			}
+			// Legacy's own `try` answered the same 500 copy for any other fault.
+			return fail(500, { success: false, message: EMAIL_CHANGE_SEND_FAILED_MESSAGE });
+		}
 	}
 });
 
