@@ -1,14 +1,24 @@
 <script lang="ts">
-	/**
-	 * Root layout: the single home for the global stylesheet. Every route
-	 * group previously imported app.css separately → the compiled Tailwind
-	 * globals shipped as multiple ~80KB duplicates (one per group, e.g. two
-	 * 80K Toaster.*.css copies), and page CSS load rode on group chunks —
-	 * the intermittently-missing-styles report (#062). One import here means
-	 * exactly one global stylesheet on every page; per-route CSS stays
-	 * code-split by SvelteKit for everything else.
-	 */
 	import '../app.css';
+	import type { Snippet } from 'svelte';
+	import { building } from '$app/environment';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { createShellPorts } from '$lib/screens/shell';
+	import { ShellRoot } from '$lib/screens/shell/ui';
+	import type { LayoutData } from './$types';
+
+	let { data, children }: { data: LayoutData; children: Snippet } = $props();
+	const ports = createShellPorts();
 </script>
 
-<slot />
+<ShellRoot
+	routeId={page.route.id}
+	pathname={page.url.pathname}
+	search={building ? '' : page.url.search}
+	user={data.user}
+	{ports}
+	navigate={goto}
+>
+	{@render children()}
+</ShellRoot>
