@@ -148,6 +148,8 @@ Implemented differences from the rows above, with their reasons:
 | `ui/PlanUsageRow.svelte` | ui | one usage row (`Unlimited` when the plan says so). |
 | `ui/planCard.svelte.test.ts` | test | renders with props: free, paid, lifetime, over-cap usage. |
 
+- **`/pricing` and `/checkout` are marketing's pages (wave decision, 2026-11-21).** Billing's S7 is the account plan card only; the site's pricing cards and the checkout quote render in marketing's `ui/PricingScreen` / `ui/CheckoutScreen` from billing's public entries (`FREE_PLAN_LIMITS`, `getCheckoutQuote`, `listEligibleDiscounts`, `recordPlanView`, `planTypeOrDefault`). The legacy `checkoutService.ts` / `analyticsService.ts` deletion stays billing's S8; marketing's pages no longer import them.
+
 ### Where each legacy export goes — or why it dies
 
 | legacy export | home in the port |

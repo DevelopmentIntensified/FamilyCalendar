@@ -1,8 +1,9 @@
 /**
- * The module's eight page bodies, rendered from props: each one's h1 (the
+ * The module's ten page bodies, rendered from props: each one's h1 (the
  * visual check's `ready` selector), the copy each page exists for, the `/android`
- * states (coming soon, then the repo + APK), and the `/contact` flow — the
- * pending "Sending...", the inline refusal and the "Message Sent!" swap.
+ * states (coming soon, then the repo + APK), the `/contact` flow — the
+ * pending "Sending...", the inline refusal and the "Message Sent!" swap — and
+ * the pricing cards plus the checkout quote the billing service returns.
  *
  * Doc: ../README.md#invariants
  */
@@ -14,9 +15,11 @@ import { CHANGELOG_ENTRIES, changelogNewestFirst } from '../marketing.content.ru
 import AboutScreen from './AboutScreen.svelte';
 import AndroidScreen from './AndroidScreen.svelte';
 import ChangelogScreen from './ChangelogScreen.svelte';
+import CheckoutScreen from './CheckoutScreen.svelte';
 import ContactScreen from './ContactScreen.svelte';
 import FeaturesScreen from './FeaturesScreen.svelte';
 import HomeScreen from './HomeScreen.svelte';
+import PricingScreen from './PricingScreen.svelte';
 import PrivacyScreen from './PrivacyScreen.svelte';
 import RoadmapScreen from './RoadmapScreen.svelte';
 
@@ -37,6 +40,28 @@ const published: PublishedRepo = {
 	}
 };
 
+/** A quote as billing's `getCheckoutQuote` answers it: annual, 40% family line. */
+const checkoutProps = {
+	selectedPlan: { type: 'annual' as const, name: 'Family Master', price: 54 },
+	checkoutResult: {
+		originalPrice: 90,
+		discountPercentage: 40,
+		discountAmount: 36,
+		finalPrice: 54,
+		appliedDiscounts: [
+			{ discountId: 'family-member-discount', name: 'Family Member Discount', percentage: 40, amount: 36 }
+		]
+	},
+	userDiscounts: [
+		{
+			eligible: true,
+			discountType: 'family_size',
+			percentage: 40,
+			description: 'Family member discount (5+ members)'
+		}
+	]
+};
+
 const cases: { name: string; h1: string; mount: () => void }[] = [
 	{ name: 'HomeScreen', h1: 'Where family schedules come together', mount: () => render(HomeScreen) },
 	{ name: 'AboutScreen', h1: 'About Family Planz', mount: () => render(AboutScreen) },
@@ -55,6 +80,16 @@ const cases: { name: string; h1: string; mount: () => void }[] = [
 			})
 	},
 	{ name: 'FeaturesScreen', h1: 'Everything your family needs', mount: () => render(FeaturesScreen) },
+	{
+		name: 'PricingScreen',
+		h1: 'Simple pricing for every family',
+		mount: () => render(PricingScreen, { props: { memberLimit: 6 } })
+	},
+	{
+		name: 'CheckoutScreen',
+		h1: 'Complete Your Purchase',
+		mount: () => render(CheckoutScreen, { props: checkoutProps })
+	},
 	{ name: 'PrivacyScreen', h1: 'Privacy Policy', mount: () => render(PrivacyScreen) },
 	{ name: 'RoadmapScreen', h1: 'Roadmap', mount: () => render(RoadmapScreen) }
 ];
@@ -88,6 +123,55 @@ describe('FeaturesScreen', () => {
 		expect(screen.getByText('Sarah M.')).toBeInTheDocument();
 		expect(screen.getByText('Jessica L.')).toBeInTheDocument();
 		expect(document.querySelectorAll('img')).toHaveLength(3);
+	});
+});
+
+describe('PricingScreen', () => {
+	it('renders the three cards with the free member limit it is given', () => {
+		render(PricingScreen, { props: { memberLimit: 6 } });
+
+		for (const name of ['Free', 'Family', 'Lifetime']) {
+			expect(screen.getByRole('heading', { name })).toBeInTheDocument();
+		}
+		expect(screen.getByText('Up to 6 family members')).toBeInTheDocument();
+		expect(screen.queryByText('Up to 5 family members')).toBeNull();
+		expect(screen.getByText('Most Popular')).toBeInTheDocument();
+		expect(screen.getByText('Less than $1/month over 10 years')).toBeInTheDocument();
+	});
+
+	it('sends every card CTA to signup and carries the legacy FAQ rows', () => {
+		render(PricingScreen, { props: { memberLimit: 6 } });
+
+		for (const label of ['Start Free', 'Start Free Trial', 'Get Lifetime Access']) {
+			expect(screen.getByRole('link', { name: label }).getAttribute('href')).toBe('/signup');
+		}
+		expect(screen.getByText('Frequently Asked Questions')).toBeInTheDocument();
+		expect(screen.getByText('Can I try Family Planz before paying?')).toBeInTheDocument();
+	});
+});
+
+describe('CheckoutScreen', () => {
+	it('prints the selected plan, the applied discounts and the price breakdown', () => {
+		render(CheckoutScreen, { props: checkoutProps });
+
+		expect(document.body.textContent).toContain('Family Master');
+		expect(document.body.textContent).toContain('Family Member Discount: 40% off ($36.00)');
+		expect(document.body.textContent).toContain('Total savings: $36.00');
+		expect(document.body.textContent).toContain('Family member discount (5+ members): 40% off');
+		expect(document.body.textContent).toContain('-$36.00');
+	});
+
+	it('posts the plan and price from hidden fields and keeps the stub button disabled', () => {
+		render(CheckoutScreen, { props: checkoutProps });
+
+		const form = document.querySelector('form');
+		expect(form?.getAttribute('method')).toBe('POST');
+		expect(form?.getAttribute('action')).toBe('?/purchase');
+		expect(document.querySelector('input[name="planType"]')?.getAttribute('value')).toBe('annual');
+		expect(document.querySelector('input[name="finalPrice"]')?.getAttribute('value')).toBe('54');
+		const button = document.querySelector('button[type="submit"]');
+		expect((button as HTMLButtonElement).disabled).toBe(true);
+		expect(button?.textContent?.trim()).toBe('Coming Soon');
 	});
 });
 

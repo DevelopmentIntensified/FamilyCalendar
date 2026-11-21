@@ -1,7 +1,8 @@
 /**
  * The module's HTTP edge: the one `/api` route and the page loads/actions of
  * the `(marketing)` group. No SQL, no rules — the use case is
- * `sendContactMessage` and the view model is `androidRelease`.
+ * `sendContactMessage`, the view model is `androidRelease`, and the pricing
+ * and checkout pages read billing's public services and family's list service.
  *
  * `/api/contact` is a form-action FILE (`src/routes/api/contact/+page.server.ts`)
  * with no page component: installed callers POST form-encoded data there and
@@ -18,10 +19,26 @@
  */
 import { redirect } from '@sveltejs/kit';
 import published from '$lib/fdroid/published.json';
+import { FREE_PLAN_LIMITS, isPlanType, planTypeOrDefault } from '$lib/domains/billing/index';
+import { listFamilies } from '$lib/domains/family/index.server';
+import {
+	getCheckoutQuote,
+	listEligibleDiscounts,
+	recordPlanView
+} from '$lib/domains/billing/index.server';
 import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
-import { formAction, pageLoad } from '$lib/kernel/http/pageHandlers.server';
+import { formAction, formFields, pageLoad } from '$lib/kernel/http/pageHandlers.server';
 import { androidRelease } from './marketing.android.rules';
 import { CONTACT_API_FAULT_MESSAGE } from './marketing.contract';
+import {
+	CHECKOUT_INVALID_MESSAGE,
+	CHECKOUT_LOGIN_REDIRECT,
+	CHECKOUT_NOT_AUTHENTICATED_MESSAGE,
+	CHECKOUT_STUB_MESSAGE,
+	checkoutPlanName,
+	fullestFamilyMemberCount,
+	type CheckoutPlanView
+} from './marketing.pricing.rules';
 import { sendContactMessage } from './marketing.service.server';
 
 /**
@@ -62,6 +79,70 @@ export const marketingLayoutLoad = pageLoad({
 export const androidPageLoad = pageLoad({
 	auth: 'public',
 	handle: async () => ({ release: androidRelease(published) })
+});
+
+/**
+ * `/pricing`: a signed-in visit records the `pricing_view` event (legacy
+ * `trackPricingView(user.id, 'view')`), and the page gets the free card's
+ * member number from billing's policy. The legacy load also read the viewer's
+ * eligible discounts and quoted every plan; the page never rendered either, so
+ * the port keeps only what the screen shows (see the sheet's Notes).
+ */
+export const pricingPageLoad = pageLoad({
+	auth: 'optional',
+	handle: async ({ ctx, actor }) => {
+		if (actor) recordPlanView(ctx, actor, 'view');
+		return { memberLimit: FREE_PLAN_LIMITS.memberLimit };
+	}
+});
+
+/**
+ * `/checkout`: signed-in only, with the legacy `?redirect=` way back (a kernel
+ * `auth: 'user'` load would drop the query string). The quote and the
+ * discount list are billing's; the family count it needs is the fullest
+ * family's member count (Q-017 B), read through family's list service because
+ * billing may not read the family tables.
+ */
+export const checkoutPageLoad = pageLoad({
+	auth: 'optional',
+	handle: async ({ ctx, actor, event }) => {
+		if (!actor) redirect(302, CHECKOUT_LOGIN_REDIRECT);
+
+		const plan = planTypeOrDefault(event.url.searchParams.get('plan'));
+		const families = await listFamilies(ctx, actor);
+		const familyMemberCount = fullestFamilyMemberCount(families.families);
+
+		// Sequential: the ctx db may be one transaction session (family's rule).
+		const checkoutResult = await getCheckoutQuote(ctx, actor, { plan, familyMemberCount });
+		const userDiscounts = await listEligibleDiscounts(ctx, actor, { familyMemberCount });
+		const selectedPlan: CheckoutPlanView = {
+			type: plan,
+			name: checkoutPlanName(plan),
+			price: checkoutResult.finalPrice
+		};
+
+		return { isLoggedIn: true, selectedPlan, checkoutResult, userDiscounts };
+	}
+});
+
+/**
+ * `POST /checkout?/purchase`: the stub. It refuses the two malformed posts with
+ * the legacy sentences and never charges anyone; the provider call the legacy
+ * action never made stays unwritten. Auth is `optional` because the legacy
+ * action checked the person itself and answered a success body, not a 401.
+ */
+export const checkoutPurchaseAction = formAction({
+	auth: 'optional',
+	handle: async ({ actor, event }) => {
+		if (!actor) return { success: false, error: CHECKOUT_NOT_AUTHENTICATED_MESSAGE };
+
+		const form = formFields(await event.request.formData());
+		const planType = isPlanType(form.planType) ? form.planType : null;
+		const finalPrice = Number(form.finalPrice ?? 0);
+		if (!planType || !finalPrice) return { success: false, error: CHECKOUT_INVALID_MESSAGE };
+
+		return { success: false, message: CHECKOUT_STUB_MESSAGE };
+	}
 });
 
 /**

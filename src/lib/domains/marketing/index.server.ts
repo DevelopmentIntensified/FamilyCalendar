@@ -5,7 +5,10 @@
 export { sendContactMessage } from './marketing.service.server';
 export {
 	androidPageLoad,
+	checkoutPageLoad,
+	checkoutPurchaseAction,
 	contactEndpoint,
 	marketingLayoutLoad,
+	pricingPageLoad,
 	strayRootPostAction
 } from './marketing.http.server';
