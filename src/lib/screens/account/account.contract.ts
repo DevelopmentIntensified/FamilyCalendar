@@ -18,7 +18,7 @@
  *
  * Doc: ./README.md#public-interface
  */
-import { isoInstant, z } from '$lib/kernel/validation/validators';
+import { INVALID_JSON_MESSAGE, isoInstant, z } from '$lib/kernel/validation/validators';
 import { ACCOUNT_SECTIONS, type AccountSectionId } from './account.sections.rules';
 import { EXPORT_VERSION } from './account.export.rules';
 
@@ -65,12 +65,17 @@ export type AccountMe = z.infer<typeof AccountMeResponse>;
  * the refusal keeps that one message. A body that is not a JSON object is the
  * kernel's `400 {"error":"Invalid JSON"}` before this schema sees it.
  */
-export const AccountDeleteBody = z.object({
-	confirmation: z.preprocess(
-		(value) => (typeof value === 'string' ? value : ''),
-		z.string()
-	)
-});
+export const AccountDeleteBody = z.object(
+	{
+		confirmation: z.preprocess(
+			(value) => (typeof value === 'string' ? value : ''),
+			z.string()
+		)
+	},
+	// A body that is not a JSON object (an array, a string, a number, `null`) is
+	// the legacy reader's `Invalid JSON`, exactly like malformed JSON.
+	{ error: INVALID_JSON_MESSAGE }
+);
 export type AccountDeleteBody = z.infer<typeof AccountDeleteBody>;
 
 /** `200` body of `DELETE /api/me`. */
@@ -367,3 +372,14 @@ export const AccountSectionModelResponse = z.discriminatedUnion('section', [
 	})
 ]);
 export type AccountSectionModel = z.infer<typeof AccountSectionModelResponse>;
+
+/**
+ * What `/account`'s first paint carries: the rail's identity, the default
+ * (profile) section's model, and the load's instant — the relative labels the
+ * sections print ("last used …", "Resets …") are computed against it.
+ */
+export type AccountPagePaint = {
+	readonly user: AccountPersonModel;
+	readonly section: AccountSectionModel;
+	readonly now: string;
+};

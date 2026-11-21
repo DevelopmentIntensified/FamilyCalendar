@@ -14,12 +14,12 @@ The /account page: one section per domain (profile, calendar settings, notificat
 - [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
 - [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S4 repo (+ fixtures) — skipped: a screen owns no tables (screens differ in three ways).
+- [x] S5 service (`account.service.server.ts`, `account.export.service.server.ts`, `account.export.repo.server.ts`)
+- [x] S6 http + route wiring (goldens unchanged since S2; `/account/section/[section]` added)
+- [x] S7 UI rebuild (rules, api, state, components, screen) — visual/perf checks are the orchestrator’s
+- [x] S8 rewire importers, delete legacy code and legacy tests
+- [x] S9 README final (census --write / gate:push / ledger are the orchestrator’s)
 
 ## Must survive
 
@@ -221,6 +221,36 @@ screen owns no tables, so fixtures belong to the owning domains.
 **Page `/calendar/settings`.** A 302 only: no HTML, no data, no budget to measure.
 
 ## Notes
+
+### Port notes (S5–S9, 2026-11-21)
+
+- S5/S6/S7/S8/S9 done. `account.service.server.ts`, `account.export.service.server.ts` +
+  `account.export.repo.server.ts`, `account.http.server.ts`, `account.api.ts`,
+  `account.state.svelte.ts`, five rule files, twelve UI components + six UI tests, the state test.
+- Routes wired: `/account` load+actions, new `GET /account/section/[section]`, `/calendar/settings`,
+  `GET|DELETE /api/me`, `GET /api/account/export`. The frozen `account.http.db.test.ts` is untouched.
+- Deleted (legacy, all importers rewired): `components/account/` — the eleven section/sidebar
+  `.svelte` files, `accountSections.ts`, `accountCalendars.ts` (+test), `accountDashboardModules.ts`
+  (+test), `accountSubscription.ts` (+test) and every component test; `server/services/accountData.ts`;
+  `server/db/actions/export.ts` (+test); the six legacy route tests
+  (`(calendar)/account/{layout.svelte,page.server,page.svelte}.test.ts`,
+  `api/account/export/server.test.ts`, `api/me/{account.,server.}test.ts`).
+- Kept: `components/account/accountNotifications.ts` — alerts' README keeps it for the legacy
+  `server/db/actions/notificationMethods.ts` importer; both are alerts' to delete.
+- Kept: `routes/(calendar)/account/+layout.server.ts` and `+layout.svelte` — they render
+  Navbar/BottomNav/Toaster and the group guard; the shell screen's layout that takes them is not on
+  this worktree. Q-083's recorded default ("the shell layout takes it; the page keeps a defensive
+  check") is met by `accountPageLoad`'s own `auth: 'user'` guard; the layout files go when the shell
+  lands.
+- Deviations, all noted in the README: page-action failure bodies use the kernel's `error` key
+  (the banner reads `message ?? error`, so the sentence is identical); `AccountFamilyModel.memberType`
+  is `null` because family's list payload does not carry it (unused by the page);
+  `emailVerified` is coerced to a boolean (`?? false`) per the S3 contract where legacy sent null.
+- ASKs: (1) dashboardModules should export the mounted fact (`meals` parked) instead of the screen
+  declaring it; (2) billing should own the plan-card display helpers; (3) each owning domain should
+  export its export slice (Q-078 A), so `account.export.repo.server.ts` can go; (4) tasks should
+  export "clear a person's assignments" for the deletion transaction, so a lingering assignment in a
+  family the person had left cannot keep a ghost status.
 
 - Verse deleted 2026-11-12 (Q-031/Q-032): the translation picker and the `showDailyVerse` toggle left the Calendar Settings card, `verseTranslation` left the settings wire and the save, and a `verseTranslation` PATCH is now an unknown field. `showDailyVerse` stays on the `/api/me/settings` wire and stays PATCH-writable (the Android app toggles it and it gates the kept `verse` Dashboard Module id); the form no longer posts it, so a calendar-settings save leaves the stored value alone.
 ### Corrections to the draft inventory (code wins)

@@ -1,5 +1,5 @@
 /**
- * account — public components.
+ * account — public components: the page body.
  * Doc: ../README.md#public-interface
  */
-export {};
+export { default as AccountScreen } from './AccountScreen.svelte';
