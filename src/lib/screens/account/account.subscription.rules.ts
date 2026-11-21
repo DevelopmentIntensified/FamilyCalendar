@@ -27,6 +27,13 @@ export type AccountSubTier = AccountSubscriptionSectionModel['subscription']['ti
 /** The active window row as the card reads it. */
 export type AccountSubRow = NonNullable<AccountSubscriptionSectionModel['subscription']['subscription']>;
 
+/**
+ * The two dates the card's sentences print. The rules read nothing else from
+ * the row, so they take only these columns — a caller (a test, or a page that
+ * only carries the window) does not have to invent `id`/`createdAt`.
+ */
+export type AccountSubscriptionDates = Pick<AccountSubRow, 'startDate' | 'endDate'>;
+
 /** `5MB` / `512KB`; a missing or zero limit reads as an em dash. */
 export function accountFormatBytes(bytes: number | null | undefined): string {
 	if (!bytes) return '—';
@@ -37,7 +44,7 @@ export function accountFormatBytes(bytes: number | null | undefined): string {
 /** The period sentence the approved card puts beside "Active". */
 export function accountSubscriptionPeriodLabel(
 	isPaidPlan: boolean,
-	sub: { readonly tier: AccountSubTier | null; readonly row: AccountSubRow | null } | null
+	sub: { readonly tier: AccountSubTier | null; readonly row: AccountSubscriptionDates | null } | null
 ): string {
 	if (!isPaidPlan) return 'No subscription yet';
 	if (!sub?.row) return 'Active';
@@ -68,7 +75,7 @@ export function accountUsageLine(used: number, limit: number | null | undefined)
  * unparseable date yields null, so the line is absent rather than wrong.
  */
 export function accountRenewalDateLabel(
-	row: AccountSubRow | null | undefined,
+	row: AccountSubscriptionDates | null | undefined,
 	durationMonths: number | null | undefined = null
 ): string | null {
 	if (!row) return null;

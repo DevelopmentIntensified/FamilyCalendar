@@ -10,7 +10,11 @@
 -->
 <script lang="ts">
 	import Skeleton from '$lib/kernel/ui/Skeleton.svelte';
-	import { DEFAULT_ALERT_PREFERENCES, type AlertPreferences } from '$lib/domains/alerts';
+	import {
+		DEFAULT_ALERT_PREFERENCES,
+		type AlertPreferenceId,
+		type AlertPreferences
+	} from '$lib/domains/alerts';
 	import type { AccountNotificationOptionModel } from '../account.contract';
 	import { AccountNotificationsState } from '../account.notifications.state.svelte';
 	import type { AccountFormEnhancer } from '../account.state.svelte';
@@ -24,6 +28,17 @@
 
 	let { preferences, options, enhance }: Props = $props();
 
+	/**
+	 * The switches ARE the alerts vocabulary — the service maps `ALERT_PREFERENCES`
+	 * straight onto the wire — while the wire types `id` as a plain string. The
+	 * iteration works on the union so every call into the state class is typed.
+	 */
+	type AccountNotificationKind = Omit<AccountNotificationOptionModel, 'id'> & {
+		readonly id: AlertPreferenceId;
+	};
+	// SAFETY: the ids are the four alert preferences by construction (README Invariants).
+	const kinds = $derived(options as readonly AccountNotificationKind[]);
+
 	const state = new AccountNotificationsState(preferences ?? DEFAULT_ALERT_PREFERENCES);
 
 	// A reload's answer is truth again; the optimistic flip survives a toggle
@@ -36,13 +51,13 @@
 <div id="notifications">
 	<h2 class="mb-4 text-lg font-semibold text-slate-900">Notifications</h2>
 
-	{#if !preferences || options.length === 0}
+	{#if !preferences || kinds.length === 0}
 		<div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
 			<Skeleton shape="toggle" lines={4} label="Loading notification preferences" />
 		</div>
 	{:else}
 		<div class="rounded-xl border border-slate-200 bg-slate-50 px-4">
-			{#each options as pref, index (pref.id)}
+			{#each kinds as pref, index (pref.id)}
 				{@const on = state.valueOf(pref.id)}
 				{@const hintId = `notification-hint-${pref.id}`}
 				<form
