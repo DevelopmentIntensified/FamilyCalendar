@@ -6,7 +6,11 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
 	import Toaster from '$lib/components/Toaster.svelte';
-	import { MarketingShell } from '$lib/domains/marketing/ui';
+	// The shell component itself, not the module's `ui/index.ts`: that barrel
+	// re-exports all seventeen marketing screens, so importing it here put their
+	// code (and luxon, through the changelog formatter) in every marketing page's
+	// first paint. Every page under this group pays for this file (ADR 0010).
+	import MarketingShell from '$lib/domains/marketing/ui/MarketingShell.svelte';
 	import type { Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 

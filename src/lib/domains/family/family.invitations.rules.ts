@@ -4,9 +4,9 @@
  * "really about" (the live one), the other codes, and the use-slot strip.
  *
  * The route's clamps (`clampInviteDays` 1–30, `clampInviteUses` 1–50) stay in
- * `family.invites.rules.ts`; the band is narrower on purpose (the approved
- * prototype's 1–20), so this file declares the UI's offer and the server keeps
- * the last word.
+ * `family.contract.ts`, with the mint body's schema; the band is narrower on
+ * purpose (the approved prototype's 1–20), so this file declares the UI's offer
+ * and the server keeps the last word.
  *
  * Doc: ./README.md#invariants
  */

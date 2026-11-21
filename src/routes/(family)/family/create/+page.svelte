@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { FamilyCreateScreen } from '$lib/domains/family/ui';
+	import FamilyCreateScreen from '$lib/domains/family/ui/FamilyCreateScreen.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();

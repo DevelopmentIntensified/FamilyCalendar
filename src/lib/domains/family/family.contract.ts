@@ -17,11 +17,18 @@
  * Doc: ./README.md#invariants
  */
 import {
+	clampedInt,
 	formList,
 	INVALID_JSON_MESSAGE,
 	isoInstant,
+	type JsonValue,
 	z
 } from '$lib/kernel/validation/validators';
+import {
+	DEFAULT_INVITE_DAYS,
+	DEFAULT_INVITE_MAX_USES,
+	type InviteMintPlan
+} from './family.invites.rules';
 
 /** The one 400 for a `memberIds` field that is present but not a list. */
 export const MEMBER_IDS_NOT_ARRAY_MESSAGE = 'memberIds must be an array';
@@ -378,6 +385,31 @@ export const InviteEmailErrorResponse = z.object({
 export type InviteEmailErrorResponse = z.infer<typeof InviteEmailErrorResponse>;
 
 // --- `/api/family/invite` --------------------------------------------------
+
+// The kernel clamp is the one home for "number or numeric string, junk falls
+// back"; these two fix the family bounds around it. They live here, with the
+// schemas, because they parse wire values: `family.invites.rules.ts` is
+// imported by the screens and must stay zod-free (ADR 0010).
+const inviteDays = clampedInt(1, 30, DEFAULT_INVITE_DAYS);
+const inviteUses = clampedInt(1, 50, DEFAULT_INVITE_MAX_USES);
+
+/** `expiresInDays` from a body: 1-30, default 7; a fraction truncates, junk is the default. */
+export function clampInviteDays(value: JsonValue | undefined): number {
+	return inviteDays.parse(value);
+}
+
+/** `maxUses` from a body: 1-50, default 10; a fraction truncates, junk is the default. */
+export function clampInviteUses(value: JsonValue | undefined): number {
+	return inviteUses.parse(value);
+}
+
+/** The mint door's plan: the body's two counts through their clamps. */
+export function shareInvitePlan(
+	expiresInDays: JsonValue | undefined,
+	maxUses: JsonValue | undefined
+): InviteMintPlan {
+	return { days: clampInviteDays(expiresInDays), maxUses: clampInviteUses(maxUses) };
+}
 
 /** `POST /api/family/invite`: the family, plus the two clamped counts. */
 export const MintInviteBody = wireObject(

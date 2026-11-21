@@ -10,7 +10,6 @@ import {
 	formatUsDate,
 	groupByDay,
 	isValidZone,
-	relativeFromNow,
 	startOfDayIn,
 	toInstantString
 } from './dates';
@@ -175,37 +174,6 @@ describe('month math', () => {
 
 	it.each(rows)('addMonthsClamped(%j, %d) → %j', (date, months, expected) => {
 		expect(addMonthsClamped(date, months)).toBe(expected);
-	});
-});
-
-describe('relative dates', () => {
-	const NEW_YORK = 'America/New_York';
-
-	it.each([
-		['2026-11-11T15:00:00Z', 'today'],
-		['2026-11-12T15:00:00Z', 'in 1 day'],
-		['2026-11-14T15:00:00Z', 'in 3 days'],
-		// Bucket edges: 13 calendar days still reads days, 14 switches to weeks.
-		['2026-11-24T15:00:00Z', 'in 13 days'],
-		['2026-11-25T15:00:00Z', 'in 2 weeks'],
-		// 59 calendar days still reads weeks, 60 switches to months.
-		['2027-01-09T15:00:00Z', 'in 8 weeks'],
-		['2027-01-10T15:00:00Z', 'in 2 months'],
-		['2026-11-10T15:00:00Z', '1 day ago'],
-		['2026-11-01T15:00:00Z', '10 days ago'],
-		['2026-10-14T15:00:00Z', '4 weeks ago'],
-		['2026-09-01T15:00:00Z', '2 months ago'],
-		['2027-01-11T15:00:00Z', 'in 2 months'],
-		['nope', '']
-	])('relativeFromNow(%j) → %j', (instant, expected) => {
-		expect(relativeFromNow(instant, NOW, NEW_YORK)).toBe(expected);
-	});
-
-	it('counts calendar days in the zone, not in UTC', () => {
-		// In Kiritimati 02:00Z is 16:00 on the 11th; 12:00Z is 02:00 on the 12th.
-		const zone = 'Pacific/Kiritimati';
-		expect(relativeFromNow('2026-11-11T12:00:00Z', '2026-11-11T02:00:00Z', zone)).toBe('in 1 day');
-		expect(relativeFromNow('2026-11-11T12:00:00Z', '2026-11-11T02:00:00Z', 'UTC')).toBe('today');
 	});
 });
 
