@@ -1,6 +1,6 @@
 # shell
 
-**screen** — App chrome: the root layout's navbar and tab bar, the group frames' banner stack and `<main>` offset, the error page, and the one list of app destinations.
+**screen** — App chrome: the app-chrome layouts' navbar and tab bar, the group frames' banner stack and `<main>` offset, the error page, and the one list of app destinations.
 
 Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly (Anonymous Account, Claiming, Inactivity Window, Alert). Architecture rules: [docs/architecture/rules.md](../../../../docs/architecture/rules.md).
 
@@ -63,7 +63,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly (A
 
 ## Public interface
 
-Small on purpose: the root layout, the two group layouts and `+error.svelte` are the only callers, and every export below survives the deletion test (deleting it would move a rule, not a body, into its caller).
+Small on purpose: the three app-chrome layouts and `+error.svelte` are the only callers, and every export below survives the deletion test (deleting it would move a rule, not a body, into its caller).
 
 - `index.ts`:
   - `shellNavItems` — the six app destinations, once. Both navs read this array: the desktop links drop `bellInstead`, the tab bar keeps everything. Deleting it forces each nav to carry its own copy, which is exactly issue 065.
@@ -79,7 +79,7 @@ Small on purpose: the root layout, the two group layouts and `+error.svelte` are
   - `shellRootLoad` — `pageLoad({ auth: 'optional' })`: the ONE app-chrome guard (302 `/login`) plus the root data.
   - `shellCalendarGroupLoad` — `pageLoad({ auth: 'user' })`: passes the root summary through `event.parent()` (no second query), adds the scope and the countdown, declares `depends('shell:scope')`, and returns no `pathname`. It takes the plain `Ctx`: the scope reads no port.
 - `ui/index.ts`:
-  - `ShellRoot` — props `routeId`, `pathname`, `search`, `user`, `ports`, `navigate`, `children`. Decides `shellChromeForRoute`; renders the navbar, the tab bar and the toast host; reads the badge once.
+  - `ShellRoot` — props `page` (`$app/state`'s page: route id, pathname, search), `user`, `ports`, `navigate`, `children`. Decides `shellChromeForRoute`; renders the navbar, the tab bar and the toast host; reads the badge once. Rendered by the three app-chrome layouts, never by the root layout, so a bare page ships no chrome (ADR 0010).
   - `ShellGroupFrame` — props `variant`, `scope` (`ShellFrameScope`: `user`, `year`, optional `daysLeft`/`settings`), `search`, `ports`, `refresh`, `children`; renders the banner stack, the `<main>` offset and the footer variant.
   - `ShellErrorView` — props `status`, `message`, `pathname`, `search`; the bug CTA links `feedback`'s `reportBugHref`.
 
@@ -106,7 +106,7 @@ Behaviour that must not change, each with the legacy evidence and the v2 test th
 - Any completed navigation closes both menus (bell goto, tab tap, logo), not just clicks on menu links — `src/lib/components/Navbar.svelte:23-28` · `ui/ShellNavbar.svelte.test.ts › closes both menus when the pathname prop changes`
 - Escape and an outside click close the profile dropdown — `src/lib/components/Navbar.svelte:44-50,69-72` · `ui/ShellNavbar.svelte.test.ts › closes the profile menu on Escape and on an outside click`
 - Both menus trap focus while open (the mobile menu gains the trap it never had; see the port sheet's Notes) — `src/lib/components/NavbarProfileMenu.svelte:23`, `src/lib/components/NavbarMobileMenu.svelte:4` · `ui/ShellMobileMenu.svelte.test.ts › traps focus in the open menu`
-- The Report-a-Bug link is `feedback`'s `reportBugHref(pathname + search)` — never for `/report-bug` itself, and never for a foreign origin. The layouts pass `building ? '' : page.url.search`, because a prerendered page may not read `url.search` (the legacy guard, `Navbar.svelte:57-58`) — `src/lib/components/Navbar.svelte:57-58`, `src/lib/utils/reportBug.ts:8-12,24-41` · `ui/ShellProfileMenu.svelte.test.ts › passes ?from= to the bug form and never for /report-bug` and `ui/ShellNavbar.svelte.test.ts › passes the current path and search to the bug form`
+- The Report-a-Bug link is `feedback`'s `reportBugHref(pathname + search)` — never for `/report-bug` itself, and never for a foreign origin. The chrome reads both from the `page` its layout passes; app-chrome routes are never prerendered, so no build-time guard is needed — `src/lib/utils/reportBug.ts:8-12,24-41` · `ui/ShellProfileMenu.svelte.test.ts › passes ?from= to the bug form and never for /report-bug` and `ui/ShellNavbar.svelte.test.ts › passes the current path and search to the bug form`
 - Logout is a plain `POST /api/logout` form whose submit fire-and-forgets `{type:'purge-data-cache'}` to the service-worker controller so cached authed data is dropped — `src/lib/components/NavbarProfileMenu.svelte:88-94`, `src/lib/components/Navbar.svelte:38-42` · `ui/ShellProfileMenu.svelte.test.ts › posts the logout form and purges the data cache`
 - The profile menu shows the name/email header only for a registered account (never the Anonymous Account placeholder), gates Admin/Bug Reports on `isAdmin`, and orders Settings, Family Management, Task Stats, Archive, Report a Bug, red Logout — `src/lib/components/NavbarProfileMenu.svelte:27-95` · `ui/ShellProfileMenu.svelte.test.ts › never shows a guest the placeholder email and gates admin links` and `› lays the account rows out in the legacy order`
 - The mobile menu shows a bell row for a signed-in user, the destination list with the active highlight, the account rows and admin links, then Logout or Sign In + Get Started — `src/lib/components/NavbarMobileMenu.svelte:29-115` · `ui/ShellMobileMenu.svelte.test.ts › shows the sign-in CTAs for guests and the account rows for members` and `› lists the destinations without Alerts and highlights the active one`
@@ -143,4 +143,4 @@ Behaviour that must not change, each with the legacy evidence and the v2 test th
   - `access` — verify-code and resend doors behind `ShellVerifyPort`; Claiming and the guest merge produce the `?claimed`/`?merged` URL flags the notices read.
   - `feedback` — `reportBugHref` for both menus and the error page.
   - kernel: `pageLoad`, `Ctx`/`Actor`, `testCtx` in tests; kernel/client `offlineQueue` + `toasts` (K-07); kernel/ui `BrandMark`, `Toaster`, `trapFocus` (K-08).
-- Called by: `src/routes/+layout.svelte` + `src/routes/+layout.server.ts`, `src/routes/(calendar)/calendar/+layout.svelte` + `+layout.server.ts`, `src/routes/(family)/+layout.svelte` (no server file), `src/routes/+error.svelte`. Later, account (#18) and admin (#19) widen `shellChromeForRoute` instead of copying chrome.
+- Called by: `src/routes/+layout.server.ts` (the app-chrome guard + root data), the three app-chrome layouts — `src/routes/(calendar)/calendar/+layout.svelte` + `+layout.server.ts`, `src/routes/(calendar)/account/+layout.svelte`, `src/routes/(family)/+layout.svelte` (no server files) — and `src/routes/+error.svelte`. The root `+layout.svelte` imports only `app.css`; admin widens `shellChromeForRoute` at its port instead of copying chrome.

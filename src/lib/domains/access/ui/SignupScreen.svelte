@@ -235,6 +235,20 @@
 				{/if}
 			{/if}
 		{/if}
+
+		{#if !data.isLoggedIn}
+			<div class="mt-6 border-t border-slate-100 pt-5">
+				<a
+					href="/calendar"
+					class="flex min-h-[48px] w-full items-center justify-center rounded-full border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+				>
+					Start planning — no account needed
+				</a>
+				<p class="mt-2 text-center text-xs text-slate-400">
+					Creates a private calendar on this device. Add an email later to sync.
+				</p>
+			</div>
+		{/if}
 	</AuthCard>
 </AuthPage>
 

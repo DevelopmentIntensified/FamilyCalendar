@@ -42,6 +42,10 @@ import { ANONYMOUS_EMAIL_DOMAIN } from '$lib/domains/identity';
 // Svelte compiler, and the module entry also re-exports the page's runes state
 // class, which a seed never needs. Same one home for the key (trim+lowercase).
 import { normalizeGroceryName } from '$lib/domains/groceries/groceries.items.rules';
+// The runtime code pepper the preview server runs with: `appCtx` resolves
+// `EMAILSECRET` at runtime, so the invite-email seed must sign with the same
+// placeholder serve.ts pins (`PAGES_EMAIL_SECRET`) — a placeholder, not a secret.
+import { PAGES_EMAIL_SECRET as BUILD_TIME_EMAIL_SECRET } from './env';
 
 /** The zone every seed's dates are expressed in (and the user's settings zone). */
 const ZONE = 'America/New_York';
@@ -49,14 +53,6 @@ const ZONE = 'America/New_York';
 /** Fixed names: they render in the account rail, the roster and the calendar. */
 const FIRST_NAME = 'Rosa';
 const LAST_NAME = 'Alvarez';
-
-/**
- * The `EMAILSECRET` that `npm run build:safe` (what `npm run pages:build`
- * runs) bakes into `$env/static/private`. The invite-email page validates its
- * token against that build-baked value, so the seed must sign with the same
- * placeholder — it is a placeholder, not a secret.
- */
-const BUILD_TIME_EMAIL_SECRET = 'local-build-placeholder-not-a-secret';
 
 export type SeedCookie = { name: string; value: string };
 

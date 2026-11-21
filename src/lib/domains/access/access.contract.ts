@@ -85,9 +85,6 @@ export const MISSING_NAME_MESSAGE = 'First and last name are required';
 /** Password signup with a blank field (`passwordSignup.ts:71`). */
 export const SIGNUP_FIELDS_REQUIRED_MESSAGE = 'All fields are required';
 
-/** Password signup/reset under 8 characters (`passwordSignup.ts:74`). */
-export const PASSWORD_TOO_SHORT_MESSAGE = 'Password must be at least 8 characters';
-
 /** Web password sign-in's one refusal (`login/password/+server.ts:36`). */
 export const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password';
 

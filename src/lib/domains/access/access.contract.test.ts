@@ -45,7 +45,6 @@ import {
 	MobileTokenResponse,
 	MobileVerifyBody,
 	PASSWORD_VERIFY_CALLBACK_PATH,
-	PASSWORD_TOO_SHORT_MESSAGE,
 	RATE_LIMIT_MESSAGE,
 	RESET_ACCOUNT_NOT_FOUND_MESSAGE,
 	RESET_FAILED_MESSAGE,
@@ -63,6 +62,7 @@ import {
 	VerifyEmailBody,
 	WireErrorResponse
 } from './access.contract';
+import { PASSWORD_TOO_SHORT_MESSAGE } from './access.password.rules';
 
 function messageOf(schema: z.ZodType, value: unknown): string | null {
 	const result = schema.safeParse(value);

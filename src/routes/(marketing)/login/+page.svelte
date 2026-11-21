@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { LoginScreen } from '$lib/domains/access/ui';
+	import LoginScreen from '$lib/domains/access/ui/LoginScreen.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();

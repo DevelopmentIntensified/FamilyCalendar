@@ -43,7 +43,6 @@ import {
 } from '$lib/domains/identity/index.server';
 import {
 	FORGOT_EMAIL_REQUIRED_MESSAGE,
-	PASSWORD_TOO_SHORT_MESSAGE,
 	RATE_LIMIT_MESSAGE,
 	RESET_ACCOUNT_NOT_FOUND_MESSAGE,
 	RESET_FIELDS_REQUIRED_MESSAGE,
@@ -57,7 +56,11 @@ import {
 	RESET_LINK_TTL_MS,
 	RESET_TOKEN_PURPOSE
 } from './access.email.rules';
-import { passwordResetRefusal, resetUsedMarker } from './access.password.rules';
+import {
+	PASSWORD_TOO_SHORT_MESSAGE,
+	passwordResetRefusal,
+	resetUsedMarker
+} from './access.password.rules';
 import { isRegisteredPerson } from './access.person.rules';
 
 /** 5 reset mails per address + IP inside 15 minutes (`forgot-password/+server.ts:54`). */

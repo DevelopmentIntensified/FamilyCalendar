@@ -12,9 +12,17 @@
 export const PASSWORD_MIN_LENGTH = 8;
 
 /**
- * Why a password form was refused. The wire copy for each reason is the
- * contract's (`SIGNUP_FIELDS_REQUIRED_MESSAGE`, `PASSWORD_TOO_SHORT_MESSAGE`,
- * `RESET_FIELDS_REQUIRED_MESSAGE`), so a caller maps it once.
+ * The one too-short sentence (`passwordSignup.ts:74`): the browser forms check
+ * the length themselves, so it lives with the rule that decides it — the
+ * contract's zod schemas must never reach a page.
+ */
+export const PASSWORD_TOO_SHORT_MESSAGE = 'Password must be at least 8 characters';
+
+/**
+ * Why a password form was refused. The wire copy for each reason is this
+ * file's (`PASSWORD_TOO_SHORT_MESSAGE`) or the contract's
+ * (`SIGNUP_FIELDS_REQUIRED_MESSAGE`, `RESET_FIELDS_REQUIRED_MESSAGE`), so a
+ * caller maps it once.
  */
 export type PasswordRefusal = 'missing-fields' | 'short-password';
 

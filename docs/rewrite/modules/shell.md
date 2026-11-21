@@ -125,14 +125,14 @@ hands over, and adds no query and no write of its own.
 - `src/app.html` carries two tiny inline scripts (test-brand swap `:18-30`, service-worker registration `:31-42`) and the manifest/icon/theme-colour links (`:5-11`). The service worker precaches only `/offline.html` and caches `_app/immutable` at runtime (`static/service-worker.js:11-19,147-160`); `CACHE_NAME`/`DATA_CACHE_NAME` (`:1-2`) bump in the same commit as any change to `app.html`, `static/manifest*.webmanifest` or brand assets (AGENTS.md:61).
 - PWA: `start_url` and share target are `/calendar` (`static/manifest.webmanifest:5,42-50`); the manifest is browser-fetched after first paint, so it is not in the critical path.
 
-**Target load plan — root layout (every page)**
+**Target load plan — app-chrome group layouts (calendar, account, family)**
 
 - Above the fold: wordmark, desktop links or hamburger, bell slot (app), avatar or Sign In/Get Started.
 - Server: **0 queries**. `shellRootLoad` maps `locals.actor`/`locals.user` into `ShellRootModel` (id, names, email, isAdmin, emailVerified, lastActiveAt) plus the server year from `ctx.clock.now()`. It never reads `event.url` and never returns the raw user row.
 - New `src/routes/+layout.server.ts` (one wiring line) — no query, no serialised credential, no `url` dependency.
-- Chrome mode: `shellChromeForRoute(page.route.id)` = `'app'` for `/(calendar)/calendar/**` and `/(family)/**`, `'none'` for marketing, admin, `/report-bug`, `/share-target`. Marketing's own header is marketing's (a domain cannot import a screen); account (#18) and admin (#19) widen the rule when they port instead of copying chrome.
+- Chrome mode: `shellChromeForRoute(page.route.id)` = `'app'` for `/(calendar)/calendar/**`, `/(calendar)/account/**` and `/(family)/**`, `'none'` for marketing, admin, `/claim`, `/merge-guest`, `/report-bug`, `/share-target`. Marketing's own header is marketing's (a domain cannot import a screen); admin widens the rule when it ports instead of copying chrome.
 - Client: **no fetch on mount and none on navigation**. The profile menu and mobile menu `import()` on first open; the bell panel is alerts' lazy component; the unread badge is one count per chrome mount, refreshed on `visibilitychange` only when it is older than 60 s, then updated optimistically on mark-read. That replaces #6, #7 and #8.
-- The same chrome subtree survives calendar ↔ family transitions (no navbar/tab-bar remount, no badge flicker, one `initOfflineSync` instead of one per group mount).
+- The chrome remounts on a calendar ↔ family jump (Q-073 chose per-group layouts so a bare page ships no chrome); the badge is re-read once per mount and `initOfflineSync` is module-level guarded, so the remount costs one replay, not a second listener.
 - Degradation: a group load that threw leaves the chrome without a model; `ShellRoot` then renders `children` only (the error page still stands).
 
 **Target load plan — calendar group (`/(calendar)/calendar/**`, every signed-in page)**
@@ -219,11 +219,14 @@ sha. Its db tests in S5/S6 pin the layout loads, not a wire.
 
 ### Decisions
 
-- **The chrome lives in the root layout, not in each group layout.** `account`, `familyHub` and
-  `calendarPage` are screens and screens may not import each other (R1), so a chrome component owned
-  by shell could never be reused by them; the root layout is the only host every screen already has.
-  `shellChromeForRoute` keeps it app-only for now (calendar + family groups). This also stops the
-  navbar/tab bar remounting on a calendar ↔ family jump.
+- **The chrome is rendered by the app-chrome group layouts, not by the root layout** (Q-073's recorded
+  answer). `(calendar)/calendar`, `(calendar)/account` and `(family)` render `ShellRoot` around their
+  frame and hand it the route's `page` object; the root layout imports only `app.css`. A page that
+  renders its own frame — `/claim`, `/merge-guest`, marketing, admin — therefore ships neither the
+  navbar nor the bell, which is the legacy structure and what ADR 0010's initial-JS ceilings assume
+  (the chrome plus zod/luxon accounted for ~70 KB on `/claim`). Cost accepted by Q-073: the chrome
+  remounts on a calendar ↔ family jump; `initOfflineSync` is module-level guarded, so a remount only
+  re-runs the replay. `shellChromeForRoute` keeps the mode app-only (calendar + account + family).
 - **Marketing keeps its own header.** Marketing is a domain (rank 16), so it may not import shell.
   Its ported public header owns the four public links and the Sign In/Get Started CTAs; `shellNavItems`
   is the signed-in app's list only.

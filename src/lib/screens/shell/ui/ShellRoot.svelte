@@ -1,13 +1,14 @@
 <!--
-	The root chrome: decides whether this route gets the app chrome at all
+	The app chrome: decides whether this route gets it at all
 	(`shellChromeForRoute`), then renders the navbar, the page body, the tab bar
 	and the toast host.
 
-	It lives in the ROOT layout because `account`, `familyHub` and `calendarPage`
-	are screens and a screen may not import another screen (R1) — the root layout
-	is the only host every screen already has. Chrome mode is app-only today
-	(calendar + family groups); account and admin widen the rule at their ports,
-	and marketing keeps its own header.
+	The three app-chrome layouts (`(calendar)/calendar`, `(calendar)/account`,
+	`(family)`) render it; the root layout does not, so a bare page — `/claim`,
+	`/merge-guest`, marketing, admin — ships neither the navbar nor the bell
+	(ADR 0010). A group layout passes `$app/state`'s page in: the chrome needs
+	only its route id, pathname and search, and keeping `$app/*` out of this
+	file keeps it renderable in unit tests.
 
 	The badge is read once per chrome mount, not per navigation, because the
 	chrome survives calendar ↔ family transitions. The offline REPLAY
@@ -32,11 +33,8 @@
 	import ShellTabBar from './ShellTabBar.svelte';
 
 	interface Props {
-		/** `page.route.id`; null on a 404, which therefore gets no chrome. */
-		routeId: string | null;
-		pathname: string;
-		/** `page.url.search`, for the bug link's `?from=`. */
-		search: string;
+		/** `$app/state`'s page: `route.id` is null on a 404, which gets no chrome. */
+		page: { readonly route: { readonly id: string | null }; readonly url: URL };
 		user: ShellUserSummary | null;
 		ports: ShellPorts;
 		/** `goto`, handed in by the route so this file never imports `$app/*`. */
@@ -44,8 +42,12 @@
 		children: Snippet;
 	}
 
-	let { routeId, pathname, search, user, ports, navigate, children }: Props = $props();
+	let { page, user, ports, navigate, children }: Props = $props();
 
+	const routeId = $derived(page.route.id);
+	const pathname = $derived(page.url.pathname);
+	/** The bug link's `?from=`. */
+	const search = $derived(page.url.search);
 	const chrome = $derived(shellChromeForRoute(routeId));
 	const toasts = createToasts();
 	const badge = new ShellBadgeState(ports.badge, { now: () => systemClock.now().getTime() });

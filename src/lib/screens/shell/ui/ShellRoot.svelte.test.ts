@@ -41,9 +41,7 @@ describe('ShellRoot', () => {
 		const unreadCount = vi.fn(async () => 4);
 		render(ShellRoot, {
 			props: {
-				routeId: '/(calendar)/calendar',
-				pathname: '/calendar',
-				search: '',
+				page: { route: { id: '/(calendar)/calendar' }, url: new URL('http://localhost/calendar') },
 				user: summary(),
 				ports: ports({ unreadCount }),
 				navigate: () => {},
@@ -61,9 +59,7 @@ describe('ShellRoot', () => {
 		const unreadCount = vi.fn(async () => 4);
 		render(ShellRoot, {
 			props: {
-				routeId: '/(marketing)',
-				pathname: '/pricing',
-				search: '',
+				page: { route: { id: '/(marketing)' }, url: new URL('http://localhost/pricing') },
 				user: null,
 				ports: ports({ unreadCount }),
 				navigate: () => {},
@@ -80,9 +76,7 @@ describe('ShellRoot', () => {
 	it('renders no chrome on a 404 route id', () => {
 		render(ShellRoot, {
 			props: {
-				routeId: null,
-				pathname: '/nope',
-				search: '',
+				page: { route: { id: null }, url: new URL('http://localhost/nope') },
 				user: null,
 				ports: ports(),
 				navigate: () => {},

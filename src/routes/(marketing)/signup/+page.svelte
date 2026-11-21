@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { SignupScreen } from '$lib/domains/access/ui';
+	import SignupScreen from '$lib/domains/access/ui/SignupScreen.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();

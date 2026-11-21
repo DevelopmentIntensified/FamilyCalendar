@@ -1,24 +1,16 @@
+<!--
+	The single global stylesheet for every route (#062). The chrome is NOT here:
+	it belongs to the group layouts that render it (`(calendar)/calendar`,
+	`(calendar)/account`, `(family)`), so a bare page — `/claim`, `/merge-guest`,
+	marketing, admin — ships neither its navbar nor its bell (ADR 0010).
+
+	Doc: src/lib/screens/shell/README.md#invariants
+-->
 <script lang="ts">
 	import '../app.css';
 	import type { Snippet } from 'svelte';
-	import { building } from '$app/environment';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import { createShellPorts } from '$lib/screens/shell';
-	import { ShellRoot } from '$lib/screens/shell/ui';
-	import type { LayoutData } from './$types';
 
-	let { data, children }: { data: LayoutData; children: Snippet } = $props();
-	const ports = createShellPorts();
+	let { children }: { children: Snippet } = $props();
 </script>
 
-<ShellRoot
-	routeId={page.route.id}
-	pathname={page.url.pathname}
-	search={building ? '' : page.url.search}
-	user={data.user}
-	{ports}
-	navigate={goto}
->
-	{@render children()}
-</ShellRoot>
+{@render children()}

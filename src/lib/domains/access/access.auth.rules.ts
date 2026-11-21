@@ -12,8 +12,7 @@
  * Doc: ./README.md#invariants
  */
 
-import { PASSWORD_TOO_SHORT_MESSAGE } from './access.contract';
-import { PASSWORD_MIN_LENGTH } from './access.password.rules';
+import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from './access.password.rules';
 
 /** Which half of the Password / Email Link switch is up. */
 export type AuthMethod = 'password' | 'email-link';

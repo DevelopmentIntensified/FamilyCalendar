@@ -38,7 +38,6 @@ import {
 import {
 	INVALID_EMAIL_MESSAGE,
 	MISSING_NAME_MESSAGE,
-	PASSWORD_TOO_SHORT_MESSAGE,
 	PASSWORD_VERIFY_CALLBACK_PATH,
 	RATE_LIMIT_MESSAGE,
 	SIGNUP_FIELDS_REQUIRED_MESSAGE,
@@ -50,7 +49,10 @@ import {
 	verifyEmailLinkToken
 } from './access.emailLink.service.server';
 import { mobileTokenName } from './access.device.rules';
-import { passwordSignupRefusal } from './access.password.rules';
+import {
+	PASSWORD_TOO_SHORT_MESSAGE,
+	passwordSignupRefusal
+} from './access.password.rules';
 import { isRegisteredPerson } from './access.person.rules';
 import { EMAIL_LINK_LANDING_PATH, emailLinkRedirectPath } from './access.redirect.rules';
 

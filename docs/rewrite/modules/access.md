@@ -379,6 +379,36 @@ Seven of the ten legacy source files were deleted in S8, with all four legacy te
 - **`access.faults.http.db.test.ts`** pins the mobile fault boundary with a real throwing mail port (the README's old "(planned)" invariant).
 - **No visual/perf run in this worktree** (the agent contract's command list excludes `visual:check`/`perf:check`): the screens reproduce the legacy structure, spacing and copy, and the orchestrator's visual check is the gate.
 
+### S7 follow-up for ADR 0010 (2026-11-21)
+
+The first all-pages check put every rebuilt auth page far over its initial-JS ceiling. Measured
+causes and the root fixes:
+
+- **zod in every page (27,144 B gzip).** `access.auth.rules.ts` imported `PASSWORD_TOO_SHORT_MESSAGE`
+  from `access.contract.ts`, whose chunk *is* zod. The sentence now lives in
+  `access.password.rules.ts` (where the length rule decides it) and the contract no longer exports
+  it; the two services and two tests take it from the rules file. No schema reaches a page.
+- **luxon in every page (21,573 B).** Only path was the same contract chunk (`validators` imports
+  `kernel/time/dates`); gone with the import above.
+- **The `ui/index.ts` barrel (8,249 B).** Every route imported `$lib/domains/access/ui`, so all seven
+  screens sat in one chunk and every page paid for all of them. Routes now import their own screen
+  file; the barrel stays the module's public component entry (R2), as family's did.
+- **The app chrome on pages that never render it (~23 KB).** The root layout imported `ShellRoot`, so
+  `/claim`, `/merge-guest` and every marketing page shipped the navbar, bell, toaster and offline
+  queue. `ShellRoot` is now rendered by the three app-chrome group layouts (`(calendar)/calendar`,
+  `(calendar)/account`, `(family)`) — Q-073's recorded answer and the legacy structure — and the root
+  layout imports only `app.css`.
+- **Visual: `/account/verify-email` was 274 px wide instead of 448.** With the chrome in the root
+  layout the page's `mx-auto max-w-md` block was a *flex item*, so its auto margins shrank it to its
+  text width. The new `(calendar)/account/+layout.svelte` wraps children in the legacy
+  `flex-grow pb-20 md:pb-0` column, which restores the block context and legacy pixels.
+- **Visual: `/signup` was 117 px short.** The legacy guest-start block ("Start planning — no account
+  needed" + its note) had been dropped; restored verbatim inside `AuthCard`.
+- **`/family/invite/email` landed on `/login`.** Not the page: after identity unified the pepper,
+  `appCtx` resolves `EMAILSECRET` at runtime while the harness seeds signed with the build
+  placeholder. `e2e/pages/serve.ts` now pins `EMAILSECRET` (new `PAGES_EMAIL_SECRET` in
+  `e2e/pages/env.ts`) exactly as it already pinned `BETTER_AUTH_SECRET`, and the seed imports it.
+
 
 ### Running the golden in the db project
 
