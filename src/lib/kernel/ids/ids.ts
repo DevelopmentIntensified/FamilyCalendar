@@ -5,14 +5,17 @@
  * a-z0-9, same generator lucia used — see legacy `generateId`). Tests use
  * `sequentialIds()` so inserted ids are predictable (`id-1`, `id-2`, ...).
  *
- * `sha256Hex` is THE hash for stored secrets (API tokens, email codes, claim
- * tokens): lowercase hex of SHA-256 over UTF-8, byte-identical to the legacy
- * `hashApiToken` / `hashEmailCode` copies it replaces.
+ * `sha256Hex` is THE hash for stored secrets (API tokens, claim tokens, reset
+ * links): lowercase hex of SHA-256 over UTF-8, byte-identical to the legacy
+ * `hashApiToken` copies it replaces. `hmacSha256Hex` is its keyed sibling for
+ * short values a bare digest cannot protect (6–8 digit email codes, Q-117):
+ * HMAC-SHA-256 with a server pepper, RFC 2104, standard lowercase hex.
  *
  * Doc: src/lib/kernel/README.md#ids
  */
+import { hmac } from '@oslojs/crypto/hmac';
 import { generateRandomString } from '@oslojs/crypto/random';
-import { sha256 } from '@oslojs/crypto/sha2';
+import { SHA256, sha256 } from '@oslojs/crypto/sha2';
 import { encodeHexLowerCase } from '@oslojs/encoding';
 
 export const ROW_ID_LENGTH = 15;
@@ -62,4 +65,14 @@ export function sequentialIds(prefix = 'id'): Ids {
 
 export function sha256Hex(text: string): string {
 	return encodeHexLowerCase(sha256(new TextEncoder().encode(text)));
+}
+
+/**
+ * HMAC-SHA-256 with `key` as the secret, lowercase hex over the UTF-8 bytes of
+ * `text` (RFC 2104). Keyed hashing for values too short or too guessable to
+ * survive an offline dump of a bare digest — email codes (Q-117).
+ */
+export function hmacSha256Hex(key: string, text: string): string {
+	const encoder = new TextEncoder();
+	return encodeHexLowerCase(hmac(SHA256, encoder.encode(key), encoder.encode(text)));
 }

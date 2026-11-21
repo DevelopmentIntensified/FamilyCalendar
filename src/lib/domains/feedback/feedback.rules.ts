@@ -11,7 +11,14 @@
  * Doc: ./README.md#invariants
  */
 import type { JsonValue } from '$lib/kernel/validation/validators';
-import type { BugArea, BugReportInput, UnmatchedSource } from './feedback.contract';
+import type {
+	BugArea,
+	BugReportInput,
+	FeedbackBugRegister,
+	FeedbackPhraseRegister,
+	UnmatchedPhraseView,
+	UnmatchedSource
+} from './feedback.contract';
 
 /**
  * The bug areas in wire order. The admin export text and the `/report-bug`
@@ -52,12 +59,36 @@ export function isUnmatchedSource(source: string): source is UnmatchedSource {
 	return UNMATCHED_SOURCES.some((candidate) => candidate === source);
 }
 
+/** The chip and export label for an area; a row outside the vocabulary keeps its raw value. */
+export function bugAreaLabel(area: string): string {
+	return isBugArea(area) ? BUG_AREA_LABEL[area] : area;
+}
+
+/** The section label for a phrase source; an unknown source keeps its raw value. */
+export function unmatchedSourceLabel(source: string): string {
+	return isUnmatchedSource(source) ? UNMATCHED_SOURCE_LABEL[source] : source;
+}
+
+/** Lowercase, collapse whitespace runs, trim — the text the 280 cap applies to. */
+function normalizedText(phrase: string): string {
+	return phrase.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Deduplication key for a reported phrase: lowercase, collapse whitespace
  * runs, trim, then cap at 280. Empty means "nothing to store".
  */
 export function normalizePhrase(phrase: string): string {
-	return phrase.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, MAX_PHRASE);
+	return normalizedText(phrase).slice(0, MAX_PHRASE);
+}
+
+/**
+ * Whether a phrase is too long AFTER normalizing (Q-006 answer B): the cap
+ * applies to the text that would be stored, so `a` + 280 spaces + `b` fits
+ * (it stores `a b`) while 281 letters do not.
+ */
+export function isPhraseOverCap(phrase: string): boolean {
+	return normalizedText(phrase).length > MAX_PHRASE;
 }
 
 /** The deduplicated write shape of a reported phrase. */
@@ -194,4 +225,52 @@ function tryAbsoluteUrl(value: string): URL | null {
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Group a phrase register by source, first-seen order kept: the admin tables
+ * render one section per source, as legacy `groupBySource` did.
+ */
+export function groupUnmatchedPhrases(
+	phrases: readonly UnmatchedPhraseView[]
+): [string, UnmatchedPhraseView[]][] {
+	const groups = new Map<string, UnmatchedPhraseView[]>();
+	for (const phrase of phrases) {
+		const list = groups.get(phrase.source) ?? [];
+		list.push(phrase);
+		groups.set(phrase.source, list);
+	}
+	return [...groups.entries()];
+}
+
+/**
+ * Optimistic resolve for the bug register: the row leaves `open` and appears
+ * at the top of `resolved` as `resolved` at the caller's `now`. An id that is
+ * not open changes nothing (the server's 404 is the caller's to report).
+ */
+export function markBugReportResolved(
+	register: FeedbackBugRegister,
+	id: string,
+	now: Date
+): FeedbackBugRegister {
+	const row = register.open.find((report) => report.id === id);
+	if (!row) return register;
+	return {
+		open: register.open.filter((report) => report.id !== id),
+		resolved: [{ ...row, status: 'resolved', resolvedAt: now }, ...register.resolved]
+	};
+}
+
+/** The phrase-register twin: `resolved: true` and `updatedAt` at the caller's `now`. */
+export function markUnmatchedPhraseResolved(
+	register: FeedbackPhraseRegister,
+	id: string,
+	now: Date
+): FeedbackPhraseRegister {
+	const row = register.open.find((phrase) => phrase.id === id);
+	if (!row) return register;
+	return {
+		open: register.open.filter((phrase) => phrase.id !== id),
+		resolved: [{ ...row, resolved: true, updatedAt: now }, ...register.resolved]
+	};
 }

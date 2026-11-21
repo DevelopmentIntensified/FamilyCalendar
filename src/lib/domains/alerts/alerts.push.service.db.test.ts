@@ -7,14 +7,14 @@
  * Doc: ./README.md#how-to-test
  */
 import { and, eq } from 'drizzle-orm';
-import { describe, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { actorFromUser } from '$lib/kernel/ctx/actor';
 import type { Db } from '$lib/kernel/db/database.server';
 import { deviceTokens, pushSubscriptions } from '$lib/kernel/db/tables.server';
 import { createMemoryPush, type MemoryPush } from '$lib/kernel/push/push';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { testCtx, type TestCtx } from '$lib/kernel/testing/testCtx.server';
-import { rollbackTest } from '$lib/kernel/testing/testDb.server';
+import { rollbackTest, testDb } from '$lib/kernel/testing/testDb.server';
 import {
 	getPushPublicKey,
 	nudgeEventsChanged,
@@ -130,16 +130,46 @@ describe('removePushSubscription', () => {
 });
 
 describe('getPushPublicKey', () => {
-	rollbackTest('answers the port key, and null when VAPID is unset', async (db) => {
-		const unset: TestCtx = { ...testCtx({ db, now: NOW }), push: createMemoryPush() };
-		expect(getPushPublicKey(unset)).toEqual({ publicKey: null });
+	// Q-020: a client must not subscribe to a server that can never send, so the
+	// answer is the public half only while the private half is set too.
+	const vapidPairs: ReadonlyArray<{
+		readonly label: string;
+		readonly publicKey: string | null;
+		readonly privateKey: string | null;
+		readonly expected: string | null;
+	}> = [
+		{ label: 'neither half', publicKey: null, privateKey: null, expected: null },
+		{
+			label: 'only the public half',
+			publicKey: 'BPublicKeyForTests',
+			privateKey: null,
+			expected: null
+		},
+		{
+			label: 'only the private half',
+			publicKey: null,
+			privateKey: 'private-key-for-tests',
+			expected: null
+		},
+		{
+			label: 'both halves',
+			publicKey: 'BPublicKeyForTests',
+			privateKey: 'private-key-for-tests',
+			expected: 'BPublicKeyForTests'
+		}
+	];
 
-		const configured: TestCtx = {
-			...testCtx({ db, now: NOW }),
-			push: createMemoryPush({ webPublicKey: 'BPublicKeyForTests' })
-		};
-		expect(getPushPublicKey(configured)).toEqual({ publicKey: 'BPublicKeyForTests' });
-	});
+	it.each(vapidPairs)(
+		'answers $expected when $label is configured',
+		({ publicKey, privateKey, expected }) => {
+			const base = testCtx({ db: testDb(), now: NOW });
+			const ctx: TestCtx = {
+				...base,
+				config: { ...base.config, vapidPublicKey: publicKey, vapidPrivateKey: privateKey }
+			};
+			expect(getPushPublicKey(ctx)).toEqual({ publicKey: expected });
+		}
+	);
 });
 
 describe('sendAlertPush', () => {

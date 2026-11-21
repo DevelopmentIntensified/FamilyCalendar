@@ -190,7 +190,7 @@ None of this module's legacy files survives. S8 must rewire the importers first:
 
 legacy source files left (4/4, 513 LOC):
   - src/lib/server/db/actions/adEvents.ts (39 LOC, server) importers: 1
-  - src/lib/server/services/adConsentService.ts (65 LOC, server) importers: 1
+  - src/lib/server/services/adConsentService.ts (65 LOC, server) importers: 2
   - src/lib/server/services/adService.ts (335 LOC, server) importers: 2
   - src/lib/server/services/blobService.ts (74 LOC, server) importers: 1
 

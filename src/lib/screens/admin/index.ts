@@ -3,4 +3,6 @@
  * Other modules import admin ONLY through this file, index.server.ts or ui/index.ts (rule R2).
  * Doc: ./README.md#public-interface
  */
-export {};
+export { AdminCounts } from './admin.contract';
+export type { AdminBugRegisterData, AdminPhraseRegisterData } from './admin.contract';
+export { ADMIN_SECTIONS, isAdminSectionActive, type AdminSection } from './admin.sections.rules';

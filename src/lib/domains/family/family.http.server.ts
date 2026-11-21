@@ -591,7 +591,7 @@ export const familyCreateAction = formAction({
 	handle: async ({ ctx, actor, form }) => {
 		if (!actor) redirect(302, LOGIN_PATH);
 		try {
-			const family = await createFamily(ctx, actor, {
+			const family = await createFamily(familyCtx(ctx), actor, {
 				name: form.name,
 				color: form.color,
 				memberIds: form.memberIds
