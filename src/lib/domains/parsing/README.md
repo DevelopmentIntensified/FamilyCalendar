@@ -139,6 +139,11 @@ Behaviour that must not change, each with the test that pins it (`file › test 
 
 "birthday" is NOT in that list: it sets `allDay`, but a stated time is kept — "birthday party at 6pm" stays 18:00, and the 09:00–17:00 default applies only with no start time (`naturalLanguageService.ts:2027-2030`) · `parsing.http.db.test.ts › "keeps the stated 18:00 on a \"birthday\" phrase…"`.
 
+## Notes
+
+- Titles keep the trailing space a stripped span leaves behind whenever that span was consumed BEFORE the 50-char window was taken (a recurrence phrase, a URL, a terminal "with"-list, an "until" date): the window then has nothing left to strip, so the refinement never runs. The frozen golden pins it — `parsing.http.db.test.ts` › `"payday every other week" … the title keeps its trailing space` (`'payday '`), `"medication every 3 days"` (`'medication '`), `"coffee with John"` (`'coffee '`) — and `parsing.event-recurrence.rules.test.ts` › "the recurrence phrase never leaks into the title" restates it for `'yoga '`, `'chores '`, `'hoa dues '`, `'gym '`. Pinning a trimmed title here would contradict the golden: do not add a `trim()` to `buildEventTitle`.
+- Attachment: the attendants group rule (`including X`, `the whole X`) is NOT global. Legacy wrote it `/gi`, and `String.match` returns bare matches (captures dropped) for a global regex, so the legacy rule could never fire; the port keeps the capturable form the priority ladder documents. Deviation, no golden row — `parsing.event-place.rules.ts` (`groupPatterns`), `parsing.event-place.rules.test.ts` › "group patterns read a whole group".
+
 ## Depends on
 
 - May import: kernel + identity, billing, alerts, family, dashboardModules, bills (public entries only).

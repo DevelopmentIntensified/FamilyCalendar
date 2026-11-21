@@ -515,12 +515,12 @@ export function parseTaskQuickAdd(raw: string, options: TaskQuickAddOptions): Ta
 	let dueDate: string | null = null;
 	const resolved = resolveDateStep(title, now, zone);
 	if (resolved.match) {
-		dueDate = resolved.due!.toISOString();
+		dueDate = resolved.due!.toJSDate().toISOString();
 		title = stripMatch(title, resolved.match)
 			.replace(TASK_QUICK_ADD_CLOCK_RE, '')
 			.replace(/\bdue\b/gi, '');
 	} else if (recurrence.due) {
-		dueDate = recurrence.due.toISOString();
+		dueDate = recurrence.due.toJSDate().toISOString();
 	}
 
 	// 3.5 Task scoping: `#public`/`#private` set visibility and
