@@ -49,6 +49,8 @@ export type AppConfig = {
 	readonly production: boolean;
 	/** Default module-mail sender (`NOREPLYEMAIL`), for a service that must pass `from` explicitly. */
 	readonly mailFrom: string;
+	/** Public site origin for mailed links (`getUrl()`): absolute links in invite, claim and auth mail. */
+	readonly siteUrl: string;
 	/** Web Push public key (`VAPID_PUBLIC_KEY`) — also what `GET /api/push/public-key` answers. */
 	readonly vapidPublicKey: string | null;
 	/** Web Push private key (`VAPID_PRIVATE_KEY`); the transport stays off unless both halves are set. */

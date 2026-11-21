@@ -1,1 +1,6 @@
-[]
+[
+	{
+		"route": "src/routes/(marketing)/login/password/+server.ts#POST",
+		"reason": "Legacy's password door never required a session: it read locals.user only to end the arriving Anonymous Account's session after a successful sign-in (invalidateStaleAnonymousSession), which loginPasswordAction still does through the optional actor. auth-audit's 'user' level comes from that locals.user read, not from a guard; every refusal (400/401/429/500) and the 200 body are unchanged."
+	}
+]

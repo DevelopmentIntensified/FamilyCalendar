@@ -15,7 +15,11 @@
  * Doc: ./README.md#invariants
  */
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
-import { ensurePersonalCalendarRow, moveEventsOwnedBy } from './calendar.repo.server';
+import {
+	countEventsOwnedBy,
+	ensurePersonalCalendarRow,
+	moveEventsOwnedBy
+} from './calendar.repo.server';
 
 export type MoveGuestEventsInput = {
 	/** The Anonymous Account whose Events move. */
@@ -23,6 +27,21 @@ export type MoveGuestEventsInput = {
 	/** The account that keeps them. */
 	readonly to: string;
 };
+
+/**
+ * The sign-up seam the legacy `createNewUser` used
+ * (`utils/createNewUser.ts:21-32`): make sure the person's Personal Calendar
+ * exists. Idempotent, and the lazy read would create it too — this is the one
+ * query that says so.
+ */
+export async function ensurePersonalCalendar(ctx: Ctx, userId: string): Promise<void> {
+	await ensurePersonalCalendarRow(ctx.db, userId, ctx.clock.now());
+}
+
+/** How many Events one person owns — the `/merge-guest` prompt's count. */
+export async function countGuestEvents(ctx: Ctx, userId: string): Promise<number> {
+	return await countEventsOwnedBy(ctx.db, userId);
+}
 
 /**
  * Moves the guest's Events onto the target's Personal Calendar and answers how

@@ -13,10 +13,10 @@ Sign-in flows: login, signup, magic links, password reset, Claiming, Claim Confl
 
 - [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
 - [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
-- [ ] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
+- [x] S3 contract + rules
+- [x] S4 repo (+ fixtures)
+- [x] S5 service
+- [x] S6 http + route wiring (goldens unchanged since S2 except the Q-116/Q-117 rows)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
 - [ ] S8 rewire importers, delete legacy code and legacy tests
 - [ ] S9 README final, census --write, gate:push, ledger done
@@ -230,7 +230,7 @@ Every wire line below was re-read against the legacy code on 2026-11-11.
 - **Internal, dropped (reasons):** `findActiveTokenForUser` has no importers → dies; the duplicated `sessionCookieFor` JSDoc → dies with the file; the three copy-pasted full-pattern email validators (`magicLink.ts:112-113`, `mobileAuth.ts:102-103`, `claimRequest.ts:57`) → kernel `isEmailAddress` (`src/lib/kernel/validation/validators.ts:62-66`), which answers exactly as they do; the `guest_merge` cookie stored *before* the token is validated → stashed after success; the reset single-use marker written before hashing → written after the password update so a failed hash cannot burn the link (wire unchanged: still 500).
 - **Decision 2 — the two weaker legacy checks stay, route by route.** No access-local `emailAddress` rule: forgot-password keeps `!email` only (`forgot-password/+server.ts:50`, so `{email:'nope'}` is a 200 `{sent:true}` — pinned) and the email-change request keeps `!email || !email.includes('@')` (`accountData.ts:338`, no dot rule, case-sensitive compare — pinned). The kernel `isEmailAddress` answers differently on both, so it is not planned onto them; the difference is written into the README's invariants.
 - **The failed-signup mail logs the address in legacy** (`passwordSignup.ts:124,127`: `Verification email not sent for ${who.email}`). The port logs the event and the reason without the address — a log line is not part of the wire, and the address is personal data. Say so in the S5 commit.
-- **Email-change codes stay plaintext through S6.** The skipped golden asserts the 8-digit value in `codes.code` (that is what `/account/verify-email` looks up with `getCode`, `src/routes/(calendar)/account/verify-email/+page.server.ts:111,135`), so the port keeps writing plaintext until Q-065's answered fix (hash at rest, no wire change) lands after S6 with that golden changed first.
+- **Email-change codes are hashed at rest from S5 on.** `issueEmailCode` stores `HMAC-SHA-256(EMAILSECRET pepper, code)` for every kind (Q-116/Q-117), so the change row's code is a digest and `/account/verify-email` redeems by digest. The still-`it.skip`ped spec-golden asserts the legacy plaintext (`/^\d{8}$/`) and must lose that assertion in the `test(access)` commit that unskips it (Q-065's flip).
 
 ### Questions for the owner
 
@@ -307,6 +307,54 @@ The owner answered seven of the questions the S1+S2 review raised. Each keeps to
   `claimPersonEmail`, `deleteEmailCodesForEmail`) through `identity/index.server.ts`,
   which today exports only the two ports and `IdentityCtx`; those service
   functions must be added there by identity's S5 before access's S5 can compile.
+
+### S6 decisions (landed with the wire)
+
+- **Two http files, not one per topic.** `access.http.server.ts` holds every
+  `/api` handler plus the page-group JSON endpoints (its test is the frozen
+  `access.http.db.test.ts`); `access.pages.http.server.ts` holds the loads,
+  form actions and callbacks (`access.pages.http.db.test.ts`). Every route file
+  is now wiring-only; the 25 obsolete legacy route tests and their `fakes.ts`
+  helper were deleted.
+- **One `signOut` home.** `signOutSession`/`signOutMobile` were deleted;
+  `access.account.service.server.ts`'s `signOut(ctx, actor, {sessionId?, token?})`
+  serves both doors and refuses a non-`fp_` bearer (the mobile golden's 401).
+- **`goldenCtx` carries the golden pepper.** `GOLDEN_CODE_PEPPER`
+  (`kernel/testing`) resolves `process.env.EMAILSECRET` with the committed test
+  fallback; `goldenCtx` passes it as `config.codePepper` and
+  `seedAccessEmailCode` hashes with the same value (Q-116/Q-117). The frozen
+  golden's only edits are that fixture and the reset marker comparison.
+- **`AppConfig.siteUrl`** carries the legacy `getUrl()` answer (dev/test/prod);
+  the mailed links build their absolute URLs from it, and the routes pass it to
+  every service that mails.
+- **A fourth body mode, `'empty-object'`,** in `endpoint()`: an empty body reads
+  `{}` while a malformed or non-object body reaches the schema as `null`. The
+  guest door needs exactly that (empty → 200, junk → its own sentence); the
+  other mobile doors use `'lenient'` (empty and junk both refused with the
+  mobile sentence).
+- **Malformed bodies on the web-forwarded page/JSON routes.** `forgot` and
+  `reset` keep their pinned 500 copy (Q-062's answered B is a later,
+  golden-first commit). The routes without a golden (`/login/*`, `/signup/*`)
+  answer `400 {"error":"Invalid JSON"}`, the direction Q-062 chose; `/login/password`
+  and `/signup/password` keep their own 500 copy because legacy parsed inside
+  its `try`.
+- **The 9 spec-goldens stay `it.skip`.** Q-067's recorded default says "unskip in
+  S6", but the S6 ticket caps the frozen golden's diff at the Q-116/Q-117 rows;
+  the ported handlers already take `ctx.mail`, so activation is a one-line
+  `test(access)` commit. The email-change send golden also still asserts the
+  legacy plaintext code and needs Q-065's digest swap at the same time.
+- **`/family/invite/email` is not access's.** The module README and this sheet
+  both assign it to family (`acceptInvite` is family's); it stays legacy here.
+- **`ensurePersonalCalendar` landed.** calendar exports it (and the merge
+  prompt's `countGuestEvents`/`countGuestTasks`); the four signup call sites use
+  it instead of the `listCalendars` fallback.
+- **`/login/password` is allow-listed in auth-audit.** The audit reads the legacy
+  route's `locals.user` (the guest-session swap) as a user level; the door never
+  required a session and the v2 handler performs the same swap through the
+  optional actor, so `auth-audit-allow.json` carries the reason rather than a
+  cosmetic check.
+- **`invoke` gained a `cookies` option** (`kernel/testing`) so the page tests can
+  drive the `guest_merge` stash; nothing in production reads it.
 
 ### Still unpinned until S5 (service tests on the fake mail port)
 

@@ -14,7 +14,7 @@
  * Doc: ./README.md#invariants
  */
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
-import { moveTasksOwnedBy } from './tasks.repo.server';
+import { countTasksOwnedBy, moveTasksOwnedBy } from './tasks.repo.server';
 
 export type MoveGuestTasksInput = {
 	/** The Anonymous Account whose Tasks move. */
@@ -30,4 +30,9 @@ export async function moveGuestTasks(
 ): Promise<number> {
 	if (input.from === input.to) return 0;
 	return await moveTasksOwnedBy(ctx.db, { from: input.from, to: input.to });
+}
+
+/** How many Tasks one person owns — the `/merge-guest` prompt's count. */
+export async function countGuestTasks(ctx: Ctx, userId: string): Promise<number> {
+	return await countTasksOwnedBy(ctx.db, userId);
 }

@@ -26,12 +26,13 @@
 import { TimeSpan } from 'oslo';
 import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
-import { invalid, tooMany } from '$lib/kernel/errors/appError';
+import { invalid, tooMany, unauthorized } from '$lib/kernel/errors/appError';
 import {
 	discardEmailCodes,
 	endSession,
 	findEmailCode,
 	getPersonById,
+	isApiTokenFormat,
 	isEmailTaken,
 	issueEmailCode,
 	redeemEmailCode,
@@ -274,6 +275,9 @@ export async function signOut(
 	input: SignOutInput
 ): Promise<{ success: true }> {
 	if (input.token) {
+		// The mobile door accepts only its own `fp_` bearer; a web caller never
+		// presents a token, so this refusal cannot reach `/api/logout`.
+		if (!isApiTokenFormat(input.token)) throw unauthorized();
 		await revokeApiTokenByPlaintext(ctx, actor.id, input.token);
 		return { success: true };
 	}

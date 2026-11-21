@@ -519,3 +519,9 @@ export async function moveTasksOwnedBy(
 		.returning({ id: tasks.id });
 	return moved.length;
 }
+
+/** How many Tasks one person owns — the `/merge-guest` prompt's count. */
+export async function countTasksOwnedBy(db: Db, userId: string): Promise<number> {
+	const rows = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.userId, userId));
+	return rows.length;
+}

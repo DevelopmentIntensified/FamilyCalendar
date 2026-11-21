@@ -19,8 +19,9 @@ import {
 	claimTokens,
 	codes
 } from '$lib/kernel/db/tables.server';
-import { sha256Hex } from '$lib/kernel/ids/ids';
+import { hmacSha256Hex, sha256Hex } from '$lib/kernel/ids/ids';
 import { seedUser, uniqueSuffix } from '$lib/kernel/testing/seedRows.server';
+import { GOLDEN_CODE_PEPPER } from '$lib/kernel/testing/testCtx.server';
 import { testDb } from '$lib/kernel/testing/testDb.server';
 
 /** The reserved Anonymous Account domain (`src/lib/utils/anonymous.ts:12`). */
@@ -58,7 +59,10 @@ export async function seedAccessApiToken(userId: string, plaintext: string, name
 
 /**
  * A hashed, type-stamped email code row, exactly as `issueVerificationCode`
- * writes it (`login` / `signup` / `password-signup`). `expiresAt` defaults to a
+ * writes it (`login` / `signup` / `password-signup` / `email_change` /
+ * `reset_used`): `codes.code` is `HMAC-SHA-256(pepper, code)` with the same
+ * pepper `goldenCtx` hands the handlers (Q-116/Q-117), so a row seeded with
+ * any other pepper or a bare SHA-256 never redeems. `expiresAt` defaults to a
  * far-future date: the handlers delete dead codes before they look one up.
  */
 export async function seedAccessEmailCode(input: {
@@ -72,7 +76,7 @@ export async function seedAccessEmailCode(input: {
 	await testDb()
 		.insert(codes)
 		.values({
-			code: sha256Hex(input.code),
+			code: hmacSha256Hex(GOLDEN_CODE_PEPPER, input.code),
 			email: input.email,
 			type: input.type,
 			firstName: input.firstName ?? null,

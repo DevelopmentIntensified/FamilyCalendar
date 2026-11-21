@@ -17,7 +17,7 @@
  */
 import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
-import { invalid, tooMany, unauthorized } from '$lib/kernel/errors/appError';
+import { invalid, tooMany } from '$lib/kernel/errors/appError';
 import { isEmailAddress } from '$lib/kernel/validation/validators';
 import {
 	createAnonymousAccount,
@@ -27,16 +27,14 @@ import {
 	findEmailCode,
 	findPersonForSignIn,
 	getPersonByEmail,
-	isApiTokenFormat,
 	mintApiToken,
 	redeemEmailCode,
-	revokeApiTokenByPlaintext,
 	startSession,
 	verifyPassword,
 	discardEmailCodes,
 	type SessionCookie
 } from '$lib/domains/identity/index.server';
-import { listCalendars } from '$lib/domains/calendar/index.server';
+import { ensurePersonalCalendar } from '$lib/domains/calendar/index.server';
 import {
 	EMAIL_LOGIN_REQUIRED_MESSAGE,
 	INVALID_CREDENTIALS_MESSAGE,
@@ -242,6 +240,12 @@ export type SignInWithPasswordInput = {
 	readonly clientIp: string;
 };
 
+export type PasswordSignInResult = {
+	readonly cookie: SessionCookie;
+	/** The person the session belongs to — the route echoes id, email and first name. */
+	readonly user: UserRow;
+};
+
 /**
  * `POST /login/password`: 10 / 5 min per address + IP; an unknown address, an
  * Anonymous Account and a wrong password are one generic 401 after a real
@@ -251,7 +255,7 @@ export type SignInWithPasswordInput = {
 export async function signInWithPassword(
 	ctx: Ctx,
 	input: SignInWithPasswordInput
-): Promise<{ readonly cookie: SessionCookie }> {
+): Promise<PasswordSignInResult> {
 	if (!input.email || !input.password) throw invalid(MOBILE_MISSING_PASSWORD_MESSAGE);
 	if (
 		!ctx.limiter.allow(
@@ -276,7 +280,7 @@ export async function signInWithPassword(
 	await ensurePersonSettings(ctx, user.id);
 	const started = await startSession(ctx, user.id);
 	await endArrivingGuestSession(ctx, input.actor, input.sessionId, user.id, started.session.id);
-	return { cookie: started.cookie };
+	return { cookie: started.cookie, user };
 }
 
 export type SignInMobileWithPasswordInput = {
@@ -432,13 +436,7 @@ export async function verifyMobileEmailCode(
 			firstName: row.firstName,
 			lastName: row.lastName
 		});
-		// calendar creates the personal calendar lazily on its own read.
-		await listCalendars(ctx, {
-			id: person.id,
-			email: person.email,
-			isAdmin: false,
-			via: 'session'
-		});
+		await ensurePersonalCalendar(ctx, person.id);
 		await redeemEmailCode(ctx, key);
 		const minted = await mintApiToken(ctx, tokenActor(person), {
 			name: mobileTokenName(input.deviceName)
@@ -475,27 +473,4 @@ export async function createMobileGuest(
 		name: mobileTokenName(input.deviceName)
 	});
 	return { token: minted.token, user: toMobileUser(person) };
-}
-
-/**
- * `POST /api/logout`: end the presented cookie session when there is one. A
- * signed-out request is not an error — the route still answers `302 /`.
- */
-export async function signOutSession(ctx: Ctx, sessionId: string | null): Promise<void> {
-	if (!sessionId) return;
-	await endSession(ctx, sessionId);
-}
-
-/**
- * `POST /api/mobile/auth/logout`: revoke exactly the presented `fp_` token,
- * scoped to its owner; the owner's sessions and other tokens survive. The
- * caller has already resolved the bearer token to `actor`.
- */
-export async function signOutMobile(
-	ctx: Ctx,
-	actor: Actor | null,
-	input: { readonly token: string }
-): Promise<void> {
-	if (!actor || !isApiTokenFormat(input.token)) throw unauthorized();
-	await revokeApiTokenByPlaintext(ctx, actor.id, input.token);
 }

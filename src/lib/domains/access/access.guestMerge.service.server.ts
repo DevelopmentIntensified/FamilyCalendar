@@ -19,10 +19,61 @@
 import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { withTx } from '$lib/kernel/db/database.server';
-import { moveGuestEvents } from '$lib/domains/calendar/index.server';
-import { deletePerson, endAllSessions, getPersonById } from '$lib/domains/identity/index.server';
-import { moveGuestTasks } from '$lib/domains/tasks/index.server';
+import type { Cookies } from '@sveltejs/kit';
+import { countGuestEvents, moveGuestEvents } from '$lib/domains/calendar/index.server';
+import {
+	deletePerson,
+	endAllSessions,
+	getPersonById,
+	SESSION_COOKIE_NAME,
+	validateSession
+} from '$lib/domains/identity/index.server';
+import { countGuestTasks, moveGuestTasks } from '$lib/domains/tasks/index.server';
 import { isGuestPerson } from './access.person.rules';
+
+/** The stash cookie a sign-in writes and `/merge-guest` reads (`guestMergeService.ts:9`). */
+export const GUEST_MERGE_COOKIE = 'guest_merge';
+
+/** The stash lives 15 minutes (`guestMergeService.ts:29`). */
+export const GUEST_MERGE_MAX_AGE_SECONDS = 15 * 60;
+
+/**
+ * Called at the top of every sign-in route (`guestMergeService.ts:16-32`): when
+ * the request's own session belongs to an Anonymous Account, remember its id in
+ * a short-lived cookie so the merge prompt can fire once the person is signed in.
+ * Bookkeeping never blocks a sign-in, so any failure is swallowed.
+ */
+export async function stashGuestFromCookies(
+	ctx: Ctx,
+	cookies: Pick<Cookies, 'get' | 'set'>
+): Promise<void> {
+	try {
+		const { person } = await validateSession(ctx, cookies.get(SESSION_COOKIE_NAME));
+		if (!person || !isGuestPerson(person)) return;
+		cookies.set(GUEST_MERGE_COOKIE, person.id, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			maxAge: GUEST_MERGE_MAX_AGE_SECONDS
+		});
+	} catch {
+		// Never block login because of stash bookkeeping.
+	}
+}
+
+/** True while the stashed id is still an Anonymous Account that may be merged. */
+export async function isClaimableGuest(ctx: Ctx, guestId: string): Promise<boolean> {
+	const person = await getPersonById(ctx, guestId);
+	return person !== null && isGuestPerson(person);
+}
+
+/** How much the guest would bring along (`guestMergeService.ts:41-52`). */
+export async function guestDataCounts(ctx: Ctx, guestId: string): Promise<MergeGuestCounts> {
+	return {
+		events: await countGuestEvents(ctx, guestId),
+		tasks: await countGuestTasks(ctx, guestId)
+	};
+}
 
 /** How many rows the merge handed over; both zero when it did nothing. */
 export type MergeGuestCounts = {

@@ -36,11 +36,10 @@ import {
 	requestMobileEmailCode,
 	signInMobileWithPassword,
 	signInWithPassword,
-	signOutMobile,
-	signOutSession,
 	startEmailLogin,
 	verifyMobileEmailCode
 } from './access.login.service.server';
+import { signOut } from './access.account.service.server';
 
 const NOW = new Date('2026-05-03T12:00:00.000Z');
 const PASSWORD = 'correct-horse-battery';
@@ -546,18 +545,19 @@ describe('createMobileGuest', () => {
 	});
 });
 
-describe('signOutSession / signOutMobile', () => {
+describe('signOut', () => {
 	rollbackTest('ends exactly the given session, or nothing without one', async (db) => {
 		const ctx = ctxFor(db);
 		const person = await seedUser(db, { email: 'logout@example.test' });
+		const actor = actorFromUser(person);
 		const session = await seedAccessSession(person.id);
 		const kept = await seedAccessSession(person.id);
 
-		await signOutSession(ctx, null);
+		await signOut(ctx, actor, { sessionId: null });
 		expect(await db.select().from(authSession).where(eq(authSession.userId, person.id))).toHaveLength(
 			2
 		);
-		await signOutSession(ctx, session.id);
+		await signOut(ctx, actor, { sessionId: session.id });
 		expect(
 			(await db.select().from(authSession).where(eq(authSession.userId, person.id))).map(
 				(row) => row.id
@@ -573,11 +573,11 @@ describe('signOutSession / signOutMobile', () => {
 		const session = await seedAccessSession(person.id);
 
 		await expect(
-			signOutMobile(ctx, actorFromUser(person), { token: 'not-an-fp-token' })
+			signOut(ctx, actorFromUser(person), { token: 'not-an-fp-token' })
 		).rejects.toMatchObject({ code: 'unauthorized', message: 'Unauthorized' });
 		expect(await tokensFor(db, person.id)).toHaveLength(2);
 
-		await signOutMobile(ctx, actorFromUser(person), { token: 'fp_presented-token' });
+		await signOut(ctx, actorFromUser(person), { token: 'fp_presented-token' });
 		const remaining = await tokensFor(db, person.id);
 		expect(remaining.map((row) => row.name)).toEqual(['Android — Tablet']);
 		expect(

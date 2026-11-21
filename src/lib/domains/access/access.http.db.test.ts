@@ -40,6 +40,7 @@ import { eq } from 'drizzle-orm';
 import { TimeSpan } from 'oslo';
 import { createJWT, parseJWT } from 'oslo/jwt';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { hmacSha256Hex } from '$lib/kernel/ids/ids';
 import {
 	accounts,
 	apiTokens,
@@ -2076,7 +2077,7 @@ describe('POST /api/mobile/auth/reset', () => {
 			await db()
 				.select()
 				.from(codes)
-				.where(eq(codes.code, `used:${sha256(token)}`))
+				.where(eq(codes.code, hmacSha256Hex(EMAIL_SECRET, `used:${sha256(token)}`)))
 		);
 		expect(marker.type).toBe('reset_used');
 		expect(marker.email).toBe(email);

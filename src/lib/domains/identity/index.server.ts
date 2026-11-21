@@ -115,6 +115,8 @@ export {
 
 /** The app resolves the fail-closed signing secret once at boot. */
 export { resolveSessionSecret } from './identity.session.rules';
+/** The cookie the browser session rides on — the auth routes read it for the guest stash. */
+export { SESSION_COOKIE_NAME } from './identity.session.rules';
 
 /** The untrimmed stored full name (`first + ' ' + last`), the legacy stats shape. */
 export { personFullName } from './identity.person.rules';

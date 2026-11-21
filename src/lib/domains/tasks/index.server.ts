@@ -7,4 +7,4 @@
  *
  * Doc: ./README.md#public-interface
  */
-export { moveGuestTasks, type MoveGuestTasksInput } from './tasks.guest.service.server';
+export { moveGuestTasks, countGuestTasks, type MoveGuestTasksInput } from './tasks.guest.service.server';

@@ -698,3 +698,12 @@ export async function moveEventsOwnedBy(
 		.returning({ id: events.id });
 	return moved.length;
 }
+
+/** How many Events one person owns — the `/merge-guest` prompt's count. */
+export async function countEventsOwnedBy(db: Db, ownerId: string): Promise<number> {
+	const rows = await db
+		.select({ id: events.id })
+		.from(events)
+		.where(eq(events.ownerId, ownerId));
+	return rows.length;
+}

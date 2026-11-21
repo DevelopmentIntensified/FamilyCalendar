@@ -21,7 +21,7 @@ import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import type { UserRow } from '$lib/kernel/db/tables.server';
 import { invalid, isAppError, tooMany, unauthorized } from '$lib/kernel/errors/appError';
-import { listCalendars } from '$lib/domains/calendar/index.server';
+import { ensurePersonalCalendar } from '$lib/domains/calendar/index.server';
 import {
 	createEmailPerson,
 	createPersonWithPassword,
@@ -137,14 +137,8 @@ export async function completeEmailSignupCode(
 		firstName: row.firstName,
 		lastName: row.lastName
 	});
-	// calendar creates the personal calendar lazily on its own read (the legacy
-	// `ensurePersonalCalendar` call); calendar exports no narrower seam yet.
-	await listCalendars(ctx, {
-		id: person.id,
-		email: person.email,
-		isAdmin: false,
-		via: 'session'
-	});
+	// The legacy `ensurePersonalCalendar` on `createNewUser` (calendar's seam).
+	await ensurePersonalCalendar(ctx, person.id);
 
 	const started = await startSession(ctx, person.id);
 	await redeemEmailCode(ctx, key);
@@ -193,12 +187,7 @@ export async function completeEmailSignupLink(
 		firstName: payload.firstName ?? '',
 		lastName: payload.lastName ?? ''
 	});
-	await listCalendars(ctx, {
-		id: person.id,
-		email: person.email,
-		isAdmin: false,
-		via: 'session'
-	});
+	await ensurePersonalCalendar(ctx, person.id);
 	const started = await startSession(ctx, person.id);
 	return {
 		outcome: 'signed-in',
@@ -259,12 +248,7 @@ export async function signUpWithPassword(
 		emailVerified: false,
 		roles: []
 	});
-	await listCalendars(ctx, {
-		id: user.id,
-		email: user.email,
-		isAdmin: false,
-		via: 'session'
-	});
+	await ensurePersonalCalendar(ctx, user.id);
 
 	// The account exists and is signed in by now, so a refused or failed
 	// verification mail is logged, never fatal (`passwordSignup.ts:108-128`); the

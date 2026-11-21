@@ -61,7 +61,7 @@ export type RateLimitRule = {
 };
 
 /** See `EndpointSpec.bodyMode`. */
-export type BodyMode = 'json' | 'lenient' | 'strict';
+export type BodyMode = 'json' | 'lenient' | 'strict' | 'empty-object';
 
 type Schema = z.ZodType | undefined;
 export type Parsed<S extends Schema> = S extends z.ZodType ? z.output<S> : undefined;
@@ -101,6 +101,10 @@ export type EndpointSpec<
 	 * `400 {"error":"Invalid JSON"}`, exactly like malformed JSON; every other behaviour is
 	 * `'json'`. Legacy `request.json()` throws on an empty body, so a route whose golden pins
 	 * `Invalid JSON` for both malformed and empty bodies opts into this mode.
+	 * `'empty-object'`: an empty/whitespace-only body reads as `{}` (like `'json'`), while a
+	 * malformed, unreadable or non-object body reaches the schema as `null`, so the schema owns
+	 * the refusal. Use it for a legacy parser that allowed a missing body but answered its own
+	 * sentence for junk (the mobile guest route).
 	 * Opt in per endpoint, never by default.
 	 */
 	readonly bodyMode?: BodyMode;
@@ -226,7 +230,7 @@ function parseInput<S extends Schema>(schema: S, input: BoundaryInput): Parsed<S
 }
 
 async function readJsonBody(request: Request, mode: BodyMode): Promise<JsonValue> {
-	const lenient = mode === 'lenient';
+	const lenient = mode === 'lenient' || mode === 'empty-object';
 	let text: string;
 	try {
 		text = await request.text();
@@ -235,7 +239,7 @@ async function readJsonBody(request: Request, mode: BodyMode): Promise<JsonValue
 		throw invalid(INVALID_JSON_MESSAGE);
 	}
 	if (!text.trim()) {
-		if (lenient) return null;
+		if (mode === 'lenient') return null;
 		if (mode === 'strict') throw invalid(INVALID_JSON_MESSAGE);
 		return {};
 	}
