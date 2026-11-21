@@ -20,6 +20,8 @@ import { withTx } from '$lib/kernel/db/database.server';
 import { forbidden, invalid } from '$lib/kernel/errors/appError';
 import { createAlert } from '$lib/domains/alerts/index.server';
 import { getPerson, isEmailTaken } from '$lib/domains/identity/index.server';
+import type { FamilyAddMemberPage } from './family.contract';
+import { findFamilyById } from './family.families.repo.server';
 import { familyMemberLimitRefusal } from './family.families.service.server';
 import { EMAIL_INVITE_PLAN, LINK_INVITE_PLAN, familyInviteEmailHtml } from './family.invites.rules';
 import { mintFamilyInviteCode } from './family.invites.service.server';
@@ -46,6 +48,7 @@ import {
 	updateMemberType
 } from './family.members.repo.server';
 import {
+	canManageInvites,
 	DEFAULT_FAMILY_ROLE,
 	DEFAULT_MEMBER_TYPE,
 	familyRefusalError,
@@ -93,6 +96,27 @@ export type MemberRemovalInput = {
 	readonly familyId: string;
 	readonly userId: string;
 };
+
+/**
+ * `load` for `/family/[familyId]/members/add`: the family's name for the
+ * breadcrumb and whether this caller may send an email invite (the invite tab
+ * is hidden, not refused, for a plain member). A missing family answers the
+ * legacy 'Family' placeholder rather than a refusal, because the page can
+ * still offer "Find someone" and "Create a child".
+ */
+export async function getAddMemberPage(
+	ctx: Ctx,
+	actor: Actor,
+	familyId: string
+): Promise<FamilyAddMemberPage> {
+	const family = await findFamilyById(ctx.db, familyId);
+	const role = await findMemberRole(ctx.db, actor.id, familyId);
+	return {
+		familyId,
+		familyName: family?.name ?? 'Family',
+		canInviteByEmail: canManageInvites(role)
+	};
+}
 
 /**
  * `POST /api/families/{id}/members/direct`: creator/admin only, the person must

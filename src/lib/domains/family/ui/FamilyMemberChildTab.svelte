@@ -1,53 +1,35 @@
+<!--
+	"Create a child": a real, sign-in-capable account with no password, created
+	only with the consent tick. The note states the real constraint before the
+	email field: unique address, magic-link sign-in, you are the only holder.
+
+	Doc: ../README.md#public-interface
+-->
 <script lang="ts">
-	import { responseError } from './responseError';
+	import type { FamilyChildFormState } from '../family.addMember.state.svelte';
 
 	interface Props {
-		familyId: string;
-		onSuccess: () => void;
-		onError: (message: string) => void;
+		state: FamilyChildFormState;
+		onfail: (message: string) => void;
+		onadded: () => void;
 	}
 
-	let { familyId, onSuccess, onError }: Props = $props();
+	let { state, onfail, onadded }: Props = $props();
 
-	let childFirstName = $state('');
-	let childLastName = $state('');
-	let childEmail = $state('');
-	let consentAcknowledged = $state(false);
-	let creatingChild = $state(false);
-
-	async function createChild() {
-		creatingChild = true;
-		onError('');
-		try {
-			const res = await fetch('/family/' + familyId + '/members/add/child', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					firstName: childFirstName,
-					lastName: childLastName,
-					email: childEmail,
-					consentAcknowledged
-				})
-			});
-			const json = await res.json().catch(() => ({}));
-			const failure = responseError(res, json);
-			if (failure) {
-				onError(failure);
-			} else {
-				onSuccess();
-			}
-		} catch {
-			onError('Network problem. Please try again.');
-		} finally {
-			creatingChild = false;
+	async function create(): Promise<void> {
+		const outcome = await state.create();
+		if (!outcome.ok) {
+			if (outcome.error) onfail(outcome.error);
+			return;
 		}
+		onadded();
 	}
 </script>
 
 <form
-	onsubmit={(e) => {
-		e.preventDefault();
-		createChild();
+	onsubmit={(event) => {
+		event.preventDefault();
+		void create();
 	}}
 	class="space-y-4"
 >
@@ -58,7 +40,7 @@
 		<input
 			type="text"
 			id="childFirstName"
-			bind:value={childFirstName}
+			bind:value={state.firstName}
 			required
 			class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 		/>
@@ -70,17 +52,13 @@
 		<input
 			type="text"
 			id="childLastName"
-			bind:value={childLastName}
+			bind:value={state.lastName}
 			required
 			class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 		/>
 	</div>
 	<div>
 		<label for="childEmail" class="mb-2 block text-sm font-medium text-slate-700">Email</label>
-		<!-- The true version of the prototype's warning (issue 102). The child
-	     endpoint creates the account through the standard user-creation path, so
-	     the child CAN sign in — by magic link only, since no password is set.
-	     Uniqueness is stated as a rule, not as a save-time error. -->
 		<aside
 			role="note"
 			aria-label="A child is a real account"
@@ -96,7 +74,7 @@
 		<input
 			type="email"
 			id="childEmail"
-			bind:value={childEmail}
+			bind:value={state.email}
 			required
 			placeholder="email for the child's account"
 			class="w-full rounded-lg border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
@@ -110,22 +88,21 @@
 			<input
 				type="checkbox"
 				id="childConsent"
-				bind:checked={consentAcknowledged}
+				bind:checked={state.consentAcknowledged}
 				required
 				class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary-600 focus:ring-2 focus:ring-primary-500/20"
 			/>
 			<span>
-				I am this child’s parent or guardian and I consent to Family Planz creating and
-				storing this account for them. I can remove it at any time. A record of this
-				consent is kept.
+				I am this child’s parent or guardian and I consent to Family Planz creating and storing
+				this account for them. I can remove it at any time. A record of this consent is kept.
 			</span>
 		</label>
 	</div>
 	<button
 		type="submit"
-		disabled={creatingChild}
+		disabled={state.creating}
 		class="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
 	>
-		{creatingChild ? 'Creating...' : 'Create Child'}
+		{state.creating ? 'Creating...' : 'Create Child'}
 	</button>
 </form>

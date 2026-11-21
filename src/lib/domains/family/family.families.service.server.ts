@@ -24,9 +24,10 @@ import { getPlanLimits, getSubscriptionSummary } from '$lib/domains/billing/inde
 import { getCalendarSettings } from '$lib/domains/identity/index.server';
 import type {
 	CreateFamilyBody,
-	FamilyCardView,
+	FamilyActiveInvite,
+	FamilyCreatePage,
 	FamilyDetailView,
-	FamilyRosterRowView,
+	FamilyListPayload,
 	FamilyView,
 	InviteCodeView,
 	UpdateFamilyBody
@@ -65,22 +66,8 @@ import type { FamilyCtx, FamilyDetailCtx } from './index.server';
 /** The zone the card's "Created" label prints in (legacy: the server's UTC). */
 const CARD_ZONE = 'UTC';
 
-/** One `/family` card's live code, as the list carries it. */
-type FamilyListInvite = {
-	readonly familyId: string;
-	readonly code: string;
-	readonly useCount: number | null;
-	readonly maxUses: number | null;
-	readonly expiresAt: Date;
-};
-
 /** `GET /api/families`: the cards, the side-rail roster, the live codes and the plan usage. */
-export type FamilyListPayload = {
-	readonly families: FamilyCardView[];
-	readonly roster: FamilyRosterRowView[];
-	readonly activeInvites: FamilyListInvite[];
-	readonly plan: { readonly used: number; readonly limit: number };
-};
+export type { FamilyListPayload } from './family.contract';
 
 /**
  * The `/family` list: every family the caller belongs to, oldest first, with
@@ -99,7 +86,7 @@ export async function listFamilies(ctx: Ctx, actor: Actor): Promise<FamilyListPa
 	const limits = await getPlanLimits(ctx, actor);
 
 	const now = ctx.clock.now();
-	const activeInvites: FamilyListInvite[] = codes
+	const activeInvites: FamilyActiveInvite[] = codes
 		.filter((invite) => isInviteUsable(invite, now))
 		.map((invite) => ({
 			familyId: invite.familyId,
@@ -116,6 +103,22 @@ export async function listFamilies(ctx: Ctx, actor: Actor): Promise<FamilyListPa
 		roster,
 		activeInvites,
 		plan: { used: familyIds.length, limit: limits.familyLimit }
+	};
+}
+
+/**
+ * `load` for `/family/create`: the plan gate's answer, the two numbers the
+ * banner and the usage line print, and the member limit the picker counts
+ * against (issue 076). One read of the limits and one of the memberships.
+ */
+export async function getFamilyCreatePage(ctx: Ctx, actor: Actor): Promise<FamilyCreatePage> {
+	const limits = await getPlanLimits(ctx, actor);
+	const used = (await listMemberships(ctx.db, actor.id)).length;
+	return {
+		familyLimit: limits.familyLimit,
+		familyLimitReached: familyCreationRefusal(limits, used) !== null,
+		familyUsed: used,
+		memberLimit: limits.memberLimit
 	};
 }
 

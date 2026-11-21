@@ -15,8 +15,13 @@ import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
 import { withTx } from '$lib/kernel/db/database.server';
 import { invalid, notFound } from '$lib/kernel/errors/appError';
-import type { FamilyView, InviteCodeView, MintInviteBody } from './family.contract';
-import { findFamilyById } from './family.families.repo.server';
+import type {
+	FamilyInvitationsPage,
+	FamilyView,
+	InviteCodeView,
+	MintInviteBody
+} from './family.contract';
+import { findFamilyById, listMemberships } from './family.families.repo.server';
 import { familyMemberLimitRefusal } from './family.families.service.server';
 import {
 	INVITE_CODE_LENGTH,
@@ -106,6 +111,45 @@ export async function listInvites(
 	return {
 		canManageInvites: allowed,
 		codes: allowed ? await listInviteCodes(ctx.db, familyId) : []
+	};
+}
+
+/**
+ * `load` for `/family/invitations`: the family named by `?familyId=` when the
+ * caller belongs to it, otherwise the OLDEST one (issue 098); a plain member
+ * gets the explanatory notice with no codes, and the switcher carries every
+ * family with its own permission. No family at all answers an empty page.
+ */
+export async function getInvitationsPage(
+	ctx: Ctx,
+	actor: Actor,
+	requestedFamilyId: string | null
+): Promise<FamilyInvitationsPage> {
+	const memberships = await listMemberships(ctx.db, actor.id);
+	const chosen =
+		memberships.find((membership) => membership.family.id === requestedFamilyId) ??
+		memberships[0] ??
+		null;
+	if (!chosen) {
+		return {
+			invitations: [],
+			canManageInvites: false,
+			family: null,
+			now: ctx.clock.now().toISOString(),
+			memberships: []
+		};
+	}
+	const allowed = canManageInvites(chosen.role);
+	return {
+		invitations: allowed ? await listInviteCodes(ctx.db, chosen.family.id) : [],
+		canManageInvites: allowed,
+		family: chosen.family,
+		now: ctx.clock.now().toISOString(),
+		memberships: memberships.map((membership) => ({
+			id: membership.family.id,
+			name: membership.family.name,
+			canManageInvites: canManageInvites(membership.role)
+		}))
 	};
 }
 

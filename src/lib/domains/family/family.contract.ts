@@ -579,3 +579,80 @@ export type MemberSearchHit = {
 
 /** One invite-flow hit, with the full address. */
 export type InvitableUser = MemberSearchHit;
+
+// --- Page data (internal: these pages are not a wire contract) ---------------
+
+/**
+ * One live join code on the `/family` list, as that page's rail carries it.
+ * A real `Date`, like every server-side row type at the bottom of this file.
+ */
+export type FamilyActiveInvite = {
+	readonly familyId: string;
+	readonly code: string;
+	readonly useCount: number | null;
+	readonly maxUses: number | null;
+	readonly expiresAt: Date;
+};
+
+/**
+ * `load` for `/family`: every card the viewer may open, the rail's roster for
+ * all of them, their live codes and the plan usage the hero pill prints.
+ */
+export type FamilyListPayload = {
+	readonly families: FamilyCardView[];
+	readonly roster: FamilyRosterRowView[];
+	readonly activeInvites: FamilyActiveInvite[];
+	readonly plan: { readonly used: number; readonly limit: number };
+};
+
+/** `load` for `/family/create`: the plan's two limits and the usage line. */
+export type FamilyCreatePage = {
+	readonly familyLimit: number;
+	readonly familyLimitReached: boolean;
+	readonly familyUsed: number;
+	readonly memberLimit: number;
+};
+
+/** What the create action echoes back on a refusal, so the page keeps the typed name and colour. */
+export type FamilyCreateFormEcho = {
+	readonly error?: string;
+	readonly upgradeRequired?: boolean;
+	readonly name?: string;
+	readonly color?: string;
+} | null;
+
+/** `load` for `/family/invitations`: the chosen family, its codes and the family switcher. */
+export type FamilyInvitationsPage = {
+	readonly family: FamilyView | null;
+	readonly invitations: InviteCodeView[];
+	readonly canManageInvites: boolean;
+	/** The load's instant, so "which code is live" is decided against the server's clock (R5). */
+	readonly now: string;
+	readonly memberships: {
+		readonly id: string;
+		readonly name: string;
+		readonly canManageInvites: boolean;
+	}[];
+};
+
+/** `load` for `/family/[familyId]/members/add`: the family's name and whether the invite tab shows. */
+export type FamilyAddMemberPage = {
+	readonly familyId: string;
+	readonly familyName: string;
+	readonly canInviteByEmail: boolean;
+};
+
+/**
+ * `load` for `/family/join/[code]`: an unusable link is a value, never a
+ * redirect (issue 124), and the code is echoed so the page can name it.
+ */
+export type FamilyJoinPage = {
+	readonly invalid: boolean;
+	readonly family: {
+		readonly id: string;
+		readonly name: string;
+		readonly color: string | null;
+	} | null;
+	readonly code: string;
+	readonly isLoggedIn: boolean;
+};
