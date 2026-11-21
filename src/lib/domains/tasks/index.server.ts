@@ -27,6 +27,7 @@ export { unassignMemberTasks } from './tasks.items.service.server';
 
 export {
 	listTasks,
+	listDueTasks,
 	listTaskSections,
 	listFamilyTasks,
 	createTask,
@@ -36,6 +37,7 @@ export {
 	type TaskWithTagsRow,
 	type TaskListRow,
 	type TaskSectionRow,
+	type TaskDueWindowInput,
 	type TaskFamilyBoardRows,
 	type TaskListInput
 } from './tasks.items.service.server';

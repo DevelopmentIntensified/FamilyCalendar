@@ -2,4 +2,4 @@
  * calendarPage — public components.
  * Doc: ../README.md#public-interface
  */
-export {};
+export { default as CalendarPage } from './CalendarPage.svelte';

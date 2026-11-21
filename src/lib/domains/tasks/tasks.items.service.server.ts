@@ -45,6 +45,7 @@ import {
 	findTask,
 	insertTask,
 	insertTaskTags,
+	listDueTaskRows,
 	listFamilyTaskRows,
 	listMyTasks,
 	listPendingAssignments,
@@ -416,6 +417,32 @@ export async function listTaskSections(ctx: Ctx, actor: Actor): Promise<{
 		requestedByMe: requested.value,
 		warnings
 	};
+}
+
+/** The calendar page's due window: ISO instants bounding one month's grid. */
+export type TaskDueWindowInput = { readonly fromIso: string; readonly toIso: string };
+
+/**
+ * The due-window read (`calendarPage` composes it): open Tasks whose due date
+ * falls inside the window — own rows plus the family's readable ones — with
+ * the same list-row fields the main list carries (tags, assignee names, phone
+ * overlay), so a calendar chip and the tasks page never disagree about a row.
+ * Overdue cursors are pinned first, as every list read does (#110).
+ */
+export async function listDueTasks(
+	ctx: Ctx,
+	actor: Actor,
+	input: TaskDueWindowInput
+): Promise<readonly TaskListRow[]> {
+	const familyId = await resolveMembershipFamilyId(ctx, actor.id);
+	await pinOverdue(ctx, actor, { userId: actor.id, familyId });
+	const rows = (await listDueTaskRows(ctx.db, {
+		userId: actor.id,
+		familyId,
+		fromIso: input.fromIso,
+		toIso: input.toIso
+	})).filter((row) => canReadTask(row, actor.id));
+	return await attachListFields(ctx, actor, rows);
 }
 
 /**

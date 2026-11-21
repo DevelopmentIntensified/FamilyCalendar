@@ -29,6 +29,22 @@ export {
 } from './calendar.chips.rules';
 export { createCalendarApi, type CalendarApi } from './calendar.api';
 export {
+	MOVE_SNAP_MINUTES,
+	buildDuplicateEventPayload,
+	buildMovePayload,
+	eventDurationMinutes,
+	formatRangeLabel,
+	minutesToDayTime,
+	normalizeRange,
+	snapMinutes,
+	yToMinutes,
+	type DuplicateAttendee,
+	type DuplicateSource,
+	type MoveEvent,
+	type MovePayload,
+	type MoveTarget
+} from './calendar.move.rules';
+export {
 	calendarAttendancePeople,
 	calendarAttendanceSplit,
 	calendarAttendanceStatus,
@@ -52,6 +68,7 @@ export {
 	WEEKDAY_CODES,
 	type BulkOpType,
 	type CalendarAttendanceSummaryWire,
+	type CalendarBulkPlanOpWire,
 	type CalendarAttendanceWire,
 	type CalendarDisplayEventWire,
 	type CalendarEventsResponse,

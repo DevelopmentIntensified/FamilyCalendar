@@ -12,3 +12,5 @@ export { default as TaskCategoryField } from './TaskCategoryField.svelte';
 export { default as TaskCategoryManager } from './TaskCategoryManager.svelte';
 export { default as TaskAssignments } from './TaskAssignments.svelte';
 export { default as EventTaskChecklist } from './EventTaskChecklist.svelte';
+export { default as TaskDetailModal, type TaskDetailRow } from './TaskDetailModal.svelte';
+export { default as TaskQuickAddHelp } from './TaskQuickAddHelp.svelte';

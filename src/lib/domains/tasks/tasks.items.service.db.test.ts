@@ -34,6 +34,7 @@ import {
 	clearCompletedTasks,
 	createTask,
 	deleteTask,
+	listDueTasks,
 	listFamilyTasks,
 	listTaskSections,
 	listTasks,
@@ -791,5 +792,42 @@ describe('unassignMemberTasks', () => {
 		expect(cleared).toMatchObject({ assignedTo: null, assignmentStatus: 'none' });
 		const [untouched] = await db.select().from(tasks).where(eq(tasks.id, elsewhere.id));
 		expect(untouched).toMatchObject({ assignedTo: sam.id, assignmentStatus: 'pending' });
+	});
+});
+
+describe('listDueTasks (the calendar page’s window)', () => {
+	rollbackTest('answers open Tasks inside the window, own and readable family rows', async (db) => {
+		const owner = await seedUser(db);
+		const other = await seedUser(db);
+		const ctx = testCtx({ db, now: '2026-03-10T09:00:00.000Z' });
+		await seedTask(db, {
+			userId: owner.id,
+			title: 'Inside',
+			dueDate: '2026-03-10 09:00:00+00'
+		});
+		await seedTask(db, {
+			userId: owner.id,
+			title: 'Outside',
+			dueDate: '2026-05-10 09:00:00+00'
+		});
+		await seedTask(db, {
+			userId: owner.id,
+			title: 'Done',
+			dueDate: '2026-03-11 09:00:00+00',
+			completedAt: '2026-03-11 10:00:00+00'
+		});
+		await seedTask(db, {
+			userId: other.id,
+			title: 'Someone else',
+			dueDate: '2026-03-12 09:00:00+00'
+		});
+
+		const rows = await listDueTasks(ctx, actorFromUser(owner, 'session'), {
+			fromIso: '2026-02-28T00:00:00.000Z',
+			toIso: '2026-04-05T00:00:00.000Z'
+		});
+
+		expect(rows.map((row) => row.title)).toEqual(['Inside']);
+		expect(rows[0]).toMatchObject({ tags: [], assigneeFirstName: null });
 	});
 });

@@ -52,3 +52,10 @@ export {
 	type SignupPageData,
 	type VerifyEmailActionData
 } from './access.pages.http.server';
+
+/**
+ * The guest-stash contract the calendar page's merge gate reads: the cookie a
+ * sign-in writes, and the claim check (`/merge-guest` and that gate are the
+ * only two callers, and both must agree on what "claimable" means).
+ */
+export { GUEST_MERGE_COOKIE, isClaimableGuest } from './access.guestMerge.service.server';

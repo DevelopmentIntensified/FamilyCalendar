@@ -66,6 +66,8 @@ export interface CalendarPageSettings {
 	timeZone: string;
 	color: string | null;
 	showAdsAsEvents: boolean;
+	/** Where a new Event lands when the person does not pick a calendar. */
+	defaultCalendarId: string | null;
 }
 
 /** The compact "who's going" summary the attendance badge draws. */
@@ -112,6 +114,8 @@ export interface CalendarPageTaskRow {
 	assigneeFirstName: string | null;
 	assigneeLastName: string | null;
 	recurrenceFrequency: string | null;
+	/** The cadence's step: `2× Weekly` needs both halves (legacy day list). */
+	recurrenceInterval: number | null;
 }
 
 /**
@@ -126,6 +130,8 @@ export interface CalendarPageGrid {
 	events: CalendarPageEventRow[];
 	tasks: CalendarPageTaskRow[];
 	ads: CalendarPageAdRow[];
+	/** Section labels whose streamed leg failed and degraded (`events`, `tasks`, `ads`). */
+	warnings: string[];
 }
 
 /** The deep-link seeds the page consumed once, resolved in the shell. */
@@ -155,8 +161,12 @@ export interface CalendarPageShell {
  * The one typed load model: the shell plus `grid`, the streamed promise that
  * carries the visible month's Events, Sponsored Events and due Tasks.
  * Components type their props as `CalendarPageModel['grid']`-style slices.
+ *
+ * A `type`, not an `interface`: SvelteKit's `PageServerLoad` requires the load
+ * result to extend `Record<string, any>`, and only an object type alias gets
+ * the implicit index signature that check needs.
  */
-export interface CalendarPageModel {
+export type CalendarPageModel = {
 	shell: CalendarPageShell;
 	grid: Promise<CalendarPageGrid>;
-}
+};
