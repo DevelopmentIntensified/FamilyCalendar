@@ -14,11 +14,12 @@
  *
  * Doc: ./README.md#public-interface
  */
+import { fail } from '@sveltejs/kit';
 import type { BugReportRow, UnmatchedPhraseRow } from '$lib/kernel/db/tables.server';
-import { unauthorized } from '$lib/kernel/errors/appError';
 import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
 import { formAction, pageLoad } from '$lib/kernel/http/pageHandlers.server';
 import { toInstantString } from '$lib/kernel/time/dates';
+import { firstIssueMessage } from '$lib/kernel/validation/validators';
 import {
 	BugReportBody,
 	BugReportFormBody,
@@ -47,6 +48,9 @@ import {
 
 /** The zone both registers' export text is stamped in (legacy: server local, UTC). */
 const EXPORT_ZONE = 'UTC';
+
+/** The `/report-bug` write-failure copy (legacy `fail(500, …)` after a null row). */
+const BUG_REPORT_SAVE_FAILED = 'Could not save your report. Please try again.';
 
 /** A required wire timestamp. A stored `Date` is always valid; otherwise it is a fault. */
 function instant(value: Date): string {
@@ -187,26 +191,48 @@ export const reportBugPageLoad = pageLoad({
 });
 
 /**
- * The `/report-bug` submit action: a person gets one message per field from
- * `BugReportFormBody`, the posted hidden `from` beats the POST referer, and
- * the recorded url falls back to the form's own path. The 401 copy is the
- * page's own ("Please log in to report a bug."), not the kernel's default, so
- * the page checks the actor itself.
+ * The `/report-bug` submit action: legacy order and bodies — the 401 before
+ * the form is read, then `BugReportFormBody`'s one message per field, and
+ * every failure echoes the posted `area`/`description` so the page can keep
+ * them. The posted hidden `from` beats the POST referer, and the recorded url
+ * falls back to the form's own path. The 401 copy is the page's own ("Please
+ * log in to report a bug."), not the kernel's default, so the page checks the
+ * actor itself; the action parses the form itself for the same reason (the
+ * kernel parses before `handle`).
  */
 export const submitBugReportAction = formAction({
 	auth: 'optional',
-	form: BugReportFormBody,
-	failMessage: 'Could not save your report. Please try again.',
-	handle: async ({ ctx, actor, form, event }) => {
-		if (!actor) throw unauthorized('Please log in to report a bug.');
-		const from =
-			safeReportedPath(form.from, event.url.origin) ||
-			safeReportedPath(event.request.headers.get('referer'), event.url.origin);
-		await fileBugReport(ctx, actor, {
-			area: form.area,
-			description: form.description,
-			url: from || event.url.pathname
+	failMessage: BUG_REPORT_SAVE_FAILED,
+	handle: async ({ ctx, actor, event }) => {
+		if (!actor) {
+			return fail(401, { error: 'Please log in to report a bug.', area: '', description: '' });
+		}
+		const data = await event.request.formData();
+		const area = String(data.get('area') ?? '');
+		const description = String(data.get('description') ?? '').trim();
+		const parsed = BugReportFormBody.safeParse({
+			area,
+			description,
+			from: String(data.get('from') ?? '')
 		});
+		if (!parsed.success) {
+			return fail(400, { error: firstIssueMessage(parsed.error), area, description });
+		}
+		const from =
+			safeReportedPath(parsed.data.from, event.url.origin) ||
+			safeReportedPath(event.request.headers.get('referer'), event.url.origin);
+		try {
+			await fileBugReport(ctx, actor, {
+				area: parsed.data.area,
+				description: parsed.data.description,
+				url: from || event.url.pathname
+			});
+		} catch (cause) {
+			ctx.log.error('bug_report_failed', {
+				message: cause instanceof Error ? cause.message : String(cause)
+			});
+			return fail(500, { error: BUG_REPORT_SAVE_FAILED, area, description });
+		}
 		return { ok: true };
 	}
 });

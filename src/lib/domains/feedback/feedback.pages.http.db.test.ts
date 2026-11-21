@@ -1,13 +1,14 @@
 /**
  * `/report-bug` page handlers through the kernel's `invokeLoad` /
  * `invokeAction`: the 302 to `/login`, the issue-257 `from` resolution and
- * the five legacy failure copies. Not a golden — the page's data is internal
- * and is redesigned with the UI (S7).
+ * the five legacy failure bodies (`{ error, area, description }`, the 401
+ * before the form is read). Not a golden — the page's data is internal and is
+ * redesigned with the UI (S7).
  *
  * Doc: ./README.md#how-to-test
  */
 import { isRedirect } from '@sveltejs/kit';
-import { describe, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { actorFromUser } from '$lib/kernel/ctx/actor';
 import { bugReports } from '$lib/kernel/db/tables.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
@@ -17,7 +18,7 @@ import {
 	isActionFailure
 } from '$lib/kernel/testing/invokeHandlers.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
-import { rollbackTest } from '$lib/kernel/testing/testDb.server';
+import { inRollback, rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { reportBugPageLoad, submitBugReportAction } from './feedback.http.server';
 
 const ORIGIN = 'http://localhost';
@@ -113,39 +114,63 @@ describe('/report-bug submit', () => {
 		expect(rows.map((row) => row.url)).toEqual(['/report-bug']);
 	});
 
-	rollbackTest('reports the form errors with the legacy copy', async (db) => {
-		const user = await seedUser(db);
-		const ctx = testCtx({ db });
-		const actor = actorFromUser(user, 'session');
-		const submit = (form: Record<string, string>, signedIn = true) =>
-			invokeAction(submitBugReportAction, {
+	// Legacy `+page.server.ts:22-58`: signed out fails 401 before the form is
+	// read (`area`/`description` blank), and each refused body echoes the
+	// posted `area` and the trimmed `description`.
+	it.each<
+		[
+			string,
+			Record<string, string>,
+			boolean,
+			number,
+			{ error: string; area: string; description: string }
+		]
+	>([
+		[
+			'a signed-out POST with an invalid form (401 before the form is read)',
+			{ area: 'weather', description: '' },
+			false,
+			401,
+			{ error: 'Please log in to report a bug.', area: '', description: '' }
+		],
+		[
+			'an unknown area',
+			{ area: 'weather', description: 'boom' },
+			true,
+			400,
+			{ error: 'Please choose a category.', area: 'weather', description: 'boom' }
+		],
+		[
+			'a blank description',
+			{ area: 'tasks', description: '   ' },
+			true,
+			400,
+			{ error: 'Please describe the bug.', area: 'tasks', description: '' }
+		],
+		[
+			'a description over 5000 characters',
+			{ area: 'tasks', description: 'x'.repeat(5001) },
+			true,
+			400,
+			{
+				error: 'Description is too long (max 5000 characters).',
+				area: 'tasks',
+				description: 'x'.repeat(5001)
+			}
+		]
+	])('answers the legacy body for %s', (_label, form, signedIn, status, data) => {
+		return inRollback(async (db) => {
+			const user = signedIn ? await seedUser(db) : null;
+			const ctx = testCtx({ db });
+			const result = await invokeAction(submitBugReportAction, {
 				ctx,
-				actor: signedIn ? actor : null,
+				actor: user ? actorFromUser(user, 'session') : null,
 				path: '/report-bug',
 				form
 			});
-
-		const signedOut = await submit({ area: 'tasks', description: 'boom' }, false);
-		expect(isActionFailure(signedOut) && signedOut).toMatchObject({
-			status: 401,
-			data: { success: false, error: 'Please log in to report a bug.' }
+			expect(isActionFailure(result) && result).toEqual({ status, data });
+			expect(await db.select().from(bugReports)).toEqual([]);
 		});
-		const badArea = await submit({ area: 'weather', description: 'boom' });
-		expect(isActionFailure(badArea) && badArea).toMatchObject({
-			status: 400,
-			data: { success: false, error: 'Please choose a category.' }
-		});
-		const blank = await submit({ area: 'tasks', description: '   ' });
-		expect(isActionFailure(blank) && blank).toMatchObject({
-			status: 400,
-			data: { success: false, error: 'Please describe the bug.' }
-		});
-		const tooLong = await submit({ area: 'tasks', description: 'x'.repeat(5001) });
-		expect(isActionFailure(tooLong) && tooLong).toMatchObject({
-			status: 400,
-			data: { success: false, error: 'Description is too long (max 5000 characters).' }
-		});
-		expect(await db.select().from(bugReports)).toEqual([]);
 	});
 
 	rollbackTest('answers the legacy 500 copy when the write fails', async (db) => {
@@ -157,9 +182,13 @@ describe('/report-bug submit', () => {
 			path: '/report-bug',
 			form: { area: 'tasks', description: 'boom' }
 		});
-		expect(isActionFailure(result) && result).toMatchObject({
+		expect(isActionFailure(result) && result).toEqual({
 			status: 500,
-			data: { success: false, error: 'Could not save your report. Please try again.' }
+			data: {
+				error: 'Could not save your report. Please try again.',
+				area: 'tasks',
+				description: 'boom'
+			}
 		});
 	});
 });
