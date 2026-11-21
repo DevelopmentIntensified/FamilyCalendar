@@ -15,6 +15,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 import { PAGES_BASE_URL, PAGES_DATABASE_URL } from './env';
+import { clearResults } from './perf-results';
 
 /**
  * The repo root. NOT Playwright's `rootDir` (that is the resolved testDir,
@@ -52,6 +53,12 @@ async function appliedCount(sql: postgres.Sql): Promise<number> {
 }
 
 export default async function globalSetup(): Promise<void> {
+	// One run, one perf results file — cleared here, once, in Playwright's own
+	// process. Never in a worker hook: Playwright replaces a worker after a
+	// failed test, so the retry's `beforeAll` would delete every page the
+	// previous worker had already measured (K-11, 2026-11-19: 28 of 41 lost).
+	if (process.env.PERF_MODE) clearResults(process.env.PAGES_MODULE ?? 'all');
+
 	// One request, so the server has certainly loaded its hooks module (and
 	// therefore started the migration run). Playwright already waited on the
 	// port; this is the first request that exercises the app's own path.
