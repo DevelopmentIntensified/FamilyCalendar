@@ -149,7 +149,8 @@ function sessionPipeline(ctx: Ctx): Handle {
 				const started = await startSession(ctx, person.id);
 				writeCookie(event.cookies, started.cookie);
 				event.locals.user = person;
-				event.locals.session = started.session;
+				// Legacy `createSession` returned the new row with `fresh: true`.
+				event.locals.session = { ...started.session, fresh: true };
 				event.locals.actor = actorFromUser(person, 'session');
 			}
 			return resolve(event);
