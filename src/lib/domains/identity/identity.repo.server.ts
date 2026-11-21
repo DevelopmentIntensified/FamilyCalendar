@@ -409,14 +409,14 @@ export async function touchApiTokenLastUsed(db: Db, id: string, now: Date): Prom
 
 // --- Email codes ------------------------------------------------------------
 
-/** Stores a code row exactly as given (`code` already hashed for a sign-in kind). */
+/** Stores a code row exactly as given (`code` is the SHA-256 hex, every kind). */
 export async function insertEmailCode(db: Db, values: NewCodeRow): Promise<CodeRow> {
 	const [row] = await db.insert(codes).values(values).returning();
 	if (!row) throw new Error('insertEmailCode: insert returned no row');
 	return row;
 }
 
-/** The hashed lookup: digest, email AND type must all match (#162, #154). */
+/** The lookup: digest, email AND type must all match (#162, #154). */
 export async function findEmailCodeByKey(db: Db, key: EmailCodeKey): Promise<CodeRow | null> {
 	const [row] = await db.select().from(codes).where(matchesKey(key));
 	return row ?? null;
@@ -424,16 +424,6 @@ export async function findEmailCodeByKey(db: Db, key: EmailCodeKey): Promise<Cod
 
 export async function deleteEmailCodeByKey(db: Db, key: EmailCodeKey): Promise<void> {
 	await db.delete(codes).where(matchesKey(key));
-}
-
-/** Lookup by the stored value as-is: the email-change code and the reset marker. */
-export async function findEmailCode(db: Db, code: string): Promise<CodeRow | null> {
-	const [row] = await db.select().from(codes).where(eq(codes.code, code));
-	return row ?? null;
-}
-
-export async function deleteEmailCode(db: Db, code: string): Promise<void> {
-	await db.delete(codes).where(eq(codes.code, code));
 }
 
 /** Every code bound to an address (a new email-change request replaces the old). */

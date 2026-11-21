@@ -1,9 +1,9 @@
 /**
- * Pure email-code rules: the type vocabulary and which types are stored
- * hashed, the 15-minute TTL, the expiry predicate and the `(hash, email, type)`
+ * Pure email-code rules: the type vocabulary (every kind stored as a digest,
+ * Q-116), the 15-minute TTL, the expiry predicate and the `(hash, email, type)`
  * lookup key. Expected values come from `codes.ts`, `magicLink.ts`,
- * `accountData.ts` and the verify routes; the digest is the NIST SHA-256
- * test vector, not this code's output.
+ * `accountData.ts`, the verify routes and the reset route's `used:<hash>`
+ * marker; the digest is the NIST SHA-256 test vector, not this code's output.
  *
  * Doc: ./README.md#invariants
  */
@@ -14,8 +14,7 @@ import {
 	emailCodeExpiresAt,
 	emailCodeKey,
 	HASHED_EMAIL_CODE_TYPES,
-	isEmailCodeExpired,
-	isHashedEmailCodeType
+	isEmailCodeExpired
 } from './identity.code.rules';
 
 const NOW = new Date('2026-01-15T12:00:00.000Z');
@@ -31,21 +30,28 @@ describe('vocabulary', () => {
 		]);
 	});
 
-	// #162: only the sign-in kinds store a digest; the email-change code and
-	// the reset marker keep their value in `codes.code` today.
-	it.each<[string, boolean]>([
-		['login', true],
-		['signup', true],
-		['password-signup', true],
-		['email_change', false],
-		['reset_used', false],
-		['Login', false]
-	])('isHashedEmailCodeType(%j) → %s', (type, expected) => {
-		expect(isHashedEmailCodeType(type)).toBe(expected);
+	// Q-116 answered B: every kind a writer stamps is stored as a digest, the
+	// email-change code and the reset marker included, so there is no plaintext
+	// branch left to name.
+	it.each<[string]>([
+		['signup'],
+		['login'],
+		['password-signup'],
+		['email_change'],
+		['reset_used']
+	])('lists %s among the kinds stored as a digest', (type) => {
+		expect(HASHED_EMAIL_CODE_TYPES).toContain(type);
 	});
 
-	it('lists the hashed kinds', () => {
-		expect(HASHED_EMAIL_CODE_TYPES).toEqual(['login', 'signup', 'password-signup']);
+	it('lists every kind as hashed — no kind keeps its value', () => {
+		expect(HASHED_EMAIL_CODE_TYPES).toEqual([
+			'signup',
+			'login',
+			'password-signup',
+			'email_change',
+			'reset_used'
+		]);
+		expect(HASHED_EMAIL_CODE_TYPES).toEqual(EMAIL_CODE_TYPES);
 	});
 });
 

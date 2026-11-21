@@ -1,12 +1,11 @@
 /**
  * identity credentials service against real Postgres: bcrypt cost-10 hashing,
- * the hashed/plain email-code split, the `(hash, email, type)` binding, the
- * 15-minute TTL and consume-on-redeem. `rollbackTest` plus a fixed clock make
- * the expiry edge exact.
+ * the SHA-256 stored for every code kind (Q-116), the `(digest, email, type)`
+ * binding, the 15-minute TTL and consume-on-redeem. `rollbackTest` plus a fixed
+ * clock make the expiry edge exact.
  *
  * Doc: ./README.md#how-to-test
  */
-import { eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
 import { codes } from '$lib/kernel/db/tables.server';
 import { sha256Hex } from '$lib/kernel/ids/ids';
@@ -95,7 +94,7 @@ describe('email codes', () => {
 		expect(await db.select().from(codes)).toEqual([]);
 	});
 
-	rollbackTest('keeps an email-change code by value and redeems only for its address and kind', async (db) => {
+	rollbackTest('stores an email-change code as its SHA-256 and redeems it by digest', async (db) => {
 		const ctx = testCtx({ db, now: NOW.toISOString() });
 		await issueEmailCode(ctx, {
 			code: 'change-123',
@@ -105,8 +104,18 @@ describe('email codes', () => {
 		});
 
 		const [stored] = await db.select().from(codes);
-		expect(stored.code).toBe('change-123');
+		expect(stored.code).toBe(sha256Hex('change-123'));
+		expect(stored.code).not.toContain('change-123');
 
+		// A wrong code, a wrong address and a wrong kind are all misses that
+		// consume nothing: the row only answers its own `(digest, email, type)`.
+		expect(
+			await redeemEmailCode(ctx, {
+				code: 'change-124',
+				email: 'mia@example.test',
+				type: 'email_change'
+			})
+		).toBeNull();
 		expect(
 			await redeemEmailCode(ctx, {
 				code: 'change-123',
@@ -114,6 +123,14 @@ describe('email codes', () => {
 				type: 'email_change'
 			})
 		).toBeNull();
+		expect(
+			await redeemEmailCode(ctx, {
+				code: 'change-123',
+				email: 'mia@example.test',
+				type: 'signup'
+			})
+		).toBeNull();
+		expect(await db.select().from(codes)).toHaveLength(1);
 
 		const redeemed = await redeemEmailCode(ctx, {
 			code: 'change-123',
@@ -121,6 +138,41 @@ describe('email codes', () => {
 			type: 'email_change'
 		});
 		expect(redeemed?.pendingEmail).toBe('new@example.test');
-		expect(await db.select().from(codes).where(eq(codes.code, 'change-123'))).toEqual([]);
+		expect(await db.select().from(codes)).toEqual([]);
+	});
+
+	rollbackTest('stores the reset marker as its SHA-256 too (Q-116)', async (db) => {
+		const ctx = testCtx({ db, now: NOW.toISOString() });
+		// Legacy's marker value is `used:<sha256(token)>`; the row keeps only the
+		// digest of that string, so a leaked table cannot revive a reset link.
+		const marker = `used:${sha256Hex('reset-token')}`;
+		const markerExpiry = new Date(NOW.getTime() + 60 * 60 * 1000);
+		await issueEmailCode(ctx, {
+			code: marker,
+			email: 'mia@example.test',
+			type: 'reset_used',
+			expiresAt: markerExpiry
+		});
+
+		const [stored] = await db.select().from(codes);
+		expect(stored.code).toBe(sha256Hex(marker));
+		expect(stored.code).not.toContain(marker);
+
+		expect(
+			await redeemEmailCode(ctx, {
+				code: `${marker}-other`,
+				email: 'mia@example.test',
+				type: 'reset_used'
+			})
+		).toBeNull();
+
+		const redeemed = await redeemEmailCode(ctx, {
+			code: marker,
+			email: 'mia@example.test',
+			type: 'reset_used'
+		});
+		expect(redeemed?.type).toBe('reset_used');
+		expect(redeemed?.expiresAt).toEqual(markerExpiry);
+		expect(await db.select().from(codes)).toEqual([]);
 	});
 });

@@ -35,7 +35,6 @@ import {
 	deleteApiToken,
 	deleteApiTokenByHash,
 	deleteApiTokensForPerson,
-	deleteEmailCode,
 	deleteEmailCodeByKey,
 	deleteEmailCodesForEmail,
 	deleteExpiredEmailCodes,
@@ -45,7 +44,6 @@ import {
 	deleteSessionsForPerson,
 	findAccountBinding,
 	findApiTokenHolder,
-	findEmailCode,
 	findEmailCodeByKey,
 	findPersonByEmail,
 	findPersonById,
@@ -635,20 +633,31 @@ describe('email codes', () => {
 		expect((await db.select().from(codes)).map((row) => row.code)).toEqual(['other-digest']);
 	});
 
-	rollbackTest('findEmailCode / deleteEmailCode match the stored value as-is', async (db) => {
+	rollbackTest('finds the email-change code and the reset marker by their digests', async (db) => {
+		const change = emailCodeKey({
+			code: '12345678',
+			email: 'mia@example.com',
+			type: 'email_change'
+		});
+		const marker = emailCodeKey({ code: 'used:abc', email: 'mia@example.com', type: 'reset_used' });
 		await seedIdentityEmailCode(
 			{
-				code: '12345678',
-				email: 'mia@example.com',
-				type: 'email_change',
+				code: change.codeHash,
+				email: change.email,
+				type: change.type,
 				pendingEmail: 'new@example.com'
 			},
 			db
 		);
-		expect((await findEmailCode(db, '12345678'))?.pendingEmail).toBe('new@example.com');
-		expect(await findEmailCode(db, '87654321')).toBeNull();
-		await deleteEmailCode(db, '12345678');
-		expect(await findEmailCode(db, '12345678')).toBeNull();
+		await seedIdentityEmailCode(
+			{ code: marker.codeHash, email: marker.email, type: marker.type },
+			db
+		);
+
+		expect((await findEmailCodeByKey(db, change))?.pendingEmail).toBe('new@example.com');
+		expect((await findEmailCodeByKey(db, marker))?.type).toBe('reset_used');
+		// Q-116: the plaintext is not what the table holds, so it matches nothing.
+		expect(await findEmailCodeByKey(db, { ...change, codeHash: '12345678' })).toBeNull();
 	});
 
 	rollbackTest('deleteEmailCodesForEmail clears every code of that address only', async (db) => {
