@@ -1,8 +1,9 @@
 /**
  * Pure person rules: the ONE Anonymous Account predicate, the email a client
- * may see, the person label, the profile privilege drop, the hourly
- * `lastActiveAt` touch and the stored-zone resolution. Expected values come
- * from the legacy code and its tests (`src/lib/utils/anonymous.test.ts`,
+ * may see, the person label, the profile privilege drop, where an Anonymous
+ * Account may be created, the hourly `lastActiveAt` touch and the stored-zone
+ * resolution. Expected values come from the legacy code and its tests
+ * (`src/lib/utils/anonymous.test.ts`,
  * `src/lib/server/utils/userTimezone.test.ts`,
  * `src/lib/server/db/actions/users.test.ts`, `src/hooks.server.ts`).
  *
@@ -20,6 +21,7 @@ import {
 	personFullName,
 	profilePatch,
 	SIGN_UP_TIME_ZONE,
+	shouldCreateAnonymousAccount,
 	touchDue,
 	zoneFromStored
 } from './identity.person.rules';
@@ -165,6 +167,19 @@ describe('touchDue', () => {
 		['never touched', null, true]
 	])('touch is due only after an hour: %s → %s', (_label, lastActiveAt, expected) => {
 		expect(touchDue(lastActiveAt, now)).toBe(expected);
+	});
+});
+
+describe('shouldCreateAnonymousAccount', () => {
+	it.each<[string, string, string | null, boolean, boolean]>([
+		['a document navigation on a protected route', 'GET', 'text/html', true, true],
+		['a document navigation with a composite Accept', 'GET', 'text/html,application/xhtml+xml', true, true],
+		['a document navigation on an unprotected route', 'GET', 'text/html', false, false],
+		['a prefetch (no Accept)', 'GET', null, true, false],
+		['a JSON fetch', 'GET', 'application/json', true, false],
+		['a form POST on a protected route', 'POST', 'text/html', true, false]
+	])('%s', (_label, method, accept, isProtectedRoute, expected) => {
+		expect(shouldCreateAnonymousAccount({ method, accept, isProtectedRoute })).toBe(expected);
 	});
 });
 

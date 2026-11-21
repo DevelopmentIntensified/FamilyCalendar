@@ -74,6 +74,7 @@ export {
 export {
 	startSession,
 	validateSession,
+	resolveSessionCookie,
 	endSession,
 	endAllSessions,
 	endOtherSessions,
@@ -82,6 +83,7 @@ export {
 	type StartedSession,
 	type ActiveSession,
 	type SessionValidation,
+	type SessionResolution,
 	type SessionCookie
 } from './identity.session.service.server';
 export {
@@ -91,7 +93,9 @@ export {
 	revokeAllApiTokens,
 	revokeApiTokenByPlaintext,
 	authenticateApiToken,
-	type MintedApiToken
+	resolveBearer,
+	type MintedApiToken,
+	type BearerResolution
 } from './identity.token.service.server';
 
 /** The `fp_` prefix every mobile Bearer token must carry (`mobileAuth.ts:357`). */
@@ -122,6 +126,8 @@ export { SESSION_COOKIE_NAME } from './identity.session.rules';
 
 /** The untrimmed stored full name (`first + ' ' + last`), the legacy stats shape. */
 export { personFullName } from './identity.person.rules';
+/** Where the session pipeline may silently create an Anonymous Account (a document navigation on a protected route). */
+export { shouldCreateAnonymousAccount } from './identity.person.rules';
 /** The app resolves the fail-closed email-code pepper once at boot (Q-117). */
 export { CODE_PEPPER_PLACEHOLDER, resolveCodePepper } from './identity.code.rules';
 export type { PersonView } from './identity.contract';
