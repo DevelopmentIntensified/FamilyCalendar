@@ -10,18 +10,45 @@
  * adapters meet a ctx: `appCtx` for production and `goldenCtx`
  * (./testing/goldenCtx.server.ts) for the `/api` goldens.
  *
- * `AppPorts` is empty today; each owning module's S5 adds its adapter here.
- * The first planned ones are family's `FamilyCalendarPort` and
- * `MemberTasksPort`, and identity's `CalendarAccessPort` and `AdConsentPort`.
+ * TRANSITION BRIDGES (K-15): identity's two ports are backed by the legacy
+ * functions until their owning modules port, because W1 (identity's S5+S6)
+ * runs before calendar's and sponsored's S5:
+ * - `calendarAccess` → legacy `getAccessibleCalendarIds` (db/actions/calendarScope).
+ *   `calendar`'s S5 exports the real adapter and replaces this block.
+ * - `adConsent` → legacy `getAdConsentRecords`/`recordAdConsentChange`
+ *   (services/adConsentService). `sponsored`'s S5 exports the real adapter.
  *
  * Doc: docs/rewrite/playbooks/add-a-port.md#domain-ports
  */
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
+import type {
+	AdConsentPort,
+	CalendarAccessPort,
+	IdentityPorts
+} from '$lib/domains/identity/index.server';
+import { getAccessibleCalendarIds } from '$lib/server/db/actions/calendarScope';
+import { getAdConsentRecords, recordAdConsentChange } from '$lib/server/services/adConsentService';
 
-/** Cross-module adapters. Grows one owning module at a time; today it has none. */
-export type AppPorts = Record<never, never>;
+/** Cross-module adapters. Grows one owning module at a time; today identity's two. */
+export type AppPorts = IdentityPorts;
+
+/** TRANSITION BRIDGE — `calendar`'s S5 replaces this with its exported adapter. */
+const legacyCalendarAccess: CalendarAccessPort = {
+	listAccessibleCalendarIds: (userId) => getAccessibleCalendarIds(userId)
+};
+
+/** TRANSITION BRIDGE — `sponsored`'s S5 replaces this with its exported adapter. */
+const legacyAdConsent: AdConsentPort = {
+	listConsentHistory: async (userId) => {
+		const rows = await getAdConsentRecords(userId);
+		return rows.map((row) => ({ decision: row.decision, recordedAt: row.recordedAt }));
+	},
+	recordConsentChange: async (userId, previous, next) => {
+		await recordAdConsentChange(userId, previous, next);
+	}
+};
 
 /** Returns `ctx` with every cross-module adapter attached. */
 export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
-	return ctx;
+	return { ...ctx, calendarAccess: legacyCalendarAccess, adConsent: legacyAdConsent };
 }
