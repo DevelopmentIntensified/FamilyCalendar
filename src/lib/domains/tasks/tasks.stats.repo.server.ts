@@ -19,7 +19,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { and, count, desc, eq, gte, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import type { Db } from '$lib/kernel/db/database.server';
 import { taskCompletions, tasks } from '$lib/kernel/db/tables.server';
 
@@ -178,4 +178,34 @@ export async function listCompletionInstantRows(
 		.orderBy(desc(taskCompletions.completedAt))
 		.limit(values.limit);
 	return rows.map((row) => row.completedAt);
+}
+
+/**
+ * The viewer's check-offs of RECURRING Tasks inside one half-open day window
+ * (`[startIso, endIso)`), newest first, each with its Task's title. A recurring
+ * check-off rolls the cursor forward and never sets `tasks.completedAt`, so the
+ * history row is the only record of the win — the Day Dashboard's Completed
+ * Today card and nothing else reads this window.
+ */
+export async function listDayCompletionRows(
+	db: Db,
+	values: { readonly userId: string; readonly startIso: string; readonly endIso: string }
+): Promise<{ readonly id: string; readonly title: string; readonly completedAt: string }[]> {
+	return await db
+		.select({
+			id: taskCompletions.id,
+			title: tasks.title,
+			completedAt: taskCompletions.completedAt
+		})
+		.from(taskCompletions)
+		.innerJoin(tasks, eq(taskCompletions.taskId, tasks.id))
+		.where(
+			and(
+				attributedToViewer(values.userId),
+				isNotNull(tasks.recurrenceFrequency),
+				gte(taskCompletions.completedAt, values.startIso),
+				lt(taskCompletions.completedAt, values.endIso)
+			)
+		)
+		.orderBy(desc(taskCompletions.completedAt));
 }

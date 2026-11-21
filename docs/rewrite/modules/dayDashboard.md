@@ -15,11 +15,11 @@ The Day Dashboard: composes events, Top-3 Priorities, Family Task Board, Kids Sc
 - [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
 - [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S5 service
+- [x] S6 http + route wiring (goldens unchanged since S2; Q-005a applied after it)
+- [~] S7 UI rebuild (rules, state, components, screen) done — visual/perf checks run by the orchestrator
+- [x] S8 rewire importers, delete legacy code and legacy tests
+- [ ] S9 README final, census --write, gate:push, ledger done (README done; census/gate/push await the orchestrator)
 
 ## Must survive
 
@@ -215,3 +215,13 @@ legacy test files left (13/13) — reference only, kinds explained in docs/archi
   - src/routes/api/dashboard/server.test.ts [route, 4 tests]
 ```
 <!-- census:end -->
+
+- 2026-11-21 (S5–S8 port, deepseek-flash):
+  - `loadDayDashboard` composes every leg through the domains' `index.server.ts`; the API and the page share it. Each leg degrades to its fallback and label in the legacy order (`settings` from the page, then `tasks`, `events`, `task-wins`, `streak`, `family`); groceries degrade silently (Q-096 default). A per-leg failure cannot be forced in the S5 tests (one db serves every read; R9 forbids mocks), so `dayDashboard.service.db.test.ts` pins the legs' values, the skip matrix and the day window; the labels' order is the code path and the golden's empty list.
+  - Tasks gained the two exports the Plan's mapping table promised: `listDayCompletions` (repo + service) and the pure `mergeDayCompletions` (tasks.list.rules), with their db/rule tests and README rows (Main approved, 2026-11-21). Nothing else in tasks changed.
+  - Q-005a landed after S6: the tasks read already hides another member's private Task, so the golden's `userTasks`/`familyTasks` lose `task-diary` and the title names the question — `fix(dayDashboard): Q-005a …`.
+  - Day events: calendar's ranged read spans every accessible calendar, so the screen filters to the personal and the family calendar (legacy read only those two) and paints `color`/`source` as before; `creatorName` is dropped from the wire. `listCalendars` ensures a personal calendar, so a day with events can create one for a user who has none — a deviation from legacy's read-only day (noted, harmless: the calendar page ensures it too).
+  - Board grouping (`groupBoardTasks`), the quick-add body (`familyBoardTaskBody`), the RSVP table and the due/priority tones live in `dayDashboard.cards.rules.ts` because no domain owns them yet; when the family tasks page ports, the grouping should move to tasks.
+  - Deleted: `components/dashboard/{DayDashboard,TodayGlanceCard,TopPrioritiesCard,CompletedTodayCard,FamilyTaskBoardCard,KidsScheduleCard,GroceriesCard}.svelte` + their tests, `components/dashboard/prototype/*` (5 files + `prototypeProps.ts`, #208), `server/services/dashboardData.ts`, the dashboard selectors' tests (`dashboard.db.test.ts`, `dashboard.test.ts`), the three route tests (`page.server.categories`, `page.ssr`, `page.svelte`) and `api/dashboard/server.test.ts`, plus `components/calendar/eventModalRoster.svelte.test.ts` (it renders the legacy DayDashboard to pin the roster hand-off; the new page test covers the sheet wiring).
+  - Kept: `components/dashboard/DashboardModuleRow.svelte` (dashboardModules') and `server/db/actions/dashboard.ts` trimmed to `getCompletionTimestamps`, which the unported Stats page still imports.
+  - No fixtures file (service tests seed through `seedUser` + kernel tables); no census/visual/perf/gate runs (forbidden to this agent). Verified: `arch` OK, `docs:check` OK, `test:mod -- tasks` 607 passed, `test:mod -- dayDashboard` 138 passed.

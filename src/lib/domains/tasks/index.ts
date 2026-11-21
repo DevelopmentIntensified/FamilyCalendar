@@ -30,6 +30,7 @@ export {
 export { nextCursorDue } from './tasks.cursor.rules';
 export { computeWeeklyStreak } from './tasks.stats.rules';
 export { rankTasks } from './tasks.ranking.rules';
+export { mergeDayCompletions } from './tasks.list.rules';
 
 // --- Browser client and UI state ---------------------------------------------
 

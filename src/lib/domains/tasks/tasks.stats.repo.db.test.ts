@@ -14,6 +14,7 @@ import {
 	countRecurringCompletions,
 	countRecurringTasks,
 	listCompletionInstantRows,
+	listDayCompletionRows,
 	listDoneByIds,
 	listRecentCompletions,
 	listTopAssigneeIds,
@@ -208,5 +209,63 @@ describe('named figures by id', () => {
 		expect(
 			await monthTotals(db, { userId: mia.id, monthStart: '2026-03-01T00:00:00.000Z' })
 		).toEqual({ completed: 2, recurring: 1 });
+	});
+});
+
+describe('listDayCompletionRows', () => {
+	rollbackTest('reads the viewer`s recurring check-offs inside [start, end), newest first', async (db) => {
+		const mia = await seedUser(db);
+		const sam = await seedUser(db);
+		const piano = await seedTask(db, {
+			title: 'Practice piano',
+			userId: mia.id,
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1
+		});
+		const oneOff = await seedTask(db, { title: 'Water plants', userId: mia.id });
+		await seedTaskCompletion(db, {
+			taskId: piano.id,
+			userId: mia.id,
+			actorId: mia.id,
+			completedAt: '2026-11-02 07:00:00+00'
+		});
+		await seedTaskCompletion(db, {
+			taskId: piano.id,
+			userId: mia.id,
+			actorId: mia.id,
+			completedAt: '2026-11-02 18:00:00+00'
+		});
+		// Outside the window, on the following day.
+		await seedTaskCompletion(db, {
+			taskId: piano.id,
+			userId: mia.id,
+			actorId: mia.id,
+			completedAt: '2026-11-03 07:00:00+00'
+		});
+		// A one-off completion is the Task row`s, not the history window`s.
+		await seedTaskCompletion(db, {
+			taskId: oneOff.id,
+			userId: mia.id,
+			actorId: mia.id,
+			completedAt: '2026-11-02 08:00:00+00'
+		});
+		// Another person`s check-off is not the viewer`s win.
+		await seedTaskCompletion(db, {
+			taskId: piano.id,
+			userId: sam.id,
+			actorId: sam.id,
+			completedAt: '2026-11-02 09:00:00+00'
+		});
+
+		expect(
+			await listDayCompletionRows(db, {
+				userId: mia.id,
+				startIso: '2026-11-02T00:00:00.000Z',
+				endIso: '2026-11-03T00:00:00.000Z'
+			})
+		).toEqual([
+			{ id: expect.any(String), title: 'Practice piano', completedAt: '2026-11-02 18:00:00+00' },
+			{ id: expect.any(String), title: 'Practice piano', completedAt: '2026-11-02 07:00:00+00' }
+		]);
 	});
 });
