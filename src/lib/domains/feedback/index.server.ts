@@ -18,6 +18,8 @@ export {
 	fileAutoBugReport,
 	fileBugReport,
 	listFeedback,
+	openBugReportCount,
+	openUnmatchedPhraseCount,
 	pruneFeedbackOlderThan,
 	reportUnmatchedPhrase,
 	resolveFeedback

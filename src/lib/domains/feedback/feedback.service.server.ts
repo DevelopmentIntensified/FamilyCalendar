@@ -194,13 +194,28 @@ export async function resolveFeedback(
 }
 
 /**
+ * One badge leg: open bug reports, i.e. reports without a `resolvedAt`. Split
+ * from `countOpenFeedback` so the `admin` screen can degrade each badge on its
+ * own — the `/api/admin` golden pins one broken leg leaving the other leg's
+ * real count standing.
+ */
+export async function openBugReportCount(ctx: Ctx): Promise<number> {
+	return countOpenBugReports(ctx.db);
+}
+
+/** The other badge leg: unmatched phrases with `resolved = false`. */
+export async function openUnmatchedPhraseCount(ctx: Ctx): Promise<number> {
+	return countOpenUnmatchedPhrases(ctx.db);
+}
+
+/**
  * The admin nav badge's two open counts. The caller (the admin layout) owns
  * the degrade-to-zero guard, as legacy `guard('admin-counts', 0, …)` did.
  */
 export async function countOpenFeedback(ctx: Ctx): Promise<{ bugs: number; phrases: number }> {
 	// Sequential, not Promise.all: the ctx db may be one transaction session.
-	const bugs = await countOpenBugReports(ctx.db);
-	const phrases = await countOpenUnmatchedPhrases(ctx.db);
+	const bugs = await openBugReportCount(ctx);
+	const phrases = await openUnmatchedPhraseCount(ctx);
 	return { bugs, phrases };
 }
 
