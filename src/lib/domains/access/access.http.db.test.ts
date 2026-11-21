@@ -2244,6 +2244,7 @@ describe('success paths that send email (spec-goldens, Q-067)', () => {
 			headers: { 'x-real-ip': '10.14.0.1' },
 			body: { email }
 		});
+		const after = Date.now();
 		expect({ status: res.status, body: res.body }).toEqual({
 			status: 200,
 			body: { sent: true }
@@ -2253,8 +2254,11 @@ describe('success paths that send email (spec-goldens, Q-067)', () => {
 		expect(claimRows.map((row) => row.email)).toEqual([email]);
 		const claimRow = first(claimRows);
 		expect(claimRow.tokenHash).toMatch(/^[0-9a-f]{64}$/);
-		expect(claimRow.expiresAt.getTime()).toBeGreaterThan(before);
-		expect(claimRow.expiresAt.getTime()).toBeLessThanOrEqual(before + 15 * 60 * 1000);
+		// The TTL is exactly 15 minutes from the handler's own clock read, which
+		// sits between `before` and `after`: a spec row, so the window is the
+		// request's, not one millisecond of the test's.
+		expect(claimRow.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 15 * 60 * 1000);
+		expect(claimRow.expiresAt.getTime()).toBeLessThanOrEqual(after + 15 * 60 * 1000);
 	});
 
 	it('POST /api/me/claim — answers the same {sent:true} for a registered address', async () => {
