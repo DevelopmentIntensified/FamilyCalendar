@@ -20,14 +20,14 @@
 		state: CalendarEventModalState;
 	}
 
-	let { state }: Props = $props();
+	let { state: modal }: Props = $props();
 
-	const people = $derived(state.people);
+	const people = $derived(modal.people);
 	const asked = $derived(people.length);
-	const goingCount = $derived(state.split.going.length);
-	const maybeCount = $derived(state.split.maybe.length);
+	const goingCount = $derived(modal.split.going.length);
+	const maybeCount = $derived(modal.split.maybe.length);
 	const pendingCount = $derived(Math.max(0, asked - goingCount - maybeCount));
-	const declinedCount = $derived(state.split.notGoing.length);
+	const declinedCount = $derived(modal.split.notGoing.length);
 	const awaitingCount = $derived(Math.max(0, pendingCount - declinedCount));
 
 	const TONE: Record<string, { dot: string; text: string; bar: string }> = {
@@ -61,7 +61,7 @@
 	async function submitInvite() {
 		const name = inviteName.trim();
 		if (!name) return;
-		if (await state.inviteGuest(name)) {
+		if (await modal.inviteGuest(name)) {
 			inviteName = '';
 			inviting = false;
 		}
@@ -175,7 +175,7 @@
 			/>
 			<button
 				type="submit"
-				disabled={inviteName.trim().length === 0 || state.invitingGuest}
+				disabled={inviteName.trim().length === 0 || modal.invitingGuest}
 				class="rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
 			>
 				Send invite

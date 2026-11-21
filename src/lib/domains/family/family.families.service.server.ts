@@ -50,7 +50,6 @@ import {
 	listMembershipFamilyIds,
 	listMemberships,
 	listRecentFamilyActivity,
-	listRosterForFamilies,
 	updateFamilyRow
 } from './family.families.repo.server';
 import { isInviteUsable } from './family.invites.rules';
@@ -59,7 +58,12 @@ import {
 	listInviteCodes,
 	listInviteCodesForFamilies
 } from './family.invites.repo.server';
-import { findFamilyCreatorId, findMemberRole, listRoster } from './family.members.repo.server';
+import {
+	findFamilyCreatorId,
+	findMemberRole,
+	listRoster,
+	listRosterForFamilies
+} from './family.members.repo.server';
 import { requireRole } from './family.roles.rules';
 import { listVerifiedUserIds } from './family.search.repo.server';
 import type { FamilyCtx, FamilyDetailCtx } from './index.server';
