@@ -260,43 +260,87 @@ async function installReadyProbe(page: Page, selector: string): Promise<void> {
 }
 
 /**
+ * How long a missing LCP entry is awaited. A paint can land well after the load
+ * event and after `networkidle` — on 2026-11-19 `family/family-join` reached its
+ * `ready` mark with no LCP entry at all, and the retry measured one — and LCP is
+ * a timestamp the document records itself, so waiting only lets the paint that
+ * belongs to this load arrive; it can never inflate the number.
+ */
+const LCP_WAIT_MS = 2_000;
+
+/**
  * Read the visit's marks after two animation frames and a task, so the LCP
  * observer has delivered the ready paint; `takeRecords()` catches anything
  * still queued. Every value must exist: a missing mark is a harness bug, not a
- * zero to average.
+ * zero to average — so a missing LCP is awaited up to `LCP_WAIT_MS` and then
+ * thrown with its reason, never skipped.
  */
 async function readMarks(page: Page, entry: PageEntry): Promise<Marks> {
-	return page.evaluate(async (pageName: string) => {
-		await new Promise(requestAnimationFrame);
-		await new Promise(requestAnimationFrame);
-		// A task boundary: PerformanceObserver records queued for the frame land.
-		await new Promise<void>((resolve) => setTimeout(resolve, 0));
-
-		// A named boundary rather than an inline cast: the probe is ours.
-		const scope = window as unknown as {
-			__pagePerf?: {
-				state: { readyAt: number | null; lcp: number | null };
-				observer: PerformanceObserver;
+	return page.evaluate(
+		async ({ pageName, lcpWaitMs }: { pageName: string; lcpWaitMs: number }) => {
+			/** One task boundary: PerformanceObserver records queued for the frame land. */
+			const nextTask = async (): Promise<void> => {
+				const { promise, resolve } = Promise.withResolvers<void>();
+				setTimeout(resolve, 0);
+				await promise;
 			};
-		};
-		const probe = scope.__pagePerf;
-		if (!probe) throw new Error(`${pageName}: the perf probe did not run`);
 
-		for (const record of probe.observer.takeRecords()) {
-			probe.state.lcp = Math.max(probe.state.lcp ?? 0, record.startTime);
-		}
-		const { readyAt, lcp } = probe.state;
-		if (readyAt === null) {
-			throw new Error(`${pageName}: the ready selector never became visible`);
-		}
-		if (lcp === null) {
-			throw new Error(`${pageName}: no largest-contentful-paint entry`);
-		}
-		const navigation = performance.getEntriesByType('navigation')[0] as
-			| PerformanceNavigationTiming
-			| undefined;
-		if (!navigation) throw new Error(`${pageName}: no navigation timing entry`);
+			await new Promise(requestAnimationFrame);
+			await new Promise(requestAnimationFrame);
+			await nextTask();
 
-		return { ready: readyAt, lcp, ttfb: navigation.responseStart };
-	}, baselineKey(entry));
+			// A named boundary rather than an inline cast: the probe is ours.
+			const scope = window as unknown as {
+				__pagePerf?: {
+					state: { readyAt: number | null; lcp: number | null };
+					observer: PerformanceObserver;
+				};
+			};
+			const probe = scope.__pagePerf;
+			if (!probe) throw new Error(`${pageName}: the perf probe did not run`);
+
+			/**
+			 * The latest LCP the document knows: the observer's queued records plus
+			 * the timeline's own buffer, which also holds an entry the observer was
+			 * handed before its first callback ran.
+			 */
+			const latestLcp = (): number | null => {
+				for (const record of probe.observer.takeRecords()) {
+					probe.state.lcp = Math.max(probe.state.lcp ?? 0, record.startTime);
+				}
+				for (const painted of performance.getEntriesByType('largest-contentful-paint')) {
+					probe.state.lcp = Math.max(probe.state.lcp ?? 0, painted.startTime);
+				}
+				return probe.state.lcp;
+			};
+
+			const readyAt = probe.state.readyAt;
+			if (readyAt === null) {
+				throw new Error(`${pageName}: the ready selector never became visible`);
+			}
+
+			let lcp = latestLcp();
+			const deadline = performance.now() + lcpWaitMs;
+			// A task, not a frame: a hidden or throttled page must still reach the
+			// deadline and report the reason instead of hanging the run.
+			while (lcp === null && performance.now() < deadline) {
+				await nextTask();
+				lcp = latestLcp();
+			}
+			if (lcp === null) {
+				throw new Error(
+					`${pageName}: no largest-contentful-paint entry after ${lcpWaitMs} ms — ` +
+						'the page painted nothing the browser counts as content'
+				);
+			}
+
+			const navigation = performance.getEntriesByType('navigation')[0] as
+				| PerformanceNavigationTiming
+				| undefined;
+			if (!navigation) throw new Error(`${pageName}: no navigation timing entry`);
+
+			return { ready: readyAt, lcp, ttfb: navigation.responseStart };
+		},
+		{ pageName: baselineKey(entry), lcpWaitMs: LCP_WAIT_MS }
+	);
 }

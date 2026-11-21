@@ -38,6 +38,10 @@ export default defineConfig({
 	// the seeds and session.ts (it extends .svelte-kit/tsconfig.json).
 	tsconfig: './tsconfig.json',
 	globalSetup: './e2e/pages/globalSetup.ts',
+	// Run-level, because `perf:baseline`'s completeness is a fact about the run,
+	// not about a worker: it writes the committed baseline, or fails the run
+	// naming the pages it is missing.
+	globalTeardown: './e2e/pages/globalTeardown.ts',
 	// One page at a time: a screenshot is only comparable when nothing else is
 	// competing for the same CPU, and the seeds share one database.
 	fullyParallel: false,
