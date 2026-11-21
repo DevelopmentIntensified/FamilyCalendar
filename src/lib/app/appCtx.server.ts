@@ -28,6 +28,7 @@ import { logEvent } from '$lib/server/services/logger';
 import { rateLimit } from '$lib/server/utils/rateLimit';
 import type { Ctx, Fault } from '$lib/kernel/ctx/ctx.server';
 import { systemIds } from '$lib/kernel/ids/ids';
+import { createResendMailer } from '$lib/kernel/mail/resendMailer.server';
 import { systemClock } from '$lib/kernel/time/clock';
 import { resolveSessionSecret } from '$lib/domains/identity/index.server';
 import { wirePorts } from './ports.server';
@@ -36,6 +37,8 @@ const production = process.env.NODE_ENV === 'production';
 
 /** Production without `BETTER_AUTH_SECRET` refuses to boot (identity's rule). */
 const sessionSecret = resolveSessionSecret(process.env.BETTER_AUTH_SECRET, production);
+
+const mailFrom = process.env.NOREPLYEMAIL ?? '';
 
 function fileFault(fault: Fault): void {
 	try {
@@ -61,6 +64,7 @@ export const appCtx = wirePorts({
 		error: (event, fields) => logEvent('error', event, fields)
 	},
 	limiter: { allow: (key, limit, windowMs) => rateLimit(key, limit, windowMs) },
+	mail: createResendMailer({ apiKey: process.env.RESEND_API_KEY ?? '', from: mailFrom }),
 	faults: { report: fileFault },
-	config: { cronSecret: process.env.CRON_SECRET ?? null, sessionSecret, production }
+	config: { cronSecret: process.env.CRON_SECRET ?? null, sessionSecret, production, mailFrom }
 } satisfies Ctx);

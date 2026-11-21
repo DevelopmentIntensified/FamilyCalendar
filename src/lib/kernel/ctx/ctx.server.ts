@@ -17,6 +17,7 @@
 import type { Db } from '../db/database.server';
 import type { Ids } from '../ids/ids';
 import type { Log } from '../log/jsonLog';
+import type { Mailer } from '../mail/mailer';
 import type { RateLimiter } from '../ratelimit/rateLimiter';
 import type { Clock } from '../time/clock';
 
@@ -41,6 +42,8 @@ export type AppConfig = {
 	readonly sessionSecret: string;
 	/** True in production: the session cookie gets `Secure`, and a missing secret refuses to boot. */
 	readonly production: boolean;
+	/** Default module-mail sender (`NOREPLYEMAIL`), for a service that must pass `from` explicitly. */
+	readonly mailFrom: string;
 };
 
 export type Ctx = {
@@ -49,6 +52,7 @@ export type Ctx = {
 	readonly ids: Ids;
 	readonly log: Log;
 	readonly limiter: RateLimiter;
+	readonly mail: Mailer;
 	readonly faults: FaultReporter;
 	readonly config: AppConfig;
 };
