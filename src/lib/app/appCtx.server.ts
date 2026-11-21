@@ -15,20 +15,24 @@
  * - limiter  legacy module-level buckets: web and mobile sign-in must share
  *            buckets until `access` is ported (issue 288). Swap to
  *            createMemoryRateLimiter(systemClock) in task APP-02.
- * - faults   legacy auto-bug-report builder + throttle + insert; the
- *            `feedback` port (M-feedback) replaces it with its service.
  * - log      legacy JSON logger; identical line format to createJsonLog.
  * - push     legacy `fcmService` FCM transport behind the kernel `Push` port
  *            (./pushTransport.server.ts); the web-push half has no legacy
  *            import. Stays until the kernel grows its own FCM sender.
  *
+ * `faults` is not a bridge any more: it is `feedback`'s `fileAutoBugReport`
+ * through the module's public entry, so `endpoint()`'s 5xx filing reaches one
+ * service that owns the #153 skip, the 10-minute throttle and its own catch.
+ * `hooks.handleError` still files with the legacy builder until APP-03 moves
+ * the session pipeline; the cleanup cron still calls the legacy prunes until
+ * APP-01's `runRetention` calls `pruneFeedbackOlderThan`.
+ *
  * Doc: src/lib/app/README.md
  */
-import { createBugReport } from '$lib/server/db/actions/bugReports';
 import { db } from '$lib/server/db';
-import { buildAutoBugReport, shouldFileAutoReport } from '$lib/server/services/autoBugReport';
 import { logEvent } from '$lib/server/services/logger';
 import { rateLimit } from '$lib/server/utils/rateLimit';
+import { fileAutoBugReport } from '$lib/domains/feedback/index.server';
 import { createCerebrasAi } from '$lib/kernel/ai/cerebrasAi.server';
 import type { Ctx, Fault } from '$lib/kernel/ctx/ctx.server';
 import { createFetchOutboundHttp } from '$lib/kernel/http/fetchOutboundHttp.server';
@@ -64,20 +68,6 @@ const cerebrasModel = process.env.CEREBRAS_MODEL || 'gpt-oss-120b';
 /** The legacy geocoder's `User-Agent`, unchanged (`api/location-search/+server.ts`). */
 const userAgent = 'FamilyPlanz/1.0 (test@familyplanz.com)';
 
-function fileFault(fault: Fault): void {
-	try {
-		const report = buildAutoBugReport(fault);
-		if (
-			report &&
-			shouldFileAutoReport(`${report.area}:${fault.path}:${fault.message.slice(0, 120)}`)
-		) {
-			void createBugReport(report).catch(() => {});
-		}
-	} catch {
-		// Filing is best-effort by design: it must never break the error response.
-	}
-}
-
 export const appCtx = wirePorts({
 	db,
 	clock: systemClock,
@@ -101,7 +91,13 @@ export const appCtx = wirePorts({
 		apiUrl: process.env.CEREBRAS_API_URL
 	}),
 	http: createFetchOutboundHttp(),
-	faults: { report: fileFault },
+	faults: {
+		// Fire-and-forget by design: `fileAutoBugReport` catches its own failures
+		// (and skips anonymous callers, #153), so a failed auto-report can never
+		// break the error response; the extra `catch` keeps a future regression
+		// from turning a fault into an unhandled rejection.
+		report: (fault: Fault) => void fileAutoBugReport(appCtx, fault).catch(() => {})
+	},
 	config: {
 		cronSecret: process.env.CRON_SECRET ?? null,
 		sessionSecret,

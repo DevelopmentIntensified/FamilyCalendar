@@ -3,9 +3,8 @@
  *
  * Ranges are matched before single times so "5:30-6:30pm" never reads as a
  * start of 5:30 and nothing else, and a missing start meridiem inherits the
- * end's. These rules read the RAW input on purpose: Q-010 pins the legacy
- * accident that a clock-like substring in a URL can set a start time (the
- * owner answered B, applied after S6 golden-first).
+ * end's. These rules read only the URL-free text: Q-010 B, so a clock-like
+ * substring inside a link never sets a start time.
  *
  * Nothing here reads a clock: every answer is a wall-clock `HH:mm`.
  */
@@ -61,7 +60,7 @@ export function createEventTimeState(): EventTimeState {
  * exactly the legacy order (the golden pins the floats).
  */
 export function readEventTimeRanges(
-	input: string,
+	text: string,
 	stripSpans: string[],
 	times: EventTimeState
 ): number[] {
@@ -69,7 +68,7 @@ export function readEventTimeRanges(
 
 	// "6:00PM - 8:00PM" (time range with hyphen) — must check BEFORE standalone time.
 	// A missing start meridiem inherits the end one ("5:30-6:30pm" is evening).
-	const hyphenRangeMatch = input.match(
+	const hyphenRangeMatch = text.match(
 		/(\d{1,2}):(\d{2})\s*((?:[ap])\.?\s?m\.?|am?|pm?)?\s*[-–—]\s*(\d{1,2}):(\d{2})\s*((?:[ap])\.?\s?m\.?|am?|pm?)/i
 	);
 	if (hyphenRangeMatch) {
@@ -91,7 +90,7 @@ export function readEventTimeRanges(
 	}
 
 	// "from 2-4pm", "from 9 to 5 pm" (no colons; end carries the meridiem)
-	const shortRangeMatch = input.match(
+	const shortRangeMatch = text.match(
 		/\bfrom\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i
 	);
 	if (shortRangeMatch && !times.foundTime) {
@@ -111,7 +110,7 @@ export function readEventTimeRanges(
 	}
 
 	// "between 2 and 4 PM"
-	const betweenRangeMatch = input.match(
+	const betweenRangeMatch = text.match(
 		/\bbetween\s+(\d{1,2})(?::(\d{2}))?\s*((?:[ap])\.?\s?m\.?|am|pm)?\s+and\s+(\d{1,2})(?::(\d{2}))?\s*((?:[ap])\.?\s?m\.?|am|pm)/i
 	);
 	if (betweenRangeMatch && !times.foundTime) {
@@ -132,7 +131,7 @@ export function readEventTimeRanges(
 	// "6-8pm", "6-8 pm", "6 to 8pm" — bare hour range whose END carries the
 	// meridiem; bare digits without one ("20-30 pages") never match.
 	const bareRangeMatch = !times.foundTime
-		? input.match(
+		? text.match(
 				/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?\s*(?:-|–|—|\bto\b)\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i
 			)
 		: null;
@@ -159,11 +158,10 @@ export function readEventTimeRanges(
 /**
  * The single-time and end-time rules, continuing from whatever the range
  * pass found. Reads the claim-masked view for compact military time only —
- * the other rules read the raw input, as legacy did.
+ * like every other rule here, from the URL-free text (Q-010 B).
  */
 export function readEventTimes(
-	input: string,
-	nonUrlText: string,
+	text: string,
 	claims: ClaimBook,
 	stripSpans: string[],
 	times: EventTimeState
@@ -172,19 +170,19 @@ export function readEventTimes(
 
 	// "starting at 6 PM", "at 8 AM", "beginning at 9 AM", "7:15A"
 	// (?!\d) keeps bare 4-digit military time ("1830") from matching here.
-	const startTimeMatch = input.match(
+	const startTimeMatch = text.match(
 		/(?:start(?:ing)?\s+at|at|beginning\s+at)\s+(\d{1,2})(?::(\d{2}))?(?!\d)\s*((?:[ap])\.?\s?m\.?|am?|pm?)?/i
 	);
 
 	// Standalone time: "9:00 AM", "7:15P", "3:30 PM", "8:00 p.m." (#207).
 	// Bare meridiem form without colon or "at" ("mon and tue 6am") follows.
 	if (!startTimeMatch && !times.foundTime) {
-		const standaloneTimeMatch = input.match(
+		const standaloneTimeMatch = text.match(
 			/\b(\d{1,2}):(\d{2})\s*((?:[ap])\.?\s?m\.?|[ap]m?)(?![a-z0-9])/i
 		);
 		const bareMeridiemMatch = standaloneTimeMatch
 			? null
-			: input.match(/(?<![\d:])(\d{1,2})\s*((?:[ap])\.?\s?m\.?|[ap]m)(?![a-z0-9])/i);
+			: text.match(/(?<![\d:])(\d{1,2})\s*((?:[ap])\.?\s?m\.?|[ap]m)(?![a-z0-9])/i);
 		const timeMatch: RegExpMatchArray | null = standaloneTimeMatch ?? bareMeridiemMatch;
 		const isColonTime = standaloneTimeMatch !== null;
 		if (timeMatch) {
@@ -218,7 +216,7 @@ export function readEventTimes(
 	}
 
 	// Special times: "at noon", "at midnight", "at dusk", "at dawn"
-	const specialTimeMatch = input.match(/\bat\s+(noon|midnight|dusk|dawn)\b/i);
+	const specialTimeMatch = text.match(/\bat\s+(noon|midnight|dusk|dawn)\b/i);
 	if (specialTimeMatch && !times.foundTime) {
 		times.startTime = SPECIAL_TIMES[specialTimeMatch[1].toLowerCase()];
 		times.foundTime = true;
@@ -226,7 +224,7 @@ export function readEventTimes(
 	}
 
 	// Colloquial fractions: "half past seven pm", "quarter to nine am"
-	const colloquialMatch = input.match(
+	const colloquialMatch = text.match(
 		new RegExp(
 			`\\b(half\\s+past|quarter\\s+to|quarter\\s+past)\\s+(\\d{1,2}|${Object.keys(WORD_HOUR).join('|')})\\s*((?:[ap])\\.?\\s?m\\.?(?![a-z])|am|pm)?\\b`,
 			'i'
@@ -252,7 +250,7 @@ export function readEventTimes(
 	// Claim-masked view (issue 112): compact military time must not read the
 	// digit runs a date family claimed. Every consumer below that reads the
 	// masked view uses this same string.
-	const claimMasked = claims.mask(nonUrlText);
+	const claimMasked = claims.mask(text);
 
 	// Military / compact 24h: "1830" (not years like 2026). A claimed
 	// candidate is skipped and the scan continues to the next digit run.
@@ -273,7 +271,7 @@ export function readEventTimes(
 	}
 
 	// Time of day: "early morning", "morning", "afternoon", "evening"
-	const timeOfDayMatch = input.match(/\b(early\s+morning|morning|afternoon|evening)\b/i);
+	const timeOfDayMatch = text.match(/\b(early\s+morning|morning|afternoon|evening)\b/i);
 	if (timeOfDayMatch && !times.foundTime) {
 		times.startTime = TOD_TIMES[timeOfDayMatch[1].toLowerCase()];
 		times.foundTime = true;
@@ -281,7 +279,7 @@ export function readEventTimes(
 	}
 
 	// "kicking off at 5 PM"
-	const kickOffMatch = input.match(
+	const kickOffMatch = text.match(
 		/kicking\s+off\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i
 	);
 	if (kickOffMatch && !times.foundTime) {
@@ -294,7 +292,7 @@ export function readEventTimes(
 	}
 
 	// "departing at 5 AM", "leaving at 6 AM"
-	const leaveMatch = input.match(/(?:leaving|departing)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
+	const leaveMatch = text.match(/(?:leaving|departing)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (leaveMatch && !times.foundTime) {
 		let hour = parseInt(leaveMatch[1]);
 		const minute = leaveMatch[2] ? parseInt(leaveMatch[2]) : 0;
@@ -307,7 +305,7 @@ export function readEventTimes(
 	}
 
 	// "arriving at 10 AM", "arriving by 1 PM"
-	const arriveMatch = input.match(/arriving\s+(?:at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
+	const arriveMatch = text.match(/arriving\s+(?:at|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (arriveMatch && !times.foundTime) {
 		let hour = parseInt(arriveMatch[1]);
 		const minute = arriveMatch[2] ? parseInt(arriveMatch[2]) : 0;
@@ -320,7 +318,7 @@ export function readEventTimes(
 
 	// Glued/spelled article times: "a5pm", "a830am", "a 9pm" (typo for "at").
 	// The meridiem is mandatory so "a 5 minute break" never matches.
-	const articleTimeMatch = input.match(/\ba\s*(\d{1,2})(?::?(\d{2}))?\s*(am|pm)\b/i);
+	const articleTimeMatch = text.match(/\ba\s*(\d{1,2})(?::?(\d{2}))?\s*(am|pm)\b/i);
 	if (articleTimeMatch && !times.foundTime) {
 		let hour = parseInt(articleTimeMatch[1]);
 		const minute = articleTimeMatch[2] ? parseInt(articleTimeMatch[2]) : 0;
@@ -333,7 +331,7 @@ export function readEventTimes(
 	}
 
 	// "from 9 AM to 5 PM"
-	const fromToMatch = input.match(
+	const fromToMatch = text.match(
 		/from\s+(\d{1,2})(?:(?::(\d{2})))?\s*(am?|pm?)?\s+to\s+(\d{1,2})(?:(?::(\d{2})))?\s*(am?|pm?)?/i
 	);
 	if (fromToMatch && !times.foundTime) {
@@ -354,7 +352,7 @@ export function readEventTimes(
 	}
 
 	// End time: "wrapping up around 9 PM"
-	const wrapMatch = input.match(/wrapping\s+up\s+(?:around\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+	const wrapMatch = text.match(/wrapping\s+up\s+(?:around\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
 	if (wrapMatch && !times.endTime) {
 		let hour = parseInt(wrapMatch[1]);
 		const period = wrapMatch[3]?.toLowerCase();
@@ -364,7 +362,7 @@ export function readEventTimes(
 	}
 
 	// "finishing around 11 AM", "finishes around 11 AM", "concludes at 7 AM"
-	const finishMatch = input.match(
+	const finishMatch = text.match(
 		/(?:finishes?(?:\s+around\s+)?|(?:finishing|concludes?)(?:\s+at\s+)?)(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i
 	);
 	if (finishMatch && !times.endTime) {
@@ -376,7 +374,7 @@ export function readEventTimes(
 	}
 
 	// "going on until 9 PM", "continuing until 9 PM"
-	const continueMatch = input.match(
+	const continueMatch = text.match(
 		/(?:going\s+on|continuing)\s+until\s+(?:around\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i
 	);
 	if (continueMatch && !times.endTime) {
@@ -388,7 +386,7 @@ export function readEventTimes(
 	}
 
 	// "staying until sunset", "staying until dusk"
-	const lower = input.toLowerCase();
+	const lower = text.toLowerCase();
 	if (lower.includes('staying until') && (lower.includes('sunset') || lower.includes('dusk'))) {
 		times.endTime = '20:00';
 		confidence.push(0.1);
@@ -401,15 +399,15 @@ export function readEventTimes(
 	}
 
 	// "until midnight"
-	const untilMidnightMatch = input.match(/until\s+midnight/i);
+	const untilMidnightMatch = text.match(/until\s+midnight/i);
 	if (untilMidnightMatch && !times.endTime) {
 		times.endTime = '00:00';
 		confidence.push(0.1);
 	}
 
 	// Duration: "for 2 hours", "for 15 minutes", "for about 15 min"
-	const hourDurMatch = input.match(/for\s+(?:about\s+)?(\d+)\s+(hours?|hrs?|hr)\b/i);
-	const minDurMatch = input.match(/for\s+(?:about\s+)?(\d+)\s+(minutes?|mins?|min)\b/i);
+	const hourDurMatch = text.match(/for\s+(?:about\s+)?(\d+)\s+(hours?|hrs?|hr)\b/i);
+	const minDurMatch = text.match(/for\s+(?:about\s+)?(\d+)\s+(minutes?|mins?|min)\b/i);
 
 	if (times.startTime && !times.endTime) {
 		const start = DateTime.fromFormat(times.startTime, 'HH:mm');
@@ -426,7 +424,7 @@ export function readEventTimes(
 
 	// Also check standalone "about X min/hr" (without "for")
 	if (times.startTime && !times.endTime) {
-		const aboutDurMatch = input.match(/about\s+(\d+)\s+(minutes?|mins?|min|hours?|hrs?|hr)\b/i);
+		const aboutDurMatch = text.match(/about\s+(\d+)\s+(minutes?|mins?|min|hours?|hrs?|hr)\b/i);
 		if (aboutDurMatch) {
 			const start = DateTime.fromFormat(times.startTime, 'HH:mm');
 			const amount = parseInt(aboutDurMatch[1]);
@@ -440,7 +438,7 @@ export function readEventTimes(
 	}
 
 	// "lasting for X minutes/hours" or "lasting about X minutes"
-	const lastingMatch = input.match(
+	const lastingMatch = text.match(
 		/lasting\s+(?:for\s+)?(?:about\s+)?(\d+)\s+(minutes?|mins?|min|hours?|hrs?|hr)\b/i
 	);
 	if (lastingMatch && times.startTime && !times.endTime) {
@@ -455,7 +453,7 @@ export function readEventTimes(
 	}
 
 	// "closing at 6 PM", "ending at 4 PM"
-	const closeMatch = input.match(/(?:closing|ending)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
+	const closeMatch = text.match(/(?:closing|ending)\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (closeMatch && !times.endTime) {
 		let hour = parseInt(closeMatch[1]);
 		const period = closeMatch[3]?.toLowerCase();
@@ -465,7 +463,7 @@ export function readEventTimes(
 	}
 
 	// "opening at 11 AM"
-	const openMatch = input.match(/opening\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
+	const openMatch = text.match(/opening\s+(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)?/i);
 	if (openMatch && !times.foundTime) {
 		let hour = parseInt(openMatch[1]);
 		const period = openMatch[3]?.toLowerCase();
@@ -476,7 +474,7 @@ export function readEventTimes(
 	}
 
 	// "ends at 9 PM", "ends at around 8 PM", "finishing at 10 PM" → end time
-	const endsAtMatch = input.match(
+	const endsAtMatch = text.match(
 		/(?:ends?|finishing)\s+(?:at|around)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)/i
 	);
 	if (endsAtMatch && !times.endTime) {
@@ -490,7 +488,7 @@ export function readEventTimes(
 	}
 
 	// "till 5 PM", "till 18:00", "until 9 PM" → end time
-	const tillMatch = input.match(/\b(?:till|until)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)/i);
+	const tillMatch = text.match(/\b(?:till|until)\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)/i);
 	if (tillMatch && !times.endTime) {
 		let hour = parseInt(tillMatch[1]);
 		const minute = tillMatch[2] ? parseInt(tillMatch[2]) : 0;
@@ -503,7 +501,7 @@ export function readEventTimes(
 	}
 
 	// "returning by 2 PM", "back by 6 PM" → end time
-	const returnByMatch = input.match(/(?:returning|back)\s+by\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)/i);
+	const returnByMatch = text.match(/(?:returning|back)\s+by\s+(\d{1,2})(?::(\d{2}))?\s*(am?|pm?)/i);
 	if (returnByMatch && !times.endTime) {
 		let hour = parseInt(returnByMatch[1]);
 		const minute = returnByMatch[2] ? parseInt(returnByMatch[2]) : 0;

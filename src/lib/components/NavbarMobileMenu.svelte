@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { slide } from 'svelte/transition';
-	import NotificationBell from '$lib/components/NotificationBell.svelte';
+	import { AlertsBell } from '$lib/domains/alerts/ui';
 	import { trapFocusAction } from '$lib/utils/focusTrap';
 	import type { NavItem } from '$lib/utils/navItems';
 
@@ -30,7 +31,7 @@
 	<div class="space-y-1 px-3 py-3">
 		{#if isLoggedIn}
 			<div class="flex items-center justify-end border-b border-slate-200 pb-2">
-				<NotificationBell />
+				<AlertsBell navigate={goto} />
 			</div>
 		{/if}
 		{#each navItems as item}

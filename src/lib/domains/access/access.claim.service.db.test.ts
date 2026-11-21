@@ -14,14 +14,14 @@ import { authSession, claimTokens, userSettings, users } from '$lib/kernel/db/ta
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { testCtx, type TestCtx } from '$lib/kernel/testing/testCtx.server';
-import { seedAccessGuest } from './access.fixtures.server';
+import { accessTestIds, seedAccessGuest } from './access.fixtures.server';
 import { confirmClaim, requestClaim } from './access.claim.service.server';
 
 const NOW = new Date('2026-05-04T12:00:00.000Z');
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 function ctxFor(db: Db): TestCtx {
-	return testCtx({ db, now: NOW.toISOString() });
+	return { ...testCtx({ db, now: NOW.toISOString() }), ids: accessTestIds() };
 }
 
 async function claimRows(db: Db, userId: string) {

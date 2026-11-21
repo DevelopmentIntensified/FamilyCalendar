@@ -25,6 +25,7 @@ import { issueEmailCode } from '$lib/domains/identity/index.server';
 import {
 	ACCESS_ANON_DOMAIN,
 	ACCESS_PASSWORD_HASH,
+	accessTestIds,
 	seedAccessApiToken,
 	seedAccessGuest,
 	seedAccessSession
@@ -45,7 +46,7 @@ const NOW = new Date('2026-05-03T12:00:00.000Z');
 const PASSWORD = 'correct-horse-battery';
 
 function ctxFor(db: Db): TestCtx {
-	return testCtx({ db, now: NOW.toISOString() });
+	return { ...testCtx({ db, now: NOW.toISOString() }), ids: accessTestIds() };
 }
 
 function mailedCode(ctx: TestCtx, index = 0): string {
@@ -133,7 +134,7 @@ describe('completeEmailLoginCode', () => {
 	rollbackTest('leaves a registered session alone and keeps an orphaned code', async (db) => {
 		const ctx = ctxFor(db);
 		const person = await seedUser(db, { email: 'registered-login@example.test' });
-		const current = await seedAccessSession(person.id);
+		const current = await seedAccessSession(person.id, {}, db);
 		await issueEmailCode(ctx, {
 			code: '55667788',
 			email: 'registered-login@example.test',
@@ -331,7 +332,7 @@ describe('signInMobileWithPassword', () => {
 				deviceName: '',
 				clientIp: '10.22.4.2'
 			})
-		).rejects.toMatchObject({ code: 'invalid', message: 'Email or password is incorrect' });
+		).rejects.toMatchObject({ code: 'unauthorized', message: 'Email or password is incorrect' });
 	});
 });
 
@@ -535,8 +536,8 @@ describe('createMobileGuest', () => {
 		expect(guest.email).toContain(ACCESS_ANON_DOMAIN);
 		expect((await tokensFor(db, guest.id)).map((row) => row.name)).toEqual(['Android — Pixel']);
 
-		// 10 per hour per IP.
-		for (let index = 0; index < 9; index += 1) {
+		// 10 per hour per IP: ten allowed, the eleventh refused.
+		for (let index = 0; index < 10; index += 1) {
 			await createMobileGuest(ctx, { deviceName: '', clientIp: '10.22.7.2' });
 		}
 		await expect(
@@ -550,8 +551,8 @@ describe('signOut', () => {
 		const ctx = ctxFor(db);
 		const person = await seedUser(db, { email: 'logout@example.test' });
 		const actor = actorFromUser(person);
-		const session = await seedAccessSession(person.id);
-		const kept = await seedAccessSession(person.id);
+		const session = await seedAccessSession(person.id, {}, db);
+		const kept = await seedAccessSession(person.id, {}, db);
 
 		await signOut(ctx, actor, { sessionId: null });
 		expect(await db.select().from(authSession).where(eq(authSession.userId, person.id))).toHaveLength(
@@ -568,9 +569,9 @@ describe('signOut', () => {
 	rollbackTest('revokes exactly the presented fp_ token, scoped to its owner', async (db) => {
 		const ctx = ctxFor(db);
 		const person = await seedUser(db, { email: 'mobile-logout@example.test' });
-		await seedAccessApiToken(person.id, 'fp_presented-token', 'Android — Pixel');
-		await seedAccessApiToken(person.id, 'fp_other-token', 'Android — Tablet');
-		const session = await seedAccessSession(person.id);
+		await seedAccessApiToken(person.id, 'fp_presented-token', 'Android — Pixel', db);
+		await seedAccessApiToken(person.id, 'fp_other-token', 'Android — Tablet', db);
+		const session = await seedAccessSession(person.id, {}, db);
 
 		await expect(
 			signOut(ctx, actorFromUser(person), { token: 'not-an-fp-token' })

@@ -30,7 +30,7 @@ import { CALENDAR_LANDING_PATH, authRedirectTarget, EMAIL_LINK_LANDING_PATH } fr
 import { isGuestPerson, isRegisteredPerson } from './access.person.rules';
 import { claimEmail } from './access.claim.rules';
 import { CLAIM_SEND_FAILED_MESSAGE, EMAIL_CHANGE_SEND_FAILED_MESSAGE } from './access.contract';
-import { sessionCookieHeader } from './access.http.server';
+import { clientIpOf, sessionCookieHeader } from './access.http.server';
 import { completeEmailLoginLink } from './access.login.service.server';
 import { completeEmailSignupLink } from './access.signup.service.server';
 import { confirmClaim, requestClaim } from './access.claim.service.server';

@@ -498,19 +498,19 @@ describe('api tokens', () => {
 			await seedIdentityApiToken(other.id, { id: 'tok-other', tokenHash: 'hash-other' }, db);
 
 			const listed = await listApiTokensForPerson(db, user.id);
-			// Q-110: no ORDER BY today, so the contract is the set.
-			const byId = [...listed].sort((a, b) => a.id.localeCompare(b.id));
-			expect(byId.map((token) => Object.keys(token).sort())).toEqual([
+			// Q-110 B: newest first (`createdAt DESC, id`).
+			expect(listed.map((token) => Object.keys(token).sort())).toEqual([
 				['createdAt', 'id', 'lastUsedAt', 'name'],
 				['createdAt', 'id', 'lastUsedAt', 'name']
 			]);
-			const shown = byId.map((token) => [token.id, token.name, token.lastUsedAt?.toISOString()]);
+			const shown = listed.map((token) => [token.id, token.name, token.lastUsedAt?.toISOString()]);
 			expect(shown).toEqual([
-				['tok-a', 'Phone', undefined],
-				['tok-b', 'Tablet', '2026-10-08T09:30:00.000Z']
+				['tok-b', 'Tablet', '2026-10-08T09:30:00.000Z'],
+				['tok-a', 'Phone', undefined]
 			]);
-			expect(byId[0].lastUsedAt).toBeNull();
-			expect(byId[0].createdAt.toISOString()).toBe('2026-10-05T08:00:00.000Z');
+			expect(listed[1].lastUsedAt).toBeNull();
+			expect(listed[1].createdAt.toISOString()).toBe('2026-10-05T08:00:00.000Z');
+			expect(listed[0].createdAt.toISOString()).toBe(IDENTITY_SEEDED_AT);
 		}
 	);
 

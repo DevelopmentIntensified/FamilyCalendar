@@ -24,7 +24,11 @@ import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { testCtx, type TestCtx } from '$lib/kernel/testing/testCtx.server';
 import { issueEmailCode } from '$lib/domains/identity/index.server';
-import { ACCESS_ANON_DOMAIN, seedAccessProviderAccount } from './access.fixtures.server';
+import {
+	ACCESS_ANON_DOMAIN,
+	accessTestIds,
+	seedAccessProviderAccount
+} from './access.fixtures.server';
 import { startEmailLogin } from './access.login.service.server';
 import {
 	completeEmailSignupCode,
@@ -41,7 +45,7 @@ const NOW = new Date('2026-05-02T12:00:00.000Z');
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 function ctxFor(db: Db): TestCtx {
-	return testCtx({ db, now: NOW.toISOString() });
+	return { ...testCtx({ db, now: NOW.toISOString() }), ids: accessTestIds() };
 }
 
 function mailedCode(ctx: TestCtx, index = 0): string {
@@ -246,7 +250,7 @@ describe('resendSignupCode', () => {
 		).rejects.toMatchObject({ code: 'unauthorized', message: 'Unauthorized' });
 
 		// 5 / 15 min per person + IP, and the IP budget does not block a new client.
-		for (let index = 0; index < 4; index += 1) {
+		for (let index = 0; index < 5; index += 1) {
 			await resendSignupCode(ctx, actorFromUser(person), { clientIp: '10.21.2.4' });
 		}
 		await expect(
@@ -355,7 +359,7 @@ describe('completeEmailSignupCode', () => {
 		const ctx = ctxFor(db);
 		const email = 'code-taken@example.test';
 		const owner = await seedUser(db, { email: 'owner@example.test' });
-		await seedAccessProviderAccount(email, owner.id);
+		await seedAccessProviderAccount(email, owner.id, 'email', db);
 		await issueEmailCode(ctx, {
 			code: '99887766',
 			email,

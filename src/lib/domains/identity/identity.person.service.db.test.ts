@@ -214,9 +214,9 @@ describe('people', () => {
 		const pseudo = await seedUser(db);
 		const invalid = await seedUser(db);
 		const none = await seedUser(db);
-		await seedIdentitySettings(tokyo.id, { timeZone: 'Asia/Tokyo' }, db);
-		await seedIdentitySettings(pseudo.id, { timeZone: 'UTC+5' }, db);
-		await seedIdentitySettings(invalid.id, { timeZone: 'Mars/Base' }, db);
+		await seedIdentitySettings(tokyo.id, { id: 'settings-tokyo', timeZone: 'Asia/Tokyo' }, db);
+		await seedIdentitySettings(pseudo.id, { id: 'settings-pseudo', timeZone: 'UTC+5' }, db);
+		await seedIdentitySettings(invalid.id, { id: 'settings-invalid', timeZone: 'Mars/Base' }, db);
 
 		expect(await getTimeZone(ctx, tokyo.id)).toBe('Asia/Tokyo');
 		expect(await getTimeZone(ctx, pseudo.id)).toBe('UTC+5');

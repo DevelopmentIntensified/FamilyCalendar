@@ -81,7 +81,10 @@ describe('parseEventQuickAddList', () => {
 		expect(results).toHaveLength(2);
 		expect(results[1].parsed.title).toBe('dinner');
 		expect(results[1].parsed.startTime).toBe('17:30');
-		expect(results[1].parsed.endTime).toBe('18:30');
+		// "9pm" is the END hour: the short-range rule applies the meridiem as
+		// written, so the end is 21:00 (naturalLanguageService.ts:972-989;
+		// the sibling "movie 5:30-9pm" row in parsing.event.rules.test.ts).
+		expect(results[1].parsed.endTime).toBe('21:00');
 	});
 
 	it('fewer than two segments clearing the gate answers the single parse', () => {

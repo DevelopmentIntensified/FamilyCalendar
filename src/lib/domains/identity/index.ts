@@ -11,8 +11,7 @@ export {
 } from './identity.person.rules';
 export {
 	ACCOUNT_SETTINGS_DEFAULTS,
-	calendarSettingsPatch,
-	mergeCalendarSettings
+	calendarSettingsPatch
 } from './identity.settings.rules';
 export { sessionCookieAttributes } from './identity.session.rules';
 export { apiTokenName } from './identity.token.rules';

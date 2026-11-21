@@ -4,4 +4,5 @@
  * Doc: ./README.md#public-interface
  */
 export { AdminCounts } from './admin.contract';
+export type { AdminBugRegisterData, AdminPhraseRegisterData } from './admin.contract';
 export { ADMIN_SECTIONS, isAdminSectionActive, type AdminSection } from './admin.sections.rules';

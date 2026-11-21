@@ -67,10 +67,30 @@ describe('weekly day lists — one token scan over the claim-masked date', () =>
 		expect(result.date).toBe('2026-07-22');
 	});
 
-	it('a singular abbreviation ending in "s" still reads plural (Q-008, ported as-is)', () => {
-		const result = parsed('lunch tues');
+	it('a singular abbreviation ending in "s" stays a one-off (Q-008 B)', () => {
+		const tues = parsed('lunch tues');
+		expect(tues.recurring).toBeUndefined();
+		expect(tues.recurringByDay).toBeUndefined();
+		expect(tues.date).toBe('2026-07-21');
+		const thurs = parsed('lunch thurs');
+		expect(thurs.recurring).toBeUndefined();
+		expect(thurs.recurringByDay).toBeUndefined();
+		expect(thurs.date).toBe('2026-07-16');
+	});
+
+	// Q-008 B: only full weekday names plus "s" are plural; the canonical
+	// plurals still make a series.
+	const pluralRows: Array<[string, string, string]> = [
+		['on tuesdays', '2026-07-21', 'TU'],
+		['on thursdays', '2026-07-16', 'TH'],
+		['on mondays', '2026-07-20', 'MO']
+	];
+
+	it.each(pluralRows)('%s is a weekly series (anchored %s, %s)', (phrase, date, day) => {
+		const result = parsed(phrase);
 		expect(result.recurring).toBe('weekly');
-		expect(result.recurringByDay).toEqual(['TU']);
+		expect(result.recurringByDay).toEqual([day]);
+		expect(result.date).toBe(date);
 	});
 
 	it('a bare conjunction pair becomes concrete dates, not weekly', () => {
@@ -149,11 +169,15 @@ describe('reminders', () => {
 });
 
 describe('the recurrence phrase never leaks into the title', () => {
+	// The phrase is stripped from the title source, so the surviving window is
+	// "yoga " and the refinement never runs (nothing left to strip inside it):
+	// legacy keeps the trailing space, exactly like the frozen golden's
+	// "payday every other week" → 'payday ' row (parsing.http.db.test.ts:168).
 	it.each([
-		['yoga every Monday', 'yoga'],
-		['chores repeat every week', 'chores'],
-		['hoa dues quarterly', 'hoa dues'],
-		['gym twice a week', 'gym']
+		['yoga every Monday', 'yoga '],
+		['chores repeat every week', 'chores '],
+		['hoa dues quarterly', 'hoa dues '],
+		['gym twice a week', 'gym ']
 	])('%s → title %s', (phrase, expected) => {
 		expect(parsed(phrase).title).toBe(expected);
 	});

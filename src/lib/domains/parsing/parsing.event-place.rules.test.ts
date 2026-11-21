@@ -129,7 +129,9 @@ describe('attendant priority', () => {
 	it('a with-list running to the end of the title is removed from it', () => {
 		const result = parsed('dinner with Nathaniel');
 		expect(result.attendants).toEqual(['Nathaniel']);
-		expect(result.title).toBe('dinner');
+		// The terminal with-list is blanked before the window: legacy keeps the
+		// trailing space (frozen golden, parsing.http.db.test.ts:173 'coffee ').
+		expect(result.title).toBe('dinner ');
 	});
 
 	it('a mid-title with-list keeps its pin in the title', () => {

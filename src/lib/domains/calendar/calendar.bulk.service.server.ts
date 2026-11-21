@@ -25,7 +25,7 @@ import { withTx } from '$lib/kernel/db/database.server';
 import { forbidden, invalid, unprocessable } from '$lib/kernel/errors/appError';
 import type { NewEventRow } from '$lib/kernel/db/tables.server';
 import { toInstantString } from '$lib/kernel/time/dates';
-import { listFamilies, listPersonFamilyIds } from '$lib/domains/family/index.server';
+import { listFamilies } from '$lib/domains/family/index.server';
 import { getTimeZone } from '$lib/domains/identity/index.server';
 import { CALENDAR_COPY } from './calendar.contract';
 import {
@@ -41,7 +41,6 @@ import {
 	deleteEventRow,
 	deleteGuestRows,
 	deleteMirrorRows,
-	findAccessibleCalendarIds,
 	findAccessibleEventIds,
 	findCalendars,
 	findEvent,
@@ -54,7 +53,10 @@ import {
 	updateExceptionRow,
 	updateMirrorRows
 } from './calendar.repo.server';
-import { nudgeCalendarEventsChanged } from './calendar.calendars.service.server';
+import {
+	listAccessibleCalendarIds,
+	nudgeCalendarEventsChanged
+} from './calendar.calendars.service.server';
 
 /** One per-item failure, in the order the items were applied. */
 export type CalendarBulkFailure = { readonly id: string; readonly error: string };
@@ -128,12 +130,6 @@ type BulkScope = {
 	readonly accessibleCalendarIds: readonly string[];
 	readonly ownedCalendarIds: readonly string[];
 };
-
-/** The viewer's read scope: own calendars plus every family's (#098). */
-async function accessibleCalendarIdsFor(ctx: Ctx, userId: string): Promise<string[]> {
-	const familyIds = await listPersonFamilyIds(ctx, userId);
-	return await findAccessibleCalendarIds(ctx.db, userId, familyIds);
-}
 
 /** The #165 write leg: own the Event, or own the Calendar it sits on. */
 function mayMutate(
@@ -391,7 +387,7 @@ export async function bulkEditEvents(
 	];
 	if (masterIds.length === 0) throw invalid(CALENDAR_COPY.bulkNoValidIds);
 
-	const accessibleCalendarIds = await findAccessibleCalendarIdsFor(ctx, actor.id);
+	const accessibleCalendarIds = await listAccessibleCalendarIds(ctx, actor.id);
 	const ownedCalendarIds = await findOwnedCalendarIds(ctx.db, actor.id);
 	const scope: BulkScope = { accessibleCalendarIds, ownedCalendarIds };
 	const editableIds = await findAccessibleEventIds(

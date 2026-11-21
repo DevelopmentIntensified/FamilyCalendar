@@ -30,6 +30,13 @@ function orderWeekdays(days: string[]): string[] {
 }
 
 /**
+ * Q-008 B: only a full weekday name plus "s" is plural ("tuesdays",
+ * "thursdays", "mondays"…); the singular abbreviations "tues"/"thurs" end
+ * in "s" too and stay one-off.
+ */
+const CANONICAL_PLURAL_DAY = new RegExp(`^(?:${WEEKDAY_FULL.join('|')})s$`, 'i');
+
+/**
  * The recurrence table: compound phrases before bare words so the full
  * expression is captured ("every other week", not a fragment).
  * `(?<![\w-])` keeps "annually" from swallowing "bi-annually" — that is
@@ -118,7 +125,10 @@ export function readEventRecurrence(input: {
 	const dayTokens = extractDayTokens(claims.mask(dateInput));
 	const dayRaws = dayTokens.map((t) => t.raw);
 	const distinctDays = [...new Set(dayTokens.map((t) => t.code))];
-	const anyPluralDay = dayRaws.some((t) => t.toLowerCase().endsWith('s'));
+	// Q-008 B: only a full weekday name plus "s" is plural ("tuesdays",
+	// "thursdays"); the singular abbreviations "tues"/"thurs" end in "s" too
+	// and stay one-off.
+	const anyPluralDay = dayRaws.some((t) => CANONICAL_PLURAL_DAY.test(t));
 	const listTrigger = /\b(every|weekly|each)\b/i.test(dateInput);
 	// Conjunction-joined pairs ("Monday and Tuesday") name both days even
 	// without a trigger word. Commas count too ("Mon, Wed").
@@ -183,7 +193,7 @@ export function readEventRecurrence(input: {
 		);
 		if (bareDay) {
 			const day = bareDay[1].toLowerCase();
-			state.date = nextWeekday(day, now);
+			state.date = nextWeekday(day, now).toFormat('yyyy-MM-dd');
 			confidence.push(0.2);
 			stripSpans.push(bareDay[0]);
 			claims.claim(bareDay[0], bareDay.index);
@@ -191,7 +201,7 @@ export function readEventRecurrence(input: {
 			const fuzzy = extractDayTokens(maskedDayInput);
 			if (fuzzy.length > 0) {
 				const name = WEEKDAY_FULL[((WEEK_ORDER as readonly string[]).indexOf(fuzzy[0].code) + 1) % 7];
-				state.date = nextWeekday(name, now);
+				state.date = nextWeekday(name, now).toFormat('yyyy-MM-dd');
 				confidence.push(0.15);
 				stripSpans.push(fuzzy[0].raw);
 				claims.claim(fuzzy[0].raw, fuzzy[0].index);

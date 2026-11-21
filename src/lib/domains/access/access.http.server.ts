@@ -94,7 +94,7 @@ import {
  * `x-forwarded-for` hop, else `local` — the legacy `clientKey` read
  * (`rateLimit.ts:20-26`), folded into the scope by `clientKeyOf`.
  */
-function clientIpOf(request: Request): string {
+export function clientIpOf(request: Request): string {
 	const forwarded = request.headers.get('x-forwarded-for');
 	const real = request.headers.get('x-real-ip');
 	return (real ?? forwarded?.split(',')[0] ?? 'local').trim() || 'local';

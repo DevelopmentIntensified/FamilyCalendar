@@ -18,13 +18,25 @@ import {
 	claimTokens,
 	codes
 } from '$lib/kernel/db/tables.server';
-import { hmacSha256Hex, sha256Hex } from '$lib/kernel/ids/ids';
+import { hmacSha256Hex, sequentialIds, sha256Hex, systemIds, type Ids } from '$lib/kernel/ids/ids';
 import { seedUser, uniqueSuffix } from '$lib/kernel/testing/seedRows.server';
 import { GOLDEN_CODE_PEPPER } from '$lib/kernel/testing/testCtx.server';
 import { testDb } from '$lib/kernel/testing/testDb.server';
 
 /** The reserved Anonymous Account domain (`src/lib/utils/anonymous.ts:12`). */
 export const ACCESS_ANON_DOMAIN = '@anonymous.placeholder.invalid';
+
+/**
+ * The `ids` access's service tests hand `testCtx`: deterministic row ids, but
+ * REAL random bytes. `testCtx`'s `sequentialIds` counts its bytes up mod 256,
+ * so the 8-digit codes drawn `% 10` repeat every fifth draw and the 32-byte
+ * Claim/session tokens repeat every 256 bytes — the unique `codes.code` and
+ * `claim_tokens.token_hash` columns refuse both. Production draws from
+ * `crypto`, so the tests do too.
+ */
+export function accessTestIds(): Ids {
+	return { id: sequentialIds().id, random: systemIds.random };
+}
 
 /** bcrypt hash of `correct-horse-battery` at cost 8 — a real compare, no hashing in tests. */
 export const ACCESS_PASSWORD_HASH =
@@ -50,10 +62,13 @@ export async function seedAccessPasswordUser(email: string) {
 }
 
 /** A personal `fp_` token row: only the sha256 digest is stored. */
-export async function seedAccessApiToken(userId: string, plaintext: string, name = 'Phone') {
-	await testDb()
-		.insert(apiTokens)
-		.values({ userId, name, tokenHash: sha256Hex(plaintext) });
+export async function seedAccessApiToken(
+	userId: string,
+	plaintext: string,
+	name = 'Phone',
+	db: Db = testDb()
+) {
+	await db.insert(apiTokens).values({ userId, name, tokenHash: sha256Hex(plaintext) });
 }
 
 /**
@@ -88,18 +103,20 @@ export async function seedAccessEmailCode(input: {
 export async function seedAccessProviderAccount(
 	providerAccountId: string,
 	userId: string,
-	provider = 'email'
+	provider = 'email',
+	db: Db = testDb()
 ) {
-	await testDb().insert(accounts).values({ provider, providerAccountId, userId });
+	await db.insert(accounts).values({ provider, providerAccountId, userId });
 }
 
 /** A live web session row for `userId`. */
 export async function seedAccessSession(
 	userId: string,
-	overrides: { id?: string; token?: string; expiresAt?: Date } = {}
+	overrides: { id?: string; token?: string; expiresAt?: Date } = {},
+	db: Db = testDb()
 ) {
 	const suffix = uniqueSuffix();
-	const [row] = await testDb()
+	const [row] = await db
 		.insert(authSession)
 		.values({
 			id: overrides.id ?? `session-${suffix}`,

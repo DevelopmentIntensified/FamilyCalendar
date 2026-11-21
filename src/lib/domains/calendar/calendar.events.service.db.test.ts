@@ -296,6 +296,52 @@ describe('createEvent', () => {
 		expect(mirrorAttendance).toHaveLength(2);
 	});
 
+	rollbackTest('skips the mirror when the family has more than one calendar (Q-043)', async (db) => {
+		const viewer = await seedUser(db, { firstName: 'Mia' });
+		await seedFamily(FAMILY, { name: 'Riveras' }, db);
+		await seedMembership(FAMILY, viewer.id, 'creator', 'parent', db);
+		await seedCalendarRow(PERSONAL, { ownerId: viewer.id }, db);
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY }, db);
+		await seedCalendarRow('calfamily0002', { familyId: FAMILY }, db);
+		await db.insert(userSettings).values({
+			userId: viewer.id,
+			syncEventsToFamilyCalendar: true
+		});
+
+		const created = await createEvent(testCtx({ db, now: NOW }), actorFromUser(viewer, 'session'), {
+			title: 'Recital',
+			start: '2026-10-09T16:00:00.000Z'
+		});
+
+		expect(created.calendarId).toBe(PERSONAL);
+		expect(created.mirrorOf).toBeNull();
+		// Only the personal Event: no unordered `familyCals[0]` pick any more.
+		expect(await db.select().from(events)).toHaveLength(1);
+	});
+
+	rollbackTest('never mirrors an event created on a family calendar (Q-043)', async (db) => {
+		const viewer = await seedUser(db, { firstName: 'Mia' });
+		await seedFamily(FAMILY, { name: 'Riveras' }, db);
+		await seedMembership(FAMILY, viewer.id, 'creator', 'parent', db);
+		await seedCalendarRow(PERSONAL, { ownerId: viewer.id }, db);
+		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY }, db);
+		await db.insert(userSettings).values({
+			userId: viewer.id,
+			syncEventsToFamilyCalendar: true
+		});
+
+		const created = await createEvent(testCtx({ db, now: NOW }), actorFromUser(viewer, 'session'), {
+			title: 'Practice',
+			start: '2026-10-09T16:00:00.000Z',
+			calendarId: FAMILY_CAL
+		});
+
+		expect(created.calendarId).toBe(FAMILY_CAL);
+		const rows = await db.select().from(events);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toEqual(expect.objectContaining({ calendarId: FAMILY_CAL, mirrorOf: null }));
+	});
+
 	rollbackTest('refuses a calendar the viewer cannot see', async (db) => {
 		const viewer = await seedUser(db);
 		const stranger = await seedUser(db);
@@ -386,7 +432,7 @@ describe('updateEvent', () => {
 		expect(result.event.reminderMinutes).toBeNull();
 	});
 
-	rollbackTest('clears recurrence when a partial body omits it (Q-047)', async (db) => {
+	rollbackTest('keeps recurrence when a partial body omits it (Q-047)', async (db) => {
 		const viewer = await seedOwnedEvent(db, {
 			title: 'Piano',
 			recurrenceFrequency: 'weekly',
@@ -404,6 +450,28 @@ describe('updateEvent', () => {
 		expect(result.kind).toBe('event');
 		if (result.kind !== 'event') return;
 		expect(result.event.title).toBe('Piano lesson');
+		expect(result.event.recurrenceFrequency).toBe('weekly');
+		expect(result.event.recurrenceInterval).toBe(2);
+		expect(result.event.recurrenceCount).toBe(5);
+	});
+
+	rollbackTest('clears recurrence when the body sends an explicit null frequency (Q-047)', async (db) => {
+		const viewer = await seedOwnedEvent(db, {
+			title: 'Piano',
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 2,
+			recurrenceCount: 5
+		});
+
+		const result = await updateEvent(
+			testCtx({ db, now: NOW }),
+			actorFromUser(viewer, 'session'),
+			EVENT,
+			{ recurrenceFrequency: null }
+		);
+
+		expect(result.kind).toBe('event');
+		if (result.kind !== 'event') return;
 		expect(result.event.recurrenceFrequency).toBeNull();
 		expect(result.event.recurrenceInterval).toBeNull();
 		expect(result.event.recurrenceCount).toBeNull();

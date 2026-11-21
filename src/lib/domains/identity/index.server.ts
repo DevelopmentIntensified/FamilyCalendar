@@ -49,6 +49,7 @@ export type IdentityCtx = Ctx & IdentityPorts;
 export {
 	getPerson,
 	getPersonByEmail,
+	getPersonById,
 	isEmailTaken,
 	listPersonNames,
 	createPersonWithPassword,

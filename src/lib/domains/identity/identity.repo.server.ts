@@ -20,7 +20,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { and, eq, inArray, like, lt, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, lt, ne } from 'drizzle-orm';
 import type { Db } from '$lib/kernel/db/database.server';
 import {
 	accounts,
@@ -360,7 +360,11 @@ export async function insertApiToken(
 	return record;
 }
 
-/** The person's tokens, safe columns only. No ORDER BY today (Q-110 orders them after S6). */
+/**
+ * The person's tokens, safe columns only, newest first (Q-110 B:
+ * `createdAt DESC, id` — the id breaks a same-instant tie so the order is
+ * stable). The hash is never selected.
+ */
 export async function listApiTokensForPerson(db: Db, userId: string): Promise<ApiTokenListing[]> {
 	return await db
 		.select({
@@ -370,7 +374,8 @@ export async function listApiTokensForPerson(db: Db, userId: string): Promise<Ap
 			lastUsedAt: apiTokens.lastUsedAt
 		})
 		.from(apiTokens)
-		.where(eq(apiTokens.userId, userId));
+		.where(eq(apiTokens.userId, userId))
+		.orderBy(desc(apiTokens.createdAt), asc(apiTokens.id));
 }
 
 /** Revoke one token, scoped to `(id, userId)`: a foreign or unknown id deletes nothing. */

@@ -17,7 +17,7 @@
  */
 import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
-import { invalid, tooMany } from '$lib/kernel/errors/appError';
+import { invalid, tooMany, unauthorized } from '$lib/kernel/errors/appError';
 import { isEmailAddress } from '$lib/kernel/validation/validators';
 import {
 	createAnonymousAccount,
@@ -316,10 +316,10 @@ export async function signInMobileWithPassword(
 	const user = await getPersonByEmail(ctx, input.email);
 	if (!user || !user.passwordHash || isGuestPerson(user)) {
 		await verifyPassword(input.password, DUMMY_BCRYPT_HASH);
-		throw invalid(MOBILE_WRONG_PASSWORD_MESSAGE);
+		throw unauthorized(MOBILE_WRONG_PASSWORD_MESSAGE);
 	}
 	if (!(await verifyPassword(input.password, user.passwordHash))) {
-		throw invalid(MOBILE_WRONG_PASSWORD_MESSAGE);
+		throw unauthorized(MOBILE_WRONG_PASSWORD_MESSAGE);
 	}
 
 	// As `/login/password`: settings follow the account.

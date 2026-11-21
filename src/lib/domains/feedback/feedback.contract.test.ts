@@ -134,10 +134,13 @@ describe('UnmatchedPhraseBody', () => {
 		expect(messageOf(UnmatchedPhraseBody, body('a'.repeat(281)))).toBe(PHRASE_INVALID_MESSAGE);
 	});
 
-	it('refuses a whitespace-heavy phrase over 280 chars before normalizing it (Q-006)', () => {
-		expect(
-			messageOf(UnmatchedPhraseBody, { phrase: `a${' '.repeat(280)}b`, source: 'event_parse' })
-		).toBe(PHRASE_INVALID_MESSAGE);
+	it('caps after normalizing, so a whitespace-heavy phrase over 280 chars is accepted (Q-006)', () => {
+		const body = { phrase: `a${' '.repeat(280)}b`, source: 'event_parse' };
+		const parsed = UnmatchedPhraseBody.safeParse(body);
+		expect(parsed.success).toBe(true);
+		// The contract accepts the raw phrase; normalizing (and the cap it now
+		// answers to) is the service's job.
+		if (parsed.success) expect(parsed.data.phrase).toBe(body.phrase);
 	});
 
 	it.each<[string, unknown]>([

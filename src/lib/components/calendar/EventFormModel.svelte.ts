@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import type { ParsedEvent as ParsedEventNlp } from '$lib/server/services/naturalLanguageService';
+import type { ParsedEvent as ParsedEventNlp } from '$lib/domains/parsing/index.server';
 
 export type NlpFormInput = Partial<ParsedEventNlp> & { endDate?: string };
 

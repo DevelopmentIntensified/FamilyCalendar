@@ -22,6 +22,7 @@ import {
 	verifyEmailLinkToken,
 	type EmailLinkCopy
 } from './access.emailLink.service.server';
+import { accessTestIds } from './access.fixtures.server';
 
 const NOW = new Date('2026-05-01T12:00:00.000Z');
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
@@ -34,7 +35,7 @@ const COPY: EmailLinkCopy = {
 };
 
 function ctxFor(db: Db): TestCtx {
-	return testCtx({ db, now: NOW.toISOString() });
+	return { ...testCtx({ db, now: NOW.toISOString() }), ids: accessTestIds() };
 }
 
 function mailedCode(ctx: TestCtx, index = 0): string {
