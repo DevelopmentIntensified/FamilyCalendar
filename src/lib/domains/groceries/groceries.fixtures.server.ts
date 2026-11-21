@@ -13,6 +13,7 @@
 import type { Db } from '$lib/kernel/db/database.server';
 import {
 	families,
+	familyMembers,
 	groceryItems,
 	groceryStoreColours,
 	groceryStoreMemory,
@@ -28,11 +29,26 @@ import { normalizeGroceryName } from './groceries.items.rules';
 /** The instant seeded rows carry unless a test says otherwise. */
 const SEEDED_AT = new Date('2026-01-01T00:00:00Z');
 
-/** One family, named. Membership is the `family` domain's, not seeded here. */
+/** One family, named. Membership is the `family` domain's, so it has its own builder below. */
 export async function seedGroceryFamily(db: Db, name = 'Home') {
 	const [row] = await db.insert(families).values({ name }).returning();
 	if (!row) throw new Error('seedGroceryFamily: insert returned no row');
 	return row;
+}
+
+/**
+ * One membership row, so the `family` service's read (`familyIdForActor`)
+ * resolves this user's family. Seeded directly because the family module's
+ * fixtures belong to its own tests; this row is what the API's `scope:
+ * 'family'` needs to exist.
+ */
+export async function seedGroceryMembership(
+	db: Db,
+	userId: string,
+	familyId: string,
+	role = 'owner'
+): Promise<void> {
+	await db.insert(familyMembers).values({ userId, familyId, role });
 }
 
 /** One open item; `nameKey` follows `name` unless given. Mine unless `familyId` is set. */

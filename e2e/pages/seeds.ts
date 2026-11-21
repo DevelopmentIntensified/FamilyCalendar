@@ -38,7 +38,10 @@ import {
 	users
 } from '$lib/kernel/db/tables.server';
 import { ANONYMOUS_EMAIL_DOMAIN } from '$lib/utils/anonymous';
-import { normalizeGroceryName } from '$lib/data/groceries';
+// The pure rule, imported directly: the page harness loads plain TS with no
+// Svelte compiler, and the module entry also re-exports the page's runes state
+// class, which a seed never needs. Same one home for the key (trim+lowercase).
+import { normalizeGroceryName } from '$lib/domains/groceries/groceries.items.rules';
 
 /** The zone every seed's dates are expressed in (and the user's settings zone). */
 const ZONE = 'America/New_York';

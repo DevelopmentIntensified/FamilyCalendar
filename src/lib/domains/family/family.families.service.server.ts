@@ -46,6 +46,7 @@ import {
 import {
 	countOpenFamilyTasks,
 	findFamilyById,
+	findFirstFamilyIdForUser,
 	findMembershipFamilyId,
 	insertFamilyWithRoster,
 	listMembershipFamilyIds,
@@ -110,6 +111,20 @@ export async function listFamilies(ctx: Ctx, actor: Actor): Promise<FamilyListPa
 		activeInvites,
 		plan: { used: familyIds.length, limit: limits.familyLimit }
 	};
+}
+
+/**
+ * Which family the actor belongs to, for a module that holds ONE family's rows
+ * and whose wire names no family at all (groceries' `scope: 'family'`).
+ *
+ * The FIRST membership row, with no `ORDER BY`, is the legacy
+ * `getUserFamilyId` read that wire has always answered with, so the port does
+ * not move a two-family caller to a different list. Q-024's "oldest" rule stays
+ * the roster's default (`findMembershipFamilyId`), which is a different
+ * question; a single-family caller gets the same answer from both.
+ */
+export async function familyIdForActor(ctx: Ctx, actor: Actor): Promise<string | null> {
+	return await findFirstFamilyIdForUser(ctx.db, actor.id);
 }
 
 /**
