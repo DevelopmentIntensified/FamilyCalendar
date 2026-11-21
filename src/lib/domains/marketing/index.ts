@@ -3,4 +3,4 @@
  * Other modules import marketing ONLY through this file, index.server.ts or ui/index.ts (rule R2).
  * Doc: ./README.md#public-interface
  */
-export {};
+export { CONTENT_PAGE_OPTIONS, marketingPageOptions } from './marketing.pageOptions.rules';

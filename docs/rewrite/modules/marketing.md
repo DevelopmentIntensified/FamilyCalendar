@@ -15,8 +15,8 @@ Public site: home, features, pricing display, roadmap/changelog, contact, SEO ta
 - [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures) — empty by design: no v2 code reads a marketing table (Notes)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
+- [x] S5 service
+- [x] S6 http + route wiring (goldens unchanged since S2)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
 - [ ] S8 rewire importers, delete legacy code and legacy tests
 - [ ] S9 README final, census --write, gate:push, ledger done
@@ -135,6 +135,8 @@ Where each legacy export goes:
 - **S2 sha**: the orchestrator commits this step; fill the sha in the Steps list from that commit (`rewrite(marketing): S2 api goldens (legacy green)`).
 - **S4 is empty by design.** Marketing owns only `waitlist`, which no v2 code reads or writes (Q-070), and nothing else in the module queries a table. So the port has no `marketing.repo.server.ts`, no `marketing.fixtures.server.ts` and no repo db test; the service test at S5 runs on `testCtx({ db })` only for the bug-report fault it files.
 - **S3 deviations from the plan above (all in the rows):** `seoFor`/`canonicalUrl` are private and the tests go through `pageSeo`; `marketing.mail.rules.ts` also exports `CONTACT_RECIPIENT`, `contactSubject` and `isContactEmail` (both legacy actions duplicated them); the contract carries a second body, `ContactFormBody`, for the `/contact` action, because its checks differ (message trimmed for the required check). The layout-markup tests of the legacy `seo.test.ts` ("emits og and canonical", "emits no `<title>`") are not carried: they read the legacy layout and are the S7 visual check per the Invariants. The contact mail body keeps the legacy elements and styles; only the source indentation whitespace inside the HTML string is gone.
+
+- **S5/S6 as built (2026-11-19).** `sendContactMessage(ctx, actor | null, { request, body, budget })` owns the whole submit: it spends the client's budget on `ctx.limiter` (scope `contact`, both surfaces share the bucket as legacy did) BEFORE it reads the form, then checks the form through the surface's contract and mails it via `ctx.mail` with `from: ctx.config.mailFrom`. The two surfaces hand in their budget (3/15 min, 5/10 min) and their contract (`ContactApiBody` / `ContactFormBody`), so the checks stay in one home and the legacy order (gate before read before check) survives on both. `contactEndpoint` keeps the kernel's `failMessage` (the plain provider error is logged and filed, like legacy `apiError`); `contactFormAction` catches the non-`AppError` itself and returns `fail(500, …)`, because legacy `/contact` did NOT file a provider outage and the README says its 500 is a form failure, not a filed fault. Routes wired: `api/contact/+page.server.ts` (`actions.default = contactEndpoint.handler`), `(marketing)/contact/+page.server.ts`, `(marketing)/+layout.server.ts` (the route reads `ADAPTER` and hands it to `marketingPageOptions`, since a domain may not touch `$env`), `(marketing)/android/+page.server.ts`, `(marketing)/+page.server.ts`, `changelog/+page.ts` and `roadmap/+page.ts` (`CONTENT_PAGE_OPTIONS`). `/contact`'s failure payload is the kernel `ActionFail` (`{ success: false, error }`): the legacy `failure: true` flag is gone and the S7 UI reads `error`. The legacy test-only `deps` parameter (injected `sendEmail`/`gate`) is gone with the route logic — tests inject through `ctx`.
 
 ### Questions for the owner
 
