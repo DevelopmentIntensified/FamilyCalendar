@@ -5,7 +5,7 @@ import Root from '../../../../../.svelte-kit/generated/root.svelte';
 import RootLayout from '../../../+layout.svelte';
 import CalendarLayout from '../+layout.svelte';
 import DashboardPage from './+page.svelte';
-import { dashboardVisibility } from '$lib/dashboardModules';
+import { dashboardVisibility } from '$lib/domains/dashboardModules';
 
 /**
  * #278/#279: server-render /calendar/dashboard the way SvelteKit does —

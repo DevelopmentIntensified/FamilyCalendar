@@ -15,8 +15,8 @@ Dashboard Module registry, family master switches, per-user hides, the one visib
 - [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
+- [x] S5 service
+- [x] S6 http + route wiring (goldens unchanged since S2)
 - [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
 - [ ] S8 rewire importers, delete legacy code and legacy tests
 - [ ] S9 README final, census --write, gate:push, ledger done
@@ -139,6 +139,26 @@ Every file lives in `src/lib/domains/dashboardModules/`. Roles per [conventions]
   - *`top3` / `completed` declare no reads.* Internal, and not a defect: both consume the viewer's own tasks, and `src/lib/server/services/dashboardData.ts:129-130` fetches `userTasks` unconditionally for every viewer. Read tokens exist to guard **skippable** reads, so an entry for tasks would describe a token that never gates anything. Kept as-is and stated in the README invariant.
   - *`setFamilyModuleSwitch` inserts with `onConflictDoNothing` and deletes instead of updating.* Internal: the wire only ever sees "a row exists only while OFF", which is the Must-survive rule. The conflict clause is a no-op guard for rows written outside the action, not a second write shape; the port keeps one write pair (insert-off / delete-on).
   - *`/api/me/dashboard-modules` tolerates unknown ids with `200` while the family route `400`s.* Visible on the wire → kept as an Invariant, with owner question O-1 below.
+- **S5+S6 (2026-11-21).**
+  - **Q-030 landed here.** `listFamilyModuleSwitches` is exported from `index.server.ts`; `src/lib/app/ports.server.ts` replaced family's `moduleSwitches` transition bridge with an adapter over it (the port type stays family's, in family's `index.server.ts`).
+  - **Family role: a direct call, no port (owner direction, 2026-11-21).** `family` now exports `getViewerRole(ctx, actorId, familyId)` from its entry — the same read `getFamily` uses for its 404 (legacy `getMemberRole` semantics, pinned by three `family.families.service.db.test.ts` rows). Family is rank 4, so `dashboardModules` imports it directly; the earlier `DashboardModulesFamilyRolePort` + the `familyRole` bridge over legacy `getMemberRole` were deleted, and `AppPorts` is `IdentityPorts & FamilyPorts` again.
+  - **Contract deviation (S3 value corrected to the frozen wire).** Both body schemas answered the field copy for a non-object body; the S2 golden pins `400 {"error":"Invalid JSON"}` for the array body, and legacy `readJsonObject` refused every non-object with that one sentence. Both schemas now carry `INVALID_JSON_MESSAGE` as their object-level error (the identity/family pattern) and the contract test splits its rows accordingly. No wire change: this is the legacy behaviour the golden already pinned.
+  - **Internal deviation: the family route's catch-all is gone.** Legacy `toggleDashboardModule` wrapped the write in `try/catch` and answered `400 {error: error.message}` for any storage failure; the port lets `endpoint()` file that as a 500 fault (logged + `ctx.faults`), which is the module-wide convention for a fault. No golden pins it.
+  - **Answered questions for this module, none owed a post-S6 fix:** Q-029 (A, recorded default) — the tolerance it confirms is the behaviour the golden pins (`drops every unknown id and answers 200`); Q-002/Q-031 — registry ids kept as-is (already true). O-1 is **still open** (unknown ids on `/api/me/dashboard-modules`), so no change was made for it.
+  - **The S2 env note is moot.** The me-route golden used to need `RESEND_API_KEY` because the legacy chain imported `sendEmail`; the ported chain (identity's settings service) imports no `$env`, so the golden runs in a clean environment and still needs no spec-golden marker.
+
+- **S7 (2026-11-21).**
+  - `dashboardModules.api.ts` landed on the kernel api client with a named `DashboardModulesApi` interface (no `ReturnType<typeof …>`), typed by the contract; exported from `index.ts`.
+  - `ui/DashboardModuleRow.svelte` rebuilt in Svelte 5 runes on the legacy markup: props in, callbacks out, no `$app/*` — the route passes the framework's `enhance` action as a prop (the `ReportBugForm` pattern), and the default no-op action leaves the plain form submission alone. `ui/index.ts` exports it.
+  - New row helpers: `describeDashboardModuleState(scope, state)` and `dashboardModuleToggleValue(enabled)`. `describeDashboardModuleRow` is now their composition, so the component's chips and the family page's submit value read the same tables instead of deriving words twice.
+  - **Intentional deviation from the S7 plan:** the two chips are plain spans carrying the rule's `stateClass`, not `Pill`. Pill's neutral tone is `bg-slate-100/text-slate-600` while the legacy off chip is `bg-slate-200/text-slate-500`; `stateClass` is the module's one tone table and would be dead weight with Pill. The row is otherwise rebuilt (markup/classes otherwise unchanged, so the unported family page's screenshot stays identical). No visual/perf check of its own: this module owns no page.
+  - **S7 design question answered:** a personal module the viewer hid keeps reading `on` (unchanged). The account page's per-module rows are checkboxes, not this component, so nothing today could show `hidden-for-me` for a personal module; changing it would be a new rule, not a parity fix.
+- **S8 (2026-11-21).**
+  - **Importers rewired to the module's public entries:** the account section (+ its helper and both tests), `DayDashboard.svelte` (+ test), the three prototype variants, `accountData.ts` (its duplicated saved-message copy is now `dashboardModulesSavedMessage`), `dashboardData.ts` (`dashboardVisibility`), the calendar dashboard SSR test, and the legacy actions file (registry imports).
+  - **Deleted legacy tests:** `src/lib/dashboardModules.test.ts`, `src/lib/utils/moduleRowState.test.ts`, `src/lib/components/dashboard/DashboardModuleRow.svelte.test.ts`, `src/lib/server/db/actions/dashboardModules.test.ts`. The last one only exercised the registry + `dashboardVisibility`, now pinned by `dashboardModules.registry.rules.test.ts` / `dashboardModules.visibility.rules.test.ts` and the goldens.
+  - **Kept, with importers (the contract's exception):** `src/lib/dashboardModules.ts`, `src/lib/utils/moduleRowState.ts` and `src/lib/components/dashboard/DashboardModuleRow.svelte` are now ~20-line transition bridges, because `src/routes/(family)/family/[familyId]/+page.svelte` (screen `familyHub`, unported, 1051 lines) imports them — and a `+page.svelte` that imports ported code must be wiring-only (R8). They hold no registry, rules or markup of their own; they wrap `selectDashboardModules`, `describeDashboardModuleRow` / `dashboardModuleToggleValue` and the module's `ui/DashboardModuleRow`.
+  - **Kept, with importers:** `src/lib/server/db/actions/dashboardModules.ts` — `dashboardData.ts:19` (dayDashboard) and `familyData.ts:18-19` (familyHub) still call it with the `db` singleton; the ported service takes a `Ctx`, which neither unported service has. Both go when their screens' S8 lands (and the file's registry imports already point at the module).
+  - `src/lib/app/ports.server.ts` is untouched: Q-030's `listFamilyModuleSwitches` adapter stays the only wiring.
 
 ### Questions for the owner
 

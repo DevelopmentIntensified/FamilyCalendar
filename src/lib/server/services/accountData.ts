@@ -28,7 +28,7 @@ import { generateRandomString, type RandomReader } from '@oslojs/crypto/random';
 import { clientKey, rateLimit } from '$lib/server/utils/rateLimit';
 import { createCode, deleteCodesByEmail } from '$lib/server/db/actions/codes';
 import { recordAdConsentChange, getAdConsentRecords } from '$lib/server/services/adConsentService';
-import { DASHBOARD_MODULES } from '$lib/dashboardModules';
+import { dashboardModulesSavedMessage } from '$lib/domains/dashboardModules';
 import { isRegisteredAccount } from '$lib/utils/anonymous';
 import { createApiToken, revokeToken } from '$lib/server/db/actions/apiTokens';
 import {
@@ -248,9 +248,7 @@ export async function saveDashboardModules(
 		const hiddenCount = hiddenDashboardModules.length;
 		return {
 			ok: true,
-			message: hiddenCount
-				? `Dashboard modules saved — ${DASHBOARD_MODULES.length - hiddenCount} of ${DASHBOARD_MODULES.length} cards on.`
-				: `Dashboard modules saved — all ${DASHBOARD_MODULES.length} cards on.`
+			message: dashboardModulesSavedMessage(hiddenCount)
 		};
 	} catch (error) {
 		console.error('Failed to save dashboard modules:', error);

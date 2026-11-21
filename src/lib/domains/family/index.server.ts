@@ -110,6 +110,7 @@ export {
 	familyIdForActor,
 	getFamily,
 	getFamilyCreatePage,
+	getViewerRole,
 	listFamilies,
 	listPersonFamilyIds,
 	resolveMembershipFamilyId,

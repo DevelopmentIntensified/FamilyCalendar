@@ -1,4 +1,4 @@
-import { DASHBOARD_MODULES } from '$lib/dashboardModules';
+import { DASHBOARD_MODULES } from '$lib/domains/dashboardModules';
 
 /**
  * Modules that have no Dashboard card mounted anywhere.
