@@ -216,7 +216,7 @@ describe('markAlertAsRead', () => {
 
 		const mine = await seedAlert({ userId: user.id }, db);
 		const theirs = await seedAlert({ userId: other.id }, db);
-		await markAlertAsRead(ctx, actorFromUser(other, 'session'), mine.id);
+		await markAlertAsRead(ctx, actorFromUser(other, 'session'), theirs.id);
 
 		const [mineAfter] = await db
 			.select()

@@ -38,6 +38,7 @@ import {
 } from './alerts.push.rules';
 import {
 	deleteDeadDeviceToken,
+	deleteDeviceToken,
 	deletePushSubscription,
 	listDeviceTokens,
 	listPushSubscriptions,
