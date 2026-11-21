@@ -3,8 +3,13 @@
 //   v2 code (src/lib/{kernel,domains,screens,app})  must have ZERO errors.
 //   everything else                                 every error must be covered by scripts/arch/typecheck-baseline.json:
 //                                                   a list of { file, message } entries, matched by file and
-//                                                   whitespace-normalized message; line numbers are ignored and
-//                                                   duplicates are kept as a multiset.
+//                                                   canonical message; line numbers are ignored and duplicates are
+//                                                   kept as a multiset.
+// The canonical message (both sides, baseline entries and current errors): whitespace collapsed, and every
+// object-type literal `{ ... }` rewritten with its top-level members sorted, because TypeScript prints expanded
+// object types with properties in a run-dependent order (`{ id; createdAt; userId }` vs `{ id; userId; createdAt }`)
+// and would otherwise report the same legacy errors as `new N, fixed N`. The file name stays part of the key;
+// the baseline file keeps the message text it was seeded with (nothing is rewritten to match).
 // `npm run typecheck -- --init`    writes that list from the current run, only when the legacy error count still
 //                                  equals the old count baseline in the same file; otherwise it refuses.
 // `npm run typecheck -- --ratchet` drops baseline entries that no longer occur (never adds) after a green run.
@@ -17,7 +22,7 @@ import { ROOT, V2_ROOTS } from './lib.mjs';
 
 const BASELINE = path.join(ROOT, 'scripts/arch/typecheck-baseline.json');
 const COMMENT =
-	'svelte-check ERROR list outside v2 code: { file, message } per error, line numbers ignored, message whitespace-normalized, duplicates counted. `npm run typecheck -- --init` seeds it; `--ratchet` only drops entries.';
+	'svelte-check ERROR list outside v2 code: { file, message } per error, line numbers ignored, message canonicalized (whitespace collapsed, object-type members sorted), duplicates counted. `npm run typecheck -- --init` seeds it; `--ratchet` only drops entries.';
 const init = process.argv.includes('--init');
 const ratchet = process.argv.includes('--ratchet');
 const list = process.argv.includes('--list');
@@ -35,7 +40,90 @@ const run = (command) => {
 	}
 };
 
-const normalize = (message) => String(message ?? '').replace(/\s+/g, ' ').trim();
+const compareText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+// Splits an object-type body at its top-level `;`/`,` separators, keeping nested brackets and quoted text whole.
+// svelte-check's machine output escapes inner quotes as \" — a backslash is display escaping, not a quote escape,
+// so every `"` (or backtick) toggles the quote state.
+const splitMembers = (body) => {
+	const members = [];
+	let member = '';
+	let depth = 0;
+	let quote = '';
+	for (let index = 0; index < body.length; index += 1) {
+		const char = body[index];
+		if (quote !== '') {
+			member += char;
+			if (char === quote) quote = '';
+			continue;
+		}
+		if (char === '"' || char === '`') {
+			quote = char;
+			member += char;
+			continue;
+		}
+		if (char === '{' || char === '(' || char === '[') depth += 1;
+		else if (char === '}' || char === ')' || char === ']') depth -= 1;
+		if ((char === ';' || char === ',') && depth === 0) {
+			members.push(member);
+			member = '';
+			continue;
+		}
+		member += char;
+	}
+	members.push(member);
+	return members.map((text) => text.trim()).filter(Boolean);
+};
+
+// Rewrites every balanced `{ ... }` region with its members sorted (and the members' own braces rewritten too).
+// Sorting keeps the key independent of the property order TypeScript prints in a given run; unbalanced braces and
+// quoted text are passed through untouched.
+const canonicalBraceOrder = (text) => {
+	let result = '';
+	let index = 0;
+	while (index < text.length) {
+		if (text[index] !== '{') {
+			result += text[index];
+			index += 1;
+			continue;
+		}
+		let depth = 0;
+		let quote = '';
+		let end = -1;
+		for (let cursor = index; cursor < text.length; cursor += 1) {
+			const char = text[cursor];
+			if (quote !== '') {
+				if (char === quote) quote = '';
+				continue;
+			}
+			if (char === '"' || char === '`') {
+				quote = char;
+				continue;
+			}
+			if (char === '{') depth += 1;
+			else if (char === '}') {
+				depth -= 1;
+				if (depth === 0) {
+					end = cursor;
+					break;
+				}
+			}
+		}
+		if (end === -1) {
+			result += text[index];
+			index += 1;
+			continue;
+		}
+		const body = text.slice(index + 1, end);
+		const members = splitMembers(canonicalBraceOrder(body)).sort(compareText);
+		result += members.length > 0 ? `{ ${members.join('; ')} }` : '{}';
+		index = end + 1;
+	}
+	return result;
+};
+
+const normalize = (message) =>
+	canonicalBraceOrder(String(message ?? '').replace(/\s+/g, ' ').trim());
 const keyOf = (entry) => `${entry.file}\u0000${normalize(entry.message)}`;
 
 run('npx svelte-kit sync');
