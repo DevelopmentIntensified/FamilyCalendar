@@ -299,13 +299,13 @@ describe('getPrintMonth', () => {
 		expect(month.grid.find((cell) => cell.isToday)?.iso).toBe('2026-01-15');
 	});
 
-	rollbackTest('drops a long-running daily series from January once the 500 cap fills (Q-049)', async (db) => {
+	rollbackTest('prints every day of a long-running daily series inside the month (Q-049)', async (db) => {
 		const ctx = viewerCtx(db);
 		const user = await seedUser(db);
 		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id }, db);
-		// 800 days before the pinned "today": the legacy ±2-year window starts 70
-		// days after the anchor, and 500 daily emissions end ~230 days before
-		// January 2026 — so the month prints empty.
+		// 800 days before the pinned "today": under the old ±2-year window the
+		// 500 daily emissions stopped ~230 days before January 2026 and the
+		// month printed empty. The month window expands it in full.
 		await seedEventRow(
 			{
 				id: 'evtcap00001',
@@ -325,7 +325,13 @@ describe('getPrintMonth', () => {
 			month: '1'
 		});
 
-		expect(month.grid.filter((cell) => cell.items.length > 0)).toEqual([]);
+		const inMonth = month.grid.filter((cell) => cell.inMonth);
+		expect(inMonth).toHaveLength(31);
+		for (const cell of inMonth) {
+			expect(cell.items).toEqual([
+				{ title: 'Morning run', color: '#fa8072', allDay: false, time: '9a' }
+			]);
+		}
 	});
 
 	rollbackTest('prints every occurrence of a weekly series inside the month', async (db) => {

@@ -668,8 +668,8 @@ describe('GET /api/print', () => {
 		});
 	});
 
-	// The sheet's ITEMS, in the current month so the expansion window can never
-	// age them out. The grid's length depends on which month "now" is, so the
+	// The sheet's ITEMS, in the current month so the month window always
+	// contains them. The grid's length depends on which month "now" is, so the
 	// cells that carry items are pinned whole and every other cell is empty.
 	const now = new Date();
 	const PRINT_YEAR = now.getUTCFullYear();
@@ -785,11 +785,10 @@ describe('GET /api/print', () => {
 		expect(cells.filter((cell) => cell['isToday'] === true)).toHaveLength(1);
 	});
 
-	// Q-049 (flip-ready): the sheet expands through the legacy ±2-year window, so
-	// the 500-occurrence cap fills months before the printed one and a daily
-	// series vanishes from a month it occurs in every day. Seeded from
-	// `new Date() - 800d`, the cap always fills ~230 days before today.
-	it('drops a long-running series from the printed month once the 500 cap fills (Q-049)', async () => {
+	// Q-049: the sheet expands the printed month plus a week's padding, so the
+	// 500-occurrence cap can never fill before the month — a daily series
+	// seeded 800 days back prints once on every in-month cell.
+	it('prints every day of a long-running series in the requested month (Q-049)', async () => {
 		const user = await seedUser(testDb());
 		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
 		const seriesStart = new Date(Date.now() - 800 * 86_400_000).toISOString();
@@ -814,7 +813,14 @@ describe('GET /api/print', () => {
 		const body = objectBody(res);
 		expect(body).toMatchObject({ year: PRINT_YEAR, month: PRINT_MONTH, isCurrentMonth: true });
 		const cells = arrayField(body, 'grid').map((cell) => objectValue(cell, 'cell'));
-		expect(cells.filter((cell) => arrayField(cell, 'items').length > 0)).toEqual([]);
+		const daysInMonth = new Date(Date.UTC(PRINT_YEAR, PRINT_MONTH, 0)).getUTCDate();
+		const inMonth = cells.filter((cell) => cell['inMonth'] === true);
+		expect(inMonth).toHaveLength(daysInMonth);
+		for (const cell of inMonth) {
+			expect(arrayField(cell, 'items')).toEqual([
+				expect.objectContaining({ title: 'Morning run', allDay: false })
+			]);
+		}
 	});
 
 	// `?month=0` is falsy, so it reads as "the current month" rather than

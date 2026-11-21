@@ -174,9 +174,10 @@ export async function listEventsInWindow(
 /**
  * `POST /api/events`: an inaccessible target calendar is a 403 before any
  * write; the Event, the creator's `going` RSVP, the invitations and the family
- * mirror commit in ONE transaction. `syncEventsToFamilyCalendar` mirrors onto
- * `listFamilyCalendars(...)[0]` — the legacy unordered pick, kept as today
- * (Q-043 makes the target and the "any calendar" rule a fix-in-port).
+ * mirror commit in ONE transaction. `syncEventsToFamilyCalendar` mirrors a
+ * personal-calendar Event onto the family's ONLY calendar (Q-043); with two or
+ * more family calendars nothing is copied, and an Event already on a family
+ * calendar is never copied.
  */
 export async function createEvent(
 	ctx: Ctx,
@@ -227,9 +228,14 @@ export async function createEvent(
 		if (preferences.syncEventsToFamilyCalendar) {
 			const memberFamilyId = await resolveMembershipFamilyId(txCtx, actor.id);
 			if (memberFamilyId) {
+				// Q-043: only a personal-calendar Event mirrors, and only when the
+				// family has exactly ONE calendar (no unordered pick any more).
+				const target = await findCalendar(txCtx.db, calendarId);
 				const familyCalendars = await listFamilyCalendars(txCtx.db, memberFamilyId);
 				const familyCalendar = familyCalendars[0];
-				if (familyCalendar && familyCalendar.id !== calendarId) {
+				const fromPersonalCalendar =
+					target !== null && target.familyId === null && target.ownerId === actor.id;
+				if (fromPersonalCalendar && familyCalendars.length === 1 && familyCalendar) {
 					await insertEventWithInvites(
 						txCtx.db,
 						{ ...values, calendarId: familyCalendar.id, mirrorOf: createdEvent.id },
@@ -314,9 +320,9 @@ export async function updateEvent(
 	}
 
 	// #228: a partial body keeps the stored value for every key it omits; an
-	// explicit null/'' still clears. Recurrence is NOT partial (Q-047): every
-	// write funnels through normalizeEventRecurrence, so an omitted recurrence
-	// clears the series.
+	// explicit null/'' still clears. Recurrence follows the same rule (Q-047):
+	// an ABSENT `recurrenceFrequency` leaves the series untouched, an explicit
+	// null (or an unknown value) clears it.
 	const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
 	// SAFETY: as in createEvent, a `title: null` body is the DATABASE's refusal
 	// (the golden pins a 500), so the patch keeps legacy's unvalidated values
@@ -332,7 +338,9 @@ export async function updateEvent(
 		reminderMinutes: has('reminderMinutes')
 			? (body.reminderMinutes ?? null)
 			: existing.reminderMinutes,
-		...normalizeEventRecurrence(body)
+		// Q-047: an omitted `recurrenceFrequency` keeps the stored series; only a
+		// present key runs the normalizer (explicit null clears every field).
+		...(has('recurrenceFrequency') ? normalizeEventRecurrence(body) : {})
 	} as Partial<NewEventRow>;
 
 	const updated = await updateEventInScope(

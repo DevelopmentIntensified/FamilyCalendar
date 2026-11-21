@@ -189,11 +189,21 @@ export async function exportEventIcs(
 		const exception = await findException(ctx.db, event.id, resolved.occurrenceIso);
 		if (exception?.isCancelled) throw notFound(CALENDAR_COPY.eventNotFound);
 		if (exception) {
+			// Q-048: a start-only override keeps the MASTER's DURATION (one rule
+			// with the display pipeline); only an explicit exception end replaces
+			// it, so DTEND can never land before DTSTART.
+			const durationMs = event.end
+				? new Date(event.end).getTime() - new Date(event.start).getTime()
+				: null;
+			const start = exception.start ?? event.start;
+			const end =
+				exception.end ??
+				(durationMs !== null ? new Date(new Date(start).getTime() + durationMs) : null);
 			icsInput = {
 				id: event.id,
 				title: exception.title ?? event.title,
-				start: exception.start ?? event.start,
-				end: exception.end ?? event.end,
+				start,
+				end,
 				allDay: exception.allDay ?? event.allDay,
 				description: exception.description ?? event.description,
 				location: exception.location ?? event.location,

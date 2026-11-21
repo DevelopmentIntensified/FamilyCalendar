@@ -307,13 +307,17 @@ describe('calendarShiftEventDates (EventFormModel.svelte.ts:36-56)', () => {
 		recurrenceUntil: null,
 		reminderMinutes: null
 	};
+	// Legacy `shiftEventDates` renders through Luxon `toISO()` in the host
+	// zone (`EventFormModel.svelte.ts:36-56` at 66a11131: `fromISO(iso)
+	// .plus({days}).toISO()`), and the suite pins TZ=UTC — so the text is the
+	// UTC OFFSET `+00:00`, never `Z`. Only the instants matter downstream.
 	it('shifts each extra date by its offset from the first', () => {
 		const shifted = calendarShiftEventDates(body, ['2026-02-06', '2026-02-09', '2026-02-20']);
 		expect(shifted.map((item) => item.start)).toEqual([
-			'2026-02-09T12:00:00.000Z',
-			'2026-02-20T12:00:00.000Z'
+			'2026-02-09T12:00:00.000+00:00',
+			'2026-02-20T12:00:00.000+00:00'
 		]);
-		expect(shifted[0].end).toBe('2026-02-09T13:00:00.000Z');
+		expect(shifted[0].end).toBe('2026-02-09T13:00:00.000+00:00');
 	});
 	it('shifts nothing for one date or none', () => {
 		expect(calendarShiftEventDates(body, ['2026-02-06'])).toEqual([]);

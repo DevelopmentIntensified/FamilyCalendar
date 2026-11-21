@@ -352,7 +352,9 @@ export function calendarActionErrorCopy(
 /**
  * Multi-date quick-add (`sept 23 & 30`): every occurrence after the first, the
  * offsets applied from the parsed base date so a user-edited form date shifts
- * the whole set together.
+ * the whole set together. Dates go through Luxon `toISO()` in the HOST zone,
+ * exactly like legacy (`EventFormModel.svelte.ts:36-56` at 66a11131) — the
+ * suite's `TZ=UTC` therefore renders `+00:00`, not `Z`.
  */
 export function calendarShiftEventDates(
 	body: CalendarEventBody,

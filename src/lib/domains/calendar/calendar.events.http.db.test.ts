@@ -9,7 +9,6 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-	calendars,
 	eventAttendance,
 	eventExceptions,
 	events,
@@ -680,13 +679,10 @@ describe('POST /api/events', () => {
 		expect(storedIso(mirror?.start)).toBe('2026-10-09T16:00:00.000Z');
 	});
 
-	// Q-043 (flip-ready): the copy is made even when the family has TWO
-	// calendars, and the handler takes `familyCals[0]` from an unordered select
-	// (`src/routes/api/events/+server.ts:133-148`). Only ONE copy exists, so the
-	// target is whichever calendar came first — not part of the contract. The
-	// owner's fix (mirror only a personal-calendar Event when the family has
-	// exactly one calendar) must flip this to a single row.
-	it('mirrors a personal-calendar creation once when the family has two calendars (Q-043)', async () => {
+	// Q-043: with TWO family calendars the mirror is skipped entirely — there is
+	// no ordered pick to make, so the personal Event stays the only row and its
+	// own RSVP + guest invite stay on it.
+	it('skips the mirror when the family has two calendars (Q-043)', async () => {
 		const user = await seedUser(testDb(), { firstName: 'Mia' });
 		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
 		await seedMembership(FAMILY, user.id);
@@ -710,30 +706,20 @@ describe('POST /api/events', () => {
 
 		expect(res.status).toBe(201);
 		const rows = await testDb().select().from(events);
-		expect(rows).toHaveLength(2);
-		const master = rows.find((row) => row.mirrorOf === null);
-		const mirrors = rows.filter((row) => row.mirrorOf !== null);
-		expect(mirrors).toHaveLength(1);
-		const [mirror] = mirrors;
-		expect([FAMILY_CAL, 'cal-family02']).toContain(mirror?.calendarId);
-		expect(mirror).toEqual(
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toEqual(
 			expect.objectContaining({
 				ownerId: user.id,
+				calendarId: PERSONAL_CAL,
 				title: 'Recital',
-				mirrorOf: master?.id,
-				recurrenceFrequency: null
+				mirrorOf: null
 			})
 		);
-		expect(storedIso(mirror?.start)).toBe('2026-10-09T16:00:00.000Z');
 
-		// The copy is a full Event write: its own creator RSVP plus the same
-		// guest invite (createEvent runs for the mirror with the master's invites).
-		const mirrorAttendance = await testDb()
-			.select()
-			.from(eventAttendance)
-			.where(eq(eventAttendance.eventId, String(mirror?.id)));
-		expect(mirrorAttendance).toHaveLength(2);
-		expect(mirrorAttendance).toEqual(
+		// The master keeps its own creator RSVP and the guest invite.
+		const attendance = await testDb().select().from(eventAttendance);
+		expect(attendance).toHaveLength(2);
+		expect(attendance).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
 					userId: user.id,
@@ -751,20 +737,14 @@ describe('POST /api/events', () => {
 		);
 	});
 
-	// Q-043 (flip-ready), the other half: an Event created ON a family calendar
-	// is copied onto `familyCals[0]` — the first row of an UNORDERED select —
-	// unless that row is the Event's own calendar (`+server.ts:136-142`). Both
-	// whether a copy exists and where it lands are therefore heap facts, not
-	// contract, so the golden re-derives `[0]` with the same query and pins the
-	// RULE: own calendar → no copy; anything else → exactly one copy on it.
-	// Usual heap order puts `cal-family02` first, so the copy exists today and
-	// Q-043 (never mirror a family-calendar Event) must make this fail visibly.
-	it('mirrors an event created on another family calendar onto familyCals[0] (Q-043)', async () => {
+	// Q-043, the other half: an Event created ON a family calendar is never
+	// copied — even when the family has exactly ONE calendar, where a personal
+	// creation still does mirror.
+	it('does not mirror an event created on a family calendar (Q-043)', async () => {
 		const user = await seedUser(testDb(), { firstName: 'Mia' });
 		await testDb().insert(families).values({ id: FAMILY, name: 'Riveras' });
 		await seedMembership(FAMILY, user.id);
 		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
-		await seedCalendarRow('cal-family02', { familyId: FAMILY });
 		await seedCalendarRow(FAMILY_CAL, { familyId: FAMILY });
 		await testDb()
 			.insert(userSettings)
@@ -783,27 +763,10 @@ describe('POST /api/events', () => {
 
 		expect(res.status).toBe(201);
 		const rows = await testDb().select().from(events);
-		const master = rows.find((row) => row.calendarId === FAMILY_CAL);
-		expect(master).toEqual(expect.objectContaining({ title: 'Practice', mirrorOf: null }));
-		const mirrors = rows.filter((row) => row.mirrorOf !== null);
-
-		// The handler's own pick, read the same way: no ORDER BY.
-		const [firstFamilyCalendar] = await testDb()
-			.select()
-			.from(calendars)
-			.where(eq(calendars.familyId, FAMILY));
-
-		if (firstFamilyCalendar?.id === FAMILY_CAL) {
-			// The pick landed on the Event's own calendar: the guard skips the copy.
-			expect(rows).toHaveLength(1);
-			expect(mirrors).toEqual([]);
-			return;
-		}
-		expect(rows).toHaveLength(2);
-		expect(mirrors).toHaveLength(1);
-		expect(mirrors[0]?.calendarId).toBe(firstFamilyCalendar?.id);
-		expect(mirrors[0]?.mirrorOf).toBe(master?.id);
-		expect(mirrors[0]?.title).toBe('Practice');
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toEqual(
+			expect.objectContaining({ calendarId: FAMILY_CAL, title: 'Practice', mirrorOf: null })
+		);
 	});
 
 	it('does not mirror when the setting is off', async () => {
@@ -989,7 +952,7 @@ describe('PUT /api/events/[id]', () => {
 		]);
 	});
 
-	it('clears recurrence when a partial body omits it (every write goes through normalizeEventRecurrence)', async () => {
+	it('keeps recurrence when a partial body omits it (Q-047)', async () => {
 		const user = await seedOwnedEvent({
 			title: 'Piano',
 			recurrenceFrequency: 'weekly',
@@ -1018,15 +981,45 @@ describe('PUT /api/events/[id]', () => {
 				description: 'Bring forms',
 				location: 'Clinic',
 				allDay: false,
-				recurrenceFrequency: null,
-				recurrenceInterval: null,
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 2,
 				recurrenceByDay: null,
-				recurrenceCount: null,
+				recurrenceCount: 5,
 				recurrenceUntil: null,
 				reminderMinutes: 30,
 				mirrorOf: null,
 				created_at: expect.stringMatching(ISO)
 			}
+		});
+	});
+
+	it('clears recurrence when a body sends an explicit null frequency (Q-047)', async () => {
+		const user = await seedOwnedEvent({
+			title: 'Piano',
+			recurrenceFrequency: 'weekly',
+			recurrenceInterval: 2,
+			recurrenceCount: 5
+		});
+
+		const res = await invoke(putEvent, {
+			ctx: ctx(),
+			user,
+			method: 'PUT',
+			params: { id: EVENT },
+			body: { title: 'Piano lesson', recurrenceFrequency: null }
+		});
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({
+			success: true,
+			event: expect.objectContaining({
+				title: 'Piano lesson',
+				recurrenceFrequency: null,
+				recurrenceInterval: null,
+				recurrenceByDay: null,
+				recurrenceCount: null,
+				recurrenceUntil: null
+			})
 		});
 	});
 
@@ -2279,10 +2272,10 @@ describe('GET /api/events/[id]/ics', () => {
 		expect(res.text).not.toContain('RRULE:');
 	});
 
-	// Q-048 (flip-ready): an Exception Override exports `exception.end ?? event.end`,
-	// so a START-ONLY override carries the MASTER's end — here an hour BEFORE its
-	// own DTSTART. The owner's fix derives the end from the master duration.
-	it('exports a start-only override with the MASTER end, even before its DTSTART (Q-048)', async () => {
+	// Q-048: a START-ONLY override keeps the master's DURATION, so a moved
+	// occurrence exports DTEND one hour after its own DTSTART — never the
+	// master's end and never a DTEND before DTSTART.
+	it('exports a start-only override with DTEND derived from the master duration (Q-048)', async () => {
 		const user = await seedCalendarAndEvent({
 			title: 'Piano',
 			start: '2026-10-06T15:00:00.000Z',
@@ -2315,8 +2308,8 @@ describe('GET /api/events/[id]/ics', () => {
 			'UID:evtoneoff01@familyplanz.com',
 			expect.stringMatching(/^DTSTAMP:\d{8}T\d{6}Z$/),
 			'DTSTART:20261013T170000Z',
-			// The master's end, one week earlier than this occurrence's start.
-			'DTEND:20261006T160000Z',
+			// One hour after this occurrence's start: the master's duration.
+			'DTEND:20261013T180000Z',
 			'SUMMARY:Piano',
 			'END:VEVENT',
 			'END:VCALENDAR',
@@ -2324,8 +2317,8 @@ describe('GET /api/events/[id]/ics', () => {
 		]);
 	});
 
-	// Q-048 (flip-ready), the other half: a TITLE-ONLY override exports the
-	// MASTER's DTSTART, not the occurrence slot it belongs to.
+	// Q-048, the other half (unchanged by B): a TITLE-ONLY override has no start
+	// of its own, so it exports the MASTER's DTSTART and the master's end.
 	it("exports a title-only override with the master's DTSTART (Q-048)", async () => {
 		const user = await seedCalendarAndEvent({
 			title: 'Piano',

@@ -148,6 +148,40 @@ describe('exportEventIcs', () => {
 		expect(exported.body).not.toContain('RRULE');
 	});
 
+	rollbackTest('derives a start-only override DTEND from the master duration (Q-048)', async (db) => {
+		const ctx = viewerCtx(db);
+		const user = await seedViewer(db);
+		await seedEventRow(
+			{
+				id: 'evtseries01',
+				ownerId: user.id,
+				calendarId: PERSONAL_CAL,
+				title: 'Swim',
+				start: '2026-10-05T09:00:00.000Z',
+				end: '2026-10-05T10:00:00.000Z',
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1
+			},
+			db
+		);
+		// Start-only: the master's end would land BEFORE this DTSTART.
+		await seedExceptionRow(
+			{
+				eventId: 'evtseries01',
+				originalDate: '2026-10-05T09:00:00.000Z',
+				start: '2026-10-06T11:00:00.000Z'
+			},
+			db
+		);
+
+		const exported = await exportEventIcs(ctx, actorFromUser(user, 'session'), {
+			id: 'evtseries01~2026-10-05T09:00:00.000Z'
+		});
+
+		expect(exported.body).toContain('DTSTART:20261006T110000Z');
+		expect(exported.body).toContain('DTEND:20261006T120000Z');
+	});
+
 	rollbackTest('exports nothing for a cancelled occurrence', async (db) => {
 		const ctx = viewerCtx(db);
 		const user = await seedViewer(db);
