@@ -5,7 +5,6 @@
 	outside the month is drawn muted.
 -->
 <script lang="ts">
-	import { DateTime } from 'luxon';
 	import type { CalendarPageState } from '../calendarPage.state.svelte';
 	import { monthGridCells } from '../calendarPage.grid.rules';
 	import MonthCell from './MonthCell.svelte';
@@ -17,13 +16,9 @@
 	let { state }: Props = $props();
 
 	const cells = $derived(monthGridCells(state.date, state.weekStart));
-	const weekdays = $derived(
-		Array.from({ length: 7 }, (_, index) => {
-			// A Sunday-start week names Sun first; a Monday start rotates it.
-			const sundayIndex = state.weekStart === 'monday' ? 1 : 0;
-			return DateTime.fromObject({ weekday: ((sundayIndex + index) % 7) + 1 }).toFormat('EEE');
-		})
-	);
+	// The header row IS the matrix's first week: naming the days from the cells
+	// can never disagree with the columns (a Sunday start opens on Sunday).
+	const weekdays = $derived(cells.slice(0, 7).map((day) => day.toFormat('EEE')));
 </script>
 
 <div data-testid="month-grid" class="grid min-w-0 grid-cols-7 overflow-hidden sm:gap-2">

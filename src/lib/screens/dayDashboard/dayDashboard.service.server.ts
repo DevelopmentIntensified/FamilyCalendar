@@ -198,17 +198,18 @@ async function loadVisibility(
 		const settings = await getCalendarSettings(ctx as IdentityCtx, actor)
 			.then((result) => result.settings)
 			.catch(() => null);
-		// Widen the settings view to the two facts the composition reads: the
-		// service's view is a union (stored row | page defaults) whose mutable
-		// columns are not the readonly facts type, so name them once here.
-		const facts = settings
-			? {
-					showDailyVerse: settings.showDailyVerse,
-					hiddenDashboardModules: settings.hiddenDashboardModules
-						? [...settings.hiddenDashboardModules]
-						: null
-				}
-			: null;
+		// Widen the settings view to the two facts the composition reads. The
+		// service's view is a union (stored row | page defaults) and only the
+		// stored row carries them, so name them once behind a presence guard.
+		const facts =
+			settings && 'showDailyVerse' in settings
+				? {
+						showDailyVerse: settings.showDailyVerse,
+						hiddenDashboardModules: settings.hiddenDashboardModules
+							? [...settings.hiddenDashboardModules]
+							: null
+					}
+				: null;
 		return {
 			visibility: dashboardVisibility({ settings: facts, familySwitches: {} }),
 			warning: 'settings'

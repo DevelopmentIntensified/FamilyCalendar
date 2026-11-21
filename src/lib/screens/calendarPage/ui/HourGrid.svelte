@@ -29,7 +29,9 @@
 		variant: 'day' | 'week';
 	}
 
-	let { state, days, variant }: Props = $props();
+	// Aliased off the prop name: a local called `state` would turn the `$state`
+	// runes below into store subscriptions for the language tools.
+	let { state: page, days, variant }: Props = $props();
 
 	const pxPerHour = $derived(variant === 'day' ? 56 : 60);
 	const height = $derived(24 * pxPerHour);
@@ -45,19 +47,19 @@
 	}
 
 	const flags = $derived<CalendarRangeFlags>({
-		selectionMode: state.selectionMode,
-		addMode: state.addMode
+		selectionMode: page.selectionMode,
+		addMode: page.addMode
 	});
 
 	/** The rows a column draws, in the caller's order (the service sorted them). */
-	function rowsOf(day: DateTime): CalendarPageDisplayRow[] {
-		return state.days.get(day.toISODate() ?? '')?.rows ?? [];
+	function rowsOf(day: DateTime): readonly CalendarPageDisplayRow[] {
+		return page.days.get(day.toISODate() ?? '')?.rows ?? [];
 	}
 
-	const nowPct = $derived(nowLinePercent(state.now, state.zone));
+	const nowPct = $derived(nowLinePercent(page.now, page.zone));
 
 	function isToday(day: DateTime): boolean {
-		return (day.toISODate() ?? '') === state.todayKey;
+		return (day.toISODate() ?? '') === page.todayKey;
 	}
 
 	function minutesFrom(event: MouseEvent, node: HTMLElement): number {
@@ -65,17 +67,17 @@
 	}
 
 	function onColumnClick(event: MouseEvent, day: DateTime) {
-		if (state.selectionMode) return;
+		if (page.selectionMode) return;
 		if (machine.consumeSuppressClick()) {
 			sync();
 			return;
 		}
 		if ((event.target as HTMLElement | null)?.closest?.('button')) return;
-		state.openCreate(day.startOf('day').plus({ minutes: minutesFrom(event, event.currentTarget as HTMLElement) }));
+		page.openCreate(day.startOf('day').plus({ minutes: minutesFrom(event, event.currentTarget as HTMLElement) }));
 	}
 
 	function onMouseDown(event: MouseEvent, day: DateTime) {
-		if (state.selectionMode || event.button !== 0) return;
+		if (page.selectionMode || event.button !== 0) return;
 		const node = event.currentTarget as HTMLElement;
 		if ((event.target as HTMLElement | null)?.closest?.('button')) return;
 		machine.beginDrag(day, minutesFrom(event, node));
@@ -97,7 +99,7 @@
 	function touchAction(node: HTMLElement, day: DateTime) {
 		let current = day;
 		const start = (event: TouchEvent) => {
-			if (state.selectionMode) return;
+			if (page.selectionMode) return;
 			const touch = event.touches[0];
 			if (!touch) return;
 			const anchor = machine.minutesFromClientY(touch.clientY, node.getBoundingClientRect().top);
@@ -107,14 +109,14 @@
 		const move = (event: TouchEvent) => {
 			const touch = event.touches[0];
 			if (!touch) return;
-			const minutes = state.addMode
+			const minutes = page.addMode
 				? machine.minutesFromClientY(touch.clientY, node.getBoundingClientRect().top)
 				: null;
-			machine.touchMove(touch.clientY, minutes, state.addMode);
+			machine.touchMove(touch.clientY, minutes, page.addMode);
 			sync();
 		};
 		const end = () => {
-			machine.touchEnd(state.addMode);
+			machine.touchEnd(page.addMode);
 			sync();
 		};
 		node.addEventListener('touchstart', start, { passive: true });
@@ -139,7 +141,7 @@
 		if (!row) return;
 		const minutes = minutesFrom(event, event.currentTarget as HTMLElement);
 		if (!Number.isFinite(minutes)) return;
-		void state.moveEvent(row, day, minutes);
+		void page.moveEvent(row, day, minutes);
 	}
 
 	function createFromRange() {
@@ -147,7 +149,7 @@
 		if (!endpoints) return;
 		machine.rangeSel = null;
 		sync();
-		state.openCreate(endpoints.start);
+		page.openCreate(endpoints.start);
 	}
 
 	function step(delta: number) {
@@ -157,8 +159,8 @@
 
 	onMount(() => {
 		if (variant !== 'day' || !body) return;
-		const anchor = isToday(days[0] ?? state.date)
-			? Math.max(0, DateTime.fromJSDate(state.now, { zone: state.zone }).hour - 1)
+		const anchor = isToday(days[0] ?? page.date)
+			? Math.max(0, DateTime.fromJSDate(page.now, { zone: page.zone }).hour - 1)
 			: 7;
 		const top =
 			body.getBoundingClientRect().top + window.scrollY + anchor * pxPerHour;
@@ -166,8 +168,8 @@
 	});
 </script>
 
-{#if state.moveError}
-	<p role="alert" class="mb-2 text-xs font-medium text-red-600">{state.moveError}</p>
+{#if page.moveError}
+	<p role="alert" class="mb-2 text-xs font-medium text-red-600">{page.moveError}</p>
 {/if}
 
 <div class={variant === 'week' ? 'max-h-[60vh] overflow-y-auto' : ''}>
@@ -202,7 +204,7 @@
 		<!-- The columns -->
 		<div
 			class="relative min-w-0 flex-1 border-l border-slate-200 {variant === 'day' ? 'flex' : 'flex'}"
-			style="height: {height}px; {state.addMode ? 'touch-action: none;' : ''}"
+			style="height: {height}px; {page.addMode ? 'touch-action: none;' : ''}"
 			data-testid={variant === 'day' ? 'day-grid' : 'week-grid'}
 			role="presentation"
 			onmouseup={onMouseUp}
@@ -229,7 +231,7 @@
 
 			{#each days as day (day.toISODate() ?? day.toMillis())}
 				{@const rows = rowsOf(day).filter((row) => !row.allDay)}
-				{@const laidOut = layoutCalendarDaySlots(rows, state.zone)}
+				{@const laidOut = layoutCalendarDaySlots(rows, page.zone)}
 				<div
 					class="relative min-w-0 flex-1 border-r border-slate-100 transition-colors last:border-r-0 hover:bg-slate-50/60 active:bg-slate-100/60"
 					data-testid={variant === 'week' ? 'week-day-column' : undefined}
@@ -241,7 +243,7 @@
 					onmousemove={onMouseMove}
 					onmouseup={onMouseUp}
 					use:touchAction={day}
-					style:touch-action={state.addMode ? 'none' : undefined}
+					style:touch-action={page.addMode ? 'none' : undefined}
 				>
 					{#if selecting && selecting.day.hasSame(day, 'day')}
 						{@const [selStart, selEnd] = normalizeRange(selecting.anchorMin, selecting.curMin)}
@@ -309,12 +311,12 @@
 						{@const widthPct = (1 / slot.lanes) * 100}
 						<CalendarChip
 							row={slot.row}
-							calendars={state.shell.calendars}
+							calendars={page.shell.calendars}
 							density={variant === 'day' ? 'word' : 'glyph'}
-							selectionMode={state.selectionMode}
-							selected={state.selectedSet.has(slot.row.id)}
-							onopen={(row) => state.openEdit(row.id)}
-							onselect={(row) => state.toggleSelect(row.id)}
+							selectionMode={page.selectionMode}
+							selected={page.selectedSet.has(slot.row.id)}
+							onopen={(row) => page.openEdit(row.id)}
+							onselect={(row) => page.toggleSelect(row.id)}
 							ondragstart={(_event, row) => (dragging = row)}
 							class="absolute z-10 overflow-hidden border border-slate-200 px-1.5 py-1 shadow-sm"
 							style="top: {slot.topPct}%; height: {Math.max(slot.heightPct, (26 / height) * 100)}%; left: calc({slot.lane *

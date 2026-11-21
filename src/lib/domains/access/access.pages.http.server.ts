@@ -439,7 +439,11 @@ type InviteEmailFailure = { readonly error: string };
 export const inviteEmailAcceptAction = formAction({
 	auth: 'public',
 	form: InviteEmailForm,
-	handle: async ({ ctx, form, event }): Promise<InviteEmailFailure | never> => {
+	handle: async ({
+		ctx,
+		form,
+		event
+	}): Promise<InviteEmailFailure | ActionFailure<InviteEmailFailure> | never> => {
 		if (!form.token) return fail<InviteEmailFailure>(400, { error: INVITE_EMAIL_MISSING_TOKEN_MESSAGE });
 
 		let password: string | undefined;

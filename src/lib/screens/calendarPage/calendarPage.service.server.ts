@@ -197,7 +197,7 @@ async function dueTaskRows(
 		return [
 			{
 				id: task.id,
-				title: task.title ?? null,
+				title: task.title,
 				dueDate: task.dueDate,
 				calendarId: task.eventCalendarId ?? input.personalCalendarId ?? null,
 				assignedTo: task.assignedTo ?? null,

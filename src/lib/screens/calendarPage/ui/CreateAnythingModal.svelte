@@ -39,7 +39,7 @@
 		onclose: () => void;
 	}
 
-	let { state, seed, start, parseEvent, onclose }: Props = $props();
+	let { state: page, seed, start, parseEvent, onclose }: Props = $props();
 
 	type EntryType = 'event' | 'task';
 	let entryType = $state<EntryType>('event');
@@ -52,10 +52,10 @@
 	let categories = $state<string[]>([]);
 	let categoriesLoading = $state(false);
 
-	const shell = state.shell;
+	const shell = page.shell;
 	const tasksApi = createTasksApi(createApiClient());
 
-	const form = new CalendarEventFormState(state.api, parseEvent, {
+	const form = new CalendarEventFormState(page.api, parseEvent, {
 		event: null,
 		calendars: shell.calendars,
 		familyMembers: shell.roster.map((member) => ({
@@ -64,7 +64,7 @@
 			lastName: member.lastName ?? ''
 		})),
 		defaultCalendarId: shell.settings.defaultCalendarId,
-		initialDate: start?.toISODate(),
+		initialDate: start?.toISODate() ?? undefined,
 		autoParse: true
 	});
 
@@ -108,17 +108,17 @@
 	}
 
 	function saved(outcome: CalendarSaveOutcome) {
-		state.toasts.success(calendarSavedToast(outcome.body.title));
-		void state.refresh();
+		page.toasts.success(calendarSavedToast(outcome.body.title));
+		void page.refresh();
 	}
 
 	function createAll() {
 		void form.createAllParsed().then((outcomes) => {
 			if (outcomes.length > 0) {
-				state.toasts.success(
+				page.toasts.success(
 					`Created ${outcomes.length} event${outcomes.length === 1 ? '' : 's'}.`
 				);
-				void state.refresh();
+				void page.refresh();
 			}
 		});
 	}
@@ -144,9 +144,9 @@
 				taskError = result.error;
 				return;
 			}
-			state.toasts.success('Task added.');
+			page.toasts.success('Task added.');
 			onclose();
-			await state.refresh();
+			await page.refresh();
 		} catch {
 			taskError = "Hmm, that didn't take. Try again.";
 		} finally {
@@ -184,7 +184,7 @@
 	{#if entryType === 'event'}
 		<CalendarEventForm
 			state={form}
-			api={state.api}
+			api={page.api}
 			onsave={saved}
 			ondeletescope={() => {}}
 			oncreateall={createAll}

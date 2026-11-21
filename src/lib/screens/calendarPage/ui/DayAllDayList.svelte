@@ -53,14 +53,14 @@
 		<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tasks</h3>
 		<div class="space-y-1.5">
 			{#each bucket.tasks as task (task.id)}
-				{@const cadence = cadence(task.recurrenceFrequency, task.recurrenceInterval)}
+				{@const cadenceLabel = cadence(task.recurrenceFrequency, task.recurrenceInterval)}
 				<div class="flex w-full items-center gap-2">
 					<TaskChip {task} now={state.now} onopen={(row) => state.openTaskDetail(row.id)} density="word" title="Due task" />
-					{#if cadence}
+					{#if cadenceLabel}
 						<span
 							class="ml-auto shrink-0 text-[10px] font-semibold uppercase tracking-wide text-purple-500"
 						>
-							🔁 {cadence}
+							🔁 {cadenceLabel}
 						</span>
 					{/if}
 				</div>

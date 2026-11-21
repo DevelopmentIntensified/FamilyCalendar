@@ -26,7 +26,7 @@
 
 	let { state, day, inMonth }: Props = $props();
 
-	const key = $derived(dayKey(day, state.zone));
+	const key = $derived(dayKey(day.toJSDate(), state.zone));
 	const bucket = $derived(state.days.get(key) ?? { rows: [], tasks: [] });
 	const overflow = $derived(monthCellOverflow(bucket.rows.length, bucket.tasks.length));
 	const isToday = $derived(key === state.todayKey);
@@ -80,7 +80,7 @@
 					</svg>
 				</button>
 				<a
-					href="/calendar/dashboard?date={dayKey(day, state.zone)}"
+					href="/calendar/dashboard?date={dayKey(day.toJSDate(), state.zone)}"
 					class="pointer-events-none flex h-5 w-5 items-center justify-center rounded p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-primary-600 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-400 group-hover:pointer-events-auto {state.selectionMode
 						? 'hidden'
 						: ''}"

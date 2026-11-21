@@ -33,13 +33,13 @@
 
 	function onFileChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
-		flow.choose(input.files);
+		flow.choose(input.files ? Array.from(input.files) : []);
 	}
 
 	function onDrop(event: DragEvent) {
 		event.preventDefault();
 		flow.dragging = false;
-		flow.choose(event.dataTransfer?.files);
+		flow.choose(event.dataTransfer?.files ? Array.from(event.dataTransfer.files) : []);
 	}
 </script>
 

@@ -63,7 +63,9 @@
 		return result.ok ? result.data : null;
 	};
 
-	const state = new CalendarPageState({
+	// Not `state`: a local by that name turns every `$state(…)` below into a
+	// store subscription for the language tools. `page` is the page state.
+	const page = new CalendarPageState({
 		model,
 		api,
 		toasts,
@@ -84,10 +86,10 @@
 	const ticker = new Ticker(systemClock, 60_000);
 
 	$effect(() => {
-		void state.load(model);
+		void page.load(model);
 	});
 	$effect(() => {
-		state.tick(ticker.now);
+		page.tick(ticker.now);
 	});
 
 	let sliceText = $state('');
@@ -98,7 +100,7 @@
 		const updateSlice = () => {
 			const selection = window.getSelection();
 			const text = selection?.toString().trim() || '';
-			if (!text || selection?.isCollapsed || state.createOpen || state.editRowId) {
+			if (!text || selection?.isCollapsed || page.createOpen || page.editRowId) {
 				sliceVisible = false;
 				sliceText = '';
 				return;
@@ -128,11 +130,11 @@
 	function touchEnd(event: TouchEvent) {
 		const touch = event.changedTouches[0];
 		if (!touch) return;
-		state.swipe(touch.clientX - touchX, touch.clientY - touchY);
+		page.swipe(touch.clientX - touchX, touch.clientY - touchY);
 	}
 
 	function createFromSelection() {
-		state.openCreateFromText(sliceText);
+		page.openCreateFromText(sliceText);
 		sliceVisible = false;
 		sliceText = '';
 		window.getSelection()?.removeAllRanges();
@@ -140,15 +142,15 @@
 
 	/** The edit sheet's roster (calendar's shape) from the screen's roster. */
 	const familyMembers = $derived(
-		state.shell.roster.map((member) => ({
+		page.shell.roster.map((member) => ({
 			userId: member.userId,
 			firstName: member.firstName,
 			lastName: member.lastName ?? ''
 		}))
 	);
 
-	const editView = $derived<CalendarEventView | null>(() => {
-		const row = state.editRow;
+	const editView = $derived.by<CalendarEventView | null>(() => {
+		const row = page.editRow;
 		if (!row) return null;
 		const view: CalendarEventView = {
 			id: row.id,
@@ -165,19 +167,18 @@
 			ownerId: row.ownerId,
 			creatorName: row.creatorName,
 			recurrenceFrequency: row.recurrenceFrequency,
-			rsvpStatus: row.rsvpStatus,
-			attendance: row.attendance
+			rsvpStatus: row.rsvpStatus
 		};
 		return view;
 	});
 
-	const warnings = $derived([...state.shell.warnings, ...(state.grid?.warnings ?? [])]);
+	const warnings = $derived([...page.shell.warnings, ...(page.grid?.warnings ?? [])]);
 </script>
 
-<svelte:window onkeydown={() => state.handleEscape()} />
+<svelte:window onkeydown={() => page.handleEscape()} />
 
 <div class="pb-24" ontouchstart={touchStart} ontouchend={touchEnd}>
-	{#if state.grid === null && !state.gridFailed}
+	{#if page.grid === null && !page.gridFailed}
 		<!-- The skeleton wears the SAME card and the same cell heights. -->
 		<div class="w-full px-3 pb-2 pt-2 sm:px-6" aria-hidden="true">
 			<div class="mx-auto w-full max-w-[80rem] rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -189,11 +190,11 @@
 				</div>
 			</div>
 		</div>
-	{:else if state.gridFailed}
+	{:else if page.gridFailed}
 		<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
 			<div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
 				Couldn't load your events.
-				<button type="button" onclick={() => void state.refresh()} class="font-semibold underline">
+				<button type="button" onclick={() => void page.refresh()} class="font-semibold underline">
 					Retry
 				</button>
 			</div>
@@ -206,15 +207,15 @@
 				</div>
 			</div>
 		{/if}
-		{#if state.editNotFound}
+		{#if page.editNotFound}
 			<div class="mx-auto max-w-xl px-4 pt-4" role="alert">
 				<div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
 					{CALENDAR_EDIT_NOT_FOUND}
 				</div>
 			</div>
 		{/if}
-		{#if state.showFirstRun}
-			<FirstRunCard ondismiss={() => state.dismissFirstRun()} />
+		{#if page.showFirstRun}
+			<FirstRunCard ondismiss={() => page.dismissFirstRun()} />
 		{/if}
 
 		<div class="w-full px-3 pb-2 sm:px-6">
@@ -222,9 +223,9 @@
 				data-testid="calendar-card"
 				class="mx-auto w-full max-w-[80rem] rounded-3xl border border-slate-200 bg-white shadow-sm"
 			>
-				<CalendarToolbar {state} />
+				<CalendarToolbar state={page} />
 				<div class="group/cal relative w-full p-3">
-					{#if state.ranges.isBusy(state.monthOnScreen)}
+					{#if page.ranges.isBusy(page.monthOnScreen)}
 						<p
 							class="mb-2 text-center text-sm text-slate-500"
 							role="status"
@@ -234,7 +235,7 @@
 						</p>
 					{/if}
 					<button
-						onclick={() => state.goPrevious()}
+						onclick={() => page.goPrevious()}
 						aria-label="Previous period"
 						class="absolute -left-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
 					>
@@ -243,7 +244,7 @@
 						</svg>
 					</button>
 					<button
-						onclick={() => state.goNext()}
+						onclick={() => page.goNext()}
 						aria-label="Next period"
 						class="absolute -right-1 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 opacity-0 shadow-md transition-opacity hover:bg-slate-50 focus-visible:opacity-100 group-hover/cal:opacity-100 md:flex"
 					>
@@ -252,37 +253,37 @@
 						</svg>
 					</button>
 
-					{#if state.showFilterEmpty}
+					{#if page.showFilterEmpty}
 						<FilterEmpty
 							kind="calendars"
-							labels={state.hiddenCalendarLabels}
-							onexit={() => state.hideAllCalendars(false)}
+							labels={page.hiddenCalendarLabels}
+							onexit={() => page.hideAllCalendars(false)}
 						/>
-					{:else if state.showSearchEmpty}
+					{:else if page.showSearchEmpty}
 						<FilterEmpty
 							kind="search"
 							labels={[]}
-							query={state.search}
-							onexit={() => state.setSearch('')}
+							query={page.search}
+							onexit={() => page.setSearch('')}
 						/>
-					{:else if state.showAssigneeEmpty}
+					{:else if page.showAssigneeEmpty}
 						<FilterEmpty
 							kind="people"
-							labels={state.hiddenAssigneeLabels}
-							onexit={() => state.showEveryone()}
+							labels={page.hiddenAssigneeLabels}
+							onexit={() => page.showEveryone()}
 						/>
-					{:else if state.view === 'month'}
-						<MonthView {state} />
-					{:else if state.view === 'week'}
-						<WeekView {state} />
-					{:else if state.view === 'day'}
-						<DayView {state} />
+					{:else if page.view === 'month'}
+						<MonthView state={page} />
+					{:else if page.view === 'week'}
+						<WeekView state={page} />
+					{:else if page.view === 'day'}
+						<DayView state={page} />
 					{:else}
-						<ListView {state} />
+						<ListView state={page} />
 					{/if}
 
-					{#if !state.showFilterEmpty && !state.showSearchEmpty && !state.showAssigneeEmpty}
-						<CalendarKeyStrip sampleColor={state.shell.calendars[0]?.color} />
+					{#if !page.showFilterEmpty && !page.showSearchEmpty && !page.showAssigneeEmpty}
+						<CalendarKeyStrip sampleColor={page.shell.calendars[0]?.color} />
 					{/if}
 				</div>
 			</div>
@@ -290,18 +291,18 @@
 	{/if}
 </div>
 
-{#if state.shareNote}
+{#if page.shareNote}
 	<div
 		class="fixed left-1/2 top-3 z-[70] w-[calc(100%-1.5rem)] max-w-sm -translate-x-1/2 rounded-lg border border-primary-200 bg-white/95 px-3 py-2 text-center text-sm text-slate-700 shadow-lg"
 		role="status"
 	>
-		{state.shareNote}
+		{page.shareNote}
 	</div>
 {/if}
 
-{#if !state.selectionMode}
+{#if !page.selectionMode}
 	<button
-		onclick={() => state.openCreate()}
+		onclick={() => page.openCreate()}
 		class="fixed bottom-24 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 shadow-xl shadow-primary-400/50 transition-all hover:scale-105 hover:bg-primary-700 active:scale-95"
 		aria-label="Quick Add Event"
 	>
@@ -311,11 +312,11 @@
 	</button>
 {/if}
 
-{#if state.selectionMode}
-	<BulkEditBar {state} />
+{#if page.selectionMode}
+	<BulkEditBar state={page} />
 {/if}
 
-{#if sliceVisible && !state.createOpen && !state.editRowId && !state.selectionMode}
+{#if sliceVisible && !page.createOpen && !page.editRowId && !page.selectionMode}
 	<button
 		type="button"
 		onclick={createFromSelection}
@@ -327,70 +328,70 @@
 {/if}
 
 <SelectionExitAsk
-	open={state.exitAsk}
-	onexit={() => state.confirmExitSelection()}
-	onstay={() => state.stayInSelection()}
+	open={page.exitAsk}
+	onexit={() => page.confirmExitSelection()}
+	onstay={() => page.stayInSelection()}
 />
 
-{#if state.daySheetDate}
+{#if page.daySheetDate}
 	<DayActionSheet
-		{state}
+		state={page}
 		open={true}
-		day={state.daySheetDate}
-		onclose={() => (state.daySheetDate = null)}
+		day={page.daySheetDate}
+		onclose={() => (page.daySheetDate = null)}
 		onviewevents={() => {
-			const day = state.daySheetDate;
-			if (day) state.openDayList(day);
+			const day = page.daySheetDate;
+			if (day) page.openDayList(day);
 		}}
 	/>
 {/if}
 
-{#if state.dayListDate}
+{#if page.dayListDate}
 	<DayEventsModal
-		{state}
+		state={page}
 		open={true}
-		day={state.dayListDate}
-		onclose={() => (state.dayListDate = null)}
+		day={page.dayListDate}
+		onclose={() => (page.dayListDate = null)}
 	/>
 {/if}
 
-{#if state.taskDetail}
-	{#key state.taskDetail.id}
+{#if page.taskDetail}
+	{#key page.taskDetail.id}
 		<TaskDetailModal
-			task={state.taskDetail}
-			now={state.now}
-			onclose={() => state.closeTaskDetail()}
-			onchanged={() => void state.refresh()}
+			task={page.taskDetail}
+			now={page.now}
+			onclose={() => page.closeTaskDetail()}
+			onchanged={() => void page.refresh()}
 		/>
 	{/key}
 {/if}
 
-{#if state.createOpen}
-	{#key `${state.createSeed?.quickAdd ?? ''}|${state.createStart?.toISO() ?? ''}`}
+{#if page.createOpen}
+	{#key `${page.createSeed?.quickAdd ?? ''}|${page.createStart?.toISO() ?? ''}`}
 		<CreateAnythingModal
-			{state}
-			seed={state.createSeed}
-			start={state.createStart}
+			state={page}
+			seed={page.createSeed}
+			start={page.createStart}
 			{parseEvent}
-			onclose={() => state.closeCreate()}
+			onclose={() => page.closeCreate()}
 		/>
 	{/key}
 {/if}
 
-{#if state.editRowId && editView}
-	{#key state.editRowId}
+{#if page.editRowId && editView}
+	{#key page.editRowId}
 		<CalendarEventModal
 			open={true}
 			event={editView}
 			{api}
-			toasts={state.toasts}
-			calendars={state.shell.calendars}
+			toasts={page.toasts}
+			calendars={page.shell.calendars}
 			{familyMembers}
-			defaultCalendarId={state.shell.settings.defaultCalendarId}
-			viewerId={state.shell.viewerId}
-			now={state.now}
-			onclose={() => state.closeEdit()}
-			onchanged={() => void state.refresh()}
+			defaultCalendarId={page.shell.settings.defaultCalendarId}
+			viewerId={page.shell.viewerId}
+			now={page.now}
+			onclose={() => page.closeEdit()}
+			onchanged={() => void page.refresh()}
 		>
 			{#snippet checklist({ eventId })}
 				<EventTaskChecklist {eventId} />

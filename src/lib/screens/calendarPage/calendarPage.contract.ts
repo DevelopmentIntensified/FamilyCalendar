@@ -107,7 +107,8 @@ export interface CalendarPageEventRow {
 /** A due Task as the grid draws it on its due day. */
 export interface CalendarPageTaskRow {
 	id: string;
-	title: string | null;
+	/** `tasks.title` is NOT NULL; the chip and the detail sheet both draw it. */
+	title: string;
 	dueDate: string;
 	calendarId: string | null;
 	assignedTo: string | null;

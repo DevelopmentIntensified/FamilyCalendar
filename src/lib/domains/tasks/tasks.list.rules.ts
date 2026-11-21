@@ -153,12 +153,13 @@ export function taskLateChip(
 	return `${days} ${days === 1 ? 'day' : 'days'} late`;
 }
 
-function dueTime(task: TaskPageRow): number {
+/** The two order keys the urgency comparator uses; a page row satisfies it. */
+function dueTime(task: TaskUrgencyRow): number {
 	const at = timeOf(task.dueDate);
 	return Number.isNaN(at) ? Number.POSITIVE_INFINITY : at;
 }
 
-function titleOrder(a: TaskPageRow, b: TaskPageRow): number {
+function titleOrder(a: TaskUrgencyRow, b: TaskUrgencyRow): number {
 	return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
 }
 

@@ -125,11 +125,11 @@
 					</div>
 				{/each}
 				{#each bucket.tasks as task (task.id)}
-					{@const cadence = cadence(task.recurrenceFrequency, task.recurrenceInterval)}
+					{@const cadenceLabel = cadence(task.recurrenceFrequency, task.recurrenceInterval)}
 					<div class="flex items-center gap-2">
 						<TaskChip {task} now={state.now} onopen={(row) => state.openTaskDetail(row.id)} density="word" title="Due task" />
-						{#if cadence}
-							<span class="shrink-0 text-xs text-purple-500">🔁 {cadence}</span>
+						{#if cadenceLabel}
+							<span class="shrink-0 text-xs text-purple-500">🔁 {cadenceLabel}</span>
 						{/if}
 					</div>
 				{/each}

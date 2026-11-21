@@ -20,7 +20,9 @@
 		state: CalendarPageState;
 	}
 
-	let { state }: Props = $props();
+	// Aliased off the prop name: a local called `state` would turn the `$state`
+	// runes below into store subscriptions for the language tools.
+	let { state: page }: Props = $props();
 
 	const views = [
 		{ id: 'month', label: 'Month', icon: 'M3 3h18v18H3V3zm0 7.5h18v6.5H3v-6.5zm0 7.5h18v1.5H3v-1.5z' },
@@ -38,15 +40,15 @@
 
 	const months = $derived(
 		Array.from({ length: 12 }, (_, index) =>
-			state.date.set({ month: index + 1 }).toFormat('MMMM')
+			page.date.set({ month: index + 1 }).toFormat('MMMM')
 		)
 	);
 	const filterable: readonly CalendarPageCalendar[] = $derived(
-		state.shell.calendars.filter((calendar) => calendar.id)
+		page.shell.calendars.filter((calendar) => calendar.id)
 	);
-	const hiddenFilterCount = $derived(state.hiddenCalendarIds.length + state.hiddenAssigneeIds.length);
-	const monthYear = $derived(state.date.toFormat('MMMM yyyy'));
-	const dashboardDate = $derived(state.date.toISODate() ?? '');
+	const hiddenFilterCount = $derived(page.hiddenCalendarIds.length + page.hiddenAssigneeIds.length);
+	const monthYear = $derived(page.date.toFormat('MMMM yyyy'));
+	const dashboardDate = $derived(page.date.toISODate() ?? '');
 
 	const menuRow =
 		'flex min-h-11 w-full items-center rounded-lg px-2 text-left text-base text-slate-700 transition-colors hover:bg-slate-50';
@@ -66,7 +68,7 @@
 		if (event.key === 'Escape') {
 			showPicker = false;
 			showActionMenu = false;
-			state.filtersOpen = false;
+			page.filtersOpen = false;
 			return;
 		}
 		// The `⌘K` pill on the field is a real shortcut, not decoration.
@@ -92,9 +94,9 @@
 				{#each views as view (view.id)}
 					<button
 						type="button"
-						onclick={() => state.setView(view.id)}
-						aria-pressed={state.view === view.id}
-						class="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all active:scale-[0.97] {state.view ===
+						onclick={() => page.setView(view.id)}
+						aria-pressed={page.view === view.id}
+						class="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-all active:scale-[0.97] {page.view ===
 						view.id
 							? 'bg-white text-slate-900 shadow-sm'
 							: 'text-slate-500 hover:text-slate-900'}"
@@ -115,10 +117,10 @@
 		>
 			<DayNav
 				period="period"
-				isToday={state.onCurrentPeriod}
-				onToday={() => state.goToday()}
-				onPrevious={() => state.goPrevious()}
-				onNext={() => state.goNext()}
+				isToday={page.onCurrentPeriod}
+				onToday={() => page.goToday()}
+				onPrevious={() => page.goPrevious()}
+				onNext={() => page.goNext()}
 			>
 				{#snippet leading()}
 					<div class="relative min-w-0" data-testid="mini-picker-container">
@@ -132,10 +134,10 @@
 						</button>
 						<MiniPicker
 							open={showPicker}
-							month={state.date}
+							month={page.date}
 							{months}
-							onselectmonth={(month) => state.selectMonth(month)}
-							onselectyear={(year) => state.selectYear(year)}
+							onselectmonth={(month) => page.selectMonth(month)}
+							onselectyear={(year) => page.selectYear(year)}
 							onclose={() => (showPicker = false)}
 						/>
 					</div>
@@ -150,10 +152,10 @@
 		>
 			<button
 				type="button"
-				onclick={() => state.setAddMode(!state.addMode)}
-				aria-pressed={state.addMode}
+				onclick={() => page.setAddMode(!page.addMode)}
+				aria-pressed={page.addMode}
 				title="Add by dragging a time range"
-				class="flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {state.addMode
+				class="flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {page.addMode
 					? 'border-primary-300 bg-primary-50 text-primary-700'
 					: 'border-slate-200 bg-white text-slate-400 hover:text-slate-800'}"
 			>
@@ -165,10 +167,10 @@
 
 			<button
 				type="button"
-				onclick={() => state.setSelectionMode(!state.selectionMode)}
-				aria-pressed={state.selectionMode}
+				onclick={() => page.setSelectionMode(!page.selectionMode)}
+				aria-pressed={page.selectionMode}
 				title="Select events to edit in bulk"
-				class="flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {state.selectionMode
+				class="flex h-10 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {page.selectionMode
 					? 'border-primary-300 bg-primary-50 text-primary-700'
 					: 'border-slate-200 bg-white text-slate-400 hover:text-slate-800'}"
 			>
@@ -186,15 +188,15 @@
 				data-testid="action-strip"
 				class="hidden min-w-0 max-w-full items-center divide-x divide-slate-200 overflow-x-auto overflow-y-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:flex"
 			>
-				{#if filterable.length > 0 || state.assigneeRows.length > 0}
+				{#if filterable.length > 0 || page.assigneeRows.length > 0}
 					<button
 						type="button"
 						data-testid="calendar-filter-trigger"
-						onclick={() => (state.filtersOpen = !state.filtersOpen)}
-						aria-expanded={state.filtersOpen}
+						onclick={() => (page.filtersOpen = !page.filtersOpen)}
+						aria-expanded={page.filtersOpen}
 						aria-label="Filters"
 						title="Choose which calendars and people to show"
-						class="relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {state.filtersOpen
+						class="relative flex h-10 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-sm font-medium transition-all active:scale-[0.97] {page.filtersOpen
 							? 'border-primary-300 bg-primary-50 text-primary-700'
 							: 'border-slate-200 bg-white text-slate-500 hover:text-slate-800'}"
 					>
@@ -269,8 +271,8 @@
 				bind:this={searchInput}
 				aria-label="Search events"
 				placeholder="Search events, places, notes…"
-				value={state.search}
-				oninput={(event) => state.setSearch(event.currentTarget.value)}
+				value={page.search}
+				oninput={(event) => page.setSearch(event.currentTarget.value)}
 				class="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-16 text-sm text-slate-900 shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
 			/>
 			<span
@@ -281,19 +283,19 @@
 				⌘K
 			</span>
 		</div>
-		{#if state.search}
+		{#if page.search}
 			<span
 				data-testid="search-status"
 				aria-live="polite"
 				class="shrink-0 whitespace-nowrap text-xs tabular-nums text-slate-500"
 			>
-				{state.searchMatches === 0
+				{page.searchMatches === 0
 					? 'No matches'
-					: `${state.searchMatches} of ${state.searchTotal}`}
+					: `${page.searchMatches} of ${page.searchTotal}`}
 			</span>
 			<button
 				type="button"
-				onclick={() => state.setSearch('')}
+				onclick={() => page.setSearch('')}
 				aria-label="Clear search"
 				class="h-10 shrink-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
 			>
@@ -329,13 +331,13 @@
 				</svg>
 			</button>
 			<div class="flex flex-col gap-0.5 px-2 pb-3 pt-11">
-				{#if filterable.length > 0 || state.assigneeRows.length > 0}
+				{#if filterable.length > 0 || page.assigneeRows.length > 0}
 					<button
 						type="button"
 						data-testid="action-menu-filters"
 						onclick={() => {
 							showActionMenu = false;
-							state.filtersOpen = true;
+							page.filtersOpen = true;
 						}}
 						class={menuRow}
 					>
@@ -352,14 +354,14 @@
 
 <!-- The one sheet, at every width -->
 <CalendarFiltersSheet
-	open={state.filtersOpen}
-	calendars={state.shell.calendars}
-	hiddenCalendarIds={state.hiddenCalendarIds}
-	assignees={state.assigneeRows}
-	hiddenAssigneeIds={state.hiddenAssigneeIds}
-	onclose={() => (state.filtersOpen = false)}
-	ontogglecalendar={(id) => state.toggleCalendar(id)}
-	onhideall={(hide) => state.hideAllCalendars(hide)}
-	ontoggleassignee={(id) => state.toggleAssignee(id)}
-	onshoweveryone={() => state.showEveryone()}
+	open={page.filtersOpen}
+	calendars={page.shell.calendars}
+	hiddenCalendarIds={page.hiddenCalendarIds}
+	assignees={page.assigneeRows}
+	hiddenAssigneeIds={page.hiddenAssigneeIds}
+	onclose={() => (page.filtersOpen = false)}
+	ontogglecalendar={(id) => page.toggleCalendar(id)}
+	onhideall={(hide) => page.hideAllCalendars(hide)}
+	ontoggleassignee={(id) => page.toggleAssignee(id)}
+	onshoweveryone={() => page.showEveryone()}
 />
