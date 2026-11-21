@@ -14,12 +14,7 @@
 import type { ToastAction, Toasts } from '$lib/kernel/client/toasts.svelte';
 import { systemClock } from '$lib/kernel/time/clock';
 import { parseTaskQuickAdd } from '$lib/domains/parsing';
-import {
-	taskQuickAddRefusal,
-	taskRecurringCompleteText,
-	type TaskMutationAnswer,
-	type TasksApi
-} from '$lib/domains/tasks';
+import { taskQuickAddRefusal, taskRecurringCompleteText, type TasksApi } from '$lib/domains/tasks';
 import { familyBoardTaskBody } from './dayDashboard.cards.rules';
 import type {
 	DashboardFamilyTaskRow,
@@ -70,6 +65,8 @@ export class DayDashboardState {
 	private roster: readonly DashboardRosterRow[];
 	private readonly familyId: string;
 	private readonly meId: string;
+	/** The viewer's stored zone — parsed due dates land at 23:59 there. */
+	private readonly zone: string;
 	private readonly clock: () => Date;
 
 	constructor(options: DayDashboardStateOptions) {
@@ -79,6 +76,7 @@ export class DayDashboardState {
 		this.roster = options.roster;
 		this.familyId = options.familyId;
 		this.meId = options.meId;
+		this.zone = options.zone;
 		this.clock = options.clock ?? systemClock.now;
 	}
 
@@ -178,7 +176,10 @@ export class DayDashboardState {
 	}
 
 	/** The priorities a card can set, in the row's own order. */
-	async setPriority(task: DashboardWritableTask, priority: string): Promise<void> {
+	async setPriority(
+		task: DashboardWritableTask,
+		priority: 'normal' | 'high' | 'low'
+	): Promise<void> {
 		if (this.busyTaskId) return;
 		this.busyTaskId = task.id;
 		const result = await this.api.update(task.id, {

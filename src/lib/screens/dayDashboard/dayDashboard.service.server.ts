@@ -33,11 +33,10 @@ import {
 	listEventsInWindow,
 	type CalendarRangedEvent
 } from '$lib/domains/calendar/index.server';
+import { dashboardVisibility, type DashboardVisibility } from '$lib/domains/dashboardModules';
 import {
-	dashboardVisibility,
 	getDashboardVisibility,
-	type DashboardModulesVisibilityCtx,
-	type DashboardVisibility
+	type DashboardModulesVisibilityCtx
 } from '$lib/domains/dashboardModules/index.server';
 import { listGroceryItems } from '$lib/domains/groceries/index.server';
 import {
@@ -145,15 +144,27 @@ function toDayEventRow(event: CalendarRangedEvent, paint: DayEventPaint): Dashbo
 	return { ...rest, color: paint.color, source: paint.source };
 }
 
+/**
+ * The two `mode:'date'` instants as ISO strings, which is what the wire carries
+ * (Postgres's `timestamptz mode:'string'` columns keep their own render, so only
+ * these two are rewritten).
+ */
+function taskInstants(row: { readonly createdAt: Date; readonly focusStartedAt: Date | null }) {
+	return {
+		createdAt: row.createdAt.toISOString(),
+		focusStartedAt: row.focusStartedAt ? row.focusStartedAt.toISOString() : null
+	};
+}
+
 /** One Task row as the wire carries it: the phone-focus overlay is the tasks list's, not this payload's. */
 function toUserTaskRow(row: TaskListRow): DashboardUserTaskRow {
 	const { phoneFocusMinutes: _minutes, phoneFocusStartedAt: _started, ...rest } = row;
-	return { ...rest, tags: [...rest.tags] };
+	return { ...rest, ...taskInstants(rest), tags: [...rest.tags] };
 }
 
 /** One board row: the same fields, minus the event attribution the board never shows. */
 function toFamilyTaskRow(row: TaskSectionRow): DashboardFamilyTaskRow {
-	return { ...row, tags: [...row.tags] };
+	return { ...row, ...taskInstants(row), tags: [...row.tags] };
 }
 
 /** The two grocery legs' rows, projected to the two fields the card reads. */

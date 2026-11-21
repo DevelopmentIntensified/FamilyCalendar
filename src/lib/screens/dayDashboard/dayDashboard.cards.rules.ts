@@ -15,7 +15,7 @@
  * Doc: ./README.md#invariants
  */
 import type { TaskQuickAddResult } from '$lib/domains/parsing';
-import type { TaskCreateBody } from '$lib/domains/tasks';
+import type { TaskCreatePayload } from '$lib/domains/tasks';
 
 /** The fields the glance ordering reads: the flag and the start of one day event. */
 export type GlanceOrderRow = {
@@ -242,8 +242,8 @@ export function familyBoardTaskBody(
 		readonly meId: string;
 		readonly category: string;
 	}
-): TaskCreateBody {
-	const body: TaskCreateBody = {
+): TaskCreatePayload {
+	const body: TaskCreatePayload = {
 		title: parsed.title,
 		dueDate: parsed.dueDate,
 		familyId: input.familyId,
@@ -252,7 +252,7 @@ export function familyBoardTaskBody(
 		visibility: 'public',
 		tags: parsed.tags,
 		recurrenceFrequency: parsed.recurrenceFrequency,
-		recurrenceInterval: parsed.recurrenceInterval
+		recurrenceInterval: parsed.recurrenceInterval ?? undefined
 	};
 	const category = input.category.trim();
 	if (category) body.category = category;
