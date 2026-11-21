@@ -142,7 +142,7 @@ export interface ExpansionWindow {
 export function expandEventOccurrences<T extends OccurrenceSource>(
 	rows: readonly T[],
 	exceptions: readonly ExceptionSource[],
-	window: ExpansionWindow,
+	bounds: ExpansionWindow,
 	zone = 'utc'
 ): OccurrenceOf<T>[] {
 	const exceptionByKey = new Map(
@@ -158,7 +158,7 @@ export function expandEventOccurrences<T extends OccurrenceSource>(
 
 	const result: OccurrenceOf<T>[] = [];
 	for (const row of rows) {
-		const occurrences = expandRecurrence(row, window.start, window.end, zone);
+		const occurrences = expandRecurrence(row, bounds.start, bounds.end, zone);
 		if (occurrences.length === 0) continue;
 
 		const durationMs = row.end ? new Date(row.end).getTime() - new Date(row.start).getTime() : null;

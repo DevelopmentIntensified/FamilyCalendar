@@ -1,9 +1,7 @@
 /**
- * ICS rules both directions, plus the import plan. Export vectors come from
- * `utils/ics.test.ts`; parse vectors from `icsImportService.test.ts`; the
- * preview/dedupe/undo expectations from the frozen goldens
- * (`calendar.import.http.db.test.ts` DRAFT + whenText, and its duplicate and
- * undo bodies).
+ * ICS rules both directions. Export vectors come from
+ * `src/lib/utils/ics.test.ts:10-252`; parse vectors from
+ * `src/lib/server/services/icsImportService.test.ts:5-231`.
  *
  * Doc: ./README.md#invariants
  */
@@ -17,20 +15,10 @@ import {
 	formatIcsDate,
 	formatIcsUtc,
 	icsFilename,
+	MAX_ICS_EVENTS,
 	parseIcs,
-	type IcsEventDraft,
 	type IcsRecurrence
 } from './calendar.ics.rules';
-import {
-	buildFilePreview,
-	buildPreview,
-	dedupeKey,
-	defaultSelection,
-	describeWhen,
-	MAX_IMPORT_EVENTS,
-	planCommit,
-	planUndo
-} from './calendar.import.rules';
 
 const NOW = new Date('2026-10-01T12:00:00.000Z');
 const ics = (lines: string[]) => lines.join('\r\n');
@@ -46,20 +34,6 @@ const ICS_ONE = ics([
 	'END:VEVENT',
 	'END:VCALENDAR'
 ]);
-
-const DRAFT: IcsEventDraft = {
-	title: 'Soccer practice',
-	startIso: '2026-09-29T14:00:00.000Z',
-	endIso: '2026-09-29T15:30:00.000Z',
-	allDay: false,
-	location: null,
-	description: null,
-	recurrenceFrequency: null,
-	recurrenceInterval: 1,
-	recurrenceByDay: null,
-	recurrenceCount: null,
-	recurrenceUntil: null
-};
 
 describe('escapeIcsText', () => {
 	it.each([
@@ -408,99 +382,7 @@ describe('parseIcs', () => {
 	it('stops at 500 VEVENTs', () => {
 		const block = ['BEGIN:VEVENT', 'SUMMARY:Repeated', 'DTSTART:20260820T150000Z', 'END:VEVENT'];
 		const events = parseIcs(Array.from({ length: 501 }, () => block.join('\r\n')).join('\r\n'));
-		expect(events).toHaveLength(MAX_IMPORT_EVENTS);
-	});
-});
-
-describe('the import plan', () => {
-	it('builds the dedupe key from the trimmed lowercased title and the exact start', () => {
-		expect(dedupeKey('  Soccer Practice ', '2026-09-29T14:00:00.000Z')).toBe(
-			'soccer practice|2026-09-29T14:00:00.000Z'
-		);
-	});
-
-	it('describes a parsed row exactly as the preview golden does', () => {
-		expect(describeWhen(DRAFT)).toBe('Tue, Sep 29, 2026 · 2:00 PM–3:30 PM');
-	});
-
-	it('describes an all-day row and appends the recurrence', () => {
-		expect(describeWhen({ ...DRAFT, allDay: true, endIso: null })).toBe(
-			'Tue, Sep 29, 2026 · all day'
-		);
-		expect(
-			describeWhen({
-				...DRAFT,
-				recurrenceFrequency: 'weekly',
-				recurrenceInterval: 1,
-				recurrenceByDay: ['MO']
-			})
-		).toBe('Tue, Sep 29, 2026 · 2:00 PM–3:30 PM · every week on Mon');
-	});
-
-	it('flags a row the calendar already holds and drops it from the default selection', () => {
-		const preview = buildPreview([DRAFT], new Set([dedupeKey(DRAFT.title, DRAFT.startIso)]));
-		expect(preview.items[0]).toMatchObject({
-			key: 'e0',
-			fileName: '',
-			duplicate: true,
-			duplicateReason: 'already-on-calendar'
-		});
-		expect([...defaultSelection(preview.items)]).toEqual([]);
-		expect(preview.duplicates).toBe(1);
-	});
-
-	it('tells earlier-in-file from earlier-in-import across files', () => {
-		const repeated = { ...DRAFT };
-		const preview = buildFilePreview(
-			[
-				{ fileName: 'one.ics', drafts: [DRAFT, repeated] },
-				{ fileName: 'two.ics', drafts: [DRAFT] }
-			],
-			new Set()
-		);
-		expect(preview.items.map((item) => item.duplicateReason)).toEqual([
-			null,
-			'earlier-in-file',
-			'earlier-in-import'
-		]);
-		expect([...defaultSelection(preview.items)]).toEqual(['e0']);
-		expect(preview.files).toEqual([
-			{ fileName: 'one.ics', events: 2, duplicates: 1 },
-			{ fileName: 'two.ics', events: 1, duplicates: 1 }
-		]);
-	});
-
-	it('re-checks dedupe at commit time and counts what it skipped', () => {
-		expect(planCommit([DRAFT], new Set([dedupeKey(DRAFT.title, DRAFT.startIso)]))).toEqual({
-			toWrite: [],
-			skippedDuplicates: 1
-		});
-		expect(planCommit([DRAFT], new Set())).toEqual({ toWrite: [DRAFT], skippedDuplicates: 0 });
-	});
-
-	it('plans an undo that removes unchanged rows, keeps edited ones and names missing ones', () => {
-		const batch = [
-			{ id: 'evtunchanged', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' },
-			{ id: 'evtedited001', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' },
-			{ id: 'evtmissing001', title: 'Gone', startIso: '2026-09-29T14:00:00.000Z' }
-		];
-		const plan = planUndo(batch, [
-			{ id: 'evtunchanged', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' },
-			{ id: 'evtedited001', title: 'Soccer practice (moved)', startIso: '2026-09-29T14:00:00.000Z' }
-		]);
-		expect(plan).toEqual({
-			remove: ['evtunchanged'],
-			changed: [{ id: 'evtedited001', title: 'Soccer practice (moved)' }],
-			missing: ['evtmissing001']
-		});
-	});
-
-	it('never counts the same batch id twice', () => {
-		const ref = { id: 'evtunchanged', title: 'Soccer practice', startIso: '2026-09-29T14:00:00.000Z' };
-		expect(planUndo([ref, ref], [ref])).toEqual({
-			remove: ['evtunchanged'],
-			changed: [],
-			missing: []
-		});
+		expect(MAX_ICS_EVENTS).toBe(500);
+		expect(events).toHaveLength(MAX_ICS_EVENTS);
 	});
 });
