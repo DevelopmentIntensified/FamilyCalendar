@@ -7,12 +7,8 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { AlertsPushApi, BrowserPushSubscription, PushEnvironment } from './alerts.push.api';
-import {
-	getPushState,
-	pushFailureText,
-	subscribeToPush,
-	unsubscribeFromPush
-} from './alerts.push.api';
+import { getPushState, pushFailureText } from './alerts.push.api';
+import { subscribeToPush, unsubscribeFromPush } from './alerts.push.subscribe.api';
 
 function subscription(endpoint = 'https://push.example/1'): BrowserPushSubscription {
 	return {

@@ -1,8 +1,10 @@
 <!--
 	The event detail page: `/calendar/event/[id]`. Ported from the legacy page's
-	markup; the facts, the attendee list, the RSVP paint/rollback/clear rules and
-	the single-flight DELETE come from `CalendarEventModalState`, so the page and
-	the event sheet share one writer.
+	markup; the facts and the attendee list paint from the page payload alone. The
+	RSVP paint/rollback/clear rules and the single-flight DELETE come from
+	`CalendarEventModalState`, so the page and the event sheet share one writer;
+	the page imports that class lazily (on hover/focus of an RSVP button or on
+	delete), so the first paint ships no writer (ADR 0010).
 
 	The export menu is the two legacy links: the `.ics` download at
 	`/api/events/{id}/ics` and the Google render URL carrying the RRULE and the
@@ -16,9 +18,8 @@
 	import { createApiClient } from '$lib/kernel/client/apiClient';
 	import { createToasts } from '$lib/kernel/client/toasts.svelte';
 	import Toaster from '$lib/kernel/ui/Toaster.svelte';
-	import { createCalendarApi } from '../calendar.api';
-	import { calendarEventDay } from '../calendar.eventView.rules';
-	import { CalendarEventModalState } from '../calendar.eventModal.state.svelte';
+	import { calendarAttendanceSplit, calendarEventDay } from '../calendar.eventView.rules';
+	import type { CalendarEventModalState } from '../calendar.eventModal.state.svelte';
 	import { buildGoogleCalendarUrl } from '../calendar.ics.rules';
 	import type { CalendarEventDetailPageData } from '../calendar.pages.http.server';
 
@@ -39,11 +40,14 @@
 		userRsvpStatus: data.userRsvpStatus
 	}));
 	const event = initial.event;
-	const modal = new CalendarEventModalState(createCalendarApi(createApiClient()), toasts, null, {
-		event,
-		attendees: initial.attendance,
-		userRsvpStatus: initial.userRsvpStatus
-	});
+	// The RSVP/delete writer (`CalendarEventModalState`) is a lazy chunk: the page
+	// paints from the payload alone and builds the class on the first act (ADR 0010).
+	let modal = $state.raw<CalendarEventModalState | null>(null);
+	let pending: Promise<CalendarEventModalState> | null = null;
+	const attendees = $derived(modal ? modal.attendees : [...(initial.attendance ?? [])]);
+	const guests = $derived(modal ? modal.guests : []);
+	const rsvpStatus = $derived(modal ? modal.userRsvpStatus : (initial.userRsvpStatus ?? 'undecided'));
+	const split = $derived(calendarAttendanceSplit(attendees));
 
 	const zone = $derived(data.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone);
 	const day = $derived(calendarEventDay(event));
@@ -103,8 +107,34 @@
 		return 'bg-gray-100 text-gray-800';
 	}
 
+	/** The state class is built the first time the viewer acts (or is about to). */
+	async function loadModal(): Promise<CalendarEventModalState> {
+		if (modal) return modal;
+		pending ??= Promise.all([
+			import('../calendar.eventModal.state.svelte'),
+			import('../calendar.api')
+		]).then(([{ CalendarEventModalState }, { createCalendarApi }]) => {
+			modal ??= new CalendarEventModalState(createCalendarApi(createApiClient()), toasts, null, {
+				event,
+				attendees: initial.attendance,
+				userRsvpStatus: initial.userRsvpStatus
+			});
+			return modal;
+		});
+		return pending;
+	}
+
+	/** Start the chunk on the first hover or focus so the click finds it resolved. */
+	function warm(): void {
+		void loadModal();
+	}
+
+	async function rsvp(status: (typeof RSVP_OPTIONS)[number]['status']): Promise<void> {
+		await (await loadModal()).rsvp(status);
+	}
+
 	async function remove(): Promise<void> {
-		const ok = await modal.remove('all');
+		const ok = await (await loadModal()).remove('all');
 		if (ok) onnavigate('/calendar');
 	}
 </script>
@@ -129,12 +159,12 @@
 			Back to Calendar
 		</button>
 
-		{#if modal.actionError}
+		{#if modal?.actionError}
 			<div
 				role="alert"
 				class="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600"
 			>
-				{modal.actionError}
+				{modal?.actionError}
 			</div>
 		{/if}
 
@@ -237,13 +267,13 @@
 					</div>
 
 					<!-- Attendees -->
-					{#if modal.attendees.length > 0 || modal.guests.length > 0}
+					{#if attendees.length > 0 || guests.length > 0}
 						<div>
 							<h3 class="mb-2 text-lg font-semibold text-gray-800">
-								Attendees ({modal.attendees.length + modal.guests.length})
+								Attendees ({attendees.length + guests.length})
 							</h3>
 							<div class="space-y-2">
-								{#each modal.attendees as attendee (attendee.userId)}
+								{#each attendees as attendee (attendee.userId)}
 									<div class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
 										<span class="text-sm text-gray-700"
 											>{[attendee.firstName, attendee.lastName]
@@ -257,7 +287,7 @@
 										>
 									</div>
 								{/each}
-								{#each modal.guests as guest (guest.name)}
+								{#each guests as guest (guest.name)}
 									<div class="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
 										<span class="text-sm text-gray-700">{guest.name}</span>
 										<span
@@ -284,7 +314,7 @@
 					<div class="mb-6 border-t pt-6">
 						<div class="mb-3 flex items-center justify-between">
 							<h3 class="text-lg font-semibold text-gray-800">Your RSVP</h3>
-							{#if modal.userRsvpStatus !== 'undecided'}
+							{#if rsvpStatus !== 'undecided'}
 								<span class="text-xs text-gray-400">tap again to clear</span>
 							{/if}
 						</div>
@@ -294,17 +324,19 @@
 							class="flex overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-1"
 						>
 							{#each RSVP_OPTIONS as option (option.status)}
-								{@const active = modal.userRsvpStatus === option.status}
+								{@const active = rsvpStatus === option.status}
 								{@const count =
 									option.status === 'going'
-										? modal.split.going.length
+										? split.going.length
 										: option.status === 'maybe'
-											? modal.split.maybe.length
-											: modal.split.notGoing.length}
+											? split.maybe.length
+											: split.notGoing.length}
 								<button
 									type="button"
-									onclick={() => void modal.rsvp(option.status)}
-									disabled={modal.rsvpPending}
+									onclick={() => void rsvp(option.status)}
+									onpointerenter={warm}
+									onfocus={warm}
+									disabled={modal?.rsvpPending}
 									aria-pressed={active}
 									class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-sm font-medium transition-all disabled:opacity-60 {option.status ===
 									'going'
@@ -421,10 +453,10 @@
 							<button
 								type="button"
 								onclick={() => void remove()}
-								disabled={modal.deleting}
+								disabled={modal?.deleting}
 								class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
 							>
-								{modal.deleting ? 'Deleting…' : 'Confirm Delete'}
+								{modal?.deleting ? 'Deleting…' : 'Confirm Delete'}
 							</button>
 							<button
 								type="button"

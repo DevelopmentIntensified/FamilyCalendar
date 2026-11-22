@@ -65,13 +65,8 @@ export {
 } from './alerts.preferences.rules';
 export type { AlertSaveOutcome } from './alerts.preferences.rules';
 
-export {
-	browserPushEnvironment,
-	getPushState,
-	pushFailureText,
-	subscribeToPush,
-	unsubscribeFromPush
-} from './alerts.push.api';
+export { browserPushEnvironment, getPushState, pushFailureText } from './alerts.push.api';
+export { subscribeToPush, unsubscribeFromPush } from './alerts.push.subscribe.api';
 export type {
 	AlertsPushApi,
 	BrowserPushSubscription,

@@ -14,6 +14,7 @@
 	import { TasksPageState } from '../tasks.page.state.svelte';
 	import { TaskQuickAddState } from '../tasks.quickadd.state.svelte';
 	import TaskAssignments from './TaskAssignments.svelte';
+	import TaskCategoryManager from './TaskCategoryManager.svelte';
 	import TaskList from './TaskList.svelte';
 	import TaskQuickAdd from './TaskQuickAdd.svelte';
 
@@ -112,10 +113,7 @@
 			<TaskAssignments state={page} />
 		{/if}
 
-		<!-- The manager is a closed disclosure below the list; it rides its own chunk. -->
-		{#await import('./TaskCategoryManager.svelte') then { default: TaskCategoryManager }}
-			<TaskCategoryManager state={page} />
-		{/await}
+		<TaskCategoryManager state={page} />
 	</div>
 </div>
 

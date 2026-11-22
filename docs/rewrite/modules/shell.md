@@ -238,6 +238,12 @@ sha. Its db tests in S5/S6 pin the layout loads, not a wire.
   The legacy error page imported only its own markup and a `reportBugHref` util, which is why the
   legacy baselines show desktop ≈ mobile. The component files are the same modules the entry
   re-exports; nothing new is public.
+- **The two menus are lazy chunks (ADR 0010, round 2).** `ShellNavbar` imports `ShellMobileMenu` and
+  `ShellProfileMenu` inside `{#await import()}` when first opened and warms both 4 s after mount
+  (through the kernel scheduler, so it lands after the measured load and a first tap offline still
+  finds the chunks in the service worker's cache). A closed navbar — every app page — therefore ships
+  ~2.4 KB gzip less; the menus' `slide` is `|global` because the menu is now a component root inside
+  an await block (a local transition would not play when the menu closes).
 - **Marketing keeps its own header.** Marketing is a domain (rank 16), so it may not import shell.
   Its ported public header owns the four public links and the Sign In/Get Started CTAs; `shellNavItems`
   is the signed-in app's list only.

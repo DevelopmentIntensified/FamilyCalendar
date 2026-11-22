@@ -1,7 +1,6 @@
 /**
  * The auth screens' pure rules: the redirect-code table, the landing and
- * sibling-link labels, both password checks in legacy's order, and the merge
- * prompt's count copy.
+ * sibling-link labels and both password checks in legacy's order.
  *
  * Doc: ./README.md#invariants
  */
@@ -10,9 +9,6 @@ import {
 	authErrorCopy,
 	authLandingLabel,
 	authSiblingHref,
-	mergeBringLabel,
-	mergeCountLabel,
-	mergeSentenceKind,
 	resetPasswordRefusal,
 	signupPasswordRefusal
 } from './access.auth.rules';
@@ -73,27 +69,5 @@ describe('resetPasswordRefusal', () => {
 
 	it('refuses a missing token before looking at the passwords', () => {
 		expect(resetPasswordRefusal('', 'short', 'different')).toBe('Invalid reset token');
-	});
-});
-
-describe('merge prompt copy', () => {
-	it('pluralises a count', () => {
-		expect(mergeCountLabel(1, 'event')).toBe('1 event');
-		expect(mergeCountLabel(3, 'event')).toBe('3 events');
-		expect(mergeCountLabel(1, 'task')).toBe('1 task');
-		expect(mergeCountLabel(2, 'task')).toBe('2 tasks');
-	});
-
-	it('counts both kinds in the primary button', () => {
-		expect(mergeBringLabel(3, 2)).toBe('Bring my 5 items over');
-		expect(mergeBringLabel(0, 1)).toBe('Bring my 1 items over');
-	});
-
-	it.each([
-		[2, 1, 'both'],
-		[1, 0, 'events'],
-		[0, 4, 'tasks']
-	])('events %s / tasks %s uses the %s sentence', (events, tasks, expected) => {
-		expect(mergeSentenceKind(events, tasks)).toBe(expected);
 	});
 });

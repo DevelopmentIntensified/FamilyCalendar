@@ -154,6 +154,8 @@ Legacy exports that die or move (each destination is a v2 module; nothing new is
 
 Deliberate changes to log at S7 (visual baseline + Notes): the colourless-family fallback becomes the palette default instead of the retired blue; the completed list is windowed with the true count in its heading; the editor's categories arrive when it opens.
 
+Initial-JS round 2 (ADR 0010): the mobile member sheet (kernel `Sheet` plus the member-type/role/remove forms) is `FamilyMemberSheet.svelte`, imported when a member is picked, so `/family/[familyId]` ships neither in first paint. `/family/tasks` no longer reaches the quick-add parser: `tasks`' entry stopped exporting its page state classes (see tasks.md), which was the ~7 KB `parsing.task.rules` chunk on this page.
+
 ## Notes
 
 ### S1 verification

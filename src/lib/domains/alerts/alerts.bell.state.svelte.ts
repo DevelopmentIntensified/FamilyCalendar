@@ -19,8 +19,6 @@ import type { AlertsApi } from './alerts.api';
 import {
 	getPushState,
 	pushFailureText,
-	subscribeToPush,
-	unsubscribeFromPush,
 	type PushEnvironment,
 	type PushState
 } from './alerts.push.api';
@@ -170,9 +168,17 @@ export class AlertsBellState {
 		this.pushServerReady = key.ok && key.data.publicKey !== null;
 	}
 
+	/**
+	 * The click-time half of the push flow lives in `alerts.push.subscribe.api`,
+	 * imported here on the click so its base64 key decoder stays out of every
+	 * app page's first paint (ADR 0010; a static import cannot defer it). The
+	 * panel warms the chunk when it opens, so the import is already resolved
+	 * while the click's activation is live.
+	 */
 	async enablePush(): Promise<void> {
 		this.pushBusy = true;
 		this.showPushFeedback(null);
+		const { subscribeToPush } = await import('./alerts.push.subscribe.api');
 		const result = await subscribeToPush(this.api, this.env);
 		this.pushState = await getPushState(this.env);
 		this.pushBusy = false;
@@ -185,6 +191,7 @@ export class AlertsBellState {
 
 	async disablePush(): Promise<void> {
 		this.pushBusy = true;
+		const { unsubscribeFromPush } = await import('./alerts.push.subscribe.api');
 		await unsubscribeFromPush(this.api, this.env);
 		this.pushState = await getPushState(this.env);
 		this.pushBusy = false;

@@ -7,11 +7,15 @@
 	carries in its first paint costs the trigger and the badge, not the panel:
 	the rows' relative-age formatter and the push block (ADR 0010; the same
 	split the day dashboard's event sheet uses). State and behaviour stay in
-	`AlertsBellState`; this file is markup only.
+	`AlertsBellState`; this file is markup plus one warm-up: opening the panel
+	starts fetching the push click chunk so Enable/Turn off find it resolved.
+	The slide is `|global` because the panel is a component root inside the
+	bell's `{#if}`/`{#await}`; local, it would not play when the bell closes.
 
 	Doc: ../README.md#invariants
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { relativeFromNow } from '$lib/kernel/time/relative';
 	import { alertGlyph, alertLabel, alertTone } from '../alerts.vocabulary.rules';
@@ -23,10 +27,15 @@
 	}
 
 	let { state }: Props = $props();
+
+	onMount(() => {
+		// Warm the click-time push chunk (a static import would put it in first paint).
+		void import('../alerts.push.subscribe.api');
+	});
 </script>
 
 <div
-	transition:slide={{ duration: 150 }}
+	transition:slide|global={{ duration: 150 }}
 	class="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
 >
 	<p class="border-b border-slate-100 px-4 pb-2 text-sm font-semibold text-slate-900">
