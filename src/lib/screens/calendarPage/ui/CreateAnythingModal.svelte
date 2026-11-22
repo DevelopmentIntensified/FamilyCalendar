@@ -18,7 +18,6 @@
 	import { createApiClient } from '$lib/kernel/client/apiClient';
 	import { createTasksApi } from '$lib/domains/tasks/index';
 	import {
-		CalendarEventActionBar,
 		CalendarEventForm,
 		CalendarEventFormState,
 		calendarSavedToast,
@@ -107,8 +106,14 @@
 		if (type === 'task') void loadCategories();
 	}
 
+	/**
+	 * A create confirms itself and clears the sheet for the next one (legacy
+	 * `EventFormModal` cleared `createCount` after every successful POST; the
+	 * sheet stays open so "add something else" costs no extra tap).
+	 */
 	function saved(outcome: CalendarSaveOutcome) {
 		page.toasts.success(calendarSavedToast(outcome.body.title));
+		form.reset();
 		void page.refresh();
 	}
 
@@ -194,15 +199,6 @@
 				<EventTaskChecklist {eventId} />
 			{/snippet}
 		</CalendarEventForm>
-		<CalendarEventActionBar
-			isEdit={false}
-			submitting={form.saving}
-			canSubmit={form.canSubmit}
-			submitBlockedReason={form.endBeforeStart ? 'End must be after start' : undefined}
-			ondelete={() => {}}
-			{onclose}
-			onclear={() => form.reset()}
-		/>
 	{:else}
 		<form onsubmit={saveTask} class="space-y-3">
 			<TaskFields

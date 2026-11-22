@@ -8,8 +8,7 @@
 	provides Navbar/BottomNav/Toaster only, so the page draws its own breadcrumb.
 -->
 <script lang="ts">
-	import { createToasts } from '$lib/kernel/client/toasts.svelte';
-	import Toaster from '$lib/kernel/ui/Toaster.svelte';
+	import { sharedToasts } from '$lib/kernel/client/toasts.svelte';
 	import Sheet from '$lib/kernel/ui/Sheet.svelte';
 	import { DEFAULT_FAMILY_COLOR, memberDisplayName } from '$lib/domains/family/index';
 	import type { FamilyHubModel } from '../familyHub.contract';
@@ -35,7 +34,7 @@
 
 	let { data, form = null, refresh, enhance }: Props = $props();
 
-	const toasts = createToasts();
+	const toasts = sharedToasts;
 	const state = new FamilyHubState({
 		toasts,
 		refresh,
@@ -123,7 +122,7 @@
 			{/if}
 
 			{#if state.canEdit(member)}
-				<form method="POST" action="?/updateRole" use:enhance={state.roleSubmit(member)}>
+				<form method="POST" action="?/updateRole" use:enhance={() => state.roleSubmit(member)}>
 					<input type="hidden" name="userId" value={member.userId} />
 					<label for="sheet-role" class="mb-1 block text-xs font-medium text-slate-500">Role</label>
 					<select
@@ -158,7 +157,7 @@
 							<form
 								method="POST"
 								action="?/removeMember"
-								use:enhance={state.removeSubmit(member)}
+								use:enhance={() => state.removeSubmit(member)}
 								class="flex-1"
 							>
 								<input type="hidden" name="userId" value={member.userId} />
@@ -192,5 +191,3 @@
 		</div>
 	{/if}
 </Sheet>
-
-<Toaster items={toasts.items} ondismiss={toasts.dismiss} />

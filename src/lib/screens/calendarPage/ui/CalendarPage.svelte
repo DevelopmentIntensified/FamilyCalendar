@@ -41,12 +41,16 @@
 	const api = createCalendarApi(client);
 	const toasts = createToasts();
 
-	/** The event parser is `parsing`'s wire; the form takes it as a prop. */
+	/**
+	 * The event parser is `parsing`'s wire; the form takes it as a prop. The
+	 * route's field is `input` (`parsing.contract.ts`), and `useCloud` stays
+	 * absent so the route keeps its own default.
+	 */
 	const parseEvent: CalendarParseEvent = async (text) => {
 		const result = await client.request<Awaited<ReturnType<CalendarParseEvent>>>(
 			'POST',
 			'/api/parse-event',
-			{ text }
+			{ input: text }
 		);
 		return result.ok ? result.data : null;
 	};
