@@ -201,10 +201,15 @@ export class FamilyHubState {
 		};
 	};
 
-	/** The role form (row or sheet): busy on that member, then the toast and a settle. */
+	/**
+	 * The role form (row or sheet): busy on that member while in flight, then the
+	 * toast and a settle. The busy flag is set when the form SUBMITS, never when
+	 * the template builds the callback (a render-time flag disabled every row's
+	 * button before anyone pressed it).
+	 */
 	roleSubmit(member: FamilyHubMember): SubmitFunction {
-		this.roleBusy = member.userId;
 		return () => {
+			this.roleBusy = member.userId;
 			return async ({ result, update }) => {
 				if (result.type === 'success') this.toasts.success('Role updated.');
 				else if (result.type === 'failure') {
@@ -219,10 +224,10 @@ export class FamilyHubState {
 		};
 	}
 
-	/** The remove form (row or sheet): confirm first, then the toast and a settle. */
+	/** The remove form (row or sheet): confirm first, then busy while in flight, the toast and a settle. */
 	removeSubmit(member: FamilyHubMember): SubmitFunction {
-		this.removeBusy = member.userId;
 		return () => {
+			this.removeBusy = member.userId;
 			return async ({ result, update }) => {
 				if (result.type === 'success') {
 					this.toasts.success('Member removed from the family.');

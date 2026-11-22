@@ -93,13 +93,24 @@ describe('FamilyHubState action feedback', () => {
 		const { state, toasts, refresh } = buildState();
 		const member = buildFamilyHubMember({ userId: 'u_bob' });
 		state.startEditRole(member.userId);
-		const submit = state.roleSubmit(member);
-		expect(state.roleBusy).toBe('u_bob');
-		await settle(submit, 'success');
+		await settle(state.roleSubmit(member), 'success');
 		expect(toasts.items).toContainEqual({ kind: 'success', text: 'Role updated.' });
 		expect(state.editingRole).toBeNull();
 		expect(state.roleBusy).toBeNull();
 		expect(refresh).toHaveBeenCalled();
+	});
+
+	it('flags a row busy only once its form submits, never when the template builds the callback', () => {
+		const { state } = buildState();
+		const member = buildFamilyHubMember({ userId: 'u_bob' });
+		const role = state.roleSubmit(member);
+		const remove = state.removeSubmit(member);
+		expect(state.roleBusy).toBeNull();
+		expect(state.removeBusy).toBeNull();
+		role({ formData: new FormData() } as never);
+		remove({ formData: new FormData() } as never);
+		expect(state.roleBusy).toBe('u_bob');
+		expect(state.removeBusy).toBe('u_bob');
 	});
 
 	it('explains a refused Member Type change', async () => {

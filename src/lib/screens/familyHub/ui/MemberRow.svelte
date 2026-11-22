@@ -61,7 +61,7 @@
 			<form
 				method="POST"
 				action="?/updateRole"
-				use:enhance={() => state.roleSubmit(member)}
+				use:enhance={state.roleSubmit(member)}
 				class="hidden items-center gap-1.5 sm:flex"
 			>
 				<input type="hidden" name="userId" value={member.userId} />
@@ -143,7 +143,7 @@
 					<form
 						method="POST"
 						action="?/removeMember"
-						use:enhance={() => state.removeSubmit(member)}
+						use:enhance={state.removeSubmit(member)}
 					>
 						<input type="hidden" name="userId" value={member.userId} />
 						<button

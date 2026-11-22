@@ -122,7 +122,7 @@
 			{/if}
 
 			{#if state.canEdit(member)}
-				<form method="POST" action="?/updateRole" use:enhance={() => state.roleSubmit(member)}>
+				<form method="POST" action="?/updateRole" use:enhance={state.roleSubmit(member)}>
 					<input type="hidden" name="userId" value={member.userId} />
 					<label for="sheet-role" class="mb-1 block text-xs font-medium text-slate-500">Role</label>
 					<select
@@ -157,7 +157,7 @@
 							<form
 								method="POST"
 								action="?/removeMember"
-								use:enhance={() => state.removeSubmit(member)}
+								use:enhance={state.removeSubmit(member)}
 								class="flex-1"
 							>
 								<input type="hidden" name="userId" value={member.userId} />
