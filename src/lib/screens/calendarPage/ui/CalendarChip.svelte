@@ -10,9 +10,9 @@
 	Selection mode turns it into a checkbox that never opens anything.
 -->
 <script lang="ts">
-	import { CalendarAttendanceBadge } from '$lib/domains/calendar/ui';
-	import { CalendarCreatorBadge } from '$lib/domains/calendar/ui';
-	import { CalendarEventChipMark } from '$lib/domains/calendar/ui';
+	import CalendarAttendance from './CalendarAttendance.svelte';
+	import CalendarCreator from './CalendarCreator.svelte';
+	import CalendarMark from './CalendarMark.svelte';
 	import type { CalendarPageCalendar } from '../calendarPage.contract';
 	import { calendarChipRowOf } from '../calendarPage.grid.rules';
 	import type { CalendarPageDisplayRow } from '../calendarPage.state.svelte';
@@ -98,12 +98,12 @@
 			>{chip.rsvp.icon}</span
 		>
 	{/if}
-	<CalendarEventChipMark kind={chip.shell.kind} density={chip.shell.markDensity} />
+	<CalendarMark kind={chip.shell.kind} density={chip.shell.markDensity} />
 	<span class="min-w-0 truncate">{row.title}</span>
 	{#if row.creatorName && density === 'word'}
-		<CalendarCreatorBadge name={row.creatorName} />
+		<CalendarCreator name={row.creatorName} />
 	{/if}
 	{#if row.attendance && row.attendance.invited > 1}
-		<CalendarAttendanceBadge attendance={row.attendance} variant={density === 'word' ? 'row' : 'chip'} />
+		<CalendarAttendance attendance={row.attendance} variant={density === 'word' ? 'row' : 'chip'} />
 	{/if}
 </button>

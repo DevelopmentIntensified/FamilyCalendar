@@ -10,7 +10,7 @@
 -->
 <script lang="ts">
 	import { chipSurfaceStyle, type ChipKind } from '$lib/domains/calendar/index';
-	import { CalendarEventChipMark } from '$lib/domains/calendar/ui';
+	import CalendarMark from './CalendarMark.svelte';
 
 	interface Props {
 		/** The first calendar's colour, so the samples are the page's own. */
@@ -93,7 +93,7 @@
 						class="flex w-40 max-w-full shrink-0 items-center gap-1.5 overflow-hidden rounded-md border-l-[3px] border-l-[var(--chip-color)] bg-white px-1.5 py-1 text-left text-[11px] font-medium leading-tight text-slate-700"
 						style={surface(row.kind, sampleColor, row.kind === 'sponsored')}
 					>
-						<CalendarEventChipMark kind={row.kind} density="glyph" />
+						<CalendarMark kind={row.kind} density="glyph" />
 						<span class="min-w-0 truncate">{row.title}</span>
 					</span>
 					<p class="min-w-[12rem] flex-1 text-[13px] leading-6 text-slate-700">
@@ -108,7 +108,7 @@
 						class="mx-0.5 inline-flex max-w-[8rem] items-center gap-1.5 overflow-hidden rounded-md border-l-[3px] border-l-[var(--chip-color)] bg-white px-1.5 py-1 align-middle text-[11px] font-medium leading-tight text-slate-700"
 						style={surface('timed', SAME_COLORS[i] ?? sampleColor)}
 					>
-						<CalendarEventChipMark kind="timed" density="glyph" />
+						<CalendarMark kind="timed" density="glyph" />
 						<span class="min-w-0 truncate">{name}</span>
 					</span>
 				{/each}

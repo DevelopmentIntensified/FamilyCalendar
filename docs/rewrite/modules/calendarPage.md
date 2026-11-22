@@ -390,6 +390,31 @@ The S7 screen imported every view, sheet and modal statically, so `/calendar` an
   card cannot collapse; every other lazy child is a fixed overlay with nothing to reserve. E2E hooks
   (testids, ids, labels, copy) and the rendered DOM are unchanged once a chunk lands.
 
+### S7 follow-up 2 for ADR 0010 (2026-11-22): the barrels the first build still dragged in, and the share-target modal
+
+Measured with `fcv2-agent-build.sh` (static closure + mobile root-error extras; ceiling +2% = 200.7 KB):
+/calendar went from 218.2 KB to 154.4 KB.
+
+- The three chip parts (`CalendarEventChipMark`, `CalendarAttendanceBadge`, `CalendarCreatorBadge`) came
+  from `calendar/ui`, and the build put that whole barrel (event form, form state, sheet, zod) in the page's
+  static closure (53.9 KB + 9.3 KB of satellites) — Svelte modules are never tree-shaken out of a barrel.
+  `ui/CalendarMark.svelte`, `CalendarAttendance.svelte` and `CalendarCreator.svelte` are the same markup in
+  this screen's chunk (`CHIP_GAP_PX` is the one constant calendar does not export: mirrored as `GAP_PX`).
+- `calendar/index.ts` re-exported the closed vocabularies and `CALENDAR_COPY` from `calendar.contract.ts`,
+  and a module that builds zod schemas at load cannot be dropped: the chip and move rules the grid imports
+  therefore carried zod (28 KB). The constants now live in `calendar.copy.rules.ts` (the contract and the
+  entry re-export them, same names).
+- The create modal's chunk is fetched after the `load` event (`afterLoad` in `CalendarPage`), because a deep
+  link opens it during hydration and a plain `import()` there billed the form (and, through the tasks
+  barrel, three whole screens) to the first paint. The FAB warms it on hover/focus (legacy prefetched on
+  idle). The Task half (`TaskFields`) and the tasks checklist (`tasks/ui`) are lazy inside the modal.
+- The share-target visual: legacy's layout is now the modal's — the Event/Task tabs ride inside the form's
+  padded body (`CalendarEventForm` takes a `lead` snippet), the action bar is the sheet's footer
+  (`inlineActions={false}`) so it stays visible while the body scrolls, the "Parsed wrong? Report this
+  phrase" link is wired (`form.reportPhrase` → `POST /api/report-phrase`, `source: 'event_parse'`), a deep
+  link leaves Description empty (legacy's `goto` rebuilt the form after the seed) and nothing focused
+  (legacy's `goto` reset focus; the route keeps `keepFocus`, so the modal blurs once on mount instead).
+
 ### Dropped as internal-only (reason in brackets)
 
 - `removeEvent` threaded Calendar → WeekView and voided (dead since EventModal took deletion) — `Calendar.svelte:43`, `WeekView.svelte:30,50`.

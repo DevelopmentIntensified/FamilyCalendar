@@ -58,6 +58,9 @@ The public API is designed at S1. The entries are filled as their steps land; th
 | [ui/MiniPicker.svelte](ui/MiniPicker.svelte) | component | The month/year mini picker behind the date pill's label. | visual:check |
 | [ui/CalendarKeyStrip.svelte](ui/CalendarKeyStrip.svelte) | component | The folded Key strip, rendered from calendar's own chip vocabulary. | visual:check |
 | [ui/CalendarChip.svelte](ui/CalendarChip.svelte) | component | One Event chip for all four views: the vocabulary mark, title, selection ring, RSVP/creator/attendance badges. | visual:check |
+| [ui/CalendarMark.svelte](ui/CalendarMark.svelte) | component | The chip's leading kind mark, drawn from calendar's `chipTreatment` table in this screen's own chunk (calendar's shared mark sits behind `calendar/ui`, whose barrel ships the whole event form + zod onto the first paint). | visual:check |
+| [ui/CalendarAttendance.svelte](ui/CalendarAttendance.svelte) | component | The `going/invited` badge, same markup as calendar's badge, in this screen's chunk (same reason as `CalendarMark`). | visual:check |
+| [ui/CalendarCreator.svelte](ui/CalendarCreator.svelte) | component | The "by <First>" creator marker, same markup as calendar's badge, in this screen's chunk (same reason as `CalendarMark`). | visual:check |
 | [ui/TaskChip.svelte](ui/TaskChip.svelte) | component | One due-Task chip (dashed, no calendar colour, recurring mark); read-only until tasks exports a detail sheet. | visual:check |
 | [ui/MonthView.svelte](ui/MonthView.svelte) | component | The weekday headers and the full matrix from the grid rules, and the ONE `matchMedia` read of the 768px breakpoint (`narrow`) shared by every cell. | visual:check |
 | [ui/MonthCell.svelte](ui/MonthCell.svelte) | component | The fixed-height cell (72/92/104px), chips + `+N more`, hover tools, and the width/Selection tap fork. | visual:check |
@@ -72,7 +75,7 @@ The public API is designed at S1. The entries are filled as their steps land; th
 | [ui/DayEventsModal.svelte](ui/DayEventsModal.svelte) | component | The `+N more` day list (ISO keys) with its Tasks group. | visual:check |
 | [ui/BulkEditBar.svelte](ui/BulkEditBar.svelte) | component | The selection toolbar: delete confirm, plan review, past ask, calendar/location/attendant/smart tools and the error + report line. | visual:check |
 | [ui/SelectionExitAsk.svelte](ui/SelectionExitAsk.svelte) | component | The inline "exit selection to move this event?" ask. | visual:check |
-| [ui/CreateAnythingModal.svelte](ui/CreateAnythingModal.svelte) | component | The two-tab create sheet: calendar's Event form (with the tasks checklist snippet) and this screen's Task form (categories on first open, Q-101 B). | visual:check |
+| [ui/CreateAnythingModal.svelte](ui/CreateAnythingModal.svelte) | component | The two-tab create sheet (legacy layout: tabs inside the form body, action bar as the sheet footer): calendar's Event form (checklist snippet loads tasks' UI on demand) and this screen's Task form (lazy `TaskFields`, categories on first open, Q-101 B). Loaded after the page's `load` event. | visual:check |
 | [ui/TaskFields.svelte](ui/TaskFields.svelte) | component | Task title, Visibility, optional Due Date and Category. | visual:check |
 | [ui/FirstRunCard.svelte](ui/FirstRunCard.svelte) | component | "Blank calendar!" with the Smart tasks link and its dismissal. | visual:check |
 | [ui/FilterEmpty.svelte](ui/FilterEmpty.svelte) | component | The three filter empty states (calendars, search, people), each with its one-tap recovery. | visual:check |
