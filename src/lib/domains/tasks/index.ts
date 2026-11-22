@@ -41,15 +41,17 @@ export {
 	type FamilyBoardRow
 } from './tasks.board.rules';
 
-// --- Browser client and UI state ---------------------------------------------
+// --- Browser client ----------------------------------------------------------
 
 export { createTasksApi, type TasksApi, type TaskMutationAnswer } from './tasks.api';
-export { TasksPageState, FOCUS_SETTLE_MS, type TasksStateOptions } from './tasks.page.state.svelte';
-export {
-	TaskQuickAddState,
-	type TaskQuickAddStateOptions
-} from './tasks.quickadd.state.svelte';
-export { EventTaskChecklistState, type TaskChecklistOptions } from './tasks.checklist.state.svelte';
+
+// The page state classes (`TasksPageState`, `TaskQuickAddState`,
+// `EventTaskChecklistState`) are deliberately NOT re-exported: the only
+// consumers are this module's own components, which import their files, while
+// re-exporting them made every rules-only consumer (the family board, the day
+// dashboard) pull the quick-add parser (`parsing.task.rules`, ~7 KB gzip) into
+// its first paint — Rollup did not shake a runed class module out of the entry
+// (ADR 0010).
 
 // The page shapes (load data + components) and their rules.
 export type {
