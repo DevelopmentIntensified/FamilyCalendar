@@ -224,7 +224,7 @@ screen owns no tables, so fixtures belong to the owning domains.
 
 ### e2e hooks (2026-11-21)
 
-The legacy Playwright journeys are the acceptance test for the port. Five account-side points needed
+The legacy Playwright journeys are the acceptance test for the port. Four account-side points needed
 the UI to carry legacy's hooks; each is in the README Notes as well.
 
 - **A rail click switches the section.** `AccountSidebar` hands the clicked id to `onSelect`, and
@@ -233,12 +233,11 @@ the UI to carry legacy's hooks; each is in the README Notes as well.
   `hashchange` event, and the screen's listener never ran (`AccountSettings.test.ts:62` clicked
   Security and the body stayed on Profile). Legacy read `$page.url.hash` reactively, which is why it
   never had the bug.
-- **The Calendar section carries the dashboard module switches.** `state.select('calendar')` also
-  fetches the Dashboard model (silently: a failed switches read leaves the calendar form alone) and
-  `AccountSectionBody` renders the switches under the calendar form. The journey clicks `#calendar`
-  and then reads "Dashboard modules" and `module_verse`/`module_glance` (`SettingsPage.test.ts:56`),
-  which is where they lived before legacy #105 split them out. The Dashboard section keeps its own
-  body, so the approved rail is untouched.
+- **The dashboard switches keep their own section.** `SettingsPage.test.ts:56` clicks `#calendar` and
+  then reads "Dashboard modules", but legacy #105 split them out and pinned that the calendar form
+  renders none of them (`AccountCalendarSection.svelte.test.ts:60`: a save would derive the hidden
+  list from a form without module checkboxes, blanking the dashboard). That journey is stale and is
+  being updated to click `#dashboard`; the port must not carry the switches into the calendar body.
 - **One `/pricing` link per reader.** The plan card's "Change plan" renders for a paid plan, the
   Family Master block for a free one. Legacy printed both, so the leaf `a[href="/pricing"]` was
   ambiguous and `SettingsPage.test.ts:77` failed on it.

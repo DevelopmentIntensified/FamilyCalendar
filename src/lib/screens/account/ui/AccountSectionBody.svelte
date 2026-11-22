@@ -6,12 +6,6 @@
 
 	The switch reads the model's own `section` tag, so a body and its model
 	cannot disagree.
-
-	`dashboard` is the module-switch model when it has arrived: the Calendar
-	section shows it under the calendar form, because the module switches and
-	the calendar settings were one page before they became two sections and the
-	legacy journey still reads them there. The Dashboard section keeps its own
-	body, so the rail's Dashboard link shows the same switches alone.
 -->
 <script lang="ts">
 	import type { AccountActionForm } from '../account.form.rules';
@@ -28,9 +22,6 @@
 	import AccountSecuritySection from './AccountSecuritySection.svelte';
 	import AccountSubscriptionSection from './AccountSubscriptionSection.svelte';
 
-	/** The Dashboard section's model, when the screen has fetched it. */
-	type AccountDashboardModel = Extract<AccountSectionModel, { section: 'dashboard' }>;
-
 	interface Props {
 		model: AccountSectionModel;
 		form: AccountActionForm | null;
@@ -39,11 +30,9 @@
 		enhance: AccountFormEnhancer;
 		exporting: boolean;
 		onExport: () => void;
-		/** The module switches the Calendar section carries (also its own section). */
-		dashboard?: AccountDashboardModel | null;
 	}
 
-	let { model, form, now, enhance, exporting, onExport, dashboard = null }: Props = $props();
+	let { model, form, now, enhance, exporting, onExport }: Props = $props();
 </script>
 
 {#if model.section === 'profile'}
@@ -58,11 +47,6 @@
 	/>
 {:else if model.section === 'calendar'}
 	<AccountCalendarSection {model} {enhance} />
-	{#if dashboard}
-		<div class="mt-8 border-t border-slate-200 pt-8">
-			<AccountDashboardSection model={dashboard} {enhance} />
-		</div>
-	{/if}
 {:else if model.section === 'dashboard'}
 	<AccountDashboardSection {model} {enhance} />
 {:else if model.section === 'subscription'}

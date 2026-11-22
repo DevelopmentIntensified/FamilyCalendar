@@ -48,11 +48,6 @@
 	});
 
 	const model = $derived(state.model());
-	// The Calendar section carries the dashboard switches (the state class fetches
-	// them with it); the body takes the Dashboard model shape or nothing.
-	const dashboard = $derived(
-		state.models.dashboard?.section === 'dashboard' ? state.models.dashboard : null
-	);
 
 	// The ten sections load as one chunk, on demand: the first paint ships the
 	// chrome, the rail, the banner and (server-rendered) the default section
@@ -167,7 +162,6 @@
 								{form}
 								{now}
 								{enhance}
-								{dashboard}
 								exporting={state.exporting}
 								onExport={() => state.exportData()}
 							/>

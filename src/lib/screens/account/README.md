@@ -36,7 +36,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [account.export.service.server.ts](account.export.service.server.ts) | service | `getAccountExport`: identity first (a missing person row is a fault, never an empty document), then the slices in legacy order, then calendar by the exported tasks' event ids, then bills. | [account.export.service.db.test.ts](account.export.service.db.test.ts) |
 | [account.service.server.ts](account.service.server.ts) | service | `getAccountIdentity`, `getAccountSection` (the ten-branch lazy composition), `getAccountPaint`, and the nine mutations — settings/dashboard/notifications/profile/sessions/tokens/deletion — each delegating to the owning domain. | [account.service.db.test.ts](account.service.db.test.ts) |
 | [account.api.ts](account.api.ts) | api | `fetchSection` (typed against the section model) and `downloadExport(now)` (dated attachment). | — |
-| [account.state.svelte.ts](account.state.svelte.ts) | state | `AccountScreenState` (active section, per-section cache, pending/error, export toasts) and `AccountFormEnhancer`. `select('calendar')` also fetches the Dashboard model, silently, because the Calendar section carries the module switches. No domain import, so nothing heavy rides the first paint. | [account.state.test.ts](account.state.test.ts) |
+| [account.state.svelte.ts](account.state.svelte.ts) | state | `AccountScreenState` (active section, per-section cache, pending/error, export toasts) and `AccountFormEnhancer`. No domain import, so nothing heavy rides the first paint. | [account.state.test.ts](account.state.test.ts) |
 | [account.notifications.state.svelte.ts](account.notifications.state.svelte.ts) | state | `AccountNotificationsState`: optimistic flip, receipt, and the revert through alerts' `saveOutcome`. Loads with the Notifications section. | [account.state.test.ts](account.state.test.ts) |
 | [account.http.server.ts](account.http.server.ts) | http | `accountPageLoad`, the nine action handlers (`accountSaveCalendarSettingsAction` … `accountDeleteAccountAction`; `updateEmail` is access's `changeEmailAction` wired in the route), `accountSectionEndpoint`, `accountMeGetEndpoint`, `accountMeDeleteEndpoint`, `accountExportEndpoint`, `accountCalendarSettingsRedirect`. Legacy wording kept verbatim. | [account.http.db.test.ts](account.http.db.test.ts) (goldens) |
 | [account.contract.test.ts](account.contract.test.ts) | test | The three `/api` bodies the golden pins and the ten section models. | — |
@@ -51,8 +51,8 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [account.service.db.test.ts](account.service.db.test.ts) | test | Every IO Invariant in this README (see pin list). | — |
 | [account.state.test.ts](account.state.test.ts) | test | One fetch per section, retry, export toasts, optimistic flip + revert. | — |
 | [account.http.db.test.ts](account.http.db.test.ts) | test | Frozen golden for `GET`/`DELETE /api/me` and `GET /api/account/export` (unchanged since the S2 sha). | — |
-| [ui/AccountScreen.svelte](ui/AccountScreen.svelte) | ui | Chrome (breadcrumbs, header, back link), rail, banner, the hash-selected section, skeletons and retry, the one Toaster. The section body is imported with `await import()`, the rail's click hands it its section directly, and the Dashboard model rides into the body for the Calendar section. | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) |
-| [ui/AccountSectionBody.svelte](ui/AccountSectionBody.svelte) | ui | The ten-section switch, kept in its own lazily imported chunk so the first paint does not ship every section. The Calendar body renders the dashboard module switches under the calendar form, as the pre-split page did. | [ui/AccountSectionBody.svelte.test.ts](ui/AccountSectionBody.svelte.test.ts) |
+| [ui/AccountScreen.svelte](ui/AccountScreen.svelte) | ui | Chrome (breadcrumbs, header, back link), rail, banner, the hash-selected section, skeletons and retry, the one Toaster. The section body is imported with `await import()`, and the rail's click hands it its section directly. | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) |
+| [ui/AccountSectionBody.svelte](ui/AccountSectionBody.svelte) | ui | The ten-section switch, kept in its own lazily imported chunk so the first paint does not ship every section. | — |
 | [ui/AccountSidebar.svelte](ui/AccountSidebar.svelte) | ui | Section links from `ACCOUNT_SECTIONS` (each click hands its id to `onSelect`, so a hydrated hash click still switches), Report-a-Bug with `?from=/account#<section>` (Q-080 B), the signed-in-as card (never a guest placeholder). Colour/type come from the marketing tokens (`#129`). | [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) |
 | [ui/AccountProfileSection.svelte](ui/AccountProfileSection.svelte) | ui | The name form, `update({reset:false})`, "Saving..." → "Update Profile". | — |
 | [ui/AccountFamiliesSection.svelte](ui/AccountFamiliesSection.svelte) | ui | One row per family (initial, name, `N members · role`, "Manage →"), empty state, "+ Create a family". | — |
@@ -66,7 +66,6 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [ui/AccountDangerSection.svelte](ui/AccountDangerSection.svelte) | ui | The export card (state toasts) and the two-step typed-id delete. | [ui/AccountDangerSection.svelte.test.ts](ui/AccountDangerSection.svelte.test.ts) |
 | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) | test | Chrome, section rendering, banner fallback, guest claim link. | — |
 | [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) | test | Links, the click's `onSelect`, report link location, guest card. | — |
-| [ui/AccountSectionBody.svelte.test.ts](ui/AccountSectionBody.svelte.test.ts) | test | The Calendar body carries the dashboard switches; the calendar form alone until they land. | — |
 | [ui/AccountSubscriptionSection.svelte.test.ts](ui/AccountSubscriptionSection.svelte.test.ts) | test | One `/pricing` link on a free plan and on a paid one. | — |
 | [ui/AccountNotificationsSection.svelte.test.ts](ui/AccountNotificationsSection.svelte.test.ts) | test | Skeletons, switches, optimistic flip, receipt, note. | — |
 | [ui/AccountCalendarSection.svelte.test.ts](ui/AccountCalendarSection.svelte.test.ts) | test | Consent labels, options, reload sync. | — |
@@ -229,15 +228,14 @@ Each line names the test that pins it.
 - e2e hooks (2026-11-21, `e2e/account/*` + `e2e/calendar/SettingsPage.test.ts`): the rail's link
   hands its section to `onSelect` as well as carrying the `href` — once hydrated, SvelteKit moves a
   same-page hash click without a `hashchange` event, so the fragment alone did not switch the body
-  (`AccountSettings.test.ts:62` clicked Security and stayed on Profile). The Calendar section renders
-  the dashboard module switches under the calendar form (`AccountSectionBody`), because the legacy
-  journey reads them there after clicking `#calendar` — the page itself keeps `#dashboard` as its own
-  section, since the section split (legacy #105 / the approved page) is not being undone. The plan
-  card links `/pricing` only for a paid plan and the Family Master block only for a free one: two
-  links at once made the leaf `a[href="/pricing"]` ambiguous (`SettingsPage.test.ts:77`); legacy
-  printed both. `input#email` is the legacy hook (`EmailChange`, `ProfileEditing`), so the Email
-  section's wrapper carries no id of its own — legacy had both, a duplicate id that left the label
-  pointing at the wrapper.
+  (`AccountSettings.test.ts:62` clicked Security and stayed on Profile). The dashboard module
+  switches stay in their own `#dashboard` section: legacy's split (#105) pinned that the calendar
+  form renders none of them, because a save would derive the hidden list from a form that has no
+  module checkboxes. The plan card links `/pricing` only for a paid plan and the Family Master block
+  only for a free one: two links at once made the leaf `a[href="/pricing"]` ambiguous
+  (`SettingsPage.test.ts:77`); legacy printed both. `input#email` is the legacy hook (`EmailChange`,
+  `ProfileEditing`), so the Email section's wrapper carries no id of its own — legacy had both, a
+  duplicate id that left the label pointing at the wrapper.
 - `#129` design conformance (`e2e/conformance/account-known-bad.test.ts`): the rail title is a 12px
   marketing size tracked to the prototype's 0.88px, the identity badge background is the warm-100
   token (`#fdede0`) instead of the bespoke blush, and the screen's skeleton bars take the canvas

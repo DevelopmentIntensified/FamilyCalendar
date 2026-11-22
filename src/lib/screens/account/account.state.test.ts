@@ -32,35 +32,6 @@ const FAMILIES: AccountSectionModel = {
 	section: 'families',
 	families: [{ id: 'family-1', name: 'Lovelace', role: 'owner', memberType: 'parent', memberCount: 1 }]
 };
-const CALENDAR: AccountSectionModel = {
-	section: 'calendar',
-	settings: {
-		weekStart: null,
-		timeZone: null,
-		color: null,
-		defaultView: null,
-		defaultCalendarId: null,
-		syncEventsToFamilyCalendar: null,
-		autoParseEventDetails: null,
-		showAdsAsEvents: null
-	},
-	calendars: [],
-	consentHistory: []
-};
-const DASHBOARD: AccountSectionModel = {
-	section: 'dashboard',
-	hidden: [],
-	modules: [
-		{
-			id: 'verse',
-			label: 'Daily Verse',
-			scope: 'personal',
-			band: 'info',
-			meaning: 'the verse',
-			mounted: true
-		}
-	]
-};
 
 /** A fake api: per-section answers, and a call log. */
 function fakeApi(answers: Partial<Record<AccountSectionModel['section'], ApiResult<AccountSectionModel>>> = {}) {
@@ -90,35 +61,6 @@ describe('AccountScreenState', () => {
 		await state.select('families');
 		expect(calls).toEqual(['families']);
 		expect(state.model()).toEqual(FAMILIES);
-	});
-
-	it('fetches the dashboard switches with the calendar section, outside the retry state', async () => {
-		const { api, calls } = fakeApi({
-			calendar: { ok: true, data: CALENDAR },
-			dashboard: { ok: true, data: DASHBOARD }
-		});
-		const state = new AccountScreenState(api, memoryToasts(), PROFILE, NOW);
-
-		await state.select('calendar');
-
-		expect(calls).toEqual(['dashboard', 'calendar']);
-		expect(state.model()).toEqual(CALENDAR);
-		expect(state.models.dashboard).toEqual(DASHBOARD);
-		expect(state.error).toBeNull();
-	});
-
-	it('keeps the calendar form when the switches read fails', async () => {
-		const { api } = fakeApi({
-			calendar: { ok: true, data: CALENDAR },
-			dashboard: { ok: false, status: 500, error: 'nope' }
-		});
-		const state = new AccountScreenState(api, memoryToasts(), PROFILE, NOW);
-
-		await state.select('calendar');
-
-		expect(state.model()).toEqual(CALENDAR);
-		expect(state.models.dashboard).toBeUndefined();
-		expect(state.error).toBeNull();
 	});
 
 	it('keeps the failure sentence, then retries on demand', async () => {
