@@ -404,10 +404,12 @@ Measured with `fcv2-agent-build.sh` (static closure + mobile root-error extras; 
   and a module that builds zod schemas at load cannot be dropped: the chip and move rules the grid imports
   therefore carried zod (28 KB). The constants now live in `calendar.copy.rules.ts` (the contract and the
   entry re-export them, same names).
-- The create modal's chunk is fetched after the `load` event (`afterLoad` in `CalendarPage`), because a deep
-  link opens it during hydration and a plain `import()` there billed the form (and, through the tasks
-  barrel, three whole screens) to the first paint. The FAB warms it on hover/focus (legacy prefetched on
-  idle). The Task half (`TaskFields`) and the tasks checklist (`tasks/ui`) are lazy inside the modal.
+- The create modal opens at once on a deep link (`#nl-input` is the ready element), so its chunk (calendar's
+  event form, ~42 KB) is the only thing a share-target visit pays beyond the page. What it must not pay is
+  tasks' UI barrel (three whole screens, ~69 KB): the checklist snippet imports it only after the `load`
+  event (`afterLoad`, passed in by `CalendarPage`) and the Task half (`TaskFields`) only when the Task tab is
+  chosen. The FAB warms the modal chunk on hover/focus (legacy prefetched on idle). `tasks/ui` has no
+  lighter entry (R2), so the barrel itself stays whole.
 - The share-target visual: legacy's layout is now the modal's — the Event/Task tabs ride inside the form's
   padded body (`CalendarEventForm` takes a `lead` snippet), the action bar is the sheet's footer
   (`inlineActions={false}`) so it stays visible while the body scrolls, the "Parsed wrong? Report this

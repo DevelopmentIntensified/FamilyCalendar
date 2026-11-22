@@ -88,10 +88,9 @@
 
 	/**
 	 * Resolves once the window's `load` event has fired and the browser has a quiet
-	 * moment. ADR 0010 counts the JS transferred up to `load`; a deep link opens
-	 * the create modal during hydration, so a plain `import()` there would bill
-	 * the modal's chunk (calendar's event form, zod) to the first paint. Legacy
-	 * fetched its form modal on browser idle for the same reason.
+	 * moment. ADR 0010 counts the JS transferred up to `load`; the create modal's
+	 * secondary parts (the tasks checklist, which only exists behind tasks' UI
+	 * barrel) wait for it so they are not billed to the first paint.
 	 * (Executor form on purpose: `Promise.withResolvers` is newer than the
 	 * browsers this page still serves.)
 	 */
@@ -110,12 +109,13 @@
 	}
 
 	/**
-	 * The create modal's chunk is fetched once, after `load` (see `afterLoad`).
-	 * The FAB warms it on hover/focus, as legacy's idle prefetch did.
+	 * The create modal's chunk is fetched once and opens at once (a deep link's
+	 * `#nl-input` is the ready element). The FAB warms it on hover/focus, as
+	 * legacy's idle prefetch did.
 	 */
 	let createModal: Promise<typeof import('./CreateAnythingModal.svelte')> | null = null;
 	function loadCreateModal() {
-		createModal ??= afterLoad().then(() => import('./CreateAnythingModal.svelte'));
+		createModal ??= import('./CreateAnythingModal.svelte');
 		return createModal;
 	}
 
@@ -438,6 +438,7 @@
 				start={page.createStart}
 				{parseEvent}
 				autoParse={quickAdd.autoParse}
+				{afterLoad}
 				onclose={() => page.closeCreate()}
 			/>
 		{/await}

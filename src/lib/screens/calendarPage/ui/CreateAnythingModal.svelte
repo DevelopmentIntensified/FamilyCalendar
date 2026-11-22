@@ -16,8 +16,9 @@
 	Layout is legacy `EventFormModal`'s: the tabs ride inside the form's padded
 	body (`lead`), and the action bar is the sheet's footer, so it stays put
 	while the body scrolls. The Task half and the tasks checklist are their own
-	chunks (the Event half never needs tasks' UI barrel), and this whole modal
-	loads after the page's `load` event (see `CalendarPage`'s `afterLoad`).
+	chunks (the Event half never needs tasks' UI barrel; the checklist waits for
+	the page's `load` event, the Task half for its tab), so a deep link pays only
+	for the form.
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
@@ -43,10 +44,12 @@
 		parseEvent: CalendarParseEvent | null;
 		/** The person's `autoParseEventDetails` switch (legacy `=== false` = off). */
 		autoParse?: boolean;
+		/** Resolves after the page's `load` event (the checklist's chunk waits for it). */
+		afterLoad: () => Promise<void>;
 		onclose: () => void;
 	}
 
-	let { state: page, seed, start, parseEvent, autoParse = true, onclose }: Props = $props();
+	let { state: page, seed, start, parseEvent, autoParse = true, afterLoad, onclose }: Props = $props();
 
 	type EntryType = 'event' | 'task';
 	let entryType = $state<EntryType>('event');
@@ -238,7 +241,7 @@
 			inlineActions={false}
 		>
 			{#snippet checklist({ eventId })}
-				{#await import('$lib/domains/tasks/ui') then { EventTaskChecklist }}
+				{#await afterLoad().then(() => import('$lib/domains/tasks/ui')) then { EventTaskChecklist }}
 					<EventTaskChecklist {eventId} />
 				{/await}
 			{/snippet}
