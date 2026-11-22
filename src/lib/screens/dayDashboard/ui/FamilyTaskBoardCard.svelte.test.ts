@@ -101,6 +101,22 @@ describe('FamilyTaskBoardCard', () => {
 		expect(screen.getByText(/3-week streak/)).toBeTruthy();
 	});
 
+	it('keeps the legacy "?" help between the title field and Add, opening the quick-add grammar', async () => {
+		renderCard([]);
+		const help = screen.getByRole('button', { name: 'Quick-add shortcuts help' });
+		expect(help).toHaveAttribute('aria-expanded', 'false');
+		expect(help).toHaveClass('h-11', 'w-11');
+		// Legacy order: title field, "?", Add.
+		const add = screen.getByRole('button', { name: 'Add' });
+		expect(help.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+		await fireEvent.click(help);
+		expect(help).toHaveAttribute('aria-expanded', 'true');
+		expect(screen.getByText('Type these right in the title')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+		expect(screen.queryByText('Type these right in the title')).toBeNull();
+	});
+
 	it('invites a streak when there is none', () => {
 		renderCard([], 0);
 		expect(screen.getByText(/Start a streak — check off today's tasks/)).toBeTruthy();

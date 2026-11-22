@@ -11,6 +11,7 @@
 	import MentionInput from '$lib/kernel/ui/MentionInput.svelte';
 	import { idColor } from '$lib/kernel/ui/colorHash';
 	import { groupFamilyBoard, taskPriorityDot } from '$lib/domains/tasks';
+	import BoardQuickAddHelp from './BoardQuickAddHelp.svelte';
 	import BoardCategoryField from './BoardCategoryField.svelte';
 	import type { DashboardFamilyTaskRow, DashboardRosterRow } from '../dayDashboard.contract';
 	import { dashboardDueTone } from '../dayDashboard.cards.rules';
@@ -106,6 +107,7 @@
 					onsubmit={() => void state.addFamilyTask()}
 				/>
 			</div>
+			<BoardQuickAddHelp />
 			<button
 				type="submit"
 				disabled={!state.quickTitle.trim() || state.quickBusy}

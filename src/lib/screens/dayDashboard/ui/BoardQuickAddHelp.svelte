@@ -1,0 +1,56 @@
+<!--
+	The "?" between the board quick-add's title field and Add, in the screen's
+	own chunk: `tasks/ui`'s barrel carries every task screen onto the dashboard's
+	first paint. This is the legacy `TaskQuickAddHelp` markup (the 44px circle
+	is part of that row's width, so omitting it shifts the field and Add), with
+	the grammar a person can type straight into the title.
+-->
+<script lang="ts">
+	let open = $state(false);
+</script>
+
+<span class="relative inline-flex shrink-0 items-center">
+	<button
+		type="button"
+		onclick={() => (open = !open)}
+		aria-expanded={open}
+		aria-label="Quick-add shortcuts help"
+		title="Quick-add shortcuts"
+		class="flex h-11 w-11 items-center justify-center rounded-full text-base font-bold text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+	>
+		?
+	</button>
+	{#if open}
+		<div
+			class="absolute right-0 top-full z-20 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-lg"
+		>
+			<p class="mb-2 text-xs font-semibold text-slate-700">Type these right in the title</p>
+			<ul class="space-y-1.5 text-slate-600">
+				<li>
+					<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">#public</code>
+					/
+					<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">#private</code>
+					— who can see it (default public)
+				</li>
+				<li>
+					<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">@family</code>
+					— add it to the family task list
+				</li>
+				<li>
+					<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">@name</code>
+					— assign to a member (e.g. <span class="font-mono text-[11px]">@maya</span>)
+				</li>
+			</ul>
+			<p class="mt-2 border-t border-slate-100 pt-2 text-slate-500">
+				Example: <span class="font-mono text-[11px] text-slate-700">@family clean the garage</span>
+			</p>
+			<button
+				type="button"
+				onclick={() => (open = false)}
+				class="mt-2 min-h-[44px] rounded-lg px-2 text-xs font-medium text-slate-400 hover:text-slate-600"
+			>
+				Close
+			</button>
+		</div>
+	{/if}
+</span>
