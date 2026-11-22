@@ -248,6 +248,10 @@ Each line names the test that pins it.
   marketing size tracked to the prototype's 0.88px, the identity badge background is the warm-100
   token (`#fdede0`) instead of the bespoke blush, and the screen's skeleton bars take the canvas
   token (`#f8f6f3`) — the kernel skeleton's slate-200 is not in the marketing colour set.
+  The title keeps legacy's 16.5px line box (`leading-[16.5px]` = 11px × the inherited 1.5), so the
+  rail and the page keep legacy's height for the pages visual check; only the title's own glyphs
+  differ (12px against legacy's 11px). The badge's `#fdede0` against legacy's `#FED5CF` is under the
+  visual check's colour threshold.
 - Verse deleted 2026-11-12 (Q-031/Q-032): `verseTranslation` left the settings wire and save;
   `showDailyVerse` stays on the `/api/me/settings` wire but the account form never posts it.
 - Q-083: the app shell layout will own Navbar/Toaster/BottomNav and the `/login` guard; until the

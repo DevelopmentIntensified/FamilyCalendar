@@ -21,6 +21,10 @@
 	Colour/type/shadow come from the marketing token set (`#129`): the rail
 	title is a 12px label tracked to the prototype's 0.88px, and the identity
 	badge sits on the warm-100 token, not a bespoke hex.
+
+	The title's line box stays legacy's 16.5px (11px × the inherited 1.5): the
+	12px marketing size alone takes text-xs's 16px and pulls everything below it
+	up half a pixel, which the pages visual check sees as a 1px shorter page.
 -->
 <script lang="ts">
 	import { ACCOUNT_SECTIONS, type AccountSectionId } from '../account.sections.rules';
@@ -82,7 +86,7 @@
 	>
 		<div
 			data-testid="account-rail-title"
-			class="mb-3 text-xs font-bold uppercase tracking-[0.88px] text-slate-400"
+			class="mb-3 text-xs font-bold uppercase leading-[16.5px] tracking-[0.88px] text-slate-400"
 		>
 			Settings
 		</div>
