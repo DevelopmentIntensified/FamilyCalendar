@@ -13,6 +13,13 @@
  */
 import { DateTime } from 'luxon';
 import { nameColor } from '$lib/kernel/ui/colorHash';
+import {
+	calendarAsDate,
+	type CalendarAttendanceRow,
+	type CalendarAttendanceSplit
+} from './calendar.eventDay.rules';
+
+export { calendarAttendanceSplit, calendarEventDay } from './calendar.eventDay.rules';
 
 /** The contact swatches (rose, amber, emerald, sky, violet, fuchsia, lime, orange). */
 const CONTACT_COLOURS = [
@@ -75,15 +82,7 @@ export interface CalendarEventView {
 	}[] | null;
 }
 
-/** One attendance row: a member when `userId` is set, otherwise a guest name. */
-export interface CalendarAttendanceRow {
-	readonly userId: string | null;
-	readonly status: string | null;
-	readonly firstName?: string | null;
-	readonly lastName?: string | null;
-	readonly name?: string | null;
-	readonly inviteType?: string | null;
-}
+export type { CalendarAttendanceRow };
 
 /** A guest with its own status (a name-only caller falls back to `invited`). */
 export interface CalendarGuestRow {
@@ -92,19 +91,10 @@ export interface CalendarGuestRow {
 	readonly inviteType?: string | null;
 }
 
-export interface CalendarAttendanceSplit {
-	readonly going: CalendarAttendanceRow[];
-	readonly maybe: CalendarAttendanceRow[];
-	readonly notGoing: CalendarAttendanceRow[];
-	readonly undecided: CalendarAttendanceRow[];
-}
+export type { CalendarAttendanceSplit };
 
-/** The legacy `toDate`: a Date passes through, a string is parsed. */
-function asDate(value: string | Date | null | undefined): Date | null {
-	if (!value) return null;
-	const parsed = value instanceof Date ? value : new Date(value);
-	return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
+/** The legacy `toDate` (see `calendar.eventDay.rules`). */
+const asDate = calendarAsDate;
 
 /** `HH:mm` of an instant on the viewer's clock, or `undefined` when unreadable. */
 export function calendarClockTime(value: string | Date | null | undefined): string | undefined {
@@ -122,12 +112,6 @@ export function calendarEventStartTime(event: CalendarEventView): string | undef
 /** The end time the detail region prints. */
 export function calendarEventEndTime(event: CalendarEventView): string | undefined {
 	return event.endTime || calendarClockTime(event.end);
-}
-
-/** The day the detail region prints: `date` when the row was split onto one. */
-export function calendarEventDay(event: CalendarEventView): Date | undefined {
-	if (event.date) return asDate(event.date) ?? undefined;
-	return asDate(event.start) ?? undefined;
 }
 
 /** `09:00` → `9:00 AM` (the legacy `formatTime`; 12:00 stays PM, 00:00 is 12 AM). */
@@ -163,25 +147,6 @@ export function calendarNameForEvent(
 		calendars.find((calendar) => calendar.id === event.calendarId)?.name ||
 		(event.calendarId ? 'Calendar' : '')
 	);
-}
-
-/** Bucket attendance rows; an unknown status counts as undecided (#039). */
-export function calendarAttendanceSplit(
-	rows: readonly CalendarAttendanceRow[]
-): CalendarAttendanceSplit {
-	const split: {
-		going: CalendarAttendanceRow[];
-		maybe: CalendarAttendanceRow[];
-		notGoing: CalendarAttendanceRow[];
-		undecided: CalendarAttendanceRow[];
-	} = { going: [], maybe: [], notGoing: [], undecided: [] };
-	for (const row of rows) {
-		if (row.status === 'going') split.going.push(row);
-		else if (row.status === 'maybe') split.maybe.push(row);
-		else if (row.status === 'declined' || row.status === 'not_going') split.notGoing.push(row);
-		else split.undecided.push(row);
-	}
-	return split;
 }
 
 /**
