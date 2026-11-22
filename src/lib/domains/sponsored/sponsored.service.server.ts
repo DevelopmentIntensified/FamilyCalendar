@@ -20,13 +20,16 @@
  * Time: `listSponsoredEvents` takes the request instant as an INPUT — the
  * endpoint supplies `ctx.clock.now()`, tests pin it — so the service itself
  * stays a pure function of its parameters and `recordSponsoredConsentChange`
- * reads the same `ctx.clock.now()`.
+ * reads the same `ctx.clock.now()`. `seedSponsoredDemoAdEvents` is the one
+ * non-request service: the dev seed's demo inventory (`app`'s `runDevSeed`
+ * calls it), written insert-if-absent on the ctx clock.
  *
  * Doc: ./README.md#public-interface
  */
 import { getCalendarSettings, type IdentityCtx } from '$lib/domains/identity/index.server';
 import type { Actor } from '$lib/kernel/ctx/actor';
 import type { Ctx } from '$lib/kernel/ctx/ctx.server';
+import { sha256Hex } from '$lib/kernel/ids/ids';
 import type { SponsoredConsentDecision, SponsoredEvent } from './sponsored.contract';
 import { sponsoredConsentDecision } from './sponsored.consent.rules';
 import { toSponsoredEvent } from './sponsored.display.rules';
@@ -40,6 +43,7 @@ import {
 } from './sponsored.month.rules';
 import {
 	deleteAdEventsCreatedBefore,
+	insertAdEventsIfAbsent,
 	insertSponsoredConsentRecord,
 	listSponsoredConsentRecords
 } from './sponsored.repo.server';
@@ -134,6 +138,82 @@ export async function listSponsoredConsentHistory(
 ): Promise<SponsoredConsentRecord[]> {
 	const rows = await listSponsoredConsentRecords(ctx.db, userId);
 	return rows.map((row) => ({ decision: row.decision, recordedAt: row.recordedAt }));
+}
+
+/** The legacy seed's five demo templates, verbatim (`seed.ts:159-193`). */
+const SPONSORED_DEMO_AD_TEMPLATES = [
+	{
+		sponsorName: 'Local Store',
+		message: 'Summer Sale! Get 50% off',
+		ctaText: 'Shop Now',
+		ctaLink: 'https://example.com/sale',
+		targetPlan: 'free'
+	},
+	{
+		sponsorName: 'Family Products',
+		message: 'Check out our latest family organizer',
+		ctaText: 'Learn More',
+		ctaLink: 'https://example.com/product',
+		targetPlan: 'free'
+	},
+	{
+		sponsorName: 'Recipe Club',
+		message: 'Share your favorite family recipes',
+		ctaText: 'Join',
+		ctaLink: 'https://example.com/recipes',
+		targetPlan: 'free'
+	},
+	{
+		sponsorName: 'Holiday Helpers',
+		message: 'Start planning your holiday events early',
+		ctaText: 'Get Tips',
+		ctaLink: 'https://example.com/holidays',
+		targetPlan: 'free'
+	},
+	{
+		sponsorName: 'School Tools',
+		message: 'Organize your school schedules',
+		ctaText: 'Sign Up',
+		ctaLink: 'https://example.com/school',
+		targetPlan: 'free'
+	}
+] as const;
+
+const SPONSORED_DEMO_AD_DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Write the legacy dev seed's five demo ad rows, keyed `test-ad-1` …
+ * `test-ad-5`: insert-if-absent, so a second seed writes nothing (the legacy
+ * `.onConflictDoNothing()`). Scheduling is the legacy maths against the ctx
+ * clock (`seed.ts:196-198`): row `i` starts `(i - 2)` weeks from `now` and
+ * expires 30 days after it starts.
+ *
+ * The legacy seed drew `impressions`/`clicks` at random; v2 derives them from
+ * the row id through the module's seeded draw (the Q-041 precedent), so one
+ * database gets one stable set and R5's global-random ban holds. The legacy
+ * seed wrote no ads while the `users` table was empty; that gate is gone — the
+ * demo rows reference no user, and reading identity's table here would be an
+ * undeclared foreign read (see sheet › Notes).
+ *
+ * `app`'s `runDevSeed` is the only caller; answers how many rows were new.
+ */
+export async function seedSponsoredDemoAdEvents(ctx: Ctx): Promise<number> {
+	const now = ctx.clock.now();
+	const rows = SPONSORED_DEMO_AD_TEMPLATES.map((template, index) => {
+		const scheduledFor = new Date(now.getTime() + (index - 2) * 7 * SPONSORED_DEMO_AD_DAY_MS);
+		const expiresAt = new Date(scheduledFor.getTime() + 30 * SPONSORED_DEMO_AD_DAY_MS);
+		const random = sponsoredSeededDraw(sha256Hex(`sponsored-demo-ad:${index + 1}`));
+		return {
+			id: `test-ad-${index + 1}`,
+			...template,
+			scheduledFor,
+			expiresAt,
+			impressions: Math.floor(random() * 100) + 10,
+			clicks: Math.floor(random() * 10),
+			conversions: 0
+		};
+	});
+	return await insertAdEventsIfAbsent(ctx.db, rows);
 }
 
 /**

@@ -1,6 +1,6 @@
 /**
- * sponsored repo: the consent trail's append and read, and `adEvents`
- * retention.
+ * sponsored repo: the consent trail's append and read, the dev seed's ad rows,
+ * and `adEvents` retention.
  *
  * Each function takes `db: Db` first, contains no authorization and no
  * business rules (the gate, the month, the draw and the projection live in the
@@ -9,14 +9,20 @@
  * here reads the process clock (rule R5): the consent append takes its
  * `recordedAt`, the prune its cutoff.
  *
- * Deliberately absent (sheet › Notes): the impression/click counters and the
- * target-plan report — `adEvents` has no writer, so neither has a consumer.
+ * Deliberately absent (sheet › Notes): the engagement write and the target-plan
+ * report. `adEvents`' only writer is the dev seed's insert-if-absent, and no
+ * route exposes a counter.
  *
  * Doc: ./README.md#invariants
  */
 import { desc, eq, lt } from 'drizzle-orm';
 import type { Db } from '$lib/kernel/db/database.server';
-import { adConsentRecords, adEvents, type AdConsentRecordRow } from '$lib/kernel/db/tables.server';
+import {
+	adConsentRecords,
+	adEvents,
+	type AdConsentRecordRow,
+	type NewAdEventRow
+} from '$lib/kernel/db/tables.server';
 import type { SponsoredConsentDecision } from './sponsored.contract';
 
 /** One consent event to append; `recordedAt` is the caller's `now`. */
@@ -49,6 +55,25 @@ export async function listSponsoredConsentRecords(
 		.from(adConsentRecords)
 		.where(eq(adConsentRecords.userId, userId))
 		.orderBy(desc(adConsentRecords.recordedAt));
+}
+
+/**
+ * Write the dev seed's demo ad rows, keeping any id that already exists (the
+ * legacy seed's `.onConflictDoNothing()`, so re-running changes nothing), and
+ * answer how many rows were new. `createdAt` stays the column default: the
+ * rows' ages are real, like the legacy seed's, and the prune anchors on it.
+ */
+export async function insertAdEventsIfAbsent(
+	db: Db,
+	rows: readonly NewAdEventRow[]
+): Promise<number> {
+	if (rows.length === 0) return 0;
+	const inserted = await db
+		.insert(adEvents)
+		.values(rows.map((row) => ({ ...row })))
+		.onConflictDoNothing()
+		.returning({ id: adEvents.id });
+	return inserted.length;
 }
 
 /**

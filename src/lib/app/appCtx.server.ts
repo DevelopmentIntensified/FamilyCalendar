@@ -47,7 +47,8 @@ const production = process.env.NODE_ENV === 'production';
  * entry has no other `.env` loader. */
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is not set');
-const db = connectDb(databaseUrl).db;
+const dbHandle = connectDb(databaseUrl);
+const db = dbHandle.db;
 
 /** Production without `BETTER_AUTH_SECRET` refuses to boot (identity's rule). */
 const sessionSecret = resolveSessionSecret(process.env.BETTER_AUTH_SECRET, production);
@@ -115,3 +116,10 @@ export const appCtx = wirePorts({
 		userAgent
 	}
 } satisfies Ctx);
+
+/**
+ * The pool behind `appCtx`. A server never closes it (the process owns it for
+ * its lifetime); a script that must exit does — `scripts/db-seed.ts` awaits
+ * `runDevSeed(appCtx)` and then closes this handle.
+ */
+export const appDbHandle = dbHandle;

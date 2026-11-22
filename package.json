@@ -26,7 +26,7 @@
 		"db:up": "docker compose up -d --wait",
 		"db:down": "docker compose down",
 		"db:reset": "docker compose down -v",
-		"db:seed": "cross-env DATABASE_URL=postgres://postgres:postgres@localhost:5433/familycalendar tsx src/lib/server/seed.ts",
+		"db:seed": "tsx scripts/db-seed.ts",
 		"db:start": "docker compose up",
 		"db:studio": "drizzle-kit studio",
 		"brand:build": "node scripts/build-brand-rasters.mjs",
