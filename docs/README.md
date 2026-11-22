@@ -22,11 +22,13 @@ Every live document, what it is for, and when to read it. Start from [AGENTS.md]
 | `src/lib/**/README.md` | one per module: files, interface, tests, invariants | working inside that module |
 | [adr/](adr/) | decisions and their reasons (0001 roles; 0002 auth; 0003–0009 rewrite) | questioning a design choice |
 
-## The v2 rewrite (in progress)
+## The v2 rewrite (done; cutover pending the owner)
+
+Every domain, screen and app task is ported and the legacy folders are gone (`npm run census`: 0 legacy source files). [LEDGER.md](rewrite/LEDGER.md) is the rollup: APP-04 (Playwright e2e against a local build) is the only agent task left, and APP-07 (the cutover package) is the owner's.
 
 | doc | what | read when |
 |---|---|---|
-| [rewrite/README.md](rewrite/README.md) | start here: setup, the task loop, the never-list | executing the rewrite |
+| [rewrite/README.md](rewrite/README.md) | start here: setup, the task loop, the never-list | executing a remaining rewrite task |
 | [rewrite/LEDGER.md](rewrite/LEDGER.md) | every task with its status | picking the next task |
 | [rewrite/plan.md](rewrite/plan.md) | goal, definition of done, phases, risks, cutover | planning or reviewing |
 | [rewrite/playbooks/](rewrite/playbooks/port-a-module.md) | step-by-step recipes (port a module, goldens, UI, kernel, app, sync, stuck) | the ledger row links one |
