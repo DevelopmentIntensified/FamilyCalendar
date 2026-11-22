@@ -3,6 +3,10 @@
 	(`#242`), never its placeholder address; a real account gets the address,
 	`Status: Verified`/`Not Verified` and "Update Email" ("Updating..." while the
 	save runs).
+
+	The input keeps the legacy `id="email"` (the e2e journeys address
+	`input#email`); the wrapper therefore carries no id of its own, so the
+	`label for` reaches the field and the page's hash needs no anchor here.
 -->
 <script lang="ts">
 	import type { AccountSectionModel } from '../account.contract';
@@ -22,7 +26,7 @@
 	const registered = $derived(!model.isAnonymous && !!model.email);
 </script>
 
-<div id="email">
+<div>
 	<h2 class="mb-4 text-lg font-semibold text-slate-900">Email Address</h2>
 	{#if !registered}
 		<div class="space-y-3 text-sm text-slate-600">
@@ -47,10 +51,10 @@
 			class="space-y-4"
 		>
 			<div class="space-y-2">
-				<label for="emailAddress" class="block text-sm font-medium text-slate-700">Email</label>
+				<label for="email" class="block text-sm font-medium text-slate-700">Email</label>
 				<input
 					type="email"
-					id="emailAddress"
+					id="email"
 					name="email"
 					value={model.email}
 					class="w-full rounded-xl border border-slate-300 px-4 py-2.5 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"

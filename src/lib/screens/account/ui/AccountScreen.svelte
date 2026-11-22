@@ -48,6 +48,11 @@
 	});
 
 	const model = $derived(state.model());
+	// The Calendar section carries the dashboard switches (the state class fetches
+	// them with it); the body takes the Dashboard model shape or nothing.
+	const dashboard = $derived(
+		state.models.dashboard?.section === 'dashboard' ? state.models.dashboard : null
+	);
 
 	// The ten sections load as one chunk, on demand: the first paint ships the
 	// chrome, the rail, the banner and (server-rendered) the default section
@@ -106,7 +111,11 @@
 		<div
 			class="mt-6 grid grid-cols-1 items-start gap-4 min-[1000px]:grid-cols-[15rem_minmax(0,1fr)]"
 		>
-			<AccountSidebar activeSection={state.active} user={data.user} />
+			<AccountSidebar
+				activeSection={state.active}
+				user={data.user}
+				onSelect={(section) => void state.select(section)}
+			/>
 
 			<div class="min-w-0">
 				{#if banner?.kind === 'success'}
@@ -124,9 +133,16 @@
 					</div>
 				{/if}
 
+				<!-- The placeholder's bars take the warm canvas token (`#f8f6f3`): the
+				     kernel skeleton's slate-200 is not in the marketing colour set
+				     and /account is audited for zero deviations (`#129`). -->
 				<div class="rounded-[1.25rem] border border-slate-200 bg-white p-6">
 					{#if state.loading === state.active}
-						<Skeleton lines={5} label="Loading section" />
+						<Skeleton
+							lines={5}
+							label="Loading section"
+							class="[&_[data-skeleton-line]]:bg-[#f8f6f3]"
+						/>
 					{:else if state.error}
 						<div class="space-y-3">
 							<p class="text-sm text-red-700">{state.error}</p>
@@ -140,19 +156,28 @@
 						</div>
 					{:else if model}
 						{#await sectionBody}
-							<Skeleton lines={5} label="Loading section" />
+							<Skeleton
+								lines={5}
+								label="Loading section"
+								class="[&_[data-skeleton-line]]:bg-[#f8f6f3]"
+							/>
 						{:then SectionBody}
 							<SectionBody.default
 								{model}
 								{form}
 								{now}
 								{enhance}
+								{dashboard}
 								exporting={state.exporting}
 								onExport={() => state.exportData()}
 							/>
 						{/await}
 					{:else}
-						<Skeleton lines={5} label="Loading section" />
+						<Skeleton
+							lines={5}
+							label="Loading section"
+							class="[&_[data-skeleton-line]]:bg-[#f8f6f3]"
+						/>
 					{/if}
 				</div>
 			</div>

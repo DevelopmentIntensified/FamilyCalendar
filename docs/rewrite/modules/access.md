@@ -255,6 +255,15 @@ The owner answered seven of the questions the S1+S2 review raised, plus Q-062 an
 | Q-065 | **B** | Email-change codes are hashed at rest and looked up by digest like every other kind (`accountData.ts:375-383`, `account/verify-email/+page.server.ts:111,135`). Landed: `issueEmailCode` already stored the digest, so only the activated golden's assertion changed — it reads the mailed code and compares `HMAC-SHA-256(EMAILSECRET, code)`. | `POST /api/me/email — mails a code to the NEW address and answers the message` swaps its plaintext assertion for the digest. |
 | Q-066 | **B** | The 10 / 15 min reset throttle moves from the mobile wrapper into the shared service, so the web form gains it too (`api/mobile/auth/reset/+server.ts:11-31`). Landed: `RESET_ATTEMPT_LIMIT`/`WINDOW_MS`/`SCOPE` in `access.recovery.service.server.ts`, enforced first in `resetPassword`; both endpoints pass `clientKeyOf(request, RESET_ATTEMPT_SCOPE)` and the endpoint-level `rateLimit` is gone. | None: the mobile 429 golden keeps its limit, message and burst. Exactly one limiter — the wrapper's copy went, so the burst is not counted twice. |
 
+### A refused mail send does not fail an email change (e2e, 2026-11-21)
+
+Legacy sent through the Resend SDK, which returns `{ error }` instead of throwing, and
+`requestEmailChange` never read it: the code row was written and the request answered
+`Verification email sent…` even when the provider refused. The port's `Mailer` rejects on a refusal
+(`kernel/mail/resendMailer.server.ts`), which made the flow answer the legacy 500 and drop the row.
+`requestEmailChange` now keeps the send inside its own `try`/`catch`, so the legacy observable answer
+survives; the 500 `Failed to send verification email` stays for a fault of our own (the signed token,
+the write). Making the adapter swallow refusals for every module is a kernel decision, not access's.
 
 ### S3/S4 decisions (landed with the port)
 

@@ -3,6 +3,10 @@
 	"Active · …" and the renewal line), the limits table, the AI-usage bar with
 	its reset date when a real limit exists, and the upgrade block.
 
+	One `/pricing` link per reader: a paid plan changes plan from the card, and a
+	free plan upgrades from the Family Master block. Two at once made the leaf
+	`a[href="/pricing"]` ambiguous, which the legacy journey treats as a failure.
+
 	Every string is a rule (`account.subscription.rules.ts`); the component only
 	lays them out. `now` is the page load's instant, so "Resets …" does not read
 	the clock here.
@@ -75,12 +79,14 @@
 					<p class="mt-1 text-sm font-medium text-slate-600">{renewalLabel}</p>
 				{/if}
 			</div>
-			<a
-				href="/pricing"
-				class="rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
-			>
-				Change plan
-			</a>
+			{#if isPaidPlan}
+				<a
+					href="/pricing"
+					class="rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+				>
+					Change plan
+				</a>
+			{/if}
 		</div>
 	</div>
 
@@ -156,24 +162,26 @@
 		</div>
 	{/if}
 
-	<div class="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-		<h3 class="text-sm font-semibold text-amber-900">Family Master</h3>
-		<p class="mt-1 text-sm text-amber-800">
-			Unlimited family members, full event history, big attachments and unlimited AI events —
-			<span class="font-semibold"
-				>${pricing.monthly}/mo · ${pricing.annual}/yr · ${pricing.lifetime} lifetime</span
-			>.
-		</p>
-		<div class="mt-4 flex flex-wrap items-center gap-3">
-			<a
-				href="/pricing"
-				class="rounded-full bg-amber-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-amber-600"
-			>
-				See Plans & Pricing
-			</a>
+	{#if !isPaidPlan}
+		<div class="rounded-2xl border border-amber-200 bg-amber-50 p-6">
+			<h3 class="text-sm font-semibold text-amber-900">Family Master</h3>
+			<p class="mt-1 text-sm text-amber-800">
+				Unlimited family members, full event history, big attachments and unlimited AI events —
+				<span class="font-semibold"
+					>${pricing.monthly}/mo · ${pricing.annual}/yr · ${pricing.lifetime} lifetime</span
+				>.
+			</p>
+			<div class="mt-4 flex flex-wrap items-center gap-3">
+				<a
+					href="/pricing"
+					class="rounded-full bg-amber-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-amber-600"
+				>
+					See Plans & Pricing
+				</a>
+			</div>
+			<p class="mt-3 text-xs text-amber-700">
+				Checkout opens soon — purchases aren't live yet.
+			</p>
 		</div>
-		<p class="mt-3 text-xs text-amber-700">
-			Checkout opens soon — purchases aren't live yet.
-		</p>
-	</div>
+	{/if}
 </div>

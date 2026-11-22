@@ -144,13 +144,23 @@ export async function requestEmailChange(
 	verifyUrl.pathname = EMAIL_CHANGE_VERIFY_PATH;
 	verifyUrl.searchParams.set('token', token);
 
-	await ctx.mail.send({
-		to: email,
-		from: ctx.config.mailFrom,
-		subject: EMAIL_CHANGE_MAIL_SUBJECT,
-		html: `<h1>Your verification code is: ${code}</h1>
+	// Legacy sent through the Resend SDK, which answers `{ error }` rather than
+	// throwing: a refused message never failed the request, and the code row was
+	// written anyway, so the person could retry or open a link already in hand.
+	// The adapter here rejects on a refusal; the flow keeps legacy's observable
+	// answer and still binds the row below. Only a fault of our own (the token,
+	// the write) fails the request, exactly as legacy's own `try` did.
+	try {
+		await ctx.mail.send({
+			to: email,
+			from: ctx.config.mailFrom,
+			subject: EMAIL_CHANGE_MAIL_SUBJECT,
+			html: `<h1>Your verification code is: ${code}</h1>
 <p>Or click this link to verify: <a href="${verifyUrl.toString()}">Verify Email</a></p>`
-	});
+		});
+	} catch {
+		// Refused or unreachable provider: the pending change still exists.
+	}
 	// A new request replaces this address's pending change codes only (Q-103):
 	// `deleteCodesByEmail` took the reset marker with it, which revived a used link.
 	await discardEmailCodes(ctx, person.email, EMAIL_CHANGE_CODE_TYPE);

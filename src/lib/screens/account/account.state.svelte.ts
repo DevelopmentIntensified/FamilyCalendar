@@ -68,8 +68,23 @@ export class AccountScreenState {
 	/** Show a section, fetching its model when this visit has not seen it yet. */
 	select(section: AccountSectionId): Promise<void> {
 		this.active = section;
-		if (this.models[section] || this.loading === section) return Promise.resolve();
-		return this.load(section);
+		// The Calendar section carries the dashboard module switches: they were one
+		// page before the section split, and the legacy journey still reads them
+		// there. The fetch is silent — a failed switches read leaves the calendar
+		// form alone rather than replacing it with the retry card.
+		const switches =
+			section === 'calendar' ? this.loadCalendarModules() : Promise.resolve();
+		const own =
+			this.models[section] || this.loading === section ? Promise.resolve() : this.load(section);
+		return Promise.all([switches, own]).then(() => undefined);
+	}
+
+	/** The module switches the Calendar section shows, cached like any other model. */
+	private async loadCalendarModules(): Promise<void> {
+		if (this.models.dashboard) return;
+		const result = await this.api.fetchSection('dashboard');
+		if (!result.ok) return;
+		this.models = { ...this.models, [result.data.section]: result.data };
 	}
 
 	/** Fetch one section's model; the retry control calls this again. */
