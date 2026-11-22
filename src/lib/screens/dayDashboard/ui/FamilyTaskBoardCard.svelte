@@ -11,6 +11,10 @@
 	import MentionInput from '$lib/kernel/ui/MentionInput.svelte';
 	import { idColor } from '$lib/kernel/ui/colorHash';
 	import { groupFamilyBoard, taskPriorityDot } from '$lib/domains/tasks';
+	// The file, not `tasks/ui`: the barrel carries every task screen, and this
+	// row is the dashboard's first paint (ADR 0010). The legacy card put the
+	// same "?" between the title field and Add (`TasksQuickAddHelp`).
+	import TaskQuickAddHelp from '$lib/domains/tasks/ui/TaskQuickAddHelp.svelte';
 	import BoardCategoryField from './BoardCategoryField.svelte';
 	import type { DashboardFamilyTaskRow, DashboardRosterRow } from '../dayDashboard.contract';
 	import { dashboardDueTone } from '../dayDashboard.cards.rules';
@@ -106,6 +110,7 @@
 					onsubmit={() => void state.addFamilyTask()}
 				/>
 			</div>
+			<TaskQuickAddHelp />
 			<button
 				type="submit"
 				disabled={!state.quickTitle.trim() || state.quickBusy}
