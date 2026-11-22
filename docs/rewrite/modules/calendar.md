@@ -342,6 +342,8 @@ Deleted with the pages (legacy tests included): the whole legacy `src/lib/compon
 
 **S9 — left to the orchestrator:** the README is final (Files table, Invariants, this section) and both allowed checks print OK; `npm run census -- --write`, `npm run gate:push`, the visual/perf checks and the ledger row need npm, which this agent may not run.
 
+**Initial-JS round 2 (ADR 0010):** `/calendar/event/[id]` paints from the page payload alone (facts, attendee rows, RSVP counts) and imports `CalendarEventModalState` (the RSVP/delete writer) on the first hover or focus of an RSVP button or on delete, so the writer and its rules stay out of first paint. The group chrome's bell panel and menus are lazy too (alerts.md, shell.md), which is most of what the three calendar pages' ceilings needed.
+
 
 
 

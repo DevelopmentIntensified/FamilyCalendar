@@ -88,16 +88,6 @@ export function pushFailureText(reason?: string): string {
 	}
 }
 
-/** Decode a URL-safe base64 VAPID key into the bytes `subscribe()` wants. */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-	const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-	const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-	const raw = atob(base64);
-	const output = new Uint8Array(raw.length);
-	for (let i = 0; i < raw.length; i++) output[i] = raw.charCodeAt(i);
-	return output;
-}
-
 /** Map a DOM subscription onto the flow's plain shape. */
 function toBrowserSubscription(subscription: PushSubscription): BrowserPushSubscription {
 	const json = subscription.toJSON();
@@ -162,73 +152,4 @@ export async function getPushState(
 	} catch {
 		return 'unsubscribed';
 	}
-}
-
-/**
- * Ask permission (inside the click), find the worker, read the key, then
- * subscribe and post the subscription. A subscription the server refuses is
- * dropped locally, so the next click starts clean.
- */
-export async function subscribeToPush(
-	api: AlertsPushApi,
-	env: PushEnvironment = browserPushEnvironment()
-): Promise<PushSubscribeResult> {
-	if (!env.supported()) return { ok: false, reason: 'unsupported' };
-	if (!env.secure()) return { ok: false, reason: 'not-secure-context' };
-
-	// First await of the gesture: permission must ride the activation.
-	const permission = await env.requestPermission();
-	if (permission !== 'granted') return { ok: false, reason: 'permission-denied' };
-
-	let registration: PushRegistration | null;
-	try {
-		registration = await env.registration();
-	} catch {
-		return { ok: false, reason: 'no-service-worker' };
-	}
-	if (!registration) return { ok: false, reason: 'no-service-worker' };
-
-	const keyResult = await api.publicKey();
-	const publicKey = keyResult.ok ? keyResult.data.publicKey : null;
-	if (!publicKey) return { ok: false, reason: 'no-server-key' };
-
-	try {
-		// Reuse a live subscription: `subscribe()` over an existing one throws.
-		const existing = await registration.existing();
-		const subscription =
-			existing ?? (await registration.subscribe(urlBase64ToUint8Array(publicKey)));
-		const posted = await api.subscribePush({
-			endpoint: subscription.endpoint,
-			keys: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth }
-		});
-		if (!posted.ok) {
-			if (posted.status === 0) return { ok: false, reason: 'network-error' };
-			await subscription.unsubscribe().catch(() => {});
-			return { ok: false, reason: 'server-rejected' };
-		}
-		return { ok: true };
-	} catch {
-		return { ok: false, reason: 'subscribe-failed' };
-	}
-}
-
-/** Drop the browser subscription and the server row; always removes locally. */
-export async function unsubscribeFromPush(
-	api: AlertsPushApi,
-	env: PushEnvironment = browserPushEnvironment()
-): Promise<void> {
-	let subscription: BrowserPushSubscription | null = null;
-	try {
-		const registration = await env.registration();
-		subscription = registration ? await registration.existing() : null;
-	} catch {
-		return;
-	}
-	if (!subscription) return;
-	try {
-		await api.unsubscribePush({ endpoint: subscription.endpoint });
-	} catch {
-		// Removing locally still reflects what the person asked for.
-	}
-	await subscription.unsubscribe().catch(() => {});
 }

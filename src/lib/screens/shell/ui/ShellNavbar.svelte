@@ -1,6 +1,8 @@
 <!--
 	The app header: wordmark → `/`, the desktop destination links, the bell slot,
-	the avatar dropdown and the phone hamburger with its slide-down menu.
+	the avatar dropdown and the phone hamburger with its slide-down menu. The two
+	menus are lazy chunks, imported when first opened (and warmed a few seconds
+	after mount): ADR 0010.
 
 	Navigation is the prop `pathname`: any completed navigation closes BOTH menus
 	(issue 253: a bell goto or a tab tap used to leave them open), and Escape or an
@@ -16,13 +18,15 @@
 	Doc: ../README.md#invariants
 -->
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { reportBugHref } from '$lib/kernel/ui/bugReportLink';
 	import BrandMark from '$lib/kernel/ui/BrandMark.svelte';
+	import { systemScheduler } from '$lib/kernel/time/scheduler';
 	import type { ShellUserSummary } from '../shell.contract';
 	import { shellActiveHref, shellNavItems } from '../shell.nav.rules';
-	import ShellMobileMenu from './ShellMobileMenu.svelte';
-	import ShellProfileMenu from './ShellProfileMenu.svelte';
+
+	/** How long after mount the two closed menus' chunks are fetched. */
+	const MENU_WARM_MS = 4000;
 
 	interface Props {
 		pathname: string;
@@ -56,6 +60,16 @@
 
 	function closeProfileMenu(): void {
 		profileOpen = false;
+	}
+
+	// Both menus are lazy chunks (ADR 0010): a closed navbar - every app page -
+	// ships neither. Warm them a few seconds after mount, once the page's own
+	// load is over, so the first tap (even offline) finds them in the cache.
+	onMount(() => systemScheduler(warmMenus, MENU_WARM_MS));
+
+	function warmMenus(): void {
+		void import('./ShellMobileMenu.svelte');
+		void import('./ShellProfileMenu.svelte');
 	}
 
 	function closeMenus(): void {
@@ -129,12 +143,14 @@
 						</svg>
 					</button>
 					{#if profileOpen}
-						<ShellProfileMenu
-							{user}
-							reportBugHref={bugHref}
-							onNavigate={closeProfileMenu}
-							{onLogoutSubmit}
-						/>
+						{#await import('./ShellProfileMenu.svelte') then { default: ShellProfileMenu }}
+							<ShellProfileMenu
+								{user}
+								reportBugHref={bugHref}
+								onNavigate={closeProfileMenu}
+								{onLogoutSubmit}
+							/>
+						{/await}
 					{/if}
 				</div>
 			{:else}
@@ -178,13 +194,15 @@
 	</div>
 
 	{#if mobileOpen}
-		<ShellMobileMenu
-			{user}
-			{activeHref}
-			reportBugHref={bugHref}
-			{bell}
-			onNavigate={closeMenus}
-			{onLogoutSubmit}
-		/>
+		{#await import('./ShellMobileMenu.svelte') then { default: ShellMobileMenu }}
+			<ShellMobileMenu
+				{user}
+				{activeHref}
+				reportBugHref={bugHref}
+				{bell}
+				onNavigate={closeMenus}
+				{onLogoutSubmit}
+			/>
+		{/await}
 	{/if}
 </nav>

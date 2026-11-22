@@ -33,7 +33,7 @@
 
 <div
 	use:trapFocus
-	transition:slide={{ duration: 150 }}
+	transition:slide|global={{ duration: 150 }}
 	class="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
 	data-testid="shell-profile-menu"
 >

@@ -183,11 +183,12 @@ hands over, and adds no query and no write of its own.
 |---|---|
 | `src/routes/+layout.svelte` | keep the single `app.css` import; render `<ShellRoot>` with `routeId={page.route.id}` and data. |
 | `src/routes/+layout.server.ts` | **new**: `export const load = shellRootLoad;` |
-| `src/routes/(calendar)/calendar/+layout.svelte` | wiring: `<ShellGroupFrame variant="calendar">` with data, `url` and `ports`. |
+| `src/routes/(calendar)/calendar/+layout.svelte` | wiring: `<ShellGroupFrame variant="calendar">` inside `<ShellRoot>`; both imported as their **files** (`ui/ShellRoot.svelte`, `ui/ShellGroupFrame.svelte`), never `ui/index.ts` (see Decisions). |
 | `src/routes/(calendar)/calendar/+layout.server.ts` | wiring: `export const load = shellCalendarGroupLoad;` (file comment dropped). |
-| `src/routes/(family)/+layout.svelte` | wiring: `<ShellGroupFrame variant="family">`. |
+| `src/routes/(calendar)/account/+layout.svelte` | wiring: `<ShellRoot>` (its file) + the legacy `flex-grow` column. |
+| `src/routes/(family)/+layout.svelte` | wiring: `<ShellGroupFrame variant="family">` inside `<ShellRoot>`, same direct files. |
 | `src/routes/(family)/+layout.server.ts` | **deleted**: the root load's app-chrome guard covers the group, and a guard-only export would be a `pageLoad` passthrough (`pageLoad` requires a `handle`, which R8 forbids as an inline arrow), so there is nothing legitimate to wire. |
-| `src/routes/+error.svelte` | wiring: `<ShellErrorView status={page.status} message={page.error?.message} url={page.url} />`. |
+| `src/routes/+error.svelte` | wiring: `<ShellErrorView status={page.status} message={page.error?.message} pathname={page.url.pathname} search={…} />`, imported as its **file** (`ui/ShellErrorView.svelte`), never `ui/index.ts` (see Decisions). |
 
 No S2: shell owns no `/api/**` route, so there is no `shell.http.db.test.ts` golden file and no S2
 sha. Its db tests in S5/S6 pin the layout loads, not a wire.
@@ -227,6 +228,22 @@ sha. Its db tests in S5/S6 pin the layout loads, not a wire.
   (the chrome plus zod/luxon accounted for ~70 KB on `/claim`). Cost accepted by Q-073: the chrome
   remounts on a calendar ↔ family jump; `initOfflineSync` is module-level guarded, so a remount only
   re-runs the replay. `shellChromeForRoute` keeps the mode app-only (calendar + account + family).
+- **Route files import the shell component FILES, never `ui/index.ts`.** SvelteKit preloads a
+  route's error node together with its layouts, so the error page's imports are paid on every route.
+  The entry re-exports all three components; importing it from `+error.svelte` (and from the layouts,
+  which want only `ShellRoot`/`ShellGroupFrame`) put the group frame and the notices in that eager
+  preload — measured on the ADR 0010 harness as a mobile-only inflation of ~20 KB gzip on every page
+  (`/claim` 79 KB mobile against a 58 KB ceiling, `/admin` 88 KB against 65 KB), because a phone's
+  slower load lets the whole preload list land before the measurement cut while a desktop's does not.
+  The legacy error page imported only its own markup and a `reportBugHref` util, which is why the
+  legacy baselines show desktop ≈ mobile. The component files are the same modules the entry
+  re-exports; nothing new is public.
+- **The two menus are lazy chunks (ADR 0010, round 2).** `ShellNavbar` imports `ShellMobileMenu` and
+  `ShellProfileMenu` inside `{#await import()}` when first opened and warms both 4 s after mount
+  (through the kernel scheduler, so it lands after the measured load and a first tap offline still
+  finds the chunks in the service worker's cache). A closed navbar — every app page — therefore ships
+  ~2.4 KB gzip less; the menus' `slide` is `|global` because the menu is now a component root inside
+  an await block (a local transition would not play when the menu closes).
 - **Marketing keeps its own header.** Marketing is a domain (rank 16), so it may not import shell.
   Its ported public header owns the four public links and the Sign In/Get Started CTAs; `shellNavItems`
   is the signed-in app's list only.

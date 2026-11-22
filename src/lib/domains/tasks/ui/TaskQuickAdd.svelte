@@ -1,7 +1,8 @@
 <!--
 	The "New task" card: one textarea that parses what you type, a live preview of
 	what will be captured, the paste-a-list bulk branch (arm, then confirm), the
-	due shortcuts, the category/visibility extras and the smart-task templates.
+	due shortcuts, the category/visibility extras and the smart-task templates
+	(the "?" tips, the extras and the templates are lazy chunks that load on open).
 
 	Parsing owns the grammar; `TaskQuickAddState` owns the behaviour (parse,
 	bulk, submit, toasts); this file is the layout and the copy.
@@ -10,14 +11,8 @@
 <script lang="ts">
 	import MentionInput from '$lib/kernel/ui/MentionInput.svelte';
 	import Pill from '$lib/kernel/ui/Pill.svelte';
-	import {
-		TASK_SMART_CATEGORIES,
-		TASK_SMART_TEMPLATES,
-		type TaskSmartCategory
-	} from '../tasks.smart.rules';
 	import type { TaskQuickAddState } from '../tasks.quickadd.state.svelte';
 	import { formatTaskDue } from '../tasks.display.rules';
-	import TaskCategoryField from './TaskCategoryField.svelte';
 
 	interface Props {
 		state: TaskQuickAddState;
@@ -36,13 +31,8 @@
 				? formatTaskDue(`${quickAdd.dueDate}T23:59:00`)
 				: null
 	);
-	const categoriesMeta = $derived(
-		(Object.keys(TASK_SMART_CATEGORIES) as TaskSmartCategory[]).map((key) => ({
-			key,
-			meta: TASK_SMART_CATEGORIES[key],
-			templates: TASK_SMART_TEMPLATES.filter((template) => template.category === key)
-		}))
-	);
+	// The smart-task templates mount the first time their disclosure opens.
+	let smartOpened = $state(false);
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -72,44 +62,9 @@
 				?
 			</button>
 			{#if helpOpen}
-				<div
-					class="absolute right-0 top-full z-20 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-lg"
-				>
-					<p class="mb-2 text-xs font-semibold text-slate-700">Type these right in the title</p>
-					<ul class="space-y-1.5 text-slate-600">
-						<li>
-							<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">#public</code>
-							/
-							<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">#private</code>
-							— who can see it (default public)
-						</li>
-						<li>
-							<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">@family</code>
-							— add it to the family task list
-						</li>
-						<li>
-							<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">@name</code>
-							— assign to a member (e.g. <span class="font-mono text-[11px]">@maya</span>)
-						</li>
-						<li>
-							<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">#tag</code>
-							— tag it, for the tag filter
-						</li>
-						<li>
-							<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">tomorrow</code>,
-							<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">next fri</code>
-							— due dates
-						</li>
-						<li>
-							<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">every 2 weeks</code>
-							— repeat it
-						</li>
-						<li>
-							<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px]">high</code>
-							priority — or <span class="font-mono text-[11px]">low</span>
-						</li>
-					</ul>
-				</div>
+				{#await import('./TaskQuickAddTips.svelte') then { default: TaskQuickAddTips }}
+					<TaskQuickAddTips />
+				{/await}
 			{/if}
 		</span>
 	</div>
@@ -279,28 +234,9 @@
 		</div>
 
 		{#if quickAdd.showMore}
-			<div class="mt-2 max-w-xs">
-				<TaskCategoryField
-					id="add-task-category"
-					value={quickAdd.category}
-					{categories}
-					compact
-					onchange={(value) => quickAdd.setCategory(value)}
-				/>
-			</div>
-			<label class="mt-2 flex items-center gap-2 text-xs text-slate-500">
-				Who can see this
-				<select
-					value={quickAdd.visibility}
-					onchange={(event) =>
-						quickAdd.setVisibility(event.currentTarget.value === 'public' ? 'public' : 'private')}
-					aria-label="Who can see this task"
-					class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 focus:border-primary-500 focus:outline-none"
-				>
-					<option value="private">Private</option>
-					<option value="public">Public</option>
-				</select>
-			</label>
+			{#await import('./TaskQuickAddMore.svelte') then { default: TaskQuickAddMore }}
+				<TaskQuickAddMore state={quickAdd} {categories} />
+			{/await}
 		{/if}
 
 		{#if quickAdd.bulkBlocked && quickAdd.isBulk}
@@ -316,7 +252,12 @@
 	</form>
 
 	<!-- Smart task templates -->
-	<details class="group mt-3">
+	<details
+		class="group mt-3"
+		ontoggle={(event) => {
+			if (event.currentTarget.open) smartOpened = true;
+		}}
+	>
 		<summary
 			class="flex w-fit cursor-pointer select-none items-center gap-1 rounded-full px-2 py-0.5 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
 		>
@@ -331,32 +272,10 @@
 				<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 			</svg>
 		</summary>
-		<div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-			{#each categoriesMeta as category, index (category.key)}
-				<details class="mb-1 last:mb-0" open={index === 0}>
-					<summary
-						class="cursor-pointer select-none rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 hover:bg-white"
-					>
-						{category.meta.icon}
-						{category.meta.label}
-						<span class="ml-1 text-xs font-normal text-slate-400">({category.templates.length})</span>
-					</summary>
-					<div class="mt-1 flex flex-wrap gap-1.5 pl-2">
-						{#each category.templates as template (template.id)}
-							<button
-								type="button"
-								onclick={() => quickAdd.addSmartTask(template)}
-								disabled={quickAdd.busyTemplateId === template.id}
-								title={quickAdd.cadenceNote(template)}
-								class="rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-50 {category
-									.meta.color}"
-							>
-								{template.name}
-							</button>
-						{/each}
-					</div>
-				</details>
-			{/each}
-		</div>
+		{#if smartOpened}
+			{#await import('./TaskQuickAddSmart.svelte') then { default: TaskQuickAddSmart }}
+				<TaskQuickAddSmart state={quickAdd} />
+			{/await}
+		{/if}
 	</details>
 </section>

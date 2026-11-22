@@ -162,34 +162,6 @@ export const CLAIM_LOGIN_QUESTION = 'Already have an account with this email?';
 export const CLAIM_LOGIN_LINK = 'Log in with my password & merge my calendar';
 export const CLAIM_BACK_LINK = 'Not now — back to my calendar';
 
-// --- Merge guest ------------------------------------------------------------
-
-export const MERGE_EVENT_MOVE_NOTE = 'Events move onto your personal calendar';
-export const MERGE_CHECKLIST_NOTE = 'Event checklists come along too';
-export const MERGE_CLEANUP_NOTE = 'The guest profile is cleaned up';
-export const MERGE_SKIP_LINK = 'Start fresh without them';
-export const MERGE_SKIP_CONFIRM = 'Leave them behind?';
-export const MERGE_SKIP_YES = 'Yes';
-export const MERGE_SKIP_NO = 'No';
-export const MERGE_BUSY = 'Bringing them over...';
-export const MERGE_SKIP_BUSY = 'Starting fresh…';
-
-/** "3 events" / "1 task": the counts the merge prompt states. */
-export function mergeCountLabel(count: number, singular: 'event' | 'task'): string {
-	return `${count} ${singular}${count === 1 ? '' : 's'}`;
-}
-
-/** The primary button's label, "Bring my N items over". */
-export function mergeBringLabel(events: number, tasks: number): string {
-	return `Bring my ${events + tasks} items over`;
-}
-
-/** Which sentence shape the prompt uses: both kinds, one kind, or the other. */
-export function mergeSentenceKind(events: number, tasks: number): 'both' | 'events' | 'tasks' {
-	if (events > 0 && tasks > 0) return 'both';
-	return events > 0 ? 'events' : 'tasks';
-}
-
 // --- Verify email change ----------------------------------------------------
 
 export const VERIFY_HEADING = 'Verify Email Change';

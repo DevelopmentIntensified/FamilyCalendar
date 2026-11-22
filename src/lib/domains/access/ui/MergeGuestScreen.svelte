@@ -3,6 +3,10 @@
 	counts, lists what moves, and offers "Bring my N items over" (the `?/merge`
 	action) with a two-tap destructive "Start fresh without them" (`?/skip`).
 
+	The copy comes from `access.merge.rules` (its own file: ADR 0010), and the
+	three notes are written out rather than looped so the bare page does not
+	ship the `{#each}` runtime.
+
 	Doc: ../README.md#public-interface
 -->
 <script lang="ts">
@@ -19,7 +23,7 @@
 		mergeBringLabel,
 		mergeCountLabel,
 		mergeSentenceKind
-	} from '../access.auth.rules';
+	} from '../access.merge.rules';
 	import type { MergeGuestPageData } from '../access.pages.http.server';
 
 	/** The `$app/forms` `enhance` shape, taken as a prop so this file never imports `$app/*`. */
@@ -85,22 +89,42 @@
 		</p>
 
 		<ul class="mx-auto mt-5 max-w-xs space-y-1.5 text-left">
-			{#each [MERGE_EVENT_MOVE_NOTE, MERGE_CHECKLIST_NOTE, MERGE_CLEANUP_NOTE] as note (note)}
-				<li
-					class="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600"
+			<li class="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+				<svg
+					class="h-4 w-4 shrink-0 text-emerald-500"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
 				>
-					<svg
-						class="h-4 w-4 shrink-0 text-emerald-500"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-					</svg>
-					{note}
-				</li>
-			{/each}
+					<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+				</svg>
+				{MERGE_EVENT_MOVE_NOTE}
+			</li>
+			<li class="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+				<svg
+					class="h-4 w-4 shrink-0 text-emerald-500"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+				</svg>
+				{MERGE_CHECKLIST_NOTE}
+			</li>
+			<li class="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+				<svg
+					class="h-4 w-4 shrink-0 text-emerald-500"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+				</svg>
+				{MERGE_CLEANUP_NOTE}
+			</li>
 		</ul>
 
 		<div class="mt-7 flex flex-col gap-2">

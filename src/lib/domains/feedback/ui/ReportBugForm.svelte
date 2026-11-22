@@ -129,14 +129,15 @@
 						<label for="area" class="block text-sm font-medium text-slate-700"
 							>What's the bug about?</label
 						>
+						<!-- `selected` on the option, not `value` on the select: the select binding ships
+							~0.7 KB of runtime this bare page does not need (ADR 0010). -->
 						<select
 							id="area"
 							name="area"
-							value={echoedArea}
 							class="w-full rounded-lg border border-slate-300 px-4 py-2.5 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
 						>
 							{#each areas as area (area)}
-								<option value={area}>{areaLabels[area] ?? area}</option>
+								<option value={area} selected={area === echoedArea}>{areaLabels[area] ?? area}</option>
 							{/each}
 						</select>
 					</div>

@@ -1,6 +1,5 @@
 <!--
-	The family group's frame: the app chrome, then the calendar's measured banner
-	stack without the app footer; no load of its own (the root load requires a session).
+	The family group's frame: chrome, then the measured banner stack without the app footer; no load of its own.
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
@@ -8,7 +7,8 @@
 	import { page } from '$app/state';
 	import AlertsBell from '$lib/domains/alerts/ui/AlertsBell.svelte';
 	import { createShellPorts } from '$lib/screens/shell';
-	import { ShellGroupFrame, ShellRoot } from '$lib/screens/shell/ui';
+	import ShellGroupFrame from '$lib/screens/shell/ui/ShellGroupFrame.svelte'; // file, never `../ui` (see README)
+	import ShellRoot from '$lib/screens/shell/ui/ShellRoot.svelte';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();

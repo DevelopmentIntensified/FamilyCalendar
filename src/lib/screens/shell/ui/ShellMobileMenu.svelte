@@ -36,7 +36,7 @@
 
 <div
 	use:trapFocus
-	transition:slide={{ duration: 200 }}
+	transition:slide|global={{ duration: 200 }}
 	class="border-t border-slate-200 bg-white md:hidden"
 	data-testid="shell-mobile-menu"
 >

@@ -76,7 +76,8 @@ describe('ShellNavbar', () => {
 	it('closes both menus when the pathname prop changes', async () => {
 		const { rerender } = renderNavbar();
 		await fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
-		expect(screen.getByTestId('shell-mobile-menu')).toBeInTheDocument();
+		// Both menus are lazy chunks (ADR 0010), so they arrive a tick after the tap.
+		expect(await screen.findByTestId('shell-mobile-menu')).toBeInTheDocument();
 		await fireEvent.click(profileButton());
 		expect(profileButton()).toHaveAttribute('aria-expanded', 'true');
 
@@ -109,7 +110,7 @@ describe('ShellNavbar', () => {
 	it('passes the current path and search to the bug form', async () => {
 		renderNavbar({ pathname: '/calendar/tasks', search: '?day=1' });
 		await fireEvent.click(profileButton());
-		expect(screen.getByRole('link', { name: 'Report a Bug' })).toHaveAttribute(
+		expect(await screen.findByRole('link', { name: 'Report a Bug' })).toHaveAttribute(
 			'href',
 			'/report-bug?from=%2Fcalendar%2Ftasks%3Fday%3D1'
 		);

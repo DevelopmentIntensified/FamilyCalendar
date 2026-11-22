@@ -1,8 +1,6 @@
 <!--
-	The calendar group: the app chrome (navbar, tab bar, toast host) and the
-	measured group frame. The chrome lives in the group layouts, not in the root
-	layout, so a page that renders its own frame (`/claim`, `/merge-guest`,
-	marketing, admin) never ships it — the legacy structure (ADR 0010).
+	The calendar group: the app chrome and the measured group frame; the chrome
+	lives in the group layouts, so a page with its own frame never ships it (ADR 0010).
 -->
 <script lang="ts">
 	import type { Snippet } from 'svelte';
@@ -10,7 +8,8 @@
 	import { page } from '$app/state';
 	import AlertsBell from '$lib/domains/alerts/ui/AlertsBell.svelte';
 	import { createShellPorts } from '$lib/screens/shell';
-	import { ShellGroupFrame, ShellRoot } from '$lib/screens/shell/ui';
+	import ShellGroupFrame from '$lib/screens/shell/ui/ShellGroupFrame.svelte'; // file, never `../ui` (see README)
+	import ShellRoot from '$lib/screens/shell/ui/ShellRoot.svelte';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();

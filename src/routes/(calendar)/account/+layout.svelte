@@ -10,7 +10,9 @@
 	import { page } from '$app/state';
 	import AlertsBell from '$lib/domains/alerts/ui/AlertsBell.svelte';
 	import { createShellPorts } from '$lib/screens/shell';
-	import { ShellRoot } from '$lib/screens/shell/ui';
+	// The file directly: `../ui` also re-exports the error card and the group
+	// frame, so importing it put their graph in this layout (ADR 0010).
+	import ShellRoot from '$lib/screens/shell/ui/ShellRoot.svelte';
 	import type { LayoutData } from './$types';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();

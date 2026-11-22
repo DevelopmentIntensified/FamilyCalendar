@@ -15,7 +15,6 @@
 	import { TaskQuickAddState } from '../tasks.quickadd.state.svelte';
 	import TaskAssignments from './TaskAssignments.svelte';
 	import TaskCategoryManager from './TaskCategoryManager.svelte';
-	import TaskEditor from './TaskEditor.svelte';
 	import TaskList from './TaskList.svelte';
 	import TaskQuickAdd from './TaskQuickAdd.svelte';
 
@@ -120,15 +119,17 @@
 
 {#if page.editing}
 	{#key page.editing.id}
-		<TaskEditor
-			task={page.editing}
-			{currentUserId}
-			roster={data.familyMembers}
-			saving={page.editSaving}
-			categories={categoryNames}
-			onsave={(draft) => page.saveEdit(draft)}
-			onclose={() => page.closeEditor()}
-		/>
+		{#await import('./TaskEditor.svelte') then { default: TaskEditor }}
+			<TaskEditor
+				task={page.editing}
+				{currentUserId}
+				roster={data.familyMembers}
+				saving={page.editSaving}
+				categories={categoryNames}
+				onsave={(draft) => page.saveEdit(draft)}
+				onclose={() => page.closeEditor()}
+			/>
+		{/await}
 	{/key}
 {/if}
 
