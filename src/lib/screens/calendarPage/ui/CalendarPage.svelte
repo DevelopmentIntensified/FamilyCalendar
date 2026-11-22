@@ -20,6 +20,7 @@
 	import type { CalendarParseEvent } from '$lib/domains/calendar/ui';
 	import type { CalendarPageModel } from '../calendarPage.contract';
 	import { CALENDAR_EDIT_NOT_FOUND } from '../calendarPage.url.rules';
+	import { calendarQuickAddSettings } from '../calendarPage.quickAdd.rules';
 	import { CalendarPageState } from '../calendarPage.state.svelte';
 	import CalendarKeyStrip from './CalendarKeyStrip.svelte';
 	import CalendarToolbar from './CalendarToolbar.svelte';
@@ -43,14 +44,15 @@
 
 	/**
 	 * The event parser is `parsing`'s wire; the form takes it as a prop. The
-	 * route's field is `input` (`parsing.contract.ts`), and `useCloud` stays
-	 * absent so the route keeps its own default.
+	 * route's field is `input` (`parsing.contract.ts`), and `useCloud` is the
+	 * person's own switch (`calendarQuickAddSettings`).
 	 */
+	const quickAdd = calendarQuickAddSettings(model.shell.settings);
 	const parseEvent: CalendarParseEvent = async (text) => {
 		const result = await client.request<Awaited<ReturnType<CalendarParseEvent>>>(
 			'POST',
 			'/api/parse-event',
-			{ input: text }
+			{ input: text, useCloud: quickAdd.useCloud }
 		);
 		return result.ok ? result.data : null;
 	};
@@ -403,6 +405,7 @@
 				seed={page.createSeed}
 				start={page.createStart}
 				{parseEvent}
+				autoParse={quickAdd.autoParse}
 				onclose={() => page.closeCreate()}
 			/>
 		{/await}

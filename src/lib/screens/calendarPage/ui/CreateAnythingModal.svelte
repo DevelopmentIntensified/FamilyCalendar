@@ -35,10 +35,12 @@
 		seed: CalendarCreateSeed | null;
 		start: DateTime | null;
 		parseEvent: CalendarParseEvent | null;
+		/** The person's `autoParseEventDetails` switch (legacy `=== false` = off). */
+		autoParse?: boolean;
 		onclose: () => void;
 	}
 
-	let { state: page, seed, start, parseEvent, onclose }: Props = $props();
+	let { state: page, seed, start, parseEvent, autoParse = true, onclose }: Props = $props();
 
 	type EntryType = 'event' | 'task';
 	let entryType = $state<EntryType>('event');
@@ -64,7 +66,7 @@
 		})),
 		defaultCalendarId: shell.settings.defaultCalendarId,
 		initialDate: start?.toISODate() ?? undefined,
-		autoParse: true
+		autoParse
 	});
 
 	// The timed slot a grid tap names: legacy prefilled the start (and the end

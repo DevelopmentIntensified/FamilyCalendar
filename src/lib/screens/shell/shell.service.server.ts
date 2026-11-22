@@ -118,6 +118,7 @@ async function readSettings(ctx: Ctx, actor: Actor): Promise<ShellSettingsModel 
 		syncEventsToFamilyCalendar: settings.syncEventsToFamilyCalendar,
 		showAdsAsEvents: settings.showAdsAsEvents,
 		autoParseEventDetails: settings.autoParseEventDetails,
+		useCloudAI: settings.useCloudAI,
 		showDailyVerse: settings.showDailyVerse,
 		hiddenDashboardModules: settings.hiddenDashboardModules
 	};

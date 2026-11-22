@@ -96,7 +96,9 @@ function model(
 				timeZone: 'UTC',
 				color: null,
 				showAdsAsEvents: false,
-				defaultCalendarId: null
+				defaultCalendarId: null,
+				autoParseEventDetails: null,
+				useCloudAI: null
 			},
 			calendars: [
 				{ id: 'personal', name: 'Personal Calendar', color: '#fa8072', kind: 'personal' },

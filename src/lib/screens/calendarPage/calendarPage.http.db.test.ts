@@ -35,6 +35,8 @@ function scopeOf(
 	overrides: {
 		defaultView?: string;
 		roster?: readonly { userId: string; firstName: string; lastName: string | null }[];
+		autoParseEventDetails?: boolean | null;
+		useCloudAI?: boolean | null;
 	} = {}
 ): Readonly<Record<string, JsonValue>> {
 	return {
@@ -46,7 +48,8 @@ function scopeOf(
 			defaultCalendarId: null,
 			syncEventsToFamilyCalendar: null,
 			showAdsAsEvents: false,
-			autoParseEventDetails: null,
+			autoParseEventDetails: overrides.autoParseEventDetails ?? null,
+			useCloudAI: overrides.useCloudAI ?? null,
 			showDailyVerse: null,
 			hiddenDashboardModules: null
 		},
@@ -211,6 +214,25 @@ describe('/calendar — deep-link seeds', () => {
 			edit: null,
 			create: { quickAdd: 'Lunch Friday', note: CALENDAR_SHARED_TEXT_NOTE }
 		});
+	});
+
+	rollbackTest("carries the person's quick-add switches into the model", async (db) => {
+		const ctx = viewerCtx(db);
+		const user = await seedUser(db);
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id }, db);
+
+		const model = await invokeLoad(calendarPageLoad, {
+			ctx,
+			user,
+			path: '/calendar',
+			parentData: scopeOf({ autoParseEventDetails: false, useCloudAI: false })
+		});
+		await model.grid;
+
+		// Legacy read them off `data.userSettings` as `=== false` / `?? true`;
+		// the page keeps the raw null and gates it in `calendarPage.quickAdd.rules`.
+		expect(model.shell.settings.autoParseEventDetails).toBe(false);
+		expect(model.shell.settings.useCloudAI).toBe(false);
 	});
 
 	rollbackTest('ignores a junk date and a junk view instead of half-applying them', async (db) => {
