@@ -12,6 +12,7 @@ import {
 	CHANGELOG_ENTRIES,
 	MARKETING_NAV,
 	ROADMAP_SECTIONS,
+	changelogDateLabel,
 	changelogNewestFirst,
 	marketingActiveHref,
 	type ChangelogEntry
@@ -108,7 +109,8 @@ describe('the changelog', () => {
 		'%s "%s" is a real calendar day',
 		(date) => {
 			expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-			expect(formatLongDate(date, 'UTC')).not.toBe('');
+			expect(changelogDateLabel(date)).toBe(formatLongDate(date, 'UTC'));
+			expect(changelogDateLabel(date)).not.toBe('');
 		}
 	);
 
@@ -118,8 +120,16 @@ describe('the changelog', () => {
 		{ date: '2026-12-31', printed: 'December 31, 2026' },
 		{ date: '2026-01-01', printed: 'January 1, 2026' }
 	])('prints $date as the en-US long date $printed', ({ date, printed }) => {
-		expect(formatLongDate(date, 'UTC')).toBe(printed);
+		expect(changelogDateLabel(date)).toBe(printed);
+		expect(changelogDateLabel(date)).toBe(formatLongDate(date, 'UTC'));
 	});
+
+	it.each(['', 'not-a-date', '2026-02-30', '2026-13-01', '2026-9-7', '2026-09-07T00:00:00Z'])(
+		'refuses %j: only a real YYYY-MM-DD day prints',
+		(date) => {
+			expect(changelogDateLabel(date)).toBe('');
+		}
+	);
 });
 
 describe('the roadmap', () => {

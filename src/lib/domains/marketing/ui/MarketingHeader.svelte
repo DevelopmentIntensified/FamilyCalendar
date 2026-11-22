@@ -30,8 +30,6 @@
 		type MarketingNavLink
 	} from '../marketing.content.rules';
 	import type { MarketingViewer } from '../marketing.contract';
-	import MarketingMobileMenu from './MarketingMobileMenu.svelte';
-	import MarketingProfileMenu from './MarketingProfileMenu.svelte';
 
 	interface Props {
 		pathname: string;
@@ -148,12 +146,14 @@
 						</svg>
 					</button>
 					{#if profileDropdownOpen}
-						<MarketingProfileMenu
-							{user}
-							onNavigate={closeProfileDropdown}
-							onLogoutSubmit={purgeSwDataCache}
-							reportBugHref={bugHref}
-						/>
+						{#await import('./MarketingProfileMenu.svelte') then { default: MarketingProfileMenu }}
+							<MarketingProfileMenu
+								{user}
+								onNavigate={closeProfileDropdown}
+								onLogoutSubmit={purgeSwDataCache}
+								reportBugHref={bugHref}
+							/>
+						{/await}
 					{/if}
 				</div>
 			{:else}
@@ -187,15 +187,17 @@
 	</div>
 
 	{#if isOpen}
-		<MarketingMobileMenu
-			{isLoggedIn}
-			{user}
-			{navItems}
-			{activeHref}
-			onNavigate={closeMenu}
-			onLogoutSubmit={purgeSwDataCache}
-			reportBugHref={bugHref}
-			{bell}
-		/>
+		{#await import('./MarketingMobileMenu.svelte') then { default: MarketingMobileMenu }}
+			<MarketingMobileMenu
+				{isLoggedIn}
+				{user}
+				{navItems}
+				{activeHref}
+				onNavigate={closeMenu}
+				onLogoutSubmit={purgeSwDataCache}
+				reportBugHref={bugHref}
+				{bell}
+			/>
+		{/await}
 	{/if}
 </nav>

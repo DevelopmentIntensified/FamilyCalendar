@@ -12,7 +12,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { createToasts } from '$lib/kernel/client/toasts.svelte';
-	import Toaster from '$lib/kernel/ui/Toaster.svelte';
 	import { createAuthApi } from '../access.api';
 	import {
 		AUTH_METHOD_OPTIONS,
@@ -252,4 +251,12 @@
 	</AuthCard>
 </AuthPage>
 
-<Toaster items={toasts.items} ondismiss={toasts.dismiss} />
+<!--
+	The toast host is a lazy chunk (ADR 0010): a sign-up's toasts appear only after
+	the form is submitted, so the region's first paint is not part of the page's
+	initial JS. It still mounts (never gated on the item list) so the live region
+	exists before the first message, as `Toaster` requires.
+-->
+{#await import('$lib/kernel/ui/Toaster.svelte') then { default: Toaster }}
+	<Toaster items={toasts.items} ondismiss={toasts.dismiss} />
+{/await}
