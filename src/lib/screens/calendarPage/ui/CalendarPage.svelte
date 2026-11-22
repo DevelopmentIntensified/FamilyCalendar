@@ -359,10 +359,7 @@
 			open={true}
 			day={page.daySheetDate}
 			onclose={() => (page.daySheetDate = null)}
-			onviewevents={() => {
-				const day = page.daySheetDate;
-				if (day) page.openDayList(day);
-			}}
+			onviewevents={(target) => page.openDayList(target)}
 		/>
 	{/await}
 {/if}

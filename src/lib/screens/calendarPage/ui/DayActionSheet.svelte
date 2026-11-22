@@ -16,10 +16,18 @@
 		open: boolean;
 		day: DateTime;
 		onclose: () => void;
-		onviewevents: () => void;
+		onviewevents: (day: DateTime) => void;
 	}
 
 	let { state, open, day, onclose, onviewevents }: Props = $props();
+
+	/** Closing the sheet clears the day the parent feeds `day` from, so the day is
+	 *  read first and handed to the action: it never sees `null`. */
+	function act(run: (target: DateTime) => void) {
+		const target = day;
+		onclose();
+		run(target);
+	}
 
 	const bucket = $derived(state.days.get(day.toISODate() ?? '') ?? { rows: [], tasks: [] });
 
@@ -81,10 +89,7 @@
 	<div class="space-y-2">
 		<button
 			type="button"
-			onclick={() => {
-				onclose();
-				state.openCreate(day);
-			}}
+			onclick={() => act((target) => state.openCreate(target))}
 			class={actionClass}
 		>
 			<span
@@ -114,10 +119,7 @@
 
 		<button
 			type="button"
-			onclick={() => {
-				onclose();
-				onviewevents();
-			}}
+			onclick={() => act(onviewevents)}
 			class={actionClass}
 		>
 			<span
@@ -136,10 +138,7 @@
 
 		<button
 			type="button"
-			onclick={() => {
-				onclose();
-				state.openDay(day);
-			}}
+			onclick={() => act((target) => state.openDay(target))}
 			class={actionClass}
 		>
 			<span
