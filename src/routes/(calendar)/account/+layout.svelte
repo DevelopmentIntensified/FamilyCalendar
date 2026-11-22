@@ -8,6 +8,7 @@
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import AlertsBell from '$lib/domains/alerts/ui/AlertsBell.svelte';
 	import { createShellPorts } from '$lib/screens/shell';
 	import { ShellRoot } from '$lib/screens/shell/ui';
 	import type { LayoutData } from './$types';
@@ -17,7 +18,8 @@
 	const ports = createShellPorts();
 </script>
 
-<ShellRoot {page} user={data.user} {ports} navigate={goto}>
+{#snippet bell()}<AlertsBell navigate={goto} />{/snippet}
+<ShellRoot {page} user={data.user} {ports} {bell}>
 	<div class="flex-grow pb-20 md:pb-0 print:pb-0">
 		{@render children()}
 	</div>

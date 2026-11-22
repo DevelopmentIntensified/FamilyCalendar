@@ -39,11 +39,9 @@
 
 	// The task editor opens on a row click, so it rides a lazy chunk: the board's
 	// first paint carries the columns and no editor (ADR 0010 — the tasks
-	// component entry is ~30 KB and this page has a 122 KB ceiling).
-	let editorModule = $state<Promise<typeof import('$lib/domains/tasks/ui')> | null>(null);
-	$effect(() => {
-		if (state.editing) editorModule ??= import('$lib/domains/tasks/ui');
-	});
+	// component entry is ~30 KB and this page has a 122 KB ceiling). The `{#await}`
+	// below asks for the module when the sheet opens, the pattern the day
+	// dashboard's event sheet already uses.
 
 	const tabClass = (active: boolean) =>
 		`min-h-[44px] flex-1 rounded-full border px-3.5 text-sm font-medium transition-colors ${
@@ -152,9 +150,9 @@
 	{/if}
 </div>
 
-{#if state.editing && editorModule}
+{#if state.editing}
 	{#key state.editing.id}
-		{#await editorModule}
+		{#await import('$lib/domains/tasks/ui')}
 			<!-- The click that opened the sheet loads it; nothing is drawn meanwhile. -->
 		{:then tasksUi}
 			{@const Editor = tasksUi.TaskEditor}

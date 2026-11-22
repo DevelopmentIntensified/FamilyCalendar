@@ -129,7 +129,8 @@ export function shouldPruneDeviceToken(result: FcmSendResult): boolean {
  */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- boundary: the web-push library throws untyped values.
 export function isSubscriptionGone(error: unknown): boolean {
-	if (typeof error !== 'object' || error === null || !('statusCode' in error)) return false;
+	if (typeof error !== 'object' || error === null || Array.isArray(error)) return false;
+	if (!('statusCode' in error)) return false;
 	const { statusCode } = error as { statusCode: unknown };
 	return statusCode === 404 || statusCode === 410;
 }

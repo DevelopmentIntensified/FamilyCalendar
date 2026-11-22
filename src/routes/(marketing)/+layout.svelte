@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { Snippet } from 'svelte';
-	import { AlertsBell } from '$lib/domains/alerts/ui';
+	import AlertsBell from '$lib/domains/alerts/ui/AlertsBell.svelte';
 	import MarketingHeader from '$lib/domains/marketing/ui/MarketingHeader.svelte';
 	import MarketingShell from '$lib/domains/marketing/ui/MarketingShell.svelte';
 	import { shellNavItems } from '$lib/screens/shell';

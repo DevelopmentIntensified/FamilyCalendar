@@ -10,6 +10,12 @@
 	only its route id, pathname and search, and keeping `$app/*` out of this
 	file keeps it renderable in unit tests.
 
+	The bell is alerts' component, handed in by the layout as a snippet — the
+	same rule `ShellNavbar`/`ShellMobileMenu` follow. Importing it here would
+	mean importing `alerts/ui`'s *entry* from the chrome, and that entry's other
+	components (the feed, its toolbar and rows) then ride every page's first
+	paint: measured at 9.9 KB gzip on all twelve app pages (ADR 0010).
+
 	The badge is read once per chrome mount, not per navigation, because the
 	chrome survives calendar ↔ family transitions. The offline REPLAY
 	(`initOfflineSync`) is initialized here too, so a group switch no longer
@@ -20,7 +26,6 @@
 -->
 <script lang="ts">
 	import { onMount, type Snippet } from 'svelte';
-	import { AlertsBell } from '$lib/domains/alerts/ui';
 	import { initOfflineSync } from '$lib/kernel/client/offlineQueue';
 	import { createToasts } from '$lib/kernel/client/toasts.svelte';
 	import { systemClock } from '$lib/kernel/time/clock';
@@ -37,12 +42,12 @@
 		page: { readonly route: { readonly id: string | null }; readonly url: URL };
 		user: ShellUserSummary | null;
 		ports: ShellPorts;
-		/** `goto`, handed in by the route so this file never imports `$app/*`. */
-		navigate: (href: string) => void | Promise<void>;
+		/** Alerts' bell, handed in by the group layout (its entry, not this file's). */
+		bell?: Snippet;
 		children: Snippet;
 	}
 
-	let { page, user, ports, navigate, children }: Props = $props();
+	let { page, user, ports, bell, children }: Props = $props();
 
 	const routeId = $derived(page.route.id);
 	const pathname = $derived(page.url.pathname);
@@ -66,10 +71,7 @@
 
 {#if chrome === 'app' && user}
 	<div class="flex min-h-screen flex-col">
-		{#snippet bell()}
-			<AlertsBell {navigate} />
-		{/snippet}
-		<ShellNavbar {pathname} {search} {user} bell={bell} onLogoutSubmit={purgeShellDataCache} />
+		<ShellNavbar {pathname} {search} {user} {bell} onLogoutSubmit={purgeShellDataCache} />
 		{@render children()}
 		<ShellTabBar {pathname} unreadCount={badge.count} />
 		<Toaster items={toasts.items} ondismiss={toasts.dismiss} />

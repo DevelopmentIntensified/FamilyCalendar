@@ -8,6 +8,7 @@
 	import type { Snippet } from 'svelte';
 	import { goto, invalidate } from '$app/navigation';
 	import { page } from '$app/state';
+	import AlertsBell from '$lib/domains/alerts/ui/AlertsBell.svelte';
 	import { createShellPorts } from '$lib/screens/shell';
 	import { ShellGroupFrame, ShellRoot } from '$lib/screens/shell/ui';
 	import type { LayoutData } from './$types';
@@ -19,7 +20,8 @@
 	const refresh = (): void => void invalidate('shell:scope');
 </script>
 
-<ShellRoot {page} user={data.user} {ports} navigate={goto}>
+{#snippet bell()}<AlertsBell navigate={goto} />{/snippet}
+<ShellRoot {page} user={data.user} {ports} {bell}>
 	<ShellGroupFrame variant="calendar" scope={data} search={page.url.search} {ports} {refresh}>
 		{@render children()}
 	</ShellGroupFrame>

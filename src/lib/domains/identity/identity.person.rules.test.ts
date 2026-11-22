@@ -22,8 +22,7 @@ import {
 	profilePatch,
 	SIGN_UP_TIME_ZONE,
 	shouldCreateAnonymousAccount,
-	touchDue,
-	zoneFromStored
+	touchDue
 } from './identity.person.rules';
 
 type EmailHolder = { email?: string | null } | null | undefined;
@@ -180,22 +179,5 @@ describe('shouldCreateAnonymousAccount', () => {
 		['a form POST on a protected route', 'POST', 'text/html', true, false]
 	])('%s', (_label, method, accept, isProtectedRoute, expected) => {
 		expect(shouldCreateAnonymousAccount({ method, accept, isProtectedRoute })).toBe(expected);
-	});
-});
-
-describe('zoneFromStored', () => {
-	// userTimezone.test.ts:5-14, plus the Luxon pseudo-zones: Q-107 narrows the
-	// PATCH validator, never how an ALREADY stored zone resolves.
-	it.each<[string | null | undefined, string | undefined]>([
-		['America/Chicago', 'America/Chicago'],
-		['UTC', 'UTC'],
-		['local', 'local'],
-		['UTC+5', 'UTC+5'],
-		[null, undefined],
-		[undefined, undefined],
-		['', undefined],
-		['Not/AZone', undefined]
-	])('rejects missing, empty and invalid zones: %j → %j', (stored, expected) => {
-		expect(zoneFromStored(stored)).toBe(expected);
 	});
 });
