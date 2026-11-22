@@ -24,7 +24,14 @@ import { invalid } from '$lib/kernel/errors/appError';
 import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
 import { formAction, pageLoad } from '$lib/kernel/http/pageHandlers.server';
 import {
+	AccountApiTokenForm,
+	AccountCalendarSettingsForm,
+	AccountDashboardModulesForm,
 	AccountDeleteBody,
+	AccountDeleteForm,
+	AccountNotificationPreferenceForm,
+	AccountProfileForm,
+	AccountRevokeTokenForm,
 	AccountSectionParam,
 	type AccountDeleteResponse
 } from './account.contract';
@@ -63,12 +70,6 @@ function accountCtx(ctx: Ctx): AccountCtx {
 	return ctx as AccountCtx;
 }
 
-/** One form value as legacy read it: a missing or repeated key is `''`. */
-function formString(form: FormData, key: string): string {
-	const value = form.get(key);
-	return typeof value === 'string' ? value : '';
-}
-
 /** The `/account` load: the rail's identity and the default section's model, one read. */
 export const accountPageLoad = pageLoad({
 	auth: 'user',
@@ -85,18 +86,18 @@ export const accountPageLoad = pageLoad({
 /** `?/saveCalendarSettings` — the full card; identity owns defaults and consent. */
 export const accountSaveCalendarSettingsAction = formAction({
 	auth: 'user',
+	form: AccountCalendarSettingsForm,
 	failMessage: 'Failed to save calendar settings',
-	handle: async ({ ctx, actor, event }): Promise<AccountMutation> => {
-		const form = await event.request.formData();
+	handle: async ({ ctx, actor, form }): Promise<AccountMutation> => {
 		return await saveAccountCalendarSettings(accountCtx(ctx), actor, {
-			weekStart: formString(form, 'weekStart'),
-			timeZone: formString(form, 'timeZone'),
-			color: formString(form, 'color'),
-			defaultView: formString(form, 'defaultView'),
-			defaultCalendarId: formString(form, 'defaultCalendarId') || null,
-			syncEventsToFamilyCalendar: form.get('syncEventsToFamilyCalendar') === 'on',
-			autoParseEventDetails: form.get('autoParseEventDetails') === 'true',
-			showAdsAsEvents: form.get('showAdsAsEvents') === 'true'
+			weekStart: form.weekStart,
+			timeZone: form.timeZone,
+			color: form.color,
+			defaultView: form.defaultView,
+			defaultCalendarId: form.defaultCalendarId || null,
+			syncEventsToFamilyCalendar: form.syncEventsToFamilyCalendar,
+			autoParseEventDetails: form.autoParseEventDetails,
+			showAdsAsEvents: form.showAdsAsEvents
 		});
 	}
 });
@@ -104,11 +105,10 @@ export const accountSaveCalendarSettingsAction = formAction({
 /** `?/saveDashboardModules` — its own save (#105); absent checkbox means hidden. */
 export const accountSaveDashboardModulesAction = formAction({
 	auth: 'user',
+	form: AccountDashboardModulesForm,
 	failMessage: 'Failed to save dashboard modules',
-	handle: async ({ ctx, actor, event }): Promise<AccountMutation> => {
-		const form = await event.request.formData();
-		return await saveAccountDashboardModules(ctx, actor, accountHiddenModulesFromForm(form));
-	}
+	handle: async ({ ctx, actor, form }): Promise<AccountMutation> =>
+		await saveAccountDashboardModules(ctx, actor, accountHiddenModulesFromForm(form))
 });
 
 /**
@@ -118,13 +118,13 @@ export const accountSaveDashboardModulesAction = formAction({
  */
 export const accountSetNotificationPreferenceAction = formAction({
 	auth: 'user',
-	handle: async ({ ctx, actor, event }) => {
-		const form = await event.request.formData();
-		const preference = formString(form, 'preference');
+	form: AccountNotificationPreferenceForm,
+	handle: async ({ ctx, actor, form }) => {
+		const preference = form.preference;
 		if (!isAccountPreferenceId(preference)) {
 			throw invalid('Unknown notification preference');
 		}
-		const rawValue = formString(form, 'value');
+		const rawValue = form.value;
 		if (rawValue !== 'true' && rawValue !== 'false') {
 			throw invalid('Notification preference value is required');
 		}
@@ -142,12 +142,12 @@ export const accountSetNotificationPreferenceAction = formAction({
 /** `?/updateProfile` — both names required; identity trims and refuses. */
 export const accountUpdateProfileAction = formAction({
 	auth: 'user',
+	form: AccountProfileForm,
 	failMessage: 'Failed to update profile',
-	handle: async ({ ctx, actor, event }): Promise<AccountMutation> => {
-		const form = await event.request.formData();
+	handle: async ({ ctx, actor, form }): Promise<AccountMutation> => {
 		return await updateAccountProfile(ctx, actor, {
-			firstName: formString(form, 'firstName'),
-			lastName: formString(form, 'lastName')
+			firstName: form.firstName,
+			lastName: form.lastName
 		});
 	}
 });
@@ -164,30 +164,30 @@ export const accountLogoutAllDevicesAction = formAction({
 /** `?/createApiToken` — the plaintext is in this answer only. */
 export const accountCreateApiTokenAction = formAction({
 	auth: 'user',
+	form: AccountApiTokenForm,
 	failMessage: 'Failed to create token',
-	handle: async ({ ctx, actor, event }) => {
-		const form = await event.request.formData();
-		return await createAccountApiToken(ctx, actor, formString(form, 'name'));
+	handle: async ({ ctx, actor, form }) => {
+		return await createAccountApiToken(ctx, actor, form.name);
 	}
 });
 
 /** `?/revokeApiToken` — owner-scoped; another user's id is a no-op success. */
 export const accountRevokeApiTokenAction = formAction({
 	auth: 'user',
+	form: AccountRevokeTokenForm,
 	failMessage: 'Failed to revoke token',
-	handle: async ({ ctx, actor, event }): Promise<AccountMutation> => {
-		const form = await event.request.formData();
-		return await revokeAccountApiToken(ctx, actor, formString(form, 'tokenId'));
+	handle: async ({ ctx, actor, form }): Promise<AccountMutation> => {
+		return await revokeAccountApiToken(ctx, actor, form.tokenId);
 	}
 });
 
 /** `?/deleteAccount` — the typed id, then home. */
 export const accountDeleteAccountAction = formAction({
 	auth: 'user',
-	handle: async ({ ctx, actor, event }): Promise<never> => {
-		const form = await event.request.formData();
+	form: AccountDeleteForm,
+	handle: async ({ ctx, actor, form, event }): Promise<never> => {
 		await deleteAccountForActor(ctx, actor, {
-			confirmation: formString(form, 'confirmation'),
+			confirmation: form.confirmation,
 			currentSessionId: event.locals.session?.id ?? null
 		});
 		throw redirect(302, '/');

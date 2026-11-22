@@ -19,6 +19,7 @@
  * Doc: ./README.md#public-interface
  */
 import { INVALID_JSON_MESSAGE, isoInstant, z } from '$lib/kernel/validation/validators';
+import { DASHBOARD_MODULES } from '$lib/domains/dashboardModules';
 import { ACCOUNT_SECTIONS, type AccountSectionId } from './account.sections.rules';
 import { EXPORT_VERSION } from './account.export.rules';
 
@@ -88,6 +89,79 @@ export type AccountDeleteResponse = z.infer<typeof AccountDeleteResponse>;
  * the same refusal (see `AccountDeleteBody`).
  */
 export const CONFIRMATION_MISMATCH_MESSAGE = 'Confirmation does not match';
+
+// --- Page action forms ------------------------------------------------------
+
+/**
+ * One form field as the legacy `form.get` read it: the first value when a field
+ * is repeated, `''` when it is absent, a file or any other non-text entry.
+ * Nothing is trimmed — the flows own their own normalisation.
+ */
+const formText = z.preprocess((value) => {
+	const first = Array.isArray(value) ? value[0] : value;
+	return typeof first === 'string' ? first : '';
+}, z.string());
+
+/** A checkbox: only the literal `on` checks it (`form.get(k) === 'on'`). */
+const checkboxOn = z.preprocess((value) => {
+	const first = Array.isArray(value) ? value[0] : value;
+	return first === 'on';
+}, z.boolean());
+
+/** A `'true'` switch: only the literal `true` turns it on. */
+const switchTrue = z.preprocess((value) => {
+	const first = Array.isArray(value) ? value[0] : value;
+	return first === 'true';
+}, z.boolean());
+
+/** `?/saveCalendarSettings` — the Calendar card's whole form. */
+export const AccountCalendarSettingsForm = z.object({
+	weekStart: formText,
+	timeZone: formText,
+	color: formText,
+	defaultView: formText,
+	defaultCalendarId: formText,
+	syncEventsToFamilyCalendar: checkboxOn,
+	autoParseEventDetails: switchTrue,
+	showAdsAsEvents: switchTrue
+});
+export type AccountCalendarSettingsForm = z.infer<typeof AccountCalendarSettingsForm>;
+
+/**
+ * `?/saveDashboardModules` — one checkbox per registry module. The keys are the
+ * registry's (`module_<id>`), so an absent box reads `''` (hidden) and a key the
+ * registry does not carry is stripped.
+ */
+export const AccountDashboardModulesForm = z.object(
+	Object.fromEntries(DASHBOARD_MODULES.map((module) => [`module_${module.id}`, formText]))
+);
+export type AccountDashboardModulesForm = z.infer<typeof AccountDashboardModulesForm>;
+
+/** `?/setNotificationPreference` — the key and the literal `true|false`. */
+export const AccountNotificationPreferenceForm = z.object({
+	preference: formText,
+	value: formText
+});
+export type AccountNotificationPreferenceForm = z.infer<typeof AccountNotificationPreferenceForm>;
+
+/** `?/updateProfile` — both names; the flow trims and refuses. */
+export const AccountProfileForm = z.object({ firstName: formText, lastName: formText });
+export type AccountProfileForm = z.infer<typeof AccountProfileForm>;
+
+/** `?/createApiToken` — the label; the flow trims and caps it at 60. */
+export const AccountApiTokenForm = z.object({ name: formText });
+export type AccountApiTokenForm = z.infer<typeof AccountApiTokenForm>;
+
+/** `?/revokeApiToken` — the row id; a foreign id is a no-op success. */
+export const AccountRevokeTokenForm = z.object({ tokenId: formText });
+export type AccountRevokeTokenForm = z.infer<typeof AccountRevokeTokenForm>;
+
+/**
+ * `?/deleteAccount` — the typed id. A missing or non-string confirmation reads
+ * `''`, which the flow refuses with `Confirmation does not match`.
+ */
+export const AccountDeleteForm = z.object({ confirmation: formText });
+export type AccountDeleteForm = z.infer<typeof AccountDeleteForm>;
 
 // --- `GET /api/account/export` ---------------------------------------------
 

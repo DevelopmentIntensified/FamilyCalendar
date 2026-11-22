@@ -403,6 +403,23 @@ export type TaskUpdatePayload = Partial<z.input<typeof TaskUpdateBody>>;
 export const TaskRouteParams = z.object({ id: z.string() });
 export type TaskRouteParams = z.infer<typeof TaskRouteParams>;
 
+/**
+ * `GET /api/tasks`: the optional `?eventId=` filter. Absent, empty and junk all
+ * read as "no filter" (`if (eventId)`), exactly as the legacy `searchParams.get`
+ * did; the Event read itself owns the 403.
+ */
+export const TaskListQuery = z.object({ eventId: z.string().optional() });
+export type TaskListQuery = z.infer<typeof TaskListQuery>;
+
+/**
+ * `GET /api/taskfocus/sessions`: `?unabsorbed=1` is the one accepted query —
+ * anything else is the route's own 400 copy, which the literal carries.
+ */
+export const FocusSessionsQuery = z.object({
+	unabsorbed: z.literal('1', { error: FOCUS_ONLY_UNABSORBED })
+});
+export type FocusSessionsQuery = z.infer<typeof FocusSessionsQuery>;
+
 // --- Task category bodies ---------------------------------------------------
 
 /** `POST|PATCH /api/task-categories[...]` — a name, trimmed, 1..80. */

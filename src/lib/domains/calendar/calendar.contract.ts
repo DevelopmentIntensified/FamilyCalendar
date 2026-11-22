@@ -177,12 +177,31 @@ export const CalendarDisplayEventWire = z.object({
 });
 export type CalendarDisplayEventWire = z.infer<typeof CalendarDisplayEventWire>;
 
-/** `GET /api/events?from&to`. */
+/**
+ * `GET /api/events?from&to`. Both ends are optional here: `resolveEventRange`
+ * owns the three 400 messages, and an absent or empty end must reach it as the
+ * "ask for a range" refusal it has always answered.
+ */
+export const CalendarEventRangeQuery = z.object({
+	from: z.string().optional(),
+	to: z.string().optional()
+});
+export type CalendarEventRangeQuery = z.infer<typeof CalendarEventRangeQuery>;
+
+/** `GET /api/events`. */
 export const CalendarEventsResponse = z.object({
 	window: z.object({ from: z.string(), to: z.string() }),
 	events: z.array(CalendarDisplayEventWire)
 });
 export type CalendarEventsResponse = z.infer<typeof CalendarEventsResponse>;
+
+/**
+ * An event path segment: a master id or the composite `${masterId}~${iso}` the
+ * display pipeline builds. The rules own whether it resolves (`Invalid event
+ * id`); a missing segment is the only thing the schema refuses.
+ */
+export const CalendarEventParams = z.object({ id: z.string() });
+export type CalendarEventParams = z.infer<typeof CalendarEventParams>;
 
 /**
  * The raw Event row `POST`/`PUT` answer. `start`/`end`/`recurrenceUntil` are
@@ -223,12 +242,14 @@ const wireText = z
 /**
  * `POST /api/events`. Absent `end`/`description`/`location` store null and
  * absent `allDay` stores false; an absent `calendarId` uses (or creates) the
- * personal calendar. A missing `title` is NOT a 400 — the legacy writer lets
- * the database reject it and the route answers 500, which the golden pins.
+ * personal calendar. `title` and `start` stay `nullish`: a missing title is NOT
+ * a 400 — the legacy writer lets the database reject it and the route answers
+ * 500, which the golden pins, and an explicit `null` takes the same path (the
+ * `PUT` golden pins `title: null` as a 500 too).
  */
 export const CalendarEventCreateBody = z.object({
-	title: z.string().optional(),
-	start: z.string().optional(),
+	title: z.string().nullish(),
+	start: z.string().nullish(),
 	end: wireText,
 	description: wireText,
 	location: wireText,
@@ -387,6 +408,24 @@ export type CalendarBulkPlanResponse = z.infer<typeof CalendarBulkPlanResponse>;
 
 export const CalendarListResponse = z.object({ calendars: z.array(CalendarSummaryWire) });
 export type CalendarListResponse = z.infer<typeof CalendarListResponse>;
+
+/**
+ * `GET /api/print?year&month`: the raw values, both optional. `getPrintMonth`
+ * owns the "current month" default and the 1–12 clamp, so nothing is coerced
+ * here — an absent or junk value must reach it exactly as `searchParams.get` did.
+ */
+export const CalendarPrintQuery = z.object({
+	year: z.string().optional(),
+	month: z.string().optional()
+});
+export type CalendarPrintQuery = z.infer<typeof CalendarPrintQuery>;
+
+/**
+ * `GET /api/location-search?q=`: optional, so the flow's own
+ * `q is required and must be 2-100 characters` answers an absent or short query.
+ */
+export const CalendarLocationQuery = z.object({ q: z.string().optional() });
+export type CalendarLocationQuery = z.infer<typeof CalendarLocationQuery>;
 
 export const CalendarPrintCellWire = z.object({
 	day: z.number().int(),

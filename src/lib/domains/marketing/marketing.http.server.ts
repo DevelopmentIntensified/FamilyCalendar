@@ -27,9 +27,9 @@ import {
 	recordPlanView
 } from '$lib/domains/billing/index.server';
 import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
-import { formAction, formFields, pageLoad } from '$lib/kernel/http/pageHandlers.server';
+import { formAction, pageLoad } from '$lib/kernel/http/pageHandlers.server';
 import { androidRelease } from './marketing.android.rules';
-import { CONTACT_API_FAULT_MESSAGE } from './marketing.contract';
+import { CheckoutPurchaseForm, CONTACT_API_FAULT_MESSAGE } from './marketing.contract';
 import {
 	CHECKOUT_INVALID_MESSAGE,
 	CHECKOUT_LOGIN_REDIRECT,
@@ -52,6 +52,10 @@ export const contactEndpoint = endpoint({
 	auth: 'public',
 	failMessage: CONTACT_API_FAULT_MESSAGE,
 	handle: async ({ ctx, actor, event }) => {
+		// SAFETY: form-encoded, and the budget is spent BEFORE the form is read
+		// (legacy order), so neither a spec `body` (JSON) nor one parsed ahead of
+		// `handle` fits. The service reads the form and parses it with
+		// `ContactApiBody`, whose refusals are the 400 copy the golden pins.
 		await sendContactMessage(ctx, actor, event.request);
 		return ok({ success: true });
 	}
@@ -133,12 +137,12 @@ export const checkoutPageLoad = pageLoad({
  */
 export const checkoutPurchaseAction = formAction({
 	auth: 'optional',
-	handle: async ({ actor, event }) => {
+	form: CheckoutPurchaseForm,
+	handle: async ({ actor, form }) => {
 		if (!actor) return { success: false, error: CHECKOUT_NOT_AUTHENTICATED_MESSAGE };
 
-		const form = formFields(await event.request.formData());
 		const planType = isPlanType(form.planType) ? form.planType : null;
-		const finalPrice = Number(form.finalPrice ?? 0);
+		const finalPrice = Number(form.finalPrice || 0);
 		if (!planType || !finalPrice) return { success: false, error: CHECKOUT_INVALID_MESSAGE };
 
 		return { success: false, message: CHECKOUT_STUB_MESSAGE };

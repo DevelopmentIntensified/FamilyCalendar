@@ -67,11 +67,12 @@ export function accountDashboardModules(): AccountDashboardModule[] {
  * Show-based form in, hidden list out (105): every checkbox named `module_<id>`
  * that is not `'on'` is hidden, in the registry's own order — so the stored list
  * is a pure function of which canonical ids were named, and a form carrying a
- * retired id cannot grow it.
+ * retired id cannot grow it. The form is the parsed one (`AccountDashboardModulesForm`),
+ * where an absent box reads `''`.
  */
-export function accountHiddenModulesFromForm(form: FormData): string[] {
+export function accountHiddenModulesFromForm(form: Readonly<Record<string, string>>): string[] {
 	return DASHBOARD_MODULES.map((module) => module.id).filter(
-		(id) => form.get(`module_${id}`) !== 'on'
+		(id) => form[`module_${id}`] !== 'on'
 	);
 }
 

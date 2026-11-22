@@ -18,12 +18,13 @@
  * Doc: ./README.md#public-interface
  */
 import type { TaskfocusCommandRow, TaskfocusSessionRow } from '$lib/kernel/db/tables.server';
-import { created, endpoint, ok, reply } from '$lib/kernel/http/endpoint.server';
+import { created, endpoint, ok } from '$lib/kernel/http/endpoint.server';
 import {
-	FOCUS_ONLY_UNABSORBED,
 	FocusCommandBody,
 	FocusSessionEndBody,
 	FocusSessionStartBody,
+	FocusSessionsQuery,
+	TaskRouteParams,
 	type FocusCommandWire,
 	type FocusSessionListItemWire,
 	type FocusSessionWire
@@ -95,9 +96,10 @@ export const issueFocusCommandEndpoint = endpoint({
 /** `DELETE /api/taskfocus/commands/[id]`: always 204, foreign ids included. */
 export const ackFocusCommandEndpoint = endpoint({
 	auth: 'user',
+	params: TaskRouteParams,
 	failMessage: 'Failed to ack command',
-	handle: async ({ ctx, actor, event }) => {
-		await ackFocusCommand(ctx, actor, event.params.id ?? '');
+	handle: async ({ ctx, actor, params }) => {
+		await ackFocusCommand(ctx, actor, params.id);
 		return new Response(null, { status: 204 });
 	}
 });
@@ -107,10 +109,8 @@ export const ackFocusCommandEndpoint = endpoint({
 /** `GET /api/taskfocus/sessions?unabsorbed=1`: the caller's closed, unabsorbed rows. */
 export const listFocusSessionsEndpoint = endpoint({
 	auth: 'user',
-	handle: async ({ ctx, actor, event }) => {
-		if (event.url.searchParams.get('unabsorbed') !== '1') {
-			return reply(400, { error: FOCUS_ONLY_UNABSORBED });
-		}
+	query: FocusSessionsQuery,
+	handle: async ({ ctx, actor }) => {
 		const rows = await listUnabsorbedFocusSessions(ctx, actor);
 		return ok({ sessions: rows.map(unabsorbedWire) });
 	}
@@ -129,14 +129,15 @@ export const startFocusSessionEndpoint = endpoint({
 /** `PATCH /api/taskfocus/sessions/[id] {endedAt}`: stop; a retry overwrites the end. */
 export const endFocusSessionEndpoint = endpoint({
 	auth: 'user',
+	params: TaskRouteParams,
 	body: FocusSessionEndBody,
 	bodyMode: 'lenient',
 	failMessage: 'Failed to end focus session',
-	handle: async ({ ctx, actor, body, event }) =>
+	handle: async ({ ctx, actor, params, body }) =>
 		ok({
 			session: sessionWire(
 				await endFocusSession(ctx, actor, {
-					id: event.params.id ?? '',
+					id: params.id,
 					endedAt: body.endedAt
 				})
 			)
@@ -146,9 +147,10 @@ export const endFocusSessionEndpoint = endpoint({
 /** `DELETE /api/taskfocus/sessions/[id]`: discards an unabsorbed session. */
 export const discardFocusSessionEndpoint = endpoint({
 	auth: 'user',
+	params: TaskRouteParams,
 	failMessage: 'Failed to delete focus session',
-	handle: async ({ ctx, actor, event }) => {
-		await discardFocusSession(ctx, actor, event.params.id ?? '');
+	handle: async ({ ctx, actor, params }) => {
+		await discardFocusSession(ctx, actor, params.id);
 		return ok({ success: true });
 	}
 });
@@ -156,9 +158,10 @@ export const discardFocusSessionEndpoint = endpoint({
 /** `POST /api/taskfocus/sessions/[id]/absorb`: idempotent ack of a closed session. */
 export const absorbFocusSessionEndpoint = endpoint({
 	auth: 'user',
+	params: TaskRouteParams,
 	failMessage: 'Failed to absorb focus session',
-	handle: async ({ ctx, actor, event }) =>
+	handle: async ({ ctx, actor, params }) =>
 		ok({
-			session: sessionWire(await absorbFocusSession(ctx, actor, event.params.id ?? ''))
+			session: sessionWire(await absorbFocusSession(ctx, actor, params.id))
 		})
 });
