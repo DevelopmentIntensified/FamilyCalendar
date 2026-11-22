@@ -20,6 +20,7 @@
 import { redirect } from '@sveltejs/kit';
 import published from '$lib/fdroid/published.json';
 import { FREE_PLAN_LIMITS, isPlanType, planTypeOrDefault } from '$lib/domains/billing/index';
+import { toPublicUser } from '$lib/domains/identity/index';
 import { listFamilies } from '$lib/domains/family/index.server';
 import {
 	getCheckoutQuote,
@@ -65,8 +66,10 @@ export const contactEndpoint = endpoint({
  * The `(marketing)` layout load: the ORIGIN THE REQUEST ARRIVED ON (prod,
  * test.familyplanz.com and preview URLs all canonicalise to themselves — a
  * hardcoded domain would be worse than no canonical), plus the pathname, the
- * viewer the navbar needs, and the year the footer prints (from `ctx.clock`:
- * v2 code never reads the ambient clock, rule R5).
+ * viewer the navbar needs — whitelisted by identity's `toPublicUser`, never the
+ * session's whole `users` row (#324: `passwordHash`, `receiptIngestToken` and
+ * `phonenumber` must not ride page data) — and the year the footer prints (from
+ * `ctx.clock`: v2 code never reads the ambient clock, rule R5).
  */
 export const marketingLayoutLoad = pageLoad({
 	auth: 'public',
@@ -74,7 +77,7 @@ export const marketingLayoutLoad = pageLoad({
 		pathname: event.url.pathname,
 		origin: event.url.origin,
 		isLoggedIn: Boolean(event.locals.user),
-		user: event.locals.user,
+		user: toPublicUser(event.locals.user),
 		year: ctx.clock.now().getUTCFullYear()
 	})
 });

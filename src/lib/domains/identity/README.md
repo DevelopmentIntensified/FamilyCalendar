@@ -56,6 +56,7 @@ Designed at S1 and implemented by S5+S6; each entry hides a whole use-case, so c
 - `index.ts`:
   - `isAnonymousAccount(user)` / `isRegisteredAccount(user)` — the ONE Anonymous Account predicate (placeholder `@anonymous.placeholder.invalid`); "registered" is a real email, never `user.email` truthiness.
   - `displayName(person)` — `firstName lastName` trimmed, the single person-label rule.
+  - `toPublicUser(person)` / `PublicUser` — the only `users` fields a page load may serialise (`id`, names, `email`, `emailVerified`, `roles`, `lastActiveAt`), copied field by field so a credential or private column (`passwordHash`, `receiptIngestToken`, `phonenumber`) never reaches page data (#324, legacy hotfix `be915320`) · `identity.person.rules.test.ts` › "toPublicUser".
   - `guestSafeEmail(user)` — the placeholder email leaves the server as `null`; every wire that carries a person uses this. (Designed as `maskEmail`; renamed at S3 because family's search rules export a different `maskEmail(email)` — partial masking — and R11 needs unique names.)
   - `ACCOUNT_SETTINGS_DEFAULTS`, `calendarSettingsPatch(body)` — the settings wire vocabulary, allowlist and defaults, pure. The no-row builder (`newCalendarSettings`) is internal: only the settings service's insert path needs it.
   - `sessionCookieAttributes(production)` — the cookie attribute policy, pure. The lifetime constant, the 24-hour renewal window and the renewal/expiry math stay internal to `identity.session.rules.ts`: no caller needs them, and the session service owns the decision.

@@ -55,6 +55,50 @@ export function displayName(
 	return [person?.firstName, person?.lastName].filter(Boolean).join(' ').trim() || null;
 }
 
+/** The `users` row fields a page load may put in page data (#324). */
+export type PublicUser = {
+	readonly id: string;
+	readonly firstName: string;
+	readonly lastName: string;
+	readonly email: string | null;
+	readonly emailVerified: boolean | null;
+	readonly roles: string[];
+	readonly lastActiveAt: Date | null;
+};
+
+/**
+ * Whitelist a person row for page data (#324, hotfix `be915320`). The session
+ * keeps the whole row server-side; a serialised load gets only these fields,
+ * copied one by one — never a spread — so `passwordHash`,
+ * `receiptIngestToken`, `phonenumber` or any column added later cannot reach
+ * the browser by default. No person stays `null` (a signed-out page).
+ */
+export function toPublicUser(
+	person:
+		| {
+				readonly id: string;
+				readonly firstName: string;
+				readonly lastName: string;
+				readonly email: string | null;
+				readonly emailVerified?: boolean | null;
+				readonly roles: readonly string[];
+				readonly lastActiveAt?: Date | null;
+		  }
+		| null
+		| undefined
+): PublicUser | null {
+	if (!person) return null;
+	return {
+		id: person.id,
+		firstName: person.firstName,
+		lastName: person.lastName,
+		email: person.email,
+		emailVerified: person.emailVerified ?? null,
+		roles: [...person.roles],
+		lastActiveAt: person.lastActiveAt ?? null
+	};
+}
+
 /**
  * The STORED full name, untrimmed: `first + ' ' + last`, the exact string the
  * legacy SQL's `first || ' ' || last` put on the stats wire — an empty last

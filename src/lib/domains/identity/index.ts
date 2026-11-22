@@ -8,8 +8,10 @@ export {
 	isAnonymousAccount,
 	isRegisteredAccount,
 	guestSafeEmail,
-	displayName
+	displayName,
+	toPublicUser
 } from './identity.person.rules';
+export type { PublicUser } from './identity.person.rules';
 export {
 	ACCOUNT_SETTINGS_DEFAULTS,
 	calendarSettingsPatch
