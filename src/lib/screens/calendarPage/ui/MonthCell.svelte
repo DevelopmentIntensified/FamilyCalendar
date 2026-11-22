@@ -113,7 +113,7 @@
 				? 'pointer-events-auto'
 				: narrow
 					? 'pointer-events-none'
-					: ''}"
+					: '[&>button]:pointer-events-auto'}"
 			inert={!state.selectionMode && narrow ? true : undefined}
 		>
 			<span

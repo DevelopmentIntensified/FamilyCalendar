@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	CONTENT_PAGE_OPTIONS,
+	HOME_PAGE_OPTIONS,
 	marketingPageOptions,
 	type MarketingPageOptions
 } from './marketing.pageOptions.rules';
@@ -30,5 +31,12 @@ describe('CONTENT_PAGE_OPTIONS', () => {
 	it('follows ADAPTER for the group and forces the content pages on', () => {
 		expect(marketingPageOptions('vercel')).toEqual({ prerender: false, ssr: false });
 		expect(CONTENT_PAGE_OPTIONS).toEqual({ prerender: true, ssr: true });
+	});
+});
+
+describe('HOME_PAGE_OPTIONS', () => {
+	it('server-renders the landing page even where the group is client-rendered', () => {
+		expect(marketingPageOptions('vercel').ssr).toBe(false);
+		expect(HOME_PAGE_OPTIONS).toEqual({ ssr: true });
 	});
 });
