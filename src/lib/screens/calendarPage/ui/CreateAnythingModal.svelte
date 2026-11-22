@@ -12,23 +12,29 @@
 
 	Deep links land here: `?quickadd=`/the share target seed the Quick Add field
 	(and say so through `state.shareNote`), a grid tap seeds the date and time.
+
+	Layout is legacy `EventFormModal`'s: the tabs ride inside the form's padded
+	body (`lead`), and the action bar is the sheet's footer, so it stays put
+	while the body scrolls. The Task half and the tasks checklist are their own
+	chunks (the Event half never needs tasks' UI barrel), and this whole modal
+	loads after the page's `load` event (see `CalendarPage`'s `afterLoad`).
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { DateTime } from 'luxon';
 	import { createApiClient } from '$lib/kernel/client/apiClient';
 	import { createTasksApi } from '$lib/domains/tasks/index';
 	import {
+		CalendarEventActionBar,
 		CalendarEventForm,
 		CalendarEventFormState,
 		calendarSavedToast,
 		type CalendarParseEvent,
 		type CalendarSaveOutcome
 	} from '$lib/domains/calendar/ui';
-	import { EventTaskChecklist } from '$lib/domains/tasks/ui';
 	import Sheet from '$lib/kernel/ui/Sheet.svelte';
 	import type { CalendarCreateSeed } from '../calendarPage.contract';
 	import type { CalendarPageState } from '../calendarPage.state.svelte';
-	import TaskFields from './TaskFields.svelte';
 
 	interface Props {
 		state: CalendarPageState;
@@ -54,7 +60,8 @@
 	let categoriesLoading = $state(false);
 
 	const shell = page.shell;
-	const tasksApi = createTasksApi(createApiClient());
+	const client = createApiClient();
+	const tasksApi = createTasksApi(client);
 
 	const form = new CalendarEventFormState(page.api, parseEvent, {
 		event: null,
@@ -76,11 +83,35 @@
 	}
 
 	// A consumed deep link drives Quick Add and its own parse, exactly as the
-	// share target did.
+	// share target did. Legacy's `goto` re-ran the page load after the seed and
+	// rebuilt the form, so only Quick Add and the parse's fields survived: the
+	// Description stays empty for a deep link (a selection's text still fills it).
 	if (seed) {
 		form.quickAdd = seed.quickAdd;
 		form.onQuickAddInput(seed.quickAdd);
+		if (seed.note) form.patch({ description: '' });
 	}
+
+	// A deep link's focus reset: legacy's `goto` blurred whatever held focus, so
+	// the sheet opened with nothing focused (the sheet's trap runs before this).
+	onMount(() => {
+		if (seed?.note && document.activeElement instanceof HTMLElement) document.activeElement.blur();
+	});
+
+	async function reportPhrase() {
+		await form.reportPhrase(async (phrase, matched) => {
+			const result = await client.request('POST', '/api/report-phrase', {
+				phrase,
+				source: 'event_parse',
+				matched
+			});
+			return result.ok;
+		});
+	}
+
+	const submitBlockedReason = $derived(
+		form.endBeforeStart || form.endDateBeforeStart ? 'End must be after start' : undefined
+	);
 
 	const title = $derived(entryType === 'task' ? 'Add Task' : 'Create New Event');
 	const subtitle = $derived(
@@ -162,8 +193,12 @@
 	}
 </script>
 
-<Sheet {title} {subtitle} open onclose={onclose} variant="bottom" testid="create-anything">
-	<div class="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1" role="tablist" aria-label="What are you adding?">
+{#snippet tabs()}
+	<div
+		class="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1"
+		role="tablist"
+		aria-label="What are you adding?"
+	>
 		<button
 			type="button"
 			role="tab"
@@ -187,7 +222,9 @@
 			Task
 		</button>
 	</div>
+{/snippet}
 
+<Sheet {title} {subtitle} open onclose={onclose} variant="bottom" testid="create-anything">
 	{#if entryType === 'event'}
 		<CalendarEventForm
 			state={form}
@@ -195,26 +232,34 @@
 			onsave={saved}
 			ondeletescope={() => {}}
 			oncreateall={createAll}
+			onreportphrase={reportPhrase}
 			onclose={onclose}
+			lead={tabs}
+			inlineActions={false}
 		>
 			{#snippet checklist({ eventId })}
-				<EventTaskChecklist {eventId} />
+				{#await import('$lib/domains/tasks/ui') then { EventTaskChecklist }}
+					<EventTaskChecklist {eventId} />
+				{/await}
 			{/snippet}
 		</CalendarEventForm>
 	{:else}
-		<form onsubmit={saveTask} class="space-y-3">
-			<TaskFields
-				title={taskTitle}
-				visibility={taskVisibility}
-				dueDate={taskDueDate}
-				category={taskCategory}
-				{categories}
-				error={taskError}
-				ontitle={(value) => (taskTitle = value)}
-				onvisibility={(value) => (taskVisibility = value)}
-				ondueDate={(value) => (taskDueDate = value)}
-				oncategory={(value) => (taskCategory = value)}
-			/>
+		<form onsubmit={saveTask} class="space-y-3 p-5">
+			{@render tabs()}
+			{#await import('./TaskFields.svelte') then { default: TaskFields }}
+				<TaskFields
+					title={taskTitle}
+					visibility={taskVisibility}
+					dueDate={taskDueDate}
+					category={taskCategory}
+					{categories}
+					error={taskError}
+					ontitle={(value) => (taskTitle = value)}
+					onvisibility={(value) => (taskVisibility = value)}
+					ondueDate={(value) => (taskDueDate = value)}
+					oncategory={(value) => (taskCategory = value)}
+				/>
+			{/await}
 			{#if categoriesLoading}
 				<p class="text-xs text-slate-400" role="status">Loading your categories…</p>
 			{/if}
@@ -236,4 +281,18 @@
 			</div>
 		</form>
 	{/if}
+
+	{#snippet footer()}
+		{#if entryType === 'event'}
+			<CalendarEventActionBar
+				isEdit={false}
+				submitting={form.saving}
+				canSubmit={form.canSubmit}
+				{submitBlockedReason}
+				ondelete={() => {}}
+				{onclose}
+				onclear={() => form.reset()}
+			/>
+		{/if}
+	{/snippet}
 </Sheet>

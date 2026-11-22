@@ -8,7 +8,7 @@
 -->
 <script lang="ts">
 	import { describeEventChip } from '$lib/domains/calendar/index';
-	import { CalendarEventChipMark } from '$lib/domains/calendar/ui';
+	import CalendarMark from './CalendarMark.svelte';
 	import type { CalendarPageTaskRow } from '../calendarPage.contract';
 
 	interface Props {
@@ -38,7 +38,7 @@
 		? 'text-red-600'
 		: ''}"
 >
-	<CalendarEventChipMark kind={chip.kind} density={chip.markDensity} />
+	<CalendarMark kind={chip.kind} density={chip.markDensity} />
 	<span class="min-w-0 truncate">{task.title}</span>
 	{#if task.recurrenceFrequency}
 		<svg

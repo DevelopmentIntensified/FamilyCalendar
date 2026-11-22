@@ -86,6 +86,39 @@
 		page.tick(ticker.now);
 	});
 
+	/**
+	 * Resolves once the window's `load` event has fired and the browser has a quiet
+	 * moment. ADR 0010 counts the JS transferred up to `load`; a deep link opens
+	 * the create modal during hydration, so a plain `import()` there would bill
+	 * the modal's chunk (calendar's event form, zod) to the first paint. Legacy
+	 * fetched its form modal on browser idle for the same reason.
+	 * (Executor form on purpose: `Promise.withResolvers` is newer than the
+	 * browsers this page still serves.)
+	 */
+	function afterLoad(): Promise<void> {
+		return new Promise((resolve) => {
+			const idle = () => {
+				if ('requestIdleCallback' in window) {
+					window.requestIdleCallback(() => resolve(), { timeout: 300 });
+				} else {
+					setTimeout(resolve, 0);
+				}
+			};
+			if (document.readyState === 'complete') idle();
+			else window.addEventListener('load', idle, { once: true });
+		});
+	}
+
+	/**
+	 * The create modal's chunk is fetched once, after `load` (see `afterLoad`).
+	 * The FAB warms it on hover/focus, as legacy's idle prefetch did.
+	 */
+	let createModal: Promise<typeof import('./CreateAnythingModal.svelte')> | null = null;
+	function loadCreateModal() {
+		createModal ??= afterLoad().then(() => import('./CreateAnythingModal.svelte'));
+		return createModal;
+	}
+
 	let sliceText = $state('');
 	let sliceVisible = $state(false);
 
@@ -310,6 +343,8 @@
 {#if !page.selectionMode}
 	<button
 		onclick={() => page.openCreate()}
+		onpointerenter={() => void loadCreateModal()}
+		onfocus={() => void loadCreateModal()}
 		class="fixed bottom-24 right-6 z-40 flex h-16 w-16 items-center justify-center rounded-full bg-primary-600 shadow-xl shadow-primary-400/50 transition-all hover:scale-105 hover:bg-primary-700 active:scale-95"
 		aria-label="Quick Add Event"
 	>
@@ -394,7 +429,7 @@
 
 {#if page.createOpen}
 	{#key `${page.createSeed?.quickAdd ?? ''}|${page.createStart?.toISO() ?? ''}`}
-		{#await import('./CreateAnythingModal.svelte')}
+		{#await loadCreateModal()}
 			<!-- Fixed bottom sheet: the grid does not move while it lands. -->
 		{:then { default: CreateAnythingModal }}
 			<CreateAnythingModal
