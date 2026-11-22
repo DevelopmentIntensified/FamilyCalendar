@@ -15,9 +15,13 @@
 		state: CalendarPageState;
 	}
 
-	let { state }: Props = $props();
+	// Aliased off the prop name: a local `state` would turn the `$state(…)`
+	// below into a store subscription (the compile reads any `$state(…)` in a
+	// scope with a `state` binding as the legacy store sugar), which throws at
+	// hydration and leaves the card's skeleton in place.
+	let { state: page }: Props = $props();
 
-	const cells = $derived(monthGridCells(state.date, state.weekStart));
+	const cells = $derived(monthGridCells(page.date, page.weekStart));
 	// The header row IS the matrix's first week: naming the days from the cells
 	// can never disagree with the columns (a Sunday start opens on Sunday).
 	const weekdays = $derived(cells.slice(0, 7).map((day) => day.toFormat('EEE')));
@@ -46,6 +50,6 @@
 		</div>
 	{/each}
 	{#each cells as cell (cell.toMillis())}
-		<MonthCell state={state} day={cell} inMonth={cell.hasSame(state.date, 'month')} {narrow} />
+		<MonthCell state={page} day={cell} inMonth={cell.hasSame(page.date, 'month')} {narrow} />
 	{/each}
 </div>

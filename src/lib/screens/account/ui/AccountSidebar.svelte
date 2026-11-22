@@ -82,7 +82,7 @@
 	>
 		<div
 			data-testid="account-rail-title"
-			class="mb-3 text-xs font-bold uppercase tracking-[0.88px] text-slate-400"
+			class="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400"
 		>
 			Settings
 		</div>
@@ -137,7 +137,7 @@
 			<span
 				data-testid="account-initial"
 				aria-hidden="true"
-				class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#fdede0] text-sm font-bold text-[#c45e38]"
+				class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#FED5CF] text-sm font-bold text-[#c45e38]"
 			>
 				{initial}
 			</span>
