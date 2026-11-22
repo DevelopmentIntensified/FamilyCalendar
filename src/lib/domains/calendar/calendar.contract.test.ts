@@ -9,10 +9,15 @@
 import { describe, expect, it } from 'vitest';
 import {
 	CALENDAR_COPY,
+	CalendarBulkBody,
 	CalendarDisplayEventWire,
 	CalendarEventCreateBody,
+	CalendarEventParams,
+	CalendarEventRangeQuery,
 	CalendarEventRowWire,
 	CalendarImportUndoRefWire,
+	CalendarLocationQuery,
+	CalendarPrintQuery,
 	CalendarRsvpBody
 } from './calendar.contract';
 
@@ -163,5 +168,49 @@ describe('rsvp and import bodies', () => {
 	it('pins the series note and the ISO rendering the display wire accepts', () => {
 		expect(CALENDAR_COPY.seriesNote).toBe('Attendee changes apply to the whole series.');
 		expect('2026-10-05T09:00:00.000Z').toMatch(ISO);
+	});
+});
+
+describe('boundary inputs', () => {
+	it('reads the event range as two optional strings, refusals left to the rule', () => {
+		expect(CalendarEventRangeQuery.parse({})).toEqual({});
+		expect(CalendarEventRangeQuery.parse({ from: '2026-10-01', to: '2026-10-31' })).toEqual({
+			from: '2026-10-01',
+			to: '2026-10-31'
+		});
+		// `?from=` is present and empty: `resolveEventRange` answers "ask for a range".
+		expect(CalendarEventRangeQuery.parse({ from: '', to: '' })).toEqual({ from: '', to: '' });
+	});
+
+	it('reads the print query untrimmed, so the service keeps its own 1–12 clamp', () => {
+		expect(CalendarPrintQuery.parse({})).toEqual({});
+		expect(CalendarPrintQuery.parse({ year: '2026', month: ' 2 ' })).toEqual({
+			year: '2026',
+			month: ' 2 '
+		});
+	});
+
+	it('leaves the location query to the flow copy', () => {
+		expect(CalendarLocationQuery.parse({ q: 'a' })).toEqual({ q: 'a' });
+		expect(CalendarLocationQuery.parse({})).toEqual({});
+	});
+
+	it('requires a path segment id and passes the composite form through', () => {
+		expect(CalendarEventParams.safeParse({}).success).toBe(false);
+		expect(CalendarEventParams.parse({ id: 'evtoneoff01~2026-10-13T15:00:00.000Z' })).toEqual({
+			id: 'evtoneoff01~2026-10-13T15:00:00.000Z'
+		});
+	});
+
+	it('hands the bulk body through as posted, every field optional', () => {
+		expect(CalendarBulkBody.parse({})).toEqual({});
+		expect(CalendarBulkBody.parse({ ids: [{ id: 'evt1' }], op: { type: 'delete' } })).toEqual({
+			ids: [{ id: 'evt1' }],
+			op: { type: 'delete' }
+		});
+		expect(CalendarBulkBody.parse({ ids: ['not-an-item'], dryRun: true })).toEqual({
+			ids: ['not-an-item'],
+			dryRun: true
+		});
 	});
 });

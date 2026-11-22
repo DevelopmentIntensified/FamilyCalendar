@@ -59,10 +59,9 @@ describe('accountDashboardModules', () => {
 
 describe('accountHiddenModulesFromForm', () => {
 	it('hides every module whose checkbox is absent, in registry order', () => {
-		const form = new FormData();
-		form.set('module_verse', 'on');
-		form.set('module_meals', 'on');
-		expect(accountHiddenModulesFromForm(form)).toEqual(
+		expect(
+			accountHiddenModulesFromForm({ module_verse: 'on', module_meals: 'on' })
+		).toEqual(
 			DASHBOARD_MODULES.map((module) => module.id).filter(
 				(id) => id !== 'verse' && id !== 'meals'
 			)
@@ -70,15 +69,16 @@ describe('accountHiddenModulesFromForm', () => {
 	});
 
 	it('hides everything when no checkbox arrives', () => {
-		expect(accountHiddenModulesFromForm(new FormData())).toEqual(
+		expect(accountHiddenModulesFromForm({})).toEqual(
 			DASHBOARD_MODULES.map((module) => module.id)
 		);
 	});
 
 	it('drops a retired id a hand-made form posts', () => {
-		const form = new FormData();
-		for (const module of DASHBOARD_MODULES) form.set(`module_${module.id}`, 'on');
-		form.set('module_retired', 'on');
+		const form: Record<string, string> = Object.fromEntries(
+			DASHBOARD_MODULES.map((module) => [`module_${module.id}`, 'on'])
+		);
+		form.module_retired = 'on';
 		expect(accountHiddenModulesFromForm(form)).toEqual([]);
 	});
 });

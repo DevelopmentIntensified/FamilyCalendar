@@ -15,7 +15,14 @@ import {
 	resolveEventRange
 } from './calendar.range.rules';
 
-const range = (query: string) => resolveEventRange(new URLSearchParams(query));
+/** Legacy `searchParams` semantics: the first value of a key, absent when missing. */
+const range = (search: string) => {
+	const params = new URLSearchParams(search);
+	return resolveEventRange({
+		from: params.get('from') ?? undefined,
+		to: params.get('to') ?? undefined
+	});
+};
 
 describe('resolveEventRange (eventRange.test.ts:7-40)', () => {
 	it('reads a from/to pair as the window it was asked for', () => {

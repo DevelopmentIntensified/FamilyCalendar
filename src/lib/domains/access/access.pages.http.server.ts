@@ -30,7 +30,15 @@ import { getPerson, type SessionCookie } from '$lib/domains/identity/index.serve
 import { CALENDAR_LANDING_PATH, authRedirectTarget, EMAIL_LINK_LANDING_PATH } from './access.redirect.rules';
 import { isGuestPerson, isRegisteredPerson } from './access.person.rules';
 import { claimEmail } from './access.claim.rules';
-import { CLAIM_SEND_FAILED_MESSAGE, EMAIL_CHANGE_SEND_FAILED_MESSAGE } from './access.contract';
+import {
+	AccessClaimParams,
+	AccessEmailLinkQuery,
+	ChangeEmailForm,
+	ClaimRequestForm,
+	CLAIM_SEND_FAILED_MESSAGE,
+	EMAIL_CHANGE_SEND_FAILED_MESSAGE,
+	VerifyEmailForm
+} from './access.contract';
 import { clientIpOf, sessionCookieHeader } from './access.http.server';
 import { completeEmailLoginLink } from './access.login.service.server';
 import { completeEmailSignupLink } from './access.signup.service.server';
@@ -109,10 +117,11 @@ function redirectWithCookie(location: string, cookie: SessionCookie): Response {
 /** `GET /login/email/callback?token` — 302 with the session cookie. */
 export const loginCallback = endpoint({
 	auth: 'public',
-	handle: async ({ ctx, event }) => {
+	query: AccessEmailLinkQuery,
+	handle: async ({ ctx, query, event }) => {
 		await stashGuestFromCookies(ctx, event.cookies);
 		const result = await completeEmailLoginLink(ctx, {
-			token: event.url.searchParams.get('token'),
+			token: query.token ?? null,
 			actor: event.locals.actor ?? null,
 			sessionId: event.locals.session?.id ?? null
 		});
@@ -128,10 +137,11 @@ export const loginCallback = endpoint({
 /** `GET /signup/email/callback?token` — 302 with the session cookie. */
 export const signupCallback = endpoint({
 	auth: 'public',
-	handle: async ({ ctx, event }) => {
+	query: AccessEmailLinkQuery,
+	handle: async ({ ctx, query, event }) => {
 		await stashGuestFromCookies(ctx, event.cookies);
 		const result = await completeEmailSignupLink(ctx, {
-			token: event.url.searchParams.get('token'),
+			token: query.token ?? null,
 			actor: event.locals.actor ?? null
 		});
 		if (result.outcome === 'signed-in') {
@@ -161,10 +171,12 @@ export type ClaimRequestActionData = { readonly success: true; readonly email: s
 /** `/claim?/request` — the guests-only claim link request. */
 export const claimRequestAction = formAction({
 	auth: 'optional',
+	form: ClaimRequestForm,
 	failMessage: CLAIM_SEND_FAILED_MESSAGE,
 	handle: async ({
 		ctx,
 		actor,
+		form,
 		event
 	}): Promise<ClaimRequestActionData | ActionFailure<{ success: false; error: string }>> => {
 		if (!actor) {
@@ -173,9 +185,8 @@ export const claimRequestAction = formAction({
 				error: 'Not signed in'
 			});
 		}
-		const rawEmail = (await event.request.formData()).get('email');
 		const result = await requestClaim(ctx, actor, {
-			email: rawEmail,
+			email: form.email,
 			clientIp: clientIpOf(event.request),
 			baseUrl: ctx.config.siteUrl
 		});
@@ -185,7 +196,7 @@ export const claimRequestAction = formAction({
 				error: CLAIM_SEND_FAILED_MESSAGE
 			});
 		}
-		return { success: true, email: claimEmail(rawEmail) };
+		return { success: true, email: claimEmail(form.email) };
 	}
 });
 
@@ -210,18 +221,20 @@ function claimConfirmPage(token: string): Response {
 /** `GET /claim/verify/[token]` — renders the confirm page; it never burns. */
 export const claimVerifyPage = endpoint({
 	auth: 'optional',
-	handle: async ({ actor, event }) => {
+	params: AccessClaimParams,
+	handle: async ({ actor, params }) => {
 		if (!actor) throw redirect(302, '/login');
-		return claimConfirmPage(event.params.token ?? '');
+		return claimConfirmPage(params.token);
 	}
 });
 
 /** `POST /claim/verify/[token]` — consumes the token and claims or merges. */
 export const claimVerifyAction = endpoint({
 	auth: 'optional',
-	handle: async ({ ctx, actor, event }) => {
+	params: AccessClaimParams,
+	handle: async ({ ctx, actor, params, event }) => {
 		if (!actor) throw redirect(302, '/login');
-		const result = await confirmClaim(ctx, actor, { token: event.params.token ?? '' });
+		const result = await confirmClaim(ctx, actor, { token: params.token });
 		if (result.outcome === 'invalid') throw redirect(302, '/claim?error=invalid');
 		if (result.outcome === 'merged') {
 			// The merge deleted the guest session; sign into the merged target.
@@ -249,17 +262,17 @@ export type ChangeEmailActionData = {
  */
 export const changeEmailAction = formAction({
 	auth: 'user',
+	form: ChangeEmailForm,
 	handle: async ({
 		ctx,
 		actor,
+		form,
 		event
 	}): Promise<ChangeEmailActionData | ActionFailure<ChangeEmailActionData>> => {
 		try {
 			// Legacy read its form inside the flow's own `try`, after the throttle.
-			const form = await event.request.formData();
-			const email = form.get('email');
 			return await requestEmailChange(ctx, actor, {
-				email: typeof email === 'string' ? email : '',
+				email: form.email,
 				clientKey: clientKeyOf(event.request, `email-change:${actor.id}`),
 				siteUrl: ctx.config.siteUrl
 			});
@@ -299,22 +312,21 @@ export type VerifyEmailActionData = {
  */
 export const verifyEmailAction = formAction({
 	auth: 'optional',
+	form: VerifyEmailForm,
 	failMessage: 'Failed to verify email',
 	handle: async ({
 		ctx,
 		actor,
+		form,
 		event
 	}): Promise<VerifyEmailActionData | ActionFailure<VerifyEmailActionData>> => {
-		const form = await event.request.formData();
-		const token = form.get('token');
-		const code = form.get('code');
 		// Legacy's own `try` swallowed the unauthenticated `requireUser` throw
 		// into the 500 copy, which this keeps.
 		if (!actor) return fail(500, { success: false, message: 'Failed to verify email' });
 		try {
 			return await verifyEmailChange(ctx, actor, {
-				token: typeof token === 'string' ? token : '',
-				code: typeof code === 'string' ? code : '',
+				token: form.token,
+				code: form.code,
 				clientKey: clientKeyOf(event.request, 'verify-email-change')
 			});
 		} catch (cause) {

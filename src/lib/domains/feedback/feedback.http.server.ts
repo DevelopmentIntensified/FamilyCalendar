@@ -229,6 +229,10 @@ export const submitBugReportAction = formAction({
 		if (!actor) {
 			return fail(401, { error: 'Please log in to report a bug.', area: '', description: '' });
 		}
+		// SAFETY: the 400 body echoes the posted `area`/`description`, which the
+		// kernel's own form failure cannot carry, and the 401 must precede the
+		// read. The parse is still the contract's (`BugReportFormBody`), just
+		// inside the handler; the kernel's `form` option would change the wire.
 		const data = await event.request.formData();
 		const area = String(data.get('area') ?? '');
 		const description = String(data.get('description') ?? '').trim();

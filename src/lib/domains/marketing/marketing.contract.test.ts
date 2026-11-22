@@ -14,6 +14,7 @@ import {
 	CONTACT_HONEYPOT_MESSAGE,
 	CONTACT_REQUIRED_MESSAGE,
 	CONTACT_THROTTLED_MESSAGE,
+	CheckoutPurchaseForm,
 	ContactApiBody,
 	ContactErrorResponse,
 	ContactSentResponse
@@ -33,6 +34,26 @@ describe('contact copy', () => {
 		expect(CONTACT_REQUIRED_MESSAGE).toBe('All fields are required');
 		expect(CONTACT_EMAIL_MESSAGE).toBe('Please enter a valid email address');
 		expect(CONTACT_API_FAULT_MESSAGE).toBe('Failed to send message. Please try again later.');
+	});
+});
+
+describe('CheckoutPurchaseForm (POST /checkout?/purchase)', () => {
+	it('reads both fields as text, first value when repeated, empty when absent', () => {
+		expect(CheckoutPurchaseForm.parse({ planType: 'annual', finalPrice: '49' })).toEqual({
+			planType: 'annual',
+			finalPrice: '49'
+		});
+		expect(
+			CheckoutPurchaseForm.parse({ planType: ['monthly', 'annual'], finalPrice: ['49'] })
+		).toEqual({ planType: 'monthly', finalPrice: '49' });
+		expect(CheckoutPurchaseForm.parse({})).toEqual({ planType: '', finalPrice: '' });
+	});
+
+	it('passes an unknown plan through for the action to refuse', () => {
+		expect(CheckoutPurchaseForm.parse({ planType: 'weekly', finalPrice: 0 })).toEqual({
+			planType: 'weekly',
+			finalPrice: ''
+		});
 	});
 });
 

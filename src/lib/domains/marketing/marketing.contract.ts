@@ -74,6 +74,17 @@ export type ContactApiBody = z.infer<typeof ContactApiBody>;
 export const ContactSentResponse = z.object({ success: z.literal(true) });
 export type ContactSentResponse = z.infer<typeof ContactSentResponse>;
 
+// --- Checkout purchase form -------------------------------------------------
+
+/**
+ * `POST /checkout?/purchase`: the stub reads two fields and never charges. Both
+ * are text exactly as `formData.get` gave them; the action owns the 400 copy
+ * (`planType` must be one of the three, `finalPrice` must be truthy) and the
+ * `Number()` read, so a blank price is the same `Invalid purchase data` it was.
+ */
+export const CheckoutPurchaseForm = z.object({ planType: formText, finalPrice: formText });
+export type CheckoutPurchaseForm = z.infer<typeof CheckoutPurchaseForm>;
+
 /** Every refusal and the fault: `400`/`429`/`500 {error}`. */
 export const ContactErrorResponse = z.object({ error: z.string() });
 export type ContactErrorResponse = z.infer<typeof ContactErrorResponse>;
