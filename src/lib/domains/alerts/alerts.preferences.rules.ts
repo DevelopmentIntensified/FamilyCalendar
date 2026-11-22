@@ -18,7 +18,6 @@
  *
  * Doc: ./README.md#invariants
  */
-import { z } from '$lib/kernel/validation/validators';
 import type {
 	AlertNotificationMethods,
 	AlertPreferenceId,
@@ -65,23 +64,23 @@ export const DEFAULT_ALERT_PREFERENCES: AlertPreferences = {
 };
 
 // The functions below ARE the boundary parser: a jsonb column has no declared
-// row shape, so they take `unknown` and decide what a stored row means. Zod
-// does the shape tests so no `typeof` ladder is needed.
-
-const PLAIN_OBJECT = z.record(z.string(), z.unknown());
+// row shape, so they take `unknown` and decide what a stored row means. Plain
+// `typeof` tests, not schemas: this file is in every page's chrome (the bell
+// reads a preference), and a schema library here would ship its chunk to all
+// of them (ADR 0010).
 
 /** The value as a plain object (an array is not one), or null. */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type -- boundary parser for an untyped jsonb value.
 function plainObject(value: unknown): Record<string, unknown> | null {
-	const parsed = PLAIN_OBJECT.safeParse(value);
-	return parsed.success ? parsed.data : null;
+	return typeof value === 'object' && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: null;
 }
 
 /** A stored value counts only if it is a real boolean: `'yes'` or `1` must never read as "on". */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- boundary parser for an untyped jsonb value.
 function booleanOr(value: unknown, fallback: boolean): boolean {
-	const parsed = z.boolean().safeParse(value);
-	return parsed.success ? parsed.data : fallback;
+	return typeof value === 'boolean' ? value : fallback;
 }
 
 /**

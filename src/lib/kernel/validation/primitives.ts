@@ -18,3 +18,27 @@ const EMAIL_PATTERN =
 export function isEmailAddress(text: string): boolean {
 	return EMAIL_PATTERN.test(text);
 }
+
+/** `yyyy-MM-dd`, the only shape `isCalendarDate` looks at. */
+const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Month lengths for a common year, 1-based (index 0 = January). */
+const MONTH_LENGTHS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
+
+/**
+ * `yyyy-MM-dd` naming a day that actually exists — no `2026-02-30`, no month
+ * 13, no day 0. The luxon-era rule (`DateTime.fromISO` valid) as field
+ * arithmetic, so a date check does not pull the date library into a bundle
+ * that only wanted the predicate.
+ */
+export function isCalendarDate(text: string): boolean {
+	const match = CALENDAR_DATE.exec(text);
+	if (!match) return false;
+	const year = Number(match[1]);
+	const month = Number(match[2]);
+	const day = Number(match[3]);
+	if (month < 1 || month > 12 || day < 1) return false;
+	const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+	const length = month === 2 && leap ? 29 : MONTH_LENGTHS[month - 1];
+	return day <= length;
+}

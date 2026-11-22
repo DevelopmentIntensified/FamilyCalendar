@@ -14,6 +14,9 @@ import ShellRoot from './ShellRoot.svelte';
 afterEach(cleanup);
 
 const children = createRawSnippet(() => ({ render: () => '<p>Page body</p>' }));
+const bell = createRawSnippet(() => ({
+	render: () => '<button data-testid="test-bell">Bell</button>'
+}));
 
 function summary(): ShellUserSummary {
 	return {
@@ -44,12 +47,13 @@ describe('ShellRoot', () => {
 				page: { route: { id: '/(calendar)/calendar' }, url: new URL('http://localhost/calendar') },
 				user: summary(),
 				ports: ports({ unreadCount }),
-				navigate: () => {},
+				bell,
 				children
 			}
 		});
 		await tick();
 		expect(screen.getByTestId('shell-navbar')).toBeInTheDocument();
+		expect(screen.getAllByTestId('test-bell').length).toBeGreaterThan(0);
 		expect(screen.getByTestId('shell-tab-bar')).toBeInTheDocument();
 		expect(screen.getByText('Page body')).toBeInTheDocument();
 		expect(unreadCount).toHaveBeenCalledTimes(1);
@@ -62,7 +66,6 @@ describe('ShellRoot', () => {
 				page: { route: { id: '/(marketing)' }, url: new URL('http://localhost/pricing') },
 				user: null,
 				ports: ports({ unreadCount }),
-				navigate: () => {},
 				children
 			}
 		});
@@ -79,7 +82,6 @@ describe('ShellRoot', () => {
 				page: { route: { id: null }, url: new URL('http://localhost/nope') },
 				user: null,
 				ports: ports(),
-				navigate: () => {},
 				children
 			}
 		});

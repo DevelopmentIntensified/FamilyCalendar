@@ -48,7 +48,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [family.join.rules.ts](family.join.rules.ts) | rules | The join card's logic and copy: which face shows (unusable vs join), the all-three-reasons explanation, the welcome beat. | [family.join.rules.test.ts](family.join.rules.test.ts) |
 | [family.join.state.svelte.ts](family.join.state.svelte.ts) | state | `FamilyJoinState`: the join button, the welcome panel with its scheduled redirect, the server's refusal and the page's own network sentence. | [family.join.state.test.ts](family.join.state.test.ts) |
 | [family.pages.http.db.test.ts](family.pages.http.db.test.ts) | test | The five page handlers: both 302 `/login`s, the list payload, the create numbers and submit (rows written, redirect, echoed refusal), the invitations family choice, the add-member gate and the join card's in-place refusal. | itself |
-| [ui/FamilyBreadcrumbs.svelte](ui/FamilyBreadcrumbs.svelte) | ui | The family pages' breadcrumb trail, the legacy look re-implemented because v2 may not import `$lib/components` (R14); folds into kernel/ui when shell lands. | — |
+| [ui/FamilyAddMemberScreen.svelte](ui/FamilyAddMemberScreen.svelte) | ui | The add-member page body: the breadcrumbs (kernel/ui `Breadcrumbs`), the invite form and its result band. | — |
 | [ui/FamilyHomeScreen.svelte](ui/FamilyHomeScreen.svelte) | ui | The `/family` body: hero (count, plan pill, Create/Upgrade), cards or empty state, Invitations card, side rail; builds `FamilyHomeState` and renders the kernel Toaster. | visual:check / perf:check |
 | [ui/FamilyHomeCard.svelte](ui/FamilyHomeCard.svelte) | ui | One family card: initial on its colour, stat strip, roster strip with its cap, the four ways in. | — |
 | [ui/FamilyHomeRail.svelte](ui/FamilyHomeRail.svelte) | ui | The rail's MEMBERS + INVITATIONS pair per family: roster rows with Member Type and role pill, the live code with uses/expiry/copy, and the manager link. | — |
@@ -151,7 +151,7 @@ The five page bodies. Each builds its own state class and passes data + callback
 - `FamilyAddMemberScreen` — `/family/[familyId]/members/add`: the tablist, error banner, panes and success panel.
 - `FamilyJoinScreen` — `/family/join/[code]`: the unusable-link explanation, Join, or the signed-out routes.
 
-Leaves (used inside those screens, not exported): `FamilyHomeCard`, `FamilyHomeRail`, `FamilyInviteByLinkRow`, `FamilyCreatePreview`, `FamilyPalettePicker`, `FamilyMemberPicker`, `FamilyLiveInviteCard`, `FamilyInviteCodeRow`, `FamilyNewCodeBand`, `FamilyMemberSearchTab`, `FamilyMemberInviteTab`, `FamilyMemberChildTab`, and `FamilyBreadcrumbs` (the legacy trail re-implemented because v2 may not import `$lib/components`, R14; kernel/ui `Breadcrumbs` replaces it when shell lands).
+Leaves (used inside those screens, not exported): `FamilyHomeCard`, `FamilyHomeRail`, `FamilyInviteByLinkRow`, `FamilyCreatePreview`, `FamilyPalettePicker`, `FamilyMemberPicker`, `FamilyLiveInviteCard`, `FamilyInviteCodeRow`, `FamilyNewCodeBand`, `FamilyMemberSearchTab`, `FamilyMemberInviteTab`, `FamilyMemberChildTab`. The breadcrumb trail is kernel/ui `Breadcrumbs` (it was a family-local copy until the shell landed).
 
 ## How to test
 

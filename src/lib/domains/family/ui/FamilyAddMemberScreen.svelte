@@ -16,7 +16,7 @@
 		FamilyMemberSearchState
 	} from '../family.addMember.state.svelte';
 	import { familyVisibleAddTabs } from '../family.addMember.rules';
-	import FamilyBreadcrumbs from './FamilyBreadcrumbs.svelte';
+	import Breadcrumbs from '$lib/kernel/ui/Breadcrumbs.svelte';
 	import FamilyMemberChildTab from './FamilyMemberChildTab.svelte';
 	import FamilyMemberInviteTab from './FamilyMemberInviteTab.svelte';
 	import FamilyMemberSearchTab from './FamilyMemberSearchTab.svelte';
@@ -47,7 +47,7 @@
 
 <div class="min-h-screen bg-slate-50 px-4 py-8">
 	<div class="mx-auto max-w-xl">
-		<FamilyBreadcrumbs
+		<Breadcrumbs
 			crumbs={[
 				{ label: 'Calendar', href: '/calendar' },
 				{ label: 'Family', href: '/family' },

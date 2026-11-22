@@ -13,14 +13,16 @@
 	import { FeedbackExport, FeedbackRegister } from '$lib/domains/feedback/ui';
 	import type { Toasts } from '$lib/kernel/client/toasts.svelte';
 	import type { AdminPhraseRegisterData } from '../admin.contract';
+	import { adminToasts } from '../admin.toasts.state.svelte';
 
 	interface Props {
 		data: AdminPhraseRegisterData;
 		api: FeedbackApi;
-		toasts: Toasts;
+		/** The area's one toast list; a test passes its own. */
+		toasts?: Toasts;
 	}
 
-	let { data, api, toasts }: Props = $props();
+	let { data, api, toasts = adminToasts }: Props = $props();
 
 	const state = new FeedbackPhraseRegisterState(api, toasts, data, data.now, data.zone);
 </script>

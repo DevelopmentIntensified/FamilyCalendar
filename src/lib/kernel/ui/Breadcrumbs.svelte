@@ -1,11 +1,14 @@
 <!--
-	The family pages' breadcrumb trail: Calendar › Family › … , with a chevron
-	between crumbs, links for every crumb except the last, and the last in bold
-	slate-900. Same look as the legacy `$lib/components/Breadcrumbs.svelte` (v2
-	may not import that file, rule R14); shell folds this into kernel/ui when it
-	rebuilds the shared chrome.
+	The pages' breadcrumb trail: crumbs separated by a chevron, a link for
+	every crumb except the last, the last in bold slate-900. The legacy look
+	(`src/lib/components/Breadcrumbs.svelte`), folded into kernel/ui once the
+	shell landed — the family pages and tasks' archive both render it, and the
+	family module's component entry would otherwise drag every family screen
+	into the archive's first paint (ADR 0010).
 
-	Doc: ../README.md#public-interface
+	Data in, markup out: no `$app/*`, so it renders in tests.
+
+	Doc: src/lib/kernel/README.md#ui
 -->
 <script lang="ts">
 	interface Crumb {

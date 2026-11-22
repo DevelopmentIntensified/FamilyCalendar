@@ -2,15 +2,15 @@
  * identity person rules: the ONE Anonymous Account predicate (and its
  * "registered" complement), the email a client may see, the person label,
  * the guest row, the profile privilege drop, where an Anonymous Account may be
- * created, the hourly Inactivity Window touch and the stored-zone resolution.
+ * created, the hourly Inactivity Window touch.
  *
  * Isomorphic on purpose: client components share the exact definition the
- * server writes. "Now" is a parameter (R5).
+ * server writes. "Now" is a parameter (R5). Luxon-free: the stored-zone
+ * resolution (the one rule that needs it) lives in `identity.zone.rules.ts` so
+ * the chrome does not ship Luxon (ADR 0010).
  *
  * Doc: ./README.md#invariants
  */
-import { DateTime } from 'luxon';
-
 /**
  * Guests are user rows whose email is a generated placeholder at this
  * reserved domain (#196, the better-auth anonymous model).
@@ -141,15 +141,3 @@ export function touchDue(lastActiveAt: Date | null | undefined, now: Date): bool
 	return now.getTime() - last > LAST_ACTIVE_TOUCH_MS;
 }
 
-/**
- * The stored zone when Luxon can resolve it, else `undefined` (= server-local,
- * a transitional fallback). Feeds every cursor pin (#214).
- *
- * Deliberately permissive, unlike `isIanaTimeZone` (Q-107): rows written
- * before that fix may hold `local`, `system`, `default` or `UTC+5`, and every
- * reader must resolve them exactly as before rather than dropping the zone.
- */
-export function zoneFromStored(timeZone: string | null | undefined): string | undefined {
-	if (!timeZone) return undefined;
-	return DateTime.fromMillis(0).setZone(timeZone).isValid ? timeZone : undefined;
-}

@@ -21,6 +21,7 @@
  * Doc: src/lib/kernel/README.md#time
  */
 import { DateTime, IANAZone } from 'luxon';
+import { dayKey } from './civil';
 
 // Formatting must not depend on the host locale: tests and servers pin English.
 const LOCALE = 'en-US';
@@ -115,23 +116,12 @@ export function formatShortDate(instant: Date | string, now: Date | string, zone
 }
 
 /**
- * `yyyy-MM-dd` in `zone`: the calendar-day key used by list buckets, task
- * input values and the admin export (legacy `dateKeyOf`, `toInputDate`).
- * `''` when empty or invalid.
+ * The day key and the minute stamp, plus the month shift, need no library:
+ * `./civil` holds them, so a caller that wants only those three never loads
+ * luxon (the admin registers' export text is such a caller; ADR 0010). Still
+ * re-exported here so this file remains the module's one formatter list.
  */
-export function dayKey(instant: Date | string, zone: string): string {
-	const dt = parseInstant(instant, zone);
-	return dt?.toISODate() ?? '';
-}
-
-/**
- * `yyyy-MM-dd HH:mm`, e.g. `2026-11-11 09:30` (legacy admin `humanDate`).
- * `''` when empty or invalid.
- */
-export function formatDateTimeMinute(instant: Date | string, zone: string): string {
-	const dt = parseInstant(instant, zone);
-	return dt ? dt.toFormat('yyyy-MM-dd HH:mm') : '';
-}
+export { addMonthsClamped, dayKey, formatDateTimeMinute } from './civil';
 
 /**
  * Calendar-day distance from `now` in `zone`, in words: `today`, `in 3 days`,
@@ -171,20 +161,6 @@ export function groupByDay<T>(
 }
 
 /**
- * Shift a `yyyy-MM-dd` calendar date by whole months, clamping the day to the
- * target month's length: `2026-01-31` + 1 → `2026-02-28` (`2028-01-31` + 1 →
- * `2028-02-29`). A clamped day never rolls into the next month — `2026-12-31`
- * + 2 → `2027-02-28`, not 3 March. Negative months work. `''` when the date is
- * not a real `yyyy-MM-dd` or `months` is not an integer.
- */
-export function addMonthsClamped(date: string, months: number): string {
-	if (!isRealDateKey(date) || !Number.isInteger(months)) return '';
-	const shifted = DateTime.fromISO(date, { zone: 'utc' }).plus({ months });
-	if (!shifted.isValid || shifted.year < 1 || shifted.year > 9999) return '';
-	return shifted.toISODate() ?? '';
-}
-
-/**
  * Whether a string names a real `yyyy-MM-dd` calendar day — the acceptance
  * rule for a `?date=` param and a stored date key. Deliberately zod-free: a
  * browser caller that only needs the test must not pull the validation
@@ -195,7 +171,6 @@ export function addMonthsClamped(date: string, months: number): string {
 export function isRealDateKey(value: string): boolean {
 	return DATE_ONLY.test(value) && DateTime.fromISO(value).isValid;
 }
-
 // ---------------------------------------------------------------------------
 // Calendar arithmetic (K-06): month lengths, the one rollover rule, the
 // weekday rule and the local-clock date shift that parsing's grammars share.

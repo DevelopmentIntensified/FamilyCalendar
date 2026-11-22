@@ -12,7 +12,7 @@
 	Doc: ../README.md#invariants
 -->
 <script lang="ts">
-	import { reportBugHref } from '$lib/domains/feedback';
+	import { reportBugHref } from '$lib/kernel/ui/bugReportLink';
 	import { shellErrorView } from '../shell.error.rules';
 
 	interface Props {

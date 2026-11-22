@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
-	import { AlertsFeed } from '$lib/domains/alerts/ui';
+	import AlertsFeed from '$lib/domains/alerts/ui/AlertsFeed.svelte';
 
 	let { data } = $props();
 </script>
