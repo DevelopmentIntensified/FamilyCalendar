@@ -12,7 +12,7 @@
  * Doc: ../../README.md#invariants
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import type { MarketingNavLink } from '../marketing.content.rules';
 import type { MarketingViewer } from '../marketing.contract';
@@ -23,6 +23,9 @@ afterEach(() => {
 	Reflect.deleteProperty(navigator, 'serviceWorker');
 	vi.restoreAllMocks();
 });
+
+/** The lazy menus and bell resolve a dynamic chunk: under load a microtask can take a moment. */
+const LAZY = { timeout: 5000 };
 
 const bellSnippet = createRawSnippet(() => ({
 	render: () => '<span data-testid="marketing-bell"></span>'
@@ -116,26 +119,33 @@ describe('MarketingHeader', () => {
 		expect(hamburger.className).toContain('w-11');
 
 		await fireEvent.click(hamburger);
-		// Desktop links plus the same four in the menu.
-		expect(screen.getAllByRole('link', { name: 'Features' })).toHaveLength(2);
+		expect(screen.getByRole('button', { name: 'Close menu' })).toBeInTheDocument();
+		// Desktop links plus the same four in the menu (the menu is a lazy chunk:
+		// waiting for its second copy is what the browser does too).
+		await waitFor(
+			() => expect(screen.getAllByRole('link', { name: 'Features' })).toHaveLength(2),
+			LAZY
+		);
 		expect(screen.getAllByRole('link', { name: 'Contact' })).toHaveLength(2);
 		expect(screen.getAllByRole('link', { name: 'Get Started' })).toHaveLength(2);
-		expect(screen.getByRole('button', { name: 'Close menu' })).toBeInTheDocument();
 	});
 
 	it('gives a signed-in visitor the account rows and Logout in the mobile menu', async () => {
 		renderHeader({ isLoggedIn: true });
 		await fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
-		expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/account');
-		expect(screen.getByRole('link', { name: 'Task Stats' })).toHaveAttribute(
+		expect(await screen.findByRole('link', { name: 'Settings' }, LAZY)).toHaveAttribute(
+			'href',
+			'/account'
+		);
+		expect(await screen.findByRole('link', { name: 'Task Stats' }, LAZY)).toHaveAttribute(
 			'href',
 			'/calendar/stats'
 		);
-		expect(screen.getByRole('link', { name: 'Archive' })).toHaveAttribute(
+		expect(await screen.findByRole('link', { name: 'Archive' }, LAZY)).toHaveAttribute(
 			'href',
 			'/calendar/archive'
 		);
-		expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Logout' }, LAZY)).toBeInTheDocument();
 	});
 
 	it('renders the bell snippet only for a signed-in visitor', () => {
@@ -173,7 +183,7 @@ describe('MarketingHeader', () => {
 
 		await fireEvent.click(trigger);
 		expect(trigger).toHaveAttribute('aria-expanded', 'true');
-		expect(screen.getByText('Mia Rivera')).toBeInTheDocument();
+		expect(await screen.findByText('Mia Rivera', {}, LAZY)).toBeInTheDocument();
 		expect(screen.getByText('mia@example.test')).toBeInTheDocument();
 		expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/account');
 
@@ -189,11 +199,18 @@ describe('MarketingHeader', () => {
 	it('closes both menus when the pathname prop changes', async () => {
 		const { rerender } = renderHeader({ isLoggedIn: true });
 		await fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+		// Signed in, so both navs list the app's destinations; the menu is a lazy
+		// chunk, so wait for its second copy of one of them.
+		await waitFor(
+			() => expect(screen.getAllByRole('link', { name: 'Calendar' })).toHaveLength(2),
+			LAZY
+		);
 		const container = document.querySelector('[data-testid="profile-dropdown-container"]');
 		if (!container) throw new Error('expected the profile container');
 		const trigger = within(container as HTMLElement).getByRole('button');
 		await fireEvent.click(trigger);
 		expect(trigger).toHaveAttribute('aria-expanded', 'true');
+		expect(await screen.findByText('Mia Rivera', {}, LAZY)).toBeInTheDocument();
 
 		await rerender({
 			pathname: '/about',
@@ -203,6 +220,8 @@ describe('MarketingHeader', () => {
 			appNavItems: APP_NAV
 		});
 		expect(trigger).toHaveAttribute('aria-expanded', 'false');
+		expect(screen.queryByText('Mia Rivera')).toBeNull();
+		expect(screen.getAllByRole('link', { name: 'Calendar' })).toHaveLength(1);
 		expect(screen.getByRole('button', { name: 'Open menu' })).toBeInTheDocument();
 	});
 
@@ -212,7 +231,7 @@ describe('MarketingHeader', () => {
 		if (!container) throw new Error('expected the profile container');
 		await fireEvent.click(within(container as HTMLElement).getByRole('button'));
 
-		expect(screen.getByRole('link', { name: 'Report a Bug' })).toHaveAttribute(
+		expect(await screen.findByRole('link', { name: 'Report a Bug' }, LAZY)).toHaveAttribute(
 			'href',
 			`/report-bug?from=${encodeURIComponent('/pricing?plan=annual')}`
 		);
@@ -222,7 +241,7 @@ describe('MarketingHeader', () => {
 		const second = document.querySelector('[data-testid="profile-dropdown-container"]');
 		if (!second) throw new Error('expected the profile container');
 		await fireEvent.click(within(second as HTMLElement).getByRole('button'));
-		expect(screen.getByRole('link', { name: 'Report a Bug' })).toHaveAttribute(
+		expect(await screen.findByRole('link', { name: 'Report a Bug' }, LAZY)).toHaveAttribute(
 			'href',
 			'/report-bug'
 		);
@@ -240,7 +259,7 @@ describe('MarketingHeader', () => {
 		if (!container) throw new Error('expected the profile container');
 		await fireEvent.click(within(container as HTMLElement).getByRole('button'));
 
-		const form = screen.getByRole('button', { name: 'Logout' }).closest('form');
+		const form = (await screen.findByRole('button', { name: 'Logout' }, LAZY)).closest('form');
 		if (!form) throw new Error('expected the logout form');
 		expect(form).toHaveAttribute('action', '/api/logout');
 		expect(form).toHaveAttribute('method', 'POST');

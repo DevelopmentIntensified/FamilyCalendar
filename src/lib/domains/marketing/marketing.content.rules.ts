@@ -2,10 +2,10 @@
  * The curated public content: the marketing nav, the changelog and the roadmap.
  * Hand-written, user-facing language only — no issue numbers, no jargon.
  *
- * Dates are not formatted here: the changelog's `YYYY-MM-DD` goes through
- * kernel/time's `formatLongDate(date, 'UTC')` (`MMMM d, yyyy`, the legacy `Intl`
- * output), and a date-only string is that calendar day in the given zone, so the
- * printed day cannot shift.
+ * Dates print through `changelogDateLabel`: the legacy `MMMM d, yyyy` output in
+ * UTC, from the platform's `Intl` rather than luxon (ADR 0010 — the kernel
+ * formatter used to put 21.5 KB of luxon in this page's first paint), and a
+ * date-only string is that calendar day in UTC, so the printed day cannot shift.
  *
  * Doc: ./README.md#invariants
  */
@@ -130,6 +130,39 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
  */
 export function changelogNewestFirst(entries: readonly ChangelogEntry[]): ChangelogEntry[] {
 	return [...entries].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** One `MMMM d, yyyy` formatter, in UTC — the legacy output, from the platform's own `Intl`. */
+const LONG_DATE = new Intl.DateTimeFormat('en-US', {
+	timeZone: 'UTC',
+	month: 'long',
+	day: 'numeric',
+	year: 'numeric'
+});
+
+/**
+ * The printed changelog date (`MMMM d, yyyy`, UTC): the legacy
+ * `formatLongDate(date, 'UTC')` output for a `YYYY-MM-DD` entry, without luxon
+ * in the client (ADR 0010). Only the date-only shape the `ChangelogEntry` type
+ * documents is accepted (a date-time is not a changelog date), and a day that
+ * does not exist prints `''`, the legacy formatter's answer for an unparseable
+ * input. `marketing.content.rules.test.ts` pins every output against that
+ * formatter.
+ */
+export function changelogDateLabel(date: string): string {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+	if (!match) return '';
+	const [year, month, day] = match.slice(1).map(Number);
+	const millis = Date.UTC(year, month - 1, day);
+	const printed = new Date(millis);
+	if (
+		printed.getUTCFullYear() !== year ||
+		printed.getUTCMonth() !== month - 1 ||
+		printed.getUTCDate() !== day
+	) {
+		return '';
+	}
+	return LONG_DATE.format(printed);
 }
 
 // --- Roadmap ----------------------------------------------------------------

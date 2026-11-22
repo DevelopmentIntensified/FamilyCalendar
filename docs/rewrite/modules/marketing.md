@@ -122,6 +122,27 @@ Where each legacy export goes:
 
 ## Notes
 
+- **2026-11-22 (ADR 0010 follow-up): the bell and the header menus are lazy chunks.** Every page in the
+  `(marketing)` group was 13–17 KB over its initial-JS ceiling. The culprit was the static
+  `AlertsBell` import in `(marketing)/+layout.svelte`: the header renders that slot only for a
+  signed-in visitor, yet its whole closure (AlertsBell 14.7 KB raw, its notification/vocabulary rules
+  6.6 KB, the push/transition helpers, a Toaster and the alert api) sat in every page's preload list —
+  24.6–25.5 KB raw (≈ 18 KB measured) per page. It is now `{#await import(…)}` inside the bell
+  snippet, and both header menus are lazy too (fetched when opened, never on first paint). Signup's
+  own `Toaster` is lazy for the same reason, and the changelog's date line no longer pulls luxon
+  (21.6 KB gzip; `changelogDateLabel` prints the same string from the platform `Intl`).
+  The second cause was not marketing's: `src/routes/+error.svelte` imported the shell `ui/index.ts`
+  barrel, and SvelteKit preloads the error node on every page, so the whole app chrome (the shell
+  frame, the notices, a Toaster, the alert api, the offline queue; ≈ 12 KB gzip in one chunk plus its
+  dependencies) rode every marketing page too; it now imports `ui/ShellErrorView.svelte` directly
+  (same change as the shell module's own commit df7db027). Expected, gzip(6) closure of the
+  initial modules + ~0.4 KB per request (the harness's measured offset), against the ceilings the
+  gate printed: home 117 → ≈87 KB (102), features 118 → ≈88 (105), about/android/privacy 114 → ≈84
+  (100), contact 115 → ≈88 (103), changelog mobile 135 → ≈84 (101), login 123 → ≈95 (106),
+  signup 123 → ≈95 (105), forgot/reset 118 → ≈90 (102), invite-email 113 → ≈83 (100), pricing
+  114 → ≈85 (101), checkout 114 → ≈84 (101), family-join 115 → ≈87 (100). No copy, hook or visual
+  changes; the bell is simply no longer in a guest's first paint and appears with the first hydrated
+  frame for a signed-in visitor.
 - **2026-11-21 final sweep: the F-Droid serving test moved, the record stayed.** `src/lib/fdroid/serving.test.ts` was not marketing behaviour — it pins `vercel.json` headers, the service-worker bypass and the absence of a route shadowing `/fdroid` — so it moved to `src/lib/app/app.fdroidServing.test.ts` (app owns the deployment surface) and now runs in the `unit` project instead of belonging to no project. The publish record stays at `src/lib/fdroid/published.json`: its only importer is this module, but R15 accepts no JSON inside a module folder and `scripts/fdroid-publish.sh` + the sync playbook pin that path. The unowned `src/routes/(marketing)/page.server.test.ts` was deleted: `marketing.pageActions.http.test.ts › answers 303 back to / and logs the sender hints (#276)` drives the same `strayRootPostAction` through `invokeAction` and asserts the 303, the location and all three logged hints.
 - **2026-11-21 final sweep: the header is marketing's.** The `(marketing)` layout used to hand in the legacy `$lib/components/Navbar.svelte` + `Toaster.svelte` as snippets. Both are gone: `ui/MarketingHeader.svelte` (+ `MarketingMobileMenu.svelte`, `MarketingProfileMenu.svelte`) is the legacy navbar ported into this module (Svelte 5 runes, kernel `BrandMark`/`trapFocus`, feedback's `reportBugHref`, identity's `isRegisteredAccount`, alerts' bell as a snippet), and a page that shows a toast renders its own kernel `Toaster` (access' sign-up already does), so the layout hands none in. The header takes `pathname`/`search`/`isLoggedIn`/`user`/`appNavItems` as props — no `$app/*` import, so it renders in a test — and the layout passes shell's `shellNavItems` (minus the bell row) because marketing may not import a screen (R1) and issue 065 forbids a second copy of the destination list. The legacy chrome components and their tests were deleted with the port; `MARKETING_NAV` gained its `marketingActiveHref` longest-prefix rule and `marketing.contract.ts` the `MarketingViewer` type.
 - **2026-11-12 (owner, Q-070): the waitlist leaves the website.** The `/waitlist` page, its `?/join` action and the pricing page's waitlist links go; the `waitlist` table stays (no DDL). Android's "Join Waitlist" link opens `/pricing` and is relabelled app-side later. Q-071 (the success card's copy) was moot once the page went.

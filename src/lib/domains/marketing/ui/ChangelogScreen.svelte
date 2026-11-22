@@ -1,11 +1,11 @@
 <!--
 	`/changelog` — the curated entries, newest first. The date is the legacy
-	`Intl` output (`MMMM d, yyyy`) through kernel/time's `formatLongDate` in UTC,
-	so a date-only string prints that calendar day and never shifts.
+	`MMMM d, yyyy` output in UTC through this module's `changelogDateLabel`: the
+	local `Intl` rule that replaced kernel/time's `formatLongDate` here so luxon
+	(21.5 KB gzip) leaves the page's first paint (ADR 0010).
 -->
 <script lang="ts">
-	import { formatLongDate } from '$lib/kernel/time/dates';
-	import { CHANGELOG_ENTRIES, changelogNewestFirst } from '../marketing.content.rules';
+	import { CHANGELOG_ENTRIES, changelogDateLabel, changelogNewestFirst } from '../marketing.content.rules';
 	import { pageTitle } from '../marketing.seo.rules';
 
 	const entries = changelogNewestFirst(CHANGELOG_ENTRIES);
@@ -34,7 +34,7 @@
 							</span>
 						{/if}
 						<time datetime={entry.date} class="text-sm text-slate-500">
-							{formatLongDate(entry.date, 'UTC')}
+							{changelogDateLabel(entry.date)}
 						</time>
 					</div>
 					<h2 class="mb-2 text-xl font-bold text-slate-900">{entry.title}</h2>

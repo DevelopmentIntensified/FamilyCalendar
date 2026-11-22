@@ -413,6 +413,14 @@ causes and the root fixes:
   `flex-grow pb-20 md:pb-0` column, which restores the block context and legacy pixels.
 - **Visual: `/signup` was 117 px short.** The legacy guest-start block ("Start planning — no account
   needed" + its note) had been dropped; restored verbatim inside `AuthCard`.
+- **The marketing group's shared bell (~25 KB raw, ~14 KB gzip) on every auth page.** Login, signup,
+  forgot/reset, invite-email, pricing, checkout and family-join all render inside the `(marketing)`
+  layout, whose header imported `AlertsBell` statically although only a signed-in visitor ever sees
+  it. The bell is now imported inside the bell snippet the layout hands in, and both header menus
+  are lazy chunks too, so a guest's page never fetches the bell chain (AlertsBell, its notification
+  rules, the push probe and a Toaster). Signup's own `Toaster` is lazy for the same reason.
+  Sources: `(marketing)/+layout.svelte`, `marketing/ui/MarketingHeader.svelte`,
+  `access/ui/SignupScreen.svelte`.
 - **`/family/invite/email` landed on `/login`.** Not the page: after identity unified the pepper,
   `appCtx` resolves `EMAILSECRET` at runtime while the harness seeds signed with the build
   placeholder. `e2e/pages/serve.ts` now pins `EMAILSECRET` (new `PAGES_EMAIL_SECRET` in
