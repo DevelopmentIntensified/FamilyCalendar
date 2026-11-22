@@ -344,6 +344,8 @@ Deleted with the pages (legacy tests included): the whole legacy `src/lib/compon
 
 **Initial-JS round 2 (ADR 0010):** `/calendar/event/[id]` paints from the page payload alone (facts, attendee rows, RSVP counts) and imports `CalendarEventModalState` (the RSVP/delete writer) on the first hover or focus of an RSVP button or on delete, so the writer and its rules stay out of first paint. The group chrome's bell panel and menus are lazy too (alerts.md, shell.md), which is most of what the three calendar pages' ceilings needed.
 
+**Initial-JS final gate (ADR 0010):** `/calendar/event/[id]` imports its printed day and attendance buckets from `calendar.eventDay.rules.ts` (re-exported by `calendar.eventView.rules.ts`, so no other caller moved) instead of the whole detail-region rules module: the page's `static + err` closure went from 115.2 to 113.3 KB (PROD build, ceiling +2% 113.8) because a Rollup chunk carries every used export of a shared module.
+
 
 
 

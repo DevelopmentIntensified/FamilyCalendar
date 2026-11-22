@@ -14,7 +14,6 @@
 	Doc: ../README.md#invariants
 -->
 <script lang="ts">
-	import { copyOrShare } from '$lib/kernel/client/shareText';
 	import type { Toasts } from '$lib/kernel/client/toasts.svelte';
 
 	interface Props {
@@ -33,7 +32,15 @@
 
 	let open = $state(false);
 
+	/** Opening the panel starts the clipboard chunk, so the Copy click finds it resolved. */
+	function toggle(): void {
+		open = !open;
+		if (open) void import('$lib/kernel/client/shareText');
+	}
+
 	async function copy(): Promise<void> {
+		// A lazy chunk: only an open panel needs the clipboard ladder (ADR 0010).
+		const { copyOrShare } = await import('$lib/kernel/client/shareText');
 		const outcome = await copyOrShare(exportText);
 		if (outcome === 'copied' || outcome === 'shared') {
 			toasts.success('Export copied to clipboard — paste it into your agent.');
@@ -59,7 +66,7 @@
 <div class="mb-6 flex items-center justify-between">
 	<button
 		type="button"
-		onclick={() => (open = !open)}
+		onclick={toggle}
 		data-testid="toggle-export"
 		class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
 	>

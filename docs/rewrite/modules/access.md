@@ -380,7 +380,7 @@ Seven of the ten legacy source files were deleted in S8, with all four legacy te
 
 ### S7 decisions (landed)
 
-- **One copy source.** Every string the auth pages show lives in `access.auth.rules.ts`, except the `/merge-guest` prompt's, which lives in `access.merge.rules.ts` so the bare page does not download the other pages' copy (ADR 0010); the screens hold markup only, with the two fragments that wrap a link ("Don't have an account? … Sign up or start planning") left inline in the markup as the legacy page had them.
+- **One copy source.** Every string the auth pages show lives in `access.auth.rules.ts`, except the `/merge-guest` prompt's and the `/claim` screen's, which live in `access.merge.rules.ts` and `access.claimCopy.rules.ts` so those bare pages do not download the other pages' copy (ADR 0010); the screens hold markup only, with the two fragments that wrap a link ("Don't have an account? … Sign up or start planning") left inline in the markup as the legacy page had them.
 - **One code screen, two doors.** `EmailCodeSection.svelte` is the single "Check Your Email" body; `label` set renders the login page's labelled field, unset the signup page's plain centred input, so both pages keep their approved look without two components.
 - **State classes, not fat screens.** `LoginState`, `SignupState`, `ForgotPasswordState`, `ResetPasswordState` own the calls, pending flags, the 3-second beats (injected kernel scheduler) and the legacy network-fallback copy (`status === 0` keeps `Failed to login`, `Failed to create account`, … instead of the kernel client's generic sentence). `/claim`, `/merge-guest` and `/account/verify-email` post page actions through `enhance`, so they keep only the submit flags in the screen.
 - **The URL is the route's business.** `?error=`/`?notice=` are read and cleaned in `login/+page.svelte` and passed into `LoginScreen`; `?token=` for reset/verify-email is read there too, so no component imports `$app/*` and the route files stay wiring-only (R8).
@@ -426,6 +426,7 @@ causes and the root fixes:
   placeholder. `e2e/pages/serve.ts` now pins `EMAILSECRET` (new `PAGES_EMAIL_SECRET` in
   `e2e/pages/env.ts`) exactly as it already pinned `BETTER_AUTH_SECRET`, and the seed imports it.
 - **`/merge-guest` (ADR 0010, round 2).** The prompt's copy and label helpers moved to `access.merge.rules.ts` (a Rollup chunk carries a module's used exports, so the bare page was downloading the login/signup/claim/recovery copy to show nine strings), and the three notes are written out instead of looped so the page does not ship the `{#each}` runtime (~2.3 KB gzip). Markup and copy are unchanged.
+- **`/claim` (ADR 0010, final gate).** The screen's eleven strings moved from `access.auth.rules.ts` to `access.claimCopy.rules.ts` (same reason as `/merge-guest`: the chunk of the shared copy file was 2.0 KB gzip on a page that shows 11 of its strings). `/claim`'s `static + err` closure (PROD build) went from 57.8 to 56.0 KB (ceiling +2% 56.9).
 
 
 ### Running the golden in the db project

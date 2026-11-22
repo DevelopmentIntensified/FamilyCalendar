@@ -18,7 +18,7 @@
 	import { createApiClient } from '$lib/kernel/client/apiClient';
 	import { createToasts } from '$lib/kernel/client/toasts.svelte';
 	import Toaster from '$lib/kernel/ui/Toaster.svelte';
-	import { calendarAttendanceSplit, calendarEventDay } from '../calendar.eventView.rules';
+	import { calendarAttendanceSplit, calendarEventDay } from '../calendar.eventDay.rules';
 	import type { CalendarEventModalState } from '../calendar.eventModal.state.svelte';
 	import { buildGoogleCalendarUrl } from '../calendar.ics.rules';
 	import type { CalendarEventDetailPageData } from '../calendar.pages.http.server';

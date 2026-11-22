@@ -19,7 +19,7 @@
 		CLAIM_SENT_PREFIX,
 		CLAIM_SENT_SUFFIX,
 		CLAIM_SUBMIT
-	} from '../access.auth.rules';
+	} from '../access.claimCopy.rules';
 
 	/** The `$app/forms` `enhance` shape, taken as a prop so this file never imports `$app/*`. */
 	type AccessFormEnhancer = (
