@@ -27,7 +27,7 @@
 <script lang="ts">
 	import { onMount, type Snippet } from 'svelte';
 	import { initOfflineSync } from '$lib/kernel/client/offlineQueue';
-	import { createToasts } from '$lib/kernel/client/toasts.svelte';
+	import { sharedToasts } from '$lib/kernel/client/toasts.svelte';
 	import { systemClock } from '$lib/kernel/time/clock';
 	import Toaster from '$lib/kernel/ui/Toaster.svelte';
 	import type { ShellPorts, ShellUserSummary } from '../shell.contract';
@@ -54,7 +54,6 @@
 	/** The bug link's `?from=`. */
 	const search = $derived(page.url.search);
 	const chrome = $derived(shellChromeForRoute(routeId));
-	const toasts = createToasts();
 	const badge = new ShellBadgeState(ports.badge, { now: () => systemClock.now().getTime() });
 
 	onMount(() => {
@@ -74,7 +73,7 @@
 		<ShellNavbar {pathname} {search} {user} {bell} onLogoutSubmit={purgeShellDataCache} />
 		{@render children()}
 		<ShellTabBar {pathname} unreadCount={badge.count} />
-		<Toaster items={toasts.items} ondismiss={toasts.dismiss} />
+		<Toaster items={sharedToasts.items} ondismiss={sharedToasts.dismiss} />
 	</div>
 {:else}
 	{@render children()}

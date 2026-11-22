@@ -61,7 +61,7 @@
 			<form
 				method="POST"
 				action="?/updateRole"
-				use:enhance={state.roleSubmit(member)}
+				use:enhance={() => state.roleSubmit(member)}
 				class="hidden items-center gap-1.5 sm:flex"
 			>
 				<input type="hidden" name="userId" value={member.userId} />
@@ -140,7 +140,11 @@
 			{#if state.removeAskId === member.userId}
 				<div class="flex items-center gap-1.5">
 					<span class="text-sm text-red-600">Remove?</span>
-					<form method="POST" action="?/removeMember" use:enhance={state.removeSubmit(member)}>
+					<form
+						method="POST"
+						action="?/removeMember"
+						use:enhance={() => state.removeSubmit(member)}
+					>
 						<input type="hidden" name="userId" value={member.userId} />
 						<button
 							type="submit"

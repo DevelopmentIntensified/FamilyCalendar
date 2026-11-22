@@ -9,7 +9,9 @@
 
 	The live region stays mounted while empty: a live region inserted together
 	with its first message is not announced, which would make every toast
-	silent to screen readers.
+	silent to screen readers. Each card also keeps the legacy renderer's
+	`role="status"` ($lib/components/Toaster.svelte) — the shape the family
+	journeys look for.
 
 	Doc: src/lib/kernel/README.md
 -->
@@ -38,6 +40,7 @@
 	{#each items as item (item.id)}
 		<div
 			class="pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-lg"
+			role="status"
 			data-kind={item.kind}
 		>
 			<span class="min-w-0 flex-1">{item.text}</span>

@@ -48,8 +48,10 @@ export type ShellUserSummary = z.infer<typeof ShellUserSummary>;
  * The settings fields the calendar group's pages read through `parent()`
  * (`userSettings?.timeZone`, `.defaultView`, `.weekStart`, `.color`,
  * `.defaultCalendarId`, `.hiddenDashboardModules`, `.showAdsAsEvents` and the
- * dashboard feature gates). `verseTranslation`, `useCloudAI`/`useLocalAI` and
- * the row plumbing stay with identity, which owns their consumers.
+ * dashboard feature gates). `autoParseEventDetails`/`useCloudAI` ride along for
+ * the calendar page's quick-add gate (#168: read-only, never PATCHed);
+ * `verseTranslation`, `useLocalAI` and the row plumbing stay with identity,
+ * which owns their consumers.
  */
 export const ShellSettingsModel = z.strictObject({
 	weekStart: z.string().nullable(),
@@ -60,6 +62,7 @@ export const ShellSettingsModel = z.strictObject({
 	syncEventsToFamilyCalendar: z.boolean().nullable(),
 	showAdsAsEvents: z.boolean().nullable(),
 	autoParseEventDetails: z.boolean().nullable(),
+	useCloudAI: z.boolean().nullable(),
 	showDailyVerse: z.boolean().nullable(),
 	hiddenDashboardModules: z.array(z.string()).nullable()
 });

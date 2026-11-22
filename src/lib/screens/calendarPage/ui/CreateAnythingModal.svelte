@@ -18,7 +18,6 @@
 	import { createApiClient } from '$lib/kernel/client/apiClient';
 	import { createTasksApi } from '$lib/domains/tasks/index';
 	import {
-		CalendarEventActionBar,
 		CalendarEventForm,
 		CalendarEventFormState,
 		calendarSavedToast,
@@ -36,10 +35,12 @@
 		seed: CalendarCreateSeed | null;
 		start: DateTime | null;
 		parseEvent: CalendarParseEvent | null;
+		/** The person's `autoParseEventDetails` switch (legacy `=== false` = off). */
+		autoParse?: boolean;
 		onclose: () => void;
 	}
 
-	let { state: page, seed, start, parseEvent, onclose }: Props = $props();
+	let { state: page, seed, start, parseEvent, autoParse = true, onclose }: Props = $props();
 
 	type EntryType = 'event' | 'task';
 	let entryType = $state<EntryType>('event');
@@ -65,7 +66,7 @@
 		})),
 		defaultCalendarId: shell.settings.defaultCalendarId,
 		initialDate: start?.toISODate() ?? undefined,
-		autoParse: true
+		autoParse
 	});
 
 	// The timed slot a grid tap names: legacy prefilled the start (and the end
@@ -107,8 +108,14 @@
 		if (type === 'task') void loadCategories();
 	}
 
+	/**
+	 * A create confirms itself and clears the sheet for the next one (legacy
+	 * `EventFormModal` cleared `createCount` after every successful POST; the
+	 * sheet stays open so "add something else" costs no extra tap).
+	 */
 	function saved(outcome: CalendarSaveOutcome) {
 		page.toasts.success(calendarSavedToast(outcome.body.title));
+		form.reset();
 		void page.refresh();
 	}
 
@@ -194,15 +201,6 @@
 				<EventTaskChecklist {eventId} />
 			{/snippet}
 		</CalendarEventForm>
-		<CalendarEventActionBar
-			isEdit={false}
-			submitting={form.saving}
-			canSubmit={form.canSubmit}
-			submitBlockedReason={form.endBeforeStart ? 'End must be after start' : undefined}
-			ondelete={() => {}}
-			{onclose}
-			onclear={() => form.reset()}
-		/>
 	{:else}
 		<form onsubmit={saveTask} class="space-y-3">
 			<TaskFields

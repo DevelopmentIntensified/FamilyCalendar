@@ -45,6 +45,8 @@ type CalendarPageParentScope = {
 		defaultView?: string | null;
 		defaultCalendarId?: string | null;
 		showAdsAsEvents?: boolean | null;
+		autoParseEventDetails?: boolean | null;
+		useCloudAI?: boolean | null;
 	} | null;
 	roster?: readonly { userId: string; firstName: string; lastName: string | null }[];
 };
@@ -57,7 +59,11 @@ function settingsOf(scope: CalendarPageParentScope): CalendarPageSettings {
 		timeZone: scope.settings?.timeZone ?? 'UTC',
 		color: scope.settings?.color ?? null,
 		showAdsAsEvents: scope.settings?.showAdsAsEvents === true,
-		defaultCalendarId: scope.settings?.defaultCalendarId ?? null
+		defaultCalendarId: scope.settings?.defaultCalendarId ?? null,
+		// The two quick-add switches keep legacy's null meaning (unset = on); the
+		// gate itself is `calendarQuickAddSettings`.
+		autoParseEventDetails: scope.settings?.autoParseEventDetails ?? null,
+		useCloudAI: scope.settings?.useCloudAI ?? null
 	};
 }
 

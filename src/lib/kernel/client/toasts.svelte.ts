@@ -69,3 +69,15 @@ export function memoryToasts(): Toasts & {
 	};
 	return { items, success: record('success'), error: record('error'), info: record('info') };
 }
+
+/**
+ * The toast list that outlives a navigation.
+ *
+ * Legacy had ONE module-level store (`$lib/client/toasts.ts`) rendered by a
+ * single host, so a screen could confirm an action and then redirect — the
+ * destination still showed the toast. A per-screen `createToasts()` cannot do
+ * that: the pushing screen unmounts with its list. Screens whose confirmation
+ * crosses a navigation take this instance for both the push and the
+ * `Toaster`; screens that stay put keep their own.
+ */
+export const sharedToasts = createToasts();

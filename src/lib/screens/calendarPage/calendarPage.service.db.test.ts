@@ -41,6 +41,8 @@ function settingsModel(overrides: Partial<CalendarPageSettings> = {}): CalendarP
 		color: null,
 		showAdsAsEvents: false,
 		defaultCalendarId: null,
+		autoParseEventDetails: null,
+		useCloudAI: null,
 		...overrides
 	};
 }

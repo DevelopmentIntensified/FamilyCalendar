@@ -8,12 +8,15 @@
 	width and are inert while invisible (an un-hovered 20px target under a thumb
 	is not a control). A cell tap forks exactly once: Selection mode and wide
 	screens open Day View; a narrow screen opens the day action sheet (#205).
+
+	Chips fork the same way: a narrow cell keeps them inert so the whole cell
+	stays one tap that opens the sheet, while a wide cell lets a chip open its
+	own event (the legacy pre-#145 desktop answer — a pointer can aim).
 -->
 <script lang="ts">
 	import { DateTime } from 'luxon';
 	import type { CalendarPageState } from '../calendarPage.state.svelte';
 	import { monthCellOverflow } from '../calendarPage.grid.rules';
-	import { VIEW_BREAKPOINT_PX } from '../calendarPage.view.rules';
 	import CalendarChip from './CalendarChip.svelte';
 	import TaskChip from './TaskChip.svelte';
 
@@ -21,9 +24,11 @@
 		state: CalendarPageState;
 		day: DateTime;
 		inMonth: boolean;
+		/** Below the app's one breakpoint (`MonthView` reads it once per grid). */
+		narrow: boolean;
 	}
 
-	let { state, day, inMonth }: Props = $props();
+	let { state, day, inMonth, narrow }: Props = $props();
 
 	// The cell IS a local midnight in the grid's zone (grid rules build it), so
 	// its own ISO day is the day key: no formatter runs 35–42 times a render.
@@ -36,9 +41,6 @@
 	const shownTasks = $derived(bucket.tasks.slice(0, overflow.tasks));
 
 	function tap() {
-		const narrow =
-			typeof window !== 'undefined' &&
-			!window.matchMedia(`(min-width: ${VIEW_BREAKPOINT_PX}px)`).matches;
 		if (!state.selectionMode && narrow) state.openDaySheet(day);
 		else state.openDay(day);
 	}
@@ -109,8 +111,10 @@
 			data-testid="month-chips"
 			class="flex min-h-0 flex-1 flex-wrap content-start items-start gap-x-1 gap-y-[2px] overflow-hidden {state.selectionMode
 				? 'pointer-events-auto'
-				: 'pointer-events-none'}"
-			inert={!state.selectionMode ? true : undefined}
+				: narrow
+					? 'pointer-events-none'
+					: ''}"
+			inert={!state.selectionMode && narrow ? true : undefined}
 		>
 			<span
 				data-testid="day-disc"

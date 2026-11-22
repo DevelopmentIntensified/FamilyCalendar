@@ -68,6 +68,10 @@ export interface CalendarPageSettings {
 	showAdsAsEvents: boolean;
 	/** Where a new Event lands when the person does not pick a calendar. */
 	defaultCalendarId: string | null;
+	/** `false` turns the Quick Add auto-parse off (null/true parse, as legacy). */
+	autoParseEventDetails: boolean | null;
+	/** `false` keeps the phrase local (`useCloud`); null/true ask the cloud path. */
+	useCloudAI: boolean | null;
 }
 
 /** The compact "who's going" summary the attendance badge draws. */

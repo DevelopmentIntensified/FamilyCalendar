@@ -8,8 +8,7 @@
 	Doc: ../README.md#public-interface
 -->
 <script lang="ts">
-	import { createToasts } from '$lib/kernel/client/toasts.svelte';
-	import Toaster from '$lib/kernel/ui/Toaster.svelte';
+	import { sharedToasts } from '$lib/kernel/client/toasts.svelte';
 	import { createFamilyApi } from '../family.api';
 	import type { FamilyCreateFormEcho, FamilyCreatePage } from '../family.contract';
 	import {
@@ -31,7 +30,7 @@
 
 	let { data, form, enhance }: Props = $props();
 
-	const toasts = createToasts();
+	const toasts = sharedToasts;
 	const state = new FamilyCreateState(createFamilyApi(), toasts, {
 		name: form?.name ?? '',
 		color: form?.color || DEFAULT_FAMILY_COLOR
@@ -178,5 +177,3 @@
 		</div>
 	</div>
 </div>
-
-<Toaster items={toasts.items} ondismiss={toasts.dismiss} />
