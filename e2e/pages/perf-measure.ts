@@ -7,6 +7,7 @@
 // judged by the pure `perf-report.ts`.
 //
 // Doc: docs/adr/0010-performance-budget.md, e2e/pages/README.md
+import { appendFileSync } from 'node:fs';
 import {
 	devices,
 	type Browser,
@@ -141,6 +142,16 @@ async function measureRun(
 		// "initial"; lazy chunks after it do not count.
 		await page.waitForLoadState('load');
 		const transferred = bytes.snapshot();
+		if (process.env.PERF_DEBUG_JS) {
+			// Opt-in diagnosis: which scripts the cut-off counted, one JSON line per visit.
+			const profileName = Object.keys(PROFILES).find(
+				(name) => PROFILES[name as ProfileName] === profile
+			);
+			appendFileSync(
+				process.env.PERF_DEBUG_JS,
+				`${JSON.stringify({ page: `${entry.module}/${entry.name}`, profile: profileName, scripts: bytes.scripts() })}\n`
+			);
+		}
 		const marks = await readSettledMarks(page, entry);
 		const first: Visit = { ...marks, ...transferred };
 		// A network round trip, deliberately outside the measured window.
@@ -187,11 +198,16 @@ async function applyProfile(cdp: CDPSession, profile: Profile): Promise<void> {
 }
 
 /** Transferred bytes per category, accumulated from the CDP network events. */
-type ByteCounter = { snapshot: () => Pick<Visit, 'js' | 'html' | 'data'> };
+type ByteCounter = {
+	snapshot: () => Pick<Visit, 'js' | 'html' | 'data'>;
+	/** The counted scripts so far, path and transferred bytes (PERF_DEBUG_JS only). */
+	scripts: () => { path: string; bytes: number }[];
+};
 
 function createByteCounter(cdp: CDPSession, origin: string): ByteCounter {
 	const requests = new Map<string, { url: string; type: string }>();
 	const bytes = { js: 0, html: 0, data: 0 };
+	const scripts: { path: string; bytes: number }[] = [];
 
 	cdp.on('Network.requestWillBeSent', (event) => {
 		requests.set(event.requestId, { url: event.request.url, type: event.type ?? 'Other' });
@@ -209,10 +225,13 @@ function createByteCounter(cdp: CDPSession, origin: string): ByteCounter {
 			return;
 		}
 		if (request.type === 'Document') bytes.html += event.encodedDataLength;
-		if (request.type === 'Script') bytes.js += event.encodedDataLength;
+		if (request.type === 'Script') {
+			bytes.js += event.encodedDataLength;
+			scripts.push({ path: request.url.slice(origin.length), bytes: event.encodedDataLength });
+		}
 	});
 
-	return { snapshot: () => ({ ...bytes }) };
+	return { snapshot: () => ({ ...bytes }), scripts: () => [...scripts] };
 }
 
 /** The marks a visit is judged on, read from the document itself. */
