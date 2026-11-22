@@ -1,7 +1,15 @@
+<!--
+	The error node is preloaded on every route (SvelteKit loads the route's error
+	node with its layouts), so this file imports the card's FILE, never
+	`$lib/screens/shell/ui`: that entry re-exports the chrome too, and importing
+	it put the whole app chrome (ShellGroupFrame, the notices, the tab bar) in
+	every page's eager error preload — the mobile-only initial-JS inflation of
+	ADR 0010. Same rule the group layouts and marketing's header follow.
+-->
 <script lang="ts">
 	import { building } from '$app/environment';
 	import { page } from '$app/state';
-	import { ShellErrorView } from '$lib/screens/shell/ui';
+	import ShellErrorView from '$lib/screens/shell/ui/ShellErrorView.svelte';
 </script>
 
 <ShellErrorView
