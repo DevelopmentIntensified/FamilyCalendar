@@ -222,6 +222,34 @@ screen owns no tables, so fixtures belong to the owning domains.
 
 ## Notes
 
+### e2e hooks (2026-11-21)
+
+The legacy Playwright journeys are the acceptance test for the port. Four account-side points needed
+the UI to carry legacy's hooks; each is in the README Notes as well.
+
+- **A rail click switches the section.** `AccountSidebar` hands the clicked id to `onSelect`, and
+  `AccountScreen` calls `state.select` with it. The `href` stays, so a click before hydration is still
+  a plain fragment navigation; once hydrated SvelteKit moves the same-page hash without a
+  `hashchange` event, and the screen's listener never ran (`AccountSettings.test.ts:62` clicked
+  Security and the body stayed on Profile). Legacy read `$page.url.hash` reactively, which is why it
+  never had the bug.
+- **The dashboard switches keep their own section.** `SettingsPage.test.ts:56` clicks `#calendar` and
+  then reads "Dashboard modules", but legacy #105 split them out and pinned that the calendar form
+  renders none of them (`AccountCalendarSection.svelte.test.ts:60`: a save would derive the hidden
+  list from a form without module checkboxes, blanking the dashboard). That journey is stale and is
+  being updated to click `#dashboard`; the port must not carry the switches into the calendar body.
+- **One `/pricing` link per reader.** The plan card's "Change plan" renders for a paid plan, the
+  Family Master block for a free one. Legacy printed both, so the leaf `a[href="/pricing"]` was
+  ambiguous and `SettingsPage.test.ts:77` failed on it.
+- **`input#email`.** The Email section's input carries the legacy id (the journeys address
+  `input#email`); the wrapper therefore has no id — legacy had both, a duplicate that left
+  `label for="email"` pointing at the wrapper. `AccountEmailSection.svelte.test.ts` keeps
+  `getByLabelText('Email')` working.
+- **`#129` tokens.** Rail title 12px (a marketing size) tracked at `0.88px`, matching the prototype's
+  `.08em` at 11px; the identity badge on the warm-100 token (`#fdede0`) instead of the bespoke blush;
+  the screen's skeleton bars on the canvas token (`#f8f6f3`), because the kernel skeleton's
+  `slate-200` is not in the marketing colour set. `/account` now has zero governed deviations.
+
 ### Port notes (S5–S9, 2026-11-21)
 
 - S5/S6/S7/S8/S9 done. `account.service.server.ts`, `account.export.service.server.ts` +

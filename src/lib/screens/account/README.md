@@ -51,21 +51,22 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [account.service.db.test.ts](account.service.db.test.ts) | test | Every IO Invariant in this README (see pin list). | — |
 | [account.state.test.ts](account.state.test.ts) | test | One fetch per section, retry, export toasts, optimistic flip + revert. | — |
 | [account.http.db.test.ts](account.http.db.test.ts) | test | Frozen golden for `GET`/`DELETE /api/me` and `GET /api/account/export` (unchanged since the S2 sha). | — |
-| [ui/AccountScreen.svelte](ui/AccountScreen.svelte) | ui | Chrome (breadcrumbs, header, back link), rail, banner, the hash-selected section, skeletons and retry, the one Toaster. The section body is imported with `await import()`. | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) |
+| [ui/AccountScreen.svelte](ui/AccountScreen.svelte) | ui | Chrome (breadcrumbs, header, back link), rail, banner, the hash-selected section, skeletons and retry, the one Toaster. The section body is imported with `await import()`, and the rail's click hands it its section directly. | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) |
 | [ui/AccountSectionBody.svelte](ui/AccountSectionBody.svelte) | ui | The ten-section switch, kept in its own lazily imported chunk so the first paint does not ship every section. | — |
-| [ui/AccountSidebar.svelte](ui/AccountSidebar.svelte) | ui | Section links from `ACCOUNT_SECTIONS`, Report-a-Bug with `?from=/account#<section>` (Q-080 B), the signed-in-as card (never a guest placeholder). | [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) |
+| [ui/AccountSidebar.svelte](ui/AccountSidebar.svelte) | ui | Section links from `ACCOUNT_SECTIONS` (each click hands its id to `onSelect`, so a hydrated hash click still switches), Report-a-Bug with `?from=/account#<section>` (Q-080 B), the signed-in-as card (never a guest placeholder). Colour/type come from the marketing tokens (`#129`). | [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) |
 | [ui/AccountProfileSection.svelte](ui/AccountProfileSection.svelte) | ui | The name form, `update({reset:false})`, "Saving..." → "Update Profile". | — |
 | [ui/AccountFamiliesSection.svelte](ui/AccountFamiliesSection.svelte) | ui | One row per family (initial, name, `N members · role`, "Manage →"), empty state, "+ Create a family". | — |
 | [ui/AccountNotificationsSection.svelte](ui/AccountNotificationsSection.svelte) | ui | Skeleton rows, one native `role="switch"` submit per row, `aria-describedby` hints, `role="status"` receipt, JSON-column note, "See the alerts". | [ui/AccountNotificationsSection.svelte.test.ts](ui/AccountNotificationsSection.svelte.test.ts) |
 | [ui/AccountCalendarSection.svelte](ui/AccountCalendarSection.svelte) | ui | Week start, IANA zone list, view, default calendar, colour, family sync, auto-parse, sponsorship + consent trail, save, ICS import. | [ui/AccountCalendarSection.svelte.test.ts](ui/AccountCalendarSection.svelte.test.ts) |
 | [ui/AccountDashboardSection.svelte](ui/AccountDashboardSection.svelte) | ui | The two groups, scope + meaning, the parked badge, `module_<id>` checkboxes, the footer. | — |
-| [ui/AccountSubscriptionSection.svelte](ui/AccountSubscriptionSection.svelte) | ui | Plan card, limits table, AI bar + reset date, upgrade block. | — |
-| [ui/AccountEmailSection.svelte](ui/AccountEmailSection.svelte) | ui | Guest Claim CTA vs the address, status and change form. | [ui/AccountEmailSection.svelte.test.ts](ui/AccountEmailSection.svelte.test.ts) |
+| [ui/AccountSubscriptionSection.svelte](ui/AccountSubscriptionSection.svelte) | ui | Plan card (a paid plan's "Change plan"), limits table, AI bar + reset date, the Free plan's Family Master upgrade block. One `/pricing` link per reader. | [ui/AccountSubscriptionSection.svelte.test.ts](ui/AccountSubscriptionSection.svelte.test.ts) |
+| [ui/AccountEmailSection.svelte](ui/AccountEmailSection.svelte) | ui | Guest Claim CTA vs the address, status and change form. The input keeps the legacy `id="email"` hook. | [ui/AccountEmailSection.svelte.test.ts](ui/AccountEmailSection.svelte.test.ts) |
 | [ui/AccountSecuritySection.svelte](ui/AccountSecuritySection.svelte) | ui | One "Logout from All Other Devices" action. | — |
 | [ui/AccountApiTokensSection.svelte](ui/AccountApiTokensSection.svelte) | ui | Create form, plaintext-once box with Copy, token rows with relative last-used and Revoke, empty state. | — |
 | [ui/AccountDangerSection.svelte](ui/AccountDangerSection.svelte) | ui | The export card (state toasts) and the two-step typed-id delete. | [ui/AccountDangerSection.svelte.test.ts](ui/AccountDangerSection.svelte.test.ts) |
 | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) | test | Chrome, section rendering, banner fallback, guest claim link. | — |
-| [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) | test | Links, report link location, guest card. | — |
+| [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) | test | Links, the click's `onSelect`, report link location, guest card. | — |
+| [ui/AccountSubscriptionSection.svelte.test.ts](ui/AccountSubscriptionSection.svelte.test.ts) | test | One `/pricing` link on a free plan and on a paid one. | — |
 | [ui/AccountNotificationsSection.svelte.test.ts](ui/AccountNotificationsSection.svelte.test.ts) | test | Skeletons, switches, optimistic flip, receipt, note. | — |
 | [ui/AccountCalendarSection.svelte.test.ts](ui/AccountCalendarSection.svelte.test.ts) | test | Consent labels, options, reload sync. | — |
 | [ui/AccountEmailSection.svelte.test.ts](ui/AccountEmailSection.svelte.test.ts) | test | Guest CTA vs real form. | — |
@@ -224,6 +225,21 @@ Each line names the test that pins it.
 
 **Notes**
 
+- e2e hooks (2026-11-21, `e2e/account/*` + `e2e/calendar/SettingsPage.test.ts`): the rail's link
+  hands its section to `onSelect` as well as carrying the `href` — once hydrated, SvelteKit moves a
+  same-page hash click without a `hashchange` event, so the fragment alone did not switch the body
+  (`AccountSettings.test.ts:62` clicked Security and stayed on Profile). The dashboard module
+  switches stay in their own `#dashboard` section: legacy's split (#105) pinned that the calendar
+  form renders none of them, because a save would derive the hidden list from a form that has no
+  module checkboxes. The plan card links `/pricing` only for a paid plan and the Family Master block
+  only for a free one: two links at once made the leaf `a[href="/pricing"]` ambiguous
+  (`SettingsPage.test.ts:77`); legacy printed both. `input#email` is the legacy hook (`EmailChange`,
+  `ProfileEditing`), so the Email section's wrapper carries no id of its own — legacy had both, a
+  duplicate id that left the label pointing at the wrapper.
+- `#129` design conformance (`e2e/conformance/account-known-bad.test.ts`): the rail title is a 12px
+  marketing size tracked to the prototype's 0.88px, the identity badge background is the warm-100
+  token (`#fdede0`) instead of the bespoke blush, and the screen's skeleton bars take the canvas
+  token (`#f8f6f3`) — the kernel skeleton's slate-200 is not in the marketing colour set.
 - Verse deleted 2026-11-12 (Q-031/Q-032): `verseTranslation` left the settings wire and save;
   `showDailyVerse` stays on the `/api/me/settings` wire but the account form never posts it.
 - Q-083: the app shell layout will own Navbar/Toaster/BottomNav and the `/login` guard; until the
