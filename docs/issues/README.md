@@ -26,3 +26,4 @@ Work on the v2 rewrite is tracked in [docs/rewrite/LEDGER.md](../rewrite/LEDGER.
 | [293 Phone focus sessions](293-phone-focus-sessions.md) | Android |
 | [294 Android shell/theme](294-android-shell-theme.md) | Android |
 | [309 Android event form controls](309-android-event-form-controls.md) | Android |
+| [325 Calendar month + share-target under 1 s on mobile repeat](325-calendar-share-target-under-1s-mobile-repeat.md) | Performance |

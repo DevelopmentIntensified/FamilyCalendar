@@ -35,3 +35,7 @@ Nothing measures page speed today. The one page that was measured (#041, the cal
 - Performance rules join the conventions ([conventions.md › Performance](../architecture/conventions.md#performance)): a small, fixed number of queries per load; bounded queries; layout-shared scope; streaming for slow sections; heavy views loaded on demand; no server libraries in client bundles.
 - Local numbers leave out real network and Neon latency. They catch what the code controls. Production monitoring is a separate owner decision.
 - `perf:check` needs a production build (~70 s) and Playwright, so it runs at S7, not after every edit.
+
+## Exceptions
+
+- **2026-11-22, `calendarPage/calendar-month` and `calendarPage/share-target`: mobile repeat-visit ready may exceed 1000 ms, at legacy parity** (owner approval under §6). Legacy missed the limit too (1134 ms and 1728 ms) and ours is not slower (production build: `/calendar` 1037 / 1098 ms; the share-target deep link 1509 / 1607 ms). Every other hard limit still applies to them. The exception is the `HARD_LIMIT_EXCEPTIONS` table in `e2e/pages/perf-report.ts` (see [e2e/pages/README.md](../../e2e/pages/README.md)): the page's limit is its legacy baseline value, so a regression past legacy still fails. Tracked in [#325](../issues/325-calendar-share-target-under-1s-mobile-repeat.md); the entries are deleted when both pages pass 1000 ms.

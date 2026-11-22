@@ -22,6 +22,7 @@ import {
 	type Baseline
 } from './budgets';
 import {
+	HARD_LIMIT_EXCEPTIONS,
 	baselineFile,
 	baselineMarkdown,
 	compareBudgets,
@@ -180,6 +181,73 @@ describe('compareBudgets', () => {
 			'mobile initial JS'
 		]);
 		expect(violations[0].unit).toBe('bytes');
+	});
+
+	describe('ADR 0010 §6 exceptions (mobile repeat-visit ready at legacy parity, owner approval 2026-11-22)', () => {
+		/** The same in-budget page, renamed to an excepted catalog page. */
+		const asPage = (name: string, overrides: Overrides = {}): PageMeasurement => ({
+			...measurement(overrides),
+			module: 'calendarPage',
+			name
+		});
+
+		it('lists exactly the two approved pages, at their legacy baseline values, under issue 325', () => {
+			expect(HARD_LIMIT_EXCEPTIONS).toEqual({
+				'calendarPage/calendar-month': { mobileRepeatReady: 1134, issue: 325 },
+				'calendarPage/share-target': { mobileRepeatReady: 1728, issue: 325 }
+			});
+		});
+
+		it.each([
+			['calendar-month', 1134],
+			['share-target', 1728]
+		])(
+			'%s passes at its legacy value and fails one ms above it, naming the legacy limit',
+			(name, legacy) => {
+				// Above 1000 ms and still fine: the exception is what moves the limit.
+				expect(compareBudgets(asPage(name, { mobileRepeatReady: legacy }))).toEqual([]);
+				const [violation, ...others] = compareBudgets(
+					asPage(name, { mobileRepeatReady: legacy + 1 })
+				);
+				expect(others).toEqual([]);
+				expect(violation.profile).toBe('mobile');
+				expect(violation.metric).toBe('ready, repeat visit');
+				expect(violation.value).toBe(legacy + 1);
+				expect(violation.limit).toBe(legacy);
+				expect(violation.message).toContain(`calendarPage/${name}`);
+				expect(violation.message).toContain(`is above ${legacy} ms`);
+				expect(violation.message).toContain('#325');
+			}
+		);
+
+		it('still fails a page with no entry above 1000 ms, even one that shares its module', () => {
+			const [violation, ...others] = compareBudgets(asPage('calendar-week', { mobileRepeatReady: 1001 }));
+			expect(others).toEqual([]);
+			expect(violation.limit).toBe(HARD_LIMITS.mobileRepeatReady);
+			expect(violation.message).not.toContain('#325');
+			expect(compareBudgets(measurement({ mobileRepeatReady: 1134 })).map((v) => v.limit)).toEqual([
+				HARD_LIMITS.mobileRepeatReady
+			]);
+		});
+
+		it('does not relax desktop ready, desktop TTFB or the initial-JS ceiling on an excepted page', () => {
+			const ceiling = 100 * 1024;
+			const allowed = Math.floor(ceiling * (1 + JS_CEILING_TOLERANCE));
+			const page = asPage('calendar-month', {
+				desktopFirstReady: 1001,
+				desktopRepeatReady: 1001,
+				desktopTtfb: 301,
+				mobileRepeatReady: 1134,
+				js: allowed + 1
+			});
+			expect(compareBudgets(page, ceiling).map((v) => `${v.profile} ${v.metric}`)).toEqual([
+				'desktop ready, first visit',
+				'desktop ready, repeat visit',
+				'desktop TTFB',
+				'desktop initial JS',
+				'mobile initial JS'
+			]);
+		});
 	});
 });
 
