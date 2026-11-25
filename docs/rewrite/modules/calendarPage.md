@@ -417,6 +417,21 @@ Measured with `fcv2-agent-build.sh` (static closure + mobile root-error extras; 
   link leaves Description empty (legacy's `goto` rebuilt the form after the seed) and nothing focused
   (legacy's `goto` reset focus; the route keeps `keepFocus`, so the modal blurs once on mount instead).
 
+### Perf exception for ADR 0010 (2026-11-22): mobile repeat ready over 1000 ms, approved at legacy parity
+
+Owner decision 2026-11-22 (ADR 0010 §6, "Going over a hard limit needs the owner's approval"): `calendarPage/calendar-month` and `calendarPage/share-target` may exceed the hard limit "mobile ready, repeat visit ≤ 1000 ms", because legacy missed it too and ours is not slower. Every other hard limit still applies to these pages. The harness encodes it (`HARD_LIMIT_EXCEPTIONS` in `e2e/pages/perf-report.ts`: the limit is the page's legacy baseline, 1134 ms and 1728 ms), so a regression past legacy still fails.
+
+| page (mobile, repeat visit) | ours (production build, 2 runs) | legacy |
+|---|---|---|
+| `/calendar` (`calendar-month`) | 1037 / 1098 ms | 1134 ms |
+| `/share-target` deep link (server redirect → `/calendar` → Quick Add modal, ready `#nl-input`) | 1509 / 1607 ms | 1728 ms |
+
+The runs overlapped other builds. Initial JS for both is under the legacy ceiling (calendar-month 138 KB vs 197 KB).
+
+- **Why it misses:** the month grid arrives through a streamed `grid` promise and the card renders after hydration on a 4x-CPU phone; share-target adds the redirect and the modal mount.
+- **What getting under 1 s takes:** server-rendering the month grid (a TTFB and HTML-size trade-off, see the page-perf playbook #041: legacy once shipped 465 KB of HTML) and the Quick Add modal on the deep link.
+- **Tracked in** [#325](../../issues/325-calendar-share-target-under-1s-mobile-repeat.md); the exception ends when it closes.
+
 ### Dropped as internal-only (reason in brackets)
 
 - `removeEvent` threaded Calendar → WeekView and voided (dead since EventModal took deletion) — `Calendar.svelte:43`, `WeekView.svelte:30,50`.
