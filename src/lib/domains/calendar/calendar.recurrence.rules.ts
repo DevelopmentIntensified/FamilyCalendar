@@ -235,8 +235,10 @@ function positiveCount(raw?: number | null): number | null {
  * UNTIL is inclusive end-of-day in the viewer's zone (#216); a full timestamp
  * keeps its exact instant.
  *
- * The date-only branch is an in-memory rule only: the column is `timestamptz`,
- * so a stored `YYYY-MM-DD` reads back as the UTC-midnight instant.
+ * The date-only branch is an in-memory rule only: the write side (Q-106) now
+ * stores a date-only UNTIL as the creator-zone end-of-day instant, but a row
+ * stored before that keeps its UTC-midnight cutoff, and the `timestamptz`
+ * column never reads back a date-only string.
  */
 export function recurrenceUntilInstant(
 	event: Pick<RecurringEventInput, 'recurrenceUntil'>,
@@ -310,10 +312,28 @@ function expandWeekdaySeries(
 }
 
 /**
- * Normalize a full recurrence write. An absent or unknown frequency clears
- * every field — byDay/count/until are meaningless on a one-off Event.
+ * The stored form of a write-time UNTIL (Q-106). A DATE-ONLY value
+ * (`yyyy-MM-dd`) becomes the inclusive END of that day in `zone` — the
+ * creator's zone — as a UTC instant, so "repeat until Oct 20" keeps the Oct 20
+ * occurrence once the column (`timestamptz`) has dropped the date-only form. A
+ * full date-time is stored exactly as sent. An unknown zone reads as UTC.
  */
-export function normalizeEventRecurrence(input: EventRecurrenceInput): EventRecurrenceWrite {
+export function endOfDayUntil(until: string, zone: string): string {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(until)) return until;
+	const inZone = DateTime.fromISO(until, { zone }).endOf('day');
+	const day = inZone.isValid ? inZone : DateTime.fromISO(until, { zone: 'utc' }).endOf('day');
+	return day.isValid ? (day.toUTC().toISO() ?? until) : until;
+}
+
+/**
+ * Normalize a full recurrence write. An absent or unknown frequency clears
+ * every field — byDay/count/until are meaningless on a one-off Event. `zone` is
+ * the writer's stored zone: a date-only UNTIL is its end of day there (Q-106).
+ */
+export function normalizeEventRecurrence(
+	input: EventRecurrenceInput,
+	zone: string
+): EventRecurrenceWrite {
 	const rawFrequency = input.recurrenceFrequency ?? '';
 	const frequency = isRecurrenceFrequency(rawFrequency) ? rawFrequency : null;
 	if (!frequency) {
@@ -332,7 +352,7 @@ export function normalizeEventRecurrence(input: EventRecurrenceInput): EventRecu
 		recurrenceCount: sanitizeRecurrenceCount(input.recurrenceCount),
 		recurrenceUntil:
 			typeof input.recurrenceUntil === 'string' && input.recurrenceUntil.length > 0
-				? input.recurrenceUntil
+				? endOfDayUntil(input.recurrenceUntil, zone)
 				: null
 	};
 }

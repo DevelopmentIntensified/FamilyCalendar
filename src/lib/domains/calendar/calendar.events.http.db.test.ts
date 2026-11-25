@@ -14,7 +14,8 @@ import {
 	events,
 	families,
 	familyMembers,
-	userSettings
+	userSettings,
+	type UserRow
 } from '$lib/kernel/db/tables.server';
 import { invoke, type InvokeResult } from '$lib/kernel/testing/invokeHandlers.server';
 import type { JsonValue } from '$lib/kernel/validation/validators';
@@ -493,56 +494,131 @@ describe('GET /api/events', () => {
 		]);
 	});
 
-	// A date-only `recurrenceUntil` never reaches the end-of-day branch on the
-	// wire: the column is `timestamp with time zone` with `mode:'string'`
-	// (calendar.tables.server.ts:99-102), so Postgres stores `2026-10-20` as
-	// the INSTANT 2026-10-20T00:00Z (UTC session) and reads it back as a full
-	// timestamp. `recurrenceUntil()` only takes its date-only branch when the
-	// value still matches /^\d{4}-\d{2}-\d{2}$/ on the raw row
-	// (recurrenceService.ts:160-192), so here it is an exact cutoff: the Oct 20
-	// slot is dropped and the Oct 19 one is kept. Read as end-of-day in the
-	// viewer's zone the cutoff would be 2026-10-21T06:59:59.999Z and BOTH slots
-	// would survive, so this fixture tells the two rules apart. (The slot is
-	// 11:00–12:00 in Los Angeles, i.e. inside one calendar day, so the
-	// multi-day split in eventDisplay.ts:49-73 does not add rows.)
-	it('cuts at a date-only recurrenceUntil stored as a UTC-midnight instant', async () => {
-		const user = await seedUser(testDb());
-		await testDb()
-			.insert(userSettings)
-			.values({ userId: user.id, timeZone: 'America/Los_Angeles' });
-		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
-		await seedEventRow({
-			id: 'evtuntil001',
-			ownerId: user.id,
-			calendarId: PERSONAL_CAL,
-			title: 'Wind down',
-			start: '2026-10-19T18:00:00.000Z',
-			end: '2026-10-19T19:00:00.000Z',
-			recurrenceFrequency: 'daily',
-			recurrenceInterval: 1,
-			recurrenceUntil: '2026-10-20'
-		});
+	// Q-106: a date-only `recurrenceUntil` is stored as the END of that day in
+	// the creator's zone (create and update alike), so "repeat until Oct 20"
+	// keeps the Oct 20 occurrence. A row stored before the answer holds the
+	// UTC-midnight instant (the `timestamptz` column dropped the date-only
+	// form) and keeps that exact cutoff: no backfill. The slot is 11:00-12:00
+	// in Los Angeles, inside one calendar day, so the multi-day split does not
+	// add rows.
+	const UNTIL_SLOT = {
+		title: 'Wind down',
+		start: '2026-10-19T18:00:00.000Z',
+		end: '2026-10-19T19:00:00.000Z',
+		recurrenceFrequency: 'daily',
+		recurrenceInterval: 1
+	};
 
+	async function seedUntilUser(timeZone: string) {
+		const user = await seedUser(testDb());
+		await testDb().insert(userSettings).values({ userId: user.id, timeZone });
+		await seedCalendarRow(PERSONAL_CAL, { ownerId: user.id });
+		return user;
+	}
+
+	async function occurrenceStarts(user: UserRow) {
 		const res = await invoke(getEvents, {
 			ctx: ctx(),
 			user,
 			query: { from: '2026-10-15', to: '2026-10-31' }
 		});
+		expect(res.status).toBe(200);
+		return arrayField(objectBody(res), 'events').map((event) =>
+			String(objectValue(event, 'event')['start'])
+		);
+	}
+
+	it.each([
+		[
+			'a creator in Los Angeles',
+			'America/Los_Angeles',
+			'2026-10-21 06:59:59.999+00',
+			['2026-10-19T18:00:00.000Z', '2026-10-20T18:00:00.000Z']
+		],
+		[
+			'a creator in UTC',
+			'UTC',
+			'2026-10-20 23:59:59.999+00',
+			['2026-10-19T18:00:00.000Z', '2026-10-20T18:00:00.000Z']
+		]
+	])(
+		'creates a date-only recurrenceUntil as the end of that day for %s and keeps the Oct 20 occurrence (Q-106)',
+		async (_name, timeZone, storedUntil, expectedStarts) => {
+			const user = await seedUntilUser(timeZone);
+
+			const res = await invoke(postEvents, {
+				ctx: ctx(),
+				user,
+				path: '/api/events',
+				headers: { 'x-real-ip': '10.2.0.9' },
+				body: { ...UNTIL_SLOT, recurrenceUntil: '2026-10-20' }
+			});
+
+			expect(res.status).toBe(201);
+			expect(objectValue(objectBody(res)['event'], 'event')['recurrenceUntil']).toBe(storedUntil);
+			expect(await occurrenceStarts(user)).toEqual(expectedStarts);
+		}
+	);
+
+	it('updates a date-only recurrenceUntil as the end of that day in the updater zone (Q-106)', async () => {
+		const user = await seedUntilUser('America/Los_Angeles');
+		await seedEventRow({
+			id: 'evtuntil002',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			...UNTIL_SLOT,
+			recurrenceUntil: '2026-10-19'
+		});
+		expect(await occurrenceStarts(user)).toEqual([]);
+
+		const res = await invoke(putEvent, {
+			ctx: ctx(),
+			user,
+			method: 'PUT',
+			params: { id: 'evtuntil002' },
+			body: { ...UNTIL_SLOT, recurrenceUntil: '2026-10-20' }
+		});
 
 		expect(res.status).toBe(200);
-		expect(
-			arrayField(objectBody(res), 'events').map((event) => {
-				const row = objectValue(event, 'event');
-				return { id: row['id'], start: row['start'], end: row['end'], date: row['date'] };
-			})
-		).toEqual([
-			{
-				id: 'evtuntil001~2026-10-19T18:00:00.000Z',
-				start: '2026-10-19T18:00:00.000Z',
-				end: '2026-10-19T19:00:00.000Z',
-				date: '2026-10-19T18:00:00.000Z'
-			}
+		expect(objectValue(objectBody(res)['event'], 'event')['recurrenceUntil']).toBe(
+			'2026-10-21 06:59:59.999+00'
+		);
+		expect(await occurrenceStarts(user)).toEqual([
+			'2026-10-19T18:00:00.000Z',
+			'2026-10-20T18:00:00.000Z'
 		]);
+	});
+
+	it('stores a full date-time recurrenceUntil exactly as sent (Q-106)', async () => {
+		const user = await seedUntilUser('America/Los_Angeles');
+
+		const res = await invoke(postEvents, {
+			ctx: ctx(),
+			user,
+			path: '/api/events',
+			headers: { 'x-real-ip': '10.2.0.10' },
+			body: { ...UNTIL_SLOT, recurrenceUntil: '2026-10-20T00:00:00.000Z' }
+		});
+
+		expect(res.status).toBe(201);
+		expect(objectValue(objectBody(res)['event'], 'event')['recurrenceUntil']).toBe(
+			'2026-10-20 00:00:00+00'
+		);
+		expect(await occurrenceStarts(user)).toEqual(['2026-10-19T18:00:00.000Z']);
+	});
+
+	it('keeps a row stored before Q-106 at its UTC-midnight cutoff (no backfill)', async () => {
+		const user = await seedUntilUser('America/Los_Angeles');
+		await seedEventRow({
+			id: 'evtuntil001',
+			ownerId: user.id,
+			calendarId: PERSONAL_CAL,
+			...UNTIL_SLOT,
+			end: UNTIL_SLOT.end,
+			recurrenceUntil: '2026-10-20'
+		});
+
+		expect(await occurrenceStarts(user)).toEqual(['2026-10-19T18:00:00.000Z']);
 	});
 });
 

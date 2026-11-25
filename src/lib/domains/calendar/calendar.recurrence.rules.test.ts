@@ -565,10 +565,40 @@ describe('normalizeEventRecurrence (eventRecurrence.test.ts:10-131)', () => {
 				recurrenceCount: null,
 				recurrenceUntil: null
 			}
+		],
+		[
+			'a full date-time until is stored exactly as sent (Q-106)',
+			{ recurrenceFrequency: 'weekly', recurrenceUntil: '2026-10-20T00:00:00.000Z' },
+			{
+				recurrenceFrequency: 'weekly',
+				recurrenceInterval: 1,
+				recurrenceByDay: null,
+				recurrenceCount: null,
+				recurrenceUntil: '2026-10-20T00:00:00.000Z'
+			}
 		]
 	] satisfies [string, EventRecurrenceInput, unknown][])('%s', (_name, input, expected) => {
-		expect(normalizeEventRecurrence(input)).toEqual(expected);
+		expect(normalizeEventRecurrence(input, 'UTC')).toEqual(expected);
 	});
+
+	it.each([
+		['2026-10-20', 'UTC', '2026-10-20T23:59:59.999Z'],
+		['2026-10-20', 'America/Los_Angeles', '2026-10-21T06:59:59.999Z'],
+		// UTC+14: that creator's Oct 20 ends before UTC's Oct 20 does.
+		['2026-10-20', 'Pacific/Kiritimati', '2026-10-20T09:59:59.999Z'],
+		// An unknown zone reads as UTC.
+		['2026-10-20', 'Mars/Olympus', '2026-10-20T23:59:59.999Z'],
+		['2026-10-20T08:00:00.000Z', 'America/Los_Angeles', '2026-10-20T08:00:00.000Z']
+	] satisfies [string, string, string][])(
+		'normalizeEventRecurrence stores until %s for zone %s as %s (Q-106)',
+		(until, zone, expected) => {
+			const write = normalizeEventRecurrence(
+				{ recurrenceFrequency: 'daily', recurrenceUntil: until },
+				zone
+			);
+			expect(write.recurrenceUntil).toBe(expected);
+		}
+	);
 });
 
 describe('sanitizers (eventRecurrence.test.ts:133-144)', () => {
