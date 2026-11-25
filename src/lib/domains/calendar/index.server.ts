@@ -27,11 +27,13 @@ export {
 export {
 	listAccessibleCalendarIds,
 	listCalendars,
+	listCalendarChoices,
 	getPrintMonth,
 	CALENDAR_PERSONAL_NAME,
 	CALENDAR_DEFAULT_PERSONAL_COLOR,
 	CALENDAR_DEFAULT_FAMILY_COLOR,
 	type CalendarSummaryRow,
+	type CalendarChoiceRow,
 	type CalendarPrintMonth
 } from './calendar.calendars.service.server';
 export {

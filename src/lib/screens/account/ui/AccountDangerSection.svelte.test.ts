@@ -59,4 +59,25 @@ describe('AccountDangerSection', () => {
 		});
 		expect(screen.getByRole('button', { name: 'Preparing…' })).toBeDisabled();
 	});
+
+	it('names what the export includes and what it leaves out (Q-079)', () => {
+		render(AccountDangerSection, {
+			props: {
+				model: { section: 'danger' as const, userId: 'user-1' },
+				exporting: false,
+				onExport: () => {},
+				enhance
+			}
+		});
+
+		const included = screen.getByTestId('export-included');
+		for (const part of ['profile', 'settings', 'subscriptions', 'families', 'events', 'tasks', 'bills', 'grocery items', 'notifications']) {
+			expect(included).toHaveTextContent(part);
+		}
+		const omitted = screen.getByTestId('export-omitted');
+		for (const part of ['password', 'sign-in sessions', 'API tokens', 'consent records', 'AI usage']) {
+			expect(omitted).toHaveTextContent(part);
+		}
+		expect(document.body).not.toHaveTextContent('everything your account stores');
+	});
 });

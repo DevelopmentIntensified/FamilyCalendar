@@ -26,9 +26,14 @@
 <div id="danger">
 	<div class="mb-8">
 		<h2 class="mb-4 text-lg font-semibold text-slate-900">Export your data 👪</h2>
-		<p class="mb-4 text-sm text-slate-600">
-			Download a copy of everything your account stores: profile, settings, families, calendars and
-			events, tasks, bills and receipt lines, grocery lists and notifications. The download is JSON.
+		<p data-testid="export-included" class="mb-2 text-sm text-slate-600">
+			Download your data as a JSON file. It includes your profile, settings, subscriptions, your
+			families (other members by name only), events with their attendance and exceptions, tasks with
+			their tags and completions, bills and receipt lines, grocery items and notifications.
+		</p>
+		<p data-testid="export-omitted" class="mb-4 text-sm text-slate-600">
+			It leaves out your password, sign-in sessions, API tokens and push-notification registrations,
+			your sponsored-item consent records and your AI usage counts.
 		</p>
 		<button
 			type="button"
