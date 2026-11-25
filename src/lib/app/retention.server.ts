@@ -11,10 +11,9 @@
  * | ad events                         | 90 days  |
  * | expired claim tokens              | none     |
  *
- * The same weekly run also sweeps stale Recurring Task cursors to today-end
- * (tasks' bounded, idempotent `sweepOverdueTaskCursors`, Q-092). That is a
- * pin, not a prune, so it adds nothing to the response body: its counts are
- * logged.
+ * Recurring Task cursors are not swept here: that is the daily
+ * `/api/cron/tasks-sweep` job (`tasksSweepCronEndpoint`, Q-092), so the
+ * cleanup is retention prunes only.
  *
  * Runs sequentially, not `Promise.all`: the ctx db may be one transaction
  * session, and no prune gates another (a failed one still rejects the run —
@@ -29,7 +28,6 @@ import { pruneReadAlertsOlderThan } from '$lib/domains/alerts/index.server';
 import { pruneFeedbackOlderThan } from '$lib/domains/feedback/index.server';
 import { pruneInactiveAnonymousAccounts } from '$lib/domains/identity/index.server';
 import { pruneSponsoredEventsOlderThan } from '$lib/domains/sponsored/index.server';
-import { sweepOverdueTaskCursors } from '$lib/domains/tasks/index.server';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -80,8 +78,6 @@ export async function runRetention(ctx: Ctx): Promise<RetentionReport> {
 		ctx,
 		daysBefore(now, AD_EVENT_RETENTION_DAYS)
 	);
-	const cursors = await sweepOverdueTaskCursors(ctx);
-	ctx.log.info('tasks_cursor_sweep', { scanned: cursors.scanned, pinned: cursors.pinned });
 
 	return {
 		deleted: guests.deleted,

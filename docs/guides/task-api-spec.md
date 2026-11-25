@@ -470,7 +470,7 @@ unless stated otherwise.
 The Tasks screen's three tabs, exactly as `/calendar/tasks` loads them
 (`loadTaskSections`, `src/lib/server/services/tasksData.ts`). A read never
 moves a Recurring Task cursor (Q-092): a stale one comes back as stored until
-its owner's next check-off/skip or the weekly cleanup sweep pins it.
+its owner's next check-off/skip or the daily tasks sweep pins it.
 
 - `200 {"myTasks":[<Task+tags>],"pendingAssignments":[<Task+tags>],"requestedByMe":[<Task+tags>],"warnings":["myTasks"|"pending"|"requested", …]}`
   - `myTasks`: your personal tasks + accepted assignments.
