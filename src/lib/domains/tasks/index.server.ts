@@ -43,6 +43,11 @@ export {
 } from './tasks.items.service.server';
 export type { TaskUpdatedRow } from './tasks.completion.service.server';
 export {
+	sweepOverdueTaskCursors,
+	type TaskCursorSweepReport,
+	type TaskCursorSweepLimits
+} from './tasks.cursor.sweep.service.server';
+export {
 	listTaskCategories,
 	addTaskCategory,
 	renameTaskCategory,

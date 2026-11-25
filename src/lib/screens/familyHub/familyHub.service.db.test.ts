@@ -367,6 +367,29 @@ describe('getFamilyBoard', () => {
 		expect(whole?.tasks).toHaveLength(4);
 		expect(whole?.completedTotal).toBe(3);
 	});
+
+	rollbackTest('a board read leaves every recurring cursor row untouched (Q-092)', async (db) => {
+		const { ann, bob } = await seedWorld(db);
+		const stale = {
+			dueDate: '2026-02-20 10:00:00+00',
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1
+		};
+		await db.insert(tasks).values([
+			{ id: 'stale-family', title: 'Water plants', userId: ann.id, familyId: 'fam-old', ...stale },
+			{ id: 'stale-public', title: 'Piano', userId: bob.id, familyId: null, visibility: 'public', ...stale }
+		]);
+		const before = await db.select().from(tasks).orderBy(tasks.id);
+
+		const board = await getFamilyBoard(hubCtx(db), actorFromUser(ann, 'session'), {
+			requested: 'fam-old'
+		});
+
+		// The cursor lags (the owner accepted it): the board shows the stored due date.
+		expect(board?.tasks.map((task) => task.dueDate)).toEqual([stale.dueDate]);
+		expect(board?.publicTasks.map((task) => task.dueDate)).toEqual([stale.dueDate]);
+		expect(await db.select().from(tasks).orderBy(tasks.id)).toEqual(before);
+	});
 });
 
 describe('the page handlers', () => {

@@ -176,18 +176,15 @@ function tagsOf(tagMap: ReadonlyMap<string, string[]>, taskId: string): string[]
 }
 
 /**
- * Pin every overdue open Recurring Task in `scope` to today-end in the caller's
- * zone, in one batched UPDATE (legacy `syncRecurringCursors`, #110/#214). The
- * scope's row selection is the repo's; the "is it stale" test is the rule's.
+ * Pin every overdue open Recurring Task of the actor's own scope (their rows
+ * plus their family's) to today-end in the actor's zone, in one batched UPDATE
+ * (legacy `syncRecurringCursors`, #110/#214; moved out of every read by Q-092).
+ * The scope's row selection is the repo's; the "is it stale" test is the rule's.
  */
 async function pinOverdue(
 	ctx: Ctx,
 	actor: Actor,
-	scope: {
-		readonly userId: string | null;
-		readonly familyId: string | null;
-		readonly memberIds?: readonly string[] | null;
-	}
+	scope: { readonly userId: string | null; readonly familyId: string | null }
 ): Promise<void> {
 	const zone = await viewerZone(ctx, actor);
 	const now = ctx.clock.now();
@@ -195,6 +192,23 @@ async function pinOverdue(
 	const stale = rows.filter((row) => needsOverduePin(row.dueDate, now, zone)).map((row) => row.id);
 	if (stale.length === 0) return;
 	await pinDueDates(ctx.db, { taskIds: stale, dueDate: pinnedDueFor(now, zone) });
+}
+
+/**
+ * The pin a cursor-moving write (check-off, skip) runs AFTER it committed
+ * (Q-092). Best-effort: the write already answered its caller's intent, so a
+ * failed pin is logged, never turned into a failed request that a retry would
+ * apply twice; the scheduled sweep catches whatever it missed.
+ */
+async function pinAfterWrite(ctx: Ctx, actor: Actor): Promise<void> {
+	try {
+		const familyId = await resolveMembershipFamilyId(ctx, actor.id);
+		await pinOverdue(ctx, actor, { userId: actor.id, familyId });
+	} catch (error) {
+		ctx.log.error('tasks_pin_failed', {
+			message: error instanceof Error ? error.message : String(error)
+		});
+	}
 }
 
 /** Drop the keys a patch did not set, so a repo UPDATE never writes `undefined`. */
@@ -217,10 +231,10 @@ export type TaskListInput = { readonly eventId?: string | null };
  * - no `eventId`: the caller's own rows plus the family rows the Task
  *   Visibility rule allows, newest first, archived excluded, tags sorted, the
  *   parent Event's calendar always present and the phone overlay applied.
- *   Overdue cursors are pinned first.
+ *   Reads never write (Q-092): a stale recurring cursor keeps its stored due
+ *   date until the owner's next check-off / skip or the scheduled sweep.
  * - `?eventId=`: the same list shape for the Event's readable rows (Q-005a's
- *   private rule, #164), oldest first. An unknown Event is `{tasks: []}` and
- *   this leg does NOT pin.
+ *   private rule, #164), oldest first. An unknown Event is `{tasks: []}`.
  */
 export async function listTasks(
 	ctx: Ctx,
@@ -274,13 +288,12 @@ async function listEventTasks(
 	return await attachListFields(ctx, actor, rows);
 }
 
-/** The main list for one already-resolved family: pin, read, then the shared enrichment. */
+/** The main list for one already-resolved family: read, then the shared enrichment. */
 async function loadTaskList(
 	ctx: Ctx,
 	actor: Actor,
 	familyId: string | null
 ): Promise<readonly TaskListRow[]> {
-	await pinOverdue(ctx, actor, { userId: actor.id, familyId });
 	const rows = (await listTasksForUser(ctx.db, { userId: actor.id, familyId })).filter((row) =>
 		canReadTask(row, actor.id)
 	);
@@ -372,9 +385,9 @@ async function loadSection(
 /**
  * The three assignment queues: MY TASKS (personal rows plus accepted
  * assignments), TO ACCEPT (pending handoffs to the caller) and REQUESTED (the
- * caller's rows carrying any assignee). The main-list leg runs FIRST so its
- * cursor pin lands before the section reads; each leg degrades to `[]` with its
- * label in `warnings` instead of failing the whole read.
+ * caller's rows carrying any assignee). The read writes nothing (Q-092); each
+ * leg degrades to `[]` with its label in `warnings` instead of failing the
+ * whole read.
  */
 export async function listTaskSections(ctx: Ctx, actor: Actor): Promise<{
 	readonly myTasks: readonly TaskSectionRow[];
@@ -382,13 +395,6 @@ export async function listTaskSections(ctx: Ctx, actor: Actor): Promise<{
 	readonly requestedByMe: readonly TaskSectionRow[];
 	readonly warnings: readonly string[];
 }> {
-	const familyId = await resolveMembershipFamilyId(ctx, actor.id);
-	const pinLeg = await leg(
-		ctx,
-		'tasks+cursor',
-		async () => await loadTaskList(ctx, actor, familyId),
-		[]
-	);
 	const myTasks = await leg(
 		ctx,
 		'myTasks',
@@ -408,7 +414,7 @@ export async function listTaskSections(ctx: Ctx, actor: Actor): Promise<{
 		async () => await loadSection(ctx, actor, async () => await listRequestedByMe(ctx.db, actor.id)),
 		[]
 	);
-	const warnings = [pinLeg.warning, myTasks.warning, pending.warning, requested.warning].filter(
+	const warnings = [myTasks.warning, pending.warning, requested.warning].filter(
 		(warning): warning is string => warning !== null
 	);
 	return {
@@ -427,7 +433,7 @@ export type TaskDueWindowInput = { readonly fromIso: string; readonly toIso: str
  * falls inside the window — own rows plus the family's readable ones — with
  * the same list-row fields the main list carries (tags, assignee names, phone
  * overlay), so a calendar chip and the tasks page never disagree about a row.
- * Overdue cursors are pinned first, as every list read does (#110).
+ * Reads write nothing (Q-092): a stale recurring cursor keeps its stored due date.
  */
 export async function listDueTasks(
 	ctx: Ctx,
@@ -435,7 +441,6 @@ export async function listDueTasks(
 	input: TaskDueWindowInput
 ): Promise<readonly TaskListRow[]> {
 	const familyId = await resolveMembershipFamilyId(ctx, actor.id);
-	await pinOverdue(ctx, actor, { userId: actor.id, familyId });
 	const rows = (await listDueTaskRows(ctx.db, {
 		userId: actor.id,
 		familyId,
@@ -449,7 +454,8 @@ export async function listDueTasks(
  * The Family Task Board for one family: every READABLE family Task (a private
  * one only for its owner or its assignee, Q-005a) plus the members' PUBLIC
  * personal Tasks, both with names and tags and neither with
- * `eventCalendarId`. A caller outside the family gets the board's one 404.
+ * `eventCalendarId`. A caller outside the family gets the board's one 404. The
+ * read writes nothing (Q-092): it used to pin the roster's cursors first.
  */
 export async function listFamilyTasks(
 	ctx: Ctx,
@@ -459,11 +465,6 @@ export async function listFamilyTasks(
 	if (!(await isMemberOf(ctx, actor, input.familyId))) throw notFound(TASK_FAMILY_NOT_FOUND);
 	const roster = await listFamilyRoster(ctx, actor, input.familyId);
 	const memberIds = roster.members.map((member) => member.userId);
-	await pinOverdue(ctx, actor, {
-		userId: null,
-		familyId: input.familyId,
-		memberIds
-	});
 
 	const familyRows = (await listFamilyTaskRows(ctx.db, input.familyId)).filter((row) =>
 		canReadTask(row, actor.id)
@@ -592,6 +593,9 @@ export async function createTask(
  * `PUT /api/tasks/[id]`: the body dispatch in legacy order — `undoComplete`,
  * `advanceToNext`, `toggleComplete`, then the field patch. The three cursor
  * actions answer the bare row; the field patch answers the row plus tags.
+ * A check-off or a skip then pins the actor's other overdue Recurring Tasks
+ * (Q-092: the pin runs on writes and the sweep, never on a read); an undo
+ * restores its exact previous cursor and does not pin.
  */
 export async function updateTask(
 	ctx: Ctx,
@@ -605,8 +609,16 @@ export async function updateTask(
 			previousDueDate: body.previousDueDate
 		});
 	}
-	if (body.advanceToNext) return await skipTaskOccurrence(ctx, actor, { taskId: input.taskId });
-	if (body.toggleComplete) return await toggleTaskCompletion(ctx, actor, { taskId: input.taskId });
+	if (body.advanceToNext) {
+		const row = await skipTaskOccurrence(ctx, actor, { taskId: input.taskId });
+		await pinAfterWrite(ctx, actor);
+		return row;
+	}
+	if (body.toggleComplete) {
+		const row = await toggleTaskCompletion(ctx, actor, { taskId: input.taskId });
+		await pinAfterWrite(ctx, actor);
+		return row;
+	}
 	return await patchTaskFields(ctx, actor, input.taskId, body);
 }
 

@@ -22,7 +22,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { and, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import type { Db } from '$lib/kernel/db/database.server';
 import {
 	events,
@@ -510,25 +510,16 @@ export async function pinDueDates(
 
 /**
  * The rows the overdue pin must look at for one scope: open, dated, recurring,
- * unarchived Tasks owned by `userId`, belonging to `familyId`, and/or created
- * by one of `memberIds` (the Family Task Board Public tab's member-personal
- * leg — personal rows of the family's members, which no other scope covers).
+ * unarchived Tasks owned by `userId` and/or belonging to `familyId`.
  * Pure scope selection — the "is it stale" test is the rule's.
  */
 export async function listPinnableTasks(
 	db: Db,
-	scope: {
-		readonly userId: string | null;
-		readonly familyId: string | null;
-		readonly memberIds?: readonly string[] | null;
-	}
+	scope: { readonly userId: string | null; readonly familyId: string | null }
 ): Promise<{ readonly id: string; readonly dueDate: string | null }[]> {
 	const legs = [];
 	if (scope.userId) legs.push(eq(tasks.userId, scope.userId));
 	if (scope.familyId) legs.push(eq(tasks.familyId, scope.familyId));
-	if (scope.memberIds && scope.memberIds.length > 0) {
-		legs.push(inArray(tasks.userId, [...scope.memberIds]));
-	}
 	if (legs.length === 0) return [];
 	return await db
 		.select({ id: tasks.id, dueDate: tasks.dueDate })
@@ -542,6 +533,34 @@ export async function listPinnableTasks(
 				legs.length === 1 ? legs[0] : or(...legs)
 			)
 		);
+}
+
+/**
+ * One keyset page of the scheduled sweep's candidates: open, dated, recurring,
+ * unarchived Tasks of ANY owner whose due date is strictly before `beforeIso`
+ * (a row due at or after "now" is never stale in any zone), in id order after
+ * `afterId`. At most `limit` rows. Whether a candidate is stale in its owner's
+ * zone is the rule's call.
+ */
+export async function listOverdueRecurringTasks(
+	db: Db,
+	page: { readonly beforeIso: string; readonly afterId: string | null; readonly limit: number }
+): Promise<{ readonly id: string; readonly userId: string; readonly dueDate: string | null }[]> {
+	return await db
+		.select({ id: tasks.id, userId: tasks.userId, dueDate: tasks.dueDate })
+		.from(tasks)
+		.where(
+			and(
+				isNotNull(tasks.recurrenceFrequency),
+				isNull(tasks.completedAt),
+				isNull(tasks.archivedAt),
+				isNotNull(tasks.dueDate),
+				lt(tasks.dueDate, page.beforeIso),
+				page.afterId === null ? undefined : gt(tasks.id, page.afterId)
+			)
+		)
+		.orderBy(tasks.id)
+		.limit(page.limit);
 }
 
 /**
