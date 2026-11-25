@@ -59,7 +59,7 @@ The contract, the three rule files, the repo, the service, the http endpoint and
   - `listEligibleDiscounts(ctx, actor, input)` — the discounts this person qualifies for (`EligibleDiscount[]`), with the legacy descriptions.
   - `applyUserDiscount(ctx, actor, discountId)` — idempotent per user+discount, answering `DiscountApplication` with the legacy result messages.
   - `recordPlanView(ctx, actor, planType)` — the `pricing_view` event, written through `ctx.log` (legacy `logEvent` dies).
-  - `ensureBillingDefaults(ctx)` — idempotent tiers and discounts (the legacy seed, without its ad-event side effect); no caller yet — APP-01 decides boot seed versus lazy first read.
+  - `ensureBillingDefaults(ctx)` — idempotent tiers and discounts (the legacy seed, without its ad-event side effect); `app`'s `runDevSeed` (the `db:seed` script) is its only caller, and nothing seeds at boot.
   - `deleteSubscriptionsForPerson(ctx, actor, { personId })` — removes a person's subscription rows for the account-deletion composition (self or admin only; the caller passes its transaction's ctx so the delete joins the one transaction).
   - `getSubscriptionEndpoint` — `GET /api/me/subscription`.
 - `ui/index.ts`: nothing — billing ships no component (the plan card and its display copy are the account screen's).
@@ -118,4 +118,10 @@ Wire rules are pinned by [billing.http.db.test.ts](billing.http.db.test.ts); eve
 - Owns tables: `discounts`, `userDiscounts`, `subscriptions`, `subscriptionTypes`, `aiUsageTracking`.
 - Reads (join only): none — the counts billing's rules need (family members, distinct families, an event's date, attachment bytes) arrive as rule arguments from the module that owns those tables.
 - Calls: nothing of its own; it takes `Ctx`/`Actor` from the caller. (Legacy `getUserSubscription` was also read by `parse-event`; the port replaces that with `isPaidCaller`.)
-- Called by: today only the `GET /api/me/subscription` route (`src/routes/api/me/subscription/+server.ts` re-exports `getSubscriptionEndpoint`). No other v2 module imports billing yet: `family`, `calendar`, `tasks`, `parsing`, `alerts`, the account screen, account deletion and `marketing` are still legacy and call the legacy services (see the sheet's S8 section for those files and their importers); as each lands it calls `getPlanLimits` / a refusal rule / `isPaidCaller` / `assertAiAvailable` / `recordAiCreation` / `getSubscriptionSummary` / `deleteSubscriptionsForPerson` (inside its one transaction) through `index.server.ts`, and the account screen renders the plan card from `getSubscriptionSummary`.
+- Called by: the `GET /api/me/subscription` route (`src/routes/api/me/subscription/+server.ts` re-exports `getSubscriptionEndpoint`), and `app`'s dev seed (`runDevSeed`, the `db:seed` script) which calls `ensureBillingDefaults`. No other v2 module imports billing yet: `family`, `calendar`, `tasks`, `parsing`, `alerts`, the account screen, account deletion and `marketing` are still legacy and call the legacy services (see the sheet's S8 section for those files and their importers); as each lands it calls `getPlanLimits` / a refusal rule / `isPaidCaller` / `assertAiAvailable` / `recordAiCreation` / `getSubscriptionSummary` / `deleteSubscriptionsForPerson` (inside its one transaction) through `index.server.ts`, and the account screen renders the plan card from `getSubscriptionSummary`.
+
+## Legacy files (S8, 2026-11-21)
+
+Deleted (no importer was left): `server/seed.ts` (the dev seed — its tiers and discounts now come from `ensureBillingDefaults`, its demo ads from `sponsored`, both composed by `app`'s `runDevSeed`), `server/services/analyticsService.ts`, `server/services/checkoutService.ts` and `server/services/discountService.ts` (+ its legacy `discountService.test.ts`) — the checkout/discount pair was reachable only from each other.
+
+Kept: `server/services/subscriptionService.ts` (+ its legacy `subscriptionService.test.ts`) — the legacy `db/actions/families.ts` (family plan limits, a still-unported caller) and `services/archiveData.ts` still read subscriptions through it; this module's `getPlanLimits` / `getSubscriptionSummary` are the ported reads.

@@ -1,7 +1,7 @@
 /**
  * sponsored — public server interface: the serve and consent services, the
- * `/api/sponsored-events` handler, and the real `AdConsentPort` adapter
- * identity's settings save reads.
+ * dev seed's demo ad rows, the `/api/sponsored-events` handler, and the real
+ * `AdConsentPort` adapter identity's settings save reads.
  *
  * `AdConsentPort` is declared by identity (rank 1) and implemented here
  * (rank 12): `src/lib/app/ports.server.ts` attaches the adapter to the ctx, so
@@ -42,7 +42,8 @@ export {
 	listSponsoredConsentHistory,
 	listSponsoredEvents,
 	pruneSponsoredEventsOlderThan,
-	recordSponsoredConsentChange
+	recordSponsoredConsentChange,
+	seedSponsoredDemoAdEvents
 } from './sponsored.service.server';
 export type {
 	SponsoredConsentRecord,

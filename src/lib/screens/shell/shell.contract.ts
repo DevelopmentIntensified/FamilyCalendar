@@ -35,7 +35,12 @@ export const ShellUserSummary = z.strictObject({
 	email: z.string().nullable(),
 	isAdmin: z.boolean(),
 	emailVerified: z.boolean().nullable(),
-	lastActiveAt: z.date()
+	/**
+	 * The Inactivity Window input. Nullable because the column is: the legacy
+	 * layout read `user?.lastActiveAt` and answered 90 days when it was absent
+	 * (`(calendar)/calendar/+layout.svelte:51-58`).
+	 */
+	lastActiveAt: z.date().nullable()
 });
 export type ShellUserSummary = z.infer<typeof ShellUserSummary>;
 
@@ -43,8 +48,10 @@ export type ShellUserSummary = z.infer<typeof ShellUserSummary>;
  * The settings fields the calendar group's pages read through `parent()`
  * (`userSettings?.timeZone`, `.defaultView`, `.weekStart`, `.color`,
  * `.defaultCalendarId`, `.hiddenDashboardModules`, `.showAdsAsEvents` and the
- * dashboard feature gates). `verseTranslation`, `useCloudAI`/`useLocalAI` and
- * the row plumbing stay with identity, which owns their consumers.
+ * dashboard feature gates). `autoParseEventDetails`/`useCloudAI` ride along for
+ * the calendar page's quick-add gate (#168: read-only, never PATCHed);
+ * `verseTranslation`, `useLocalAI` and the row plumbing stay with identity,
+ * which owns their consumers.
  */
 export const ShellSettingsModel = z.strictObject({
 	weekStart: z.string().nullable(),
@@ -55,6 +62,7 @@ export const ShellSettingsModel = z.strictObject({
 	syncEventsToFamilyCalendar: z.boolean().nullable(),
 	showAdsAsEvents: z.boolean().nullable(),
 	autoParseEventDetails: z.boolean().nullable(),
+	useCloudAI: z.boolean().nullable(),
 	showDailyVerse: z.boolean().nullable(),
 	hiddenDashboardModules: z.array(z.string()).nullable()
 });
@@ -82,6 +90,21 @@ export const ShellRootModel = z.strictObject({
 	year: z.number().int()
 });
 export type ShellRootModel = z.infer<typeof ShellRootModel>;
+
+/**
+ * The fields the group frame reads from whichever layout model hosts it: the
+ * calendar scope narrows to this shape (its `settings.timeZone` gates the
+ * probe), and the family frame gets the root summary, which carries no scope.
+ */
+export type ShellFrameScope = {
+	readonly user: ShellUserSummary;
+	/** The footer's © year, from the root load (`ctx.clock.now()`). */
+	readonly year: number;
+	/** Days left in the 90-day Inactivity Window (calendar only). */
+	readonly daysLeft?: number;
+	/** The stored zone the once-per-user probe's gate reads (calendar only). */
+	readonly settings?: { readonly timeZone: string | null } | null;
+};
 
 /**
  * The calendar group's shared scope (#041): the root summary passed through

@@ -8,8 +8,7 @@
 	Doc: ../README.md#public-interface
 -->
 <script lang="ts">
-	import { createToasts } from '$lib/kernel/client/toasts.svelte';
-	import Toaster from '$lib/kernel/ui/Toaster.svelte';
+	import { sharedToasts } from '$lib/kernel/client/toasts.svelte';
 	import { createFamilyApi } from '../family.api';
 	import type { FamilyCreateFormEcho, FamilyCreatePage } from '../family.contract';
 	import {
@@ -18,7 +17,7 @@
 	} from '../family.create.rules';
 	import { FamilyCreateState, type FamilyFormEnhancer } from '../family.create.state.svelte';
 	import { DEFAULT_FAMILY_COLOR } from '../family.palette.rules';
-	import FamilyBreadcrumbs from './FamilyBreadcrumbs.svelte';
+	import Breadcrumbs from '$lib/kernel/ui/Breadcrumbs.svelte';
 	import FamilyCreatePreview from './FamilyCreatePreview.svelte';
 	import FamilyMemberPicker from './FamilyMemberPicker.svelte';
 	import FamilyPalettePicker from './FamilyPalettePicker.svelte';
@@ -31,7 +30,7 @@
 
 	let { data, form, enhance }: Props = $props();
 
-	const toasts = createToasts();
+	const toasts = sharedToasts;
 	const state = new FamilyCreateState(createFamilyApi(), toasts, {
 		name: form?.name ?? '',
 		color: form?.color || DEFAULT_FAMILY_COLOR
@@ -46,7 +45,7 @@
 
 <div class="min-h-screen bg-slate-50 px-4 py-8">
 	<div class="mx-auto max-w-lg">
-		<FamilyBreadcrumbs
+		<Breadcrumbs
 			crumbs={[
 				{ label: 'Calendar', href: '/calendar' },
 				{ label: 'Family', href: '/family' },
@@ -178,5 +177,3 @@
 		</div>
 	</div>
 </div>
-
-<Toaster items={toasts.items} ondismiss={toasts.dismiss} />

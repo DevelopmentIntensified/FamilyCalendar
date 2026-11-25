@@ -9,11 +9,15 @@
  * trigger, so a five-row month asks for five weeks and a six-row month six.
  *
  * Nothing here reads the clock, the environment or the database: dates are
- * parameters and rows are grouped in the viewer's zone (R4/R5).
+ * parameters and rows are grouped in the viewer's zone (R4/R5). The chip
+ * vocabulary at the end is calendar's (one home, #068/#111): this file only
+ * resolves it per row, so every view and the Key cannot drift apart.
  *
  * Doc: ./README.md#the-bounded-month-window-and-the-fetched-month-cache
  */
 import { DateTime } from 'luxon';
+import { describeEventChip, type ChipShell } from '$lib/domains/calendar/index';
+import { SPONSORED_EVENT_COLOR } from '$lib/domains/sponsored/index';
 import { groupByDay } from '$lib/kernel/time/dates';
 
 /** The two week starts the settings offer. */
@@ -132,5 +136,98 @@ export function monthCellOverflow(eventCount: number, taskCount: number): Calend
 		overflow: totalEvents - events + totalTasks - tasks,
 		showOverflow:
 			totalEvents > CALENDAR_MONTH_EVENT_CHIPS || totalTasks > CALENDAR_MONTH_TASK_CHIPS
+	};
+}
+
+// --- The chip vocabulary, resolved once per row ----------------------------
+
+/** The RSVP badge an Event's own row earns: its icon, word and tint. */
+export interface CalendarRsvpVisual {
+	readonly label: string;
+	readonly icon: string;
+	readonly containerClass: string;
+	readonly badgeClass: string;
+}
+
+/**
+ * Your answer on an Event, as every view shows it: `✓ Going`, `? Maybe`, or a
+ * dimmed `✕ Can't go`. `undecided`/absent earns nothing — no answer is not a
+ * badge (legacy `eventChip.rsvpVisual`).
+ */
+export function calendarRsvpVisual(status: string | null | undefined): CalendarRsvpVisual | null {
+	switch (status) {
+		case 'going':
+			return {
+				label: 'Going',
+				icon: '✓',
+				containerClass: 'ring-1 ring-inset ring-emerald-400/60',
+				badgeClass: 'bg-emerald-100 text-emerald-700'
+			};
+		case 'maybe':
+			return {
+				label: 'Maybe',
+				icon: '?',
+				containerClass: 'ring-1 ring-inset ring-amber-400/60',
+				badgeClass: 'bg-amber-100 text-amber-700'
+			};
+		case 'declined':
+			return {
+				label: "Can't go",
+				icon: '✕',
+				containerClass: 'opacity-60 saturate-50',
+				badgeClass: 'bg-slate-200 text-slate-500'
+			};
+		default:
+			return null;
+	}
+}
+
+/** What one row's chip needs beyond the row itself. */
+export interface CalendarChipRow {
+	/** The chip's recipe, from calendar's one vocabulary (calendar owns it). */
+	readonly shell: ChipShell;
+	/** The row's own answer, or null when there is none. */
+	readonly rsvp: CalendarRsvpVisual | null;
+}
+
+/** The row facts the chips key on; a due Task is not an Event chip. */
+export interface CalendarChipRowInput {
+	readonly title: string | null;
+	readonly calendarId: string | null;
+	readonly allDay: boolean;
+	readonly isAd: boolean;
+	readonly rsvpStatus: string | null;
+}
+
+/**
+ * A row's chip, resolved ONCE per row (never inside a cell loop): the kind and
+ * colour come from calendar's vocabulary, so the key and every view cannot
+ * disagree, and the colour is the row's OWN calendar — owner Q-099 B, the fix
+ * for the legacy `calendarIds.slice(1)` tint. A Sponsored Event sits on no
+ * calendar, so it takes the amber by construction.
+ */
+export function calendarChipRowOf(
+	row: CalendarChipRowInput,
+	calendars: readonly { readonly id: string; readonly name?: string; readonly color: string | null }[],
+	density: 'glyph' | 'word'
+): CalendarChipRow {
+	const color = row.isAd
+		? SPONSORED_EVENT_COLOR
+		: (calendars.find((calendar) => calendar.id === row.calendarId)?.color ?? null);
+	return {
+		shell: describeEventChip({
+			density,
+			event: {
+				title: row.title ?? '',
+				calendarId: row.calendarId,
+				color,
+				allDay: row.allDay,
+				isAd: row.isAd
+			},
+			// Calendar's vocabulary wants refs for its attribution hint; the
+			// screen's rows carry the name (and a colour it has already used).
+			calendars: calendars.map((calendar) => ({ id: calendar.id, name: calendar.name ?? '' }))
+		}),
+		rsvp: calendarRsvpVisual(row.rsvpStatus)
 	};
 }

@@ -25,6 +25,16 @@ export const PAGES_BASE_URL = `http://localhost:${PAGES_PORT}`;
  */
 export const PAGES_AUTH_SECRET = 'family-planz-pages-harness-not-a-secret';
 
+/**
+ * Email-code pepper for the pages server. `appCtx` resolves `EMAILSECRET` at
+ * runtime (`resolveCodePepper`), so a preview server left to the developer's
+ * `.env` would reject every token a seed mints. Same rule as
+ * `PAGES_AUTH_SECRET`: the value is the placeholder `scripts/arch/build-safe.mjs`
+ * bakes, and the preview server (serve.ts) and the seeds (seeds.ts) both take
+ * it from here.
+ */
+export const PAGES_EMAIL_SECRET = 'local-build-placeholder-not-a-secret';
+
 /** The only hosts the harness talks to: everything else may go through a proxy. */
 const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '::1'];
 

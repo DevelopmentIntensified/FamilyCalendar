@@ -1,11 +1,3 @@
-import { redirect } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
-import { loadArchive } from '$lib/server/services/archiveData';
+import { archivePageLoad } from '$lib/domains/tasks/index.server';
 
-// The loader body is shared with GET /api/archive (#292 G16).
-export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.user) {
-		throw redirect(302, '/login');
-	}
-	return await loadArchive(locals.user.id);
-};
+export const load = archivePageLoad;

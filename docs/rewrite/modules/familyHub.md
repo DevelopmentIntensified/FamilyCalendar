@@ -14,12 +14,12 @@ The family detail page: roster + family tasks + dashboard module switches + rece
 - [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
 - [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S4 repo (skipped: a screen owns no tables)
+- [x] S5 service (`familyHub.service.server.ts` + `familyHub.service.db.test.ts`)
+- [x] S6 http + route wiring (goldens unchanged since S2; routes wiring-only)
+- [x] S7 UI rebuild (rules, state, components, screens; visual/perf checks run by the orchestrator)
+- [x] S8 rewire importers, delete legacy code and legacy tests
+- [x] S9 README final, census --write, gate:push, ledger done (census/gate/push are orchestrator-only)
 
 ## Must survive
 
@@ -102,9 +102,9 @@ The two fat legacy pages are split the way [port-ui.md › Fat pages](../playboo
 |---|---|---|
 | `familyHub.contract.ts` | contract | `FamilyBoardResponse` + `FamilyBoardParams` (the task/roster/category rows restated from `tasks`' and `family`'s shapes until their entries export them — see Notes), and the five form schemas: `RemoveMemberForm {userId}`, `UpdateRoleForm {userId, role}`, `SetMemberTypeForm {userId, memberType}`, `UpdateFamilyForm {name, color}` (both empty = unchanged), `ToggleModuleForm {module, enabled}` (only the literal `'true'` is on). |
 | `familyHub.detail.rules.ts` | rules | `seedFamilySettings(previousKey, family, current, fallbackColor)` (re-seed only when `id\|name\|color` changes; the colour fallback is `family`'s palette default, passed in so this screen keeps no second copy), `inviteUsesLabel(invite)`, `aiUsagePercent(used, limit)` (0 when the limit is 0), `activityLine(item)` (the ✅/📋 copy) and `ACTIVITY_EMPTY_MESSAGE`. |
-| `familyHub.board.rules.ts` | rules | `boardEmptyState({tab, open, completed, publicCount, tagFilter})` → which of the five states shows (`tab` is needed to answer the Public tab's own empty), `pendingForViewer(tasks, viewerId)`, `publicTabLabel(count)`. Grouping itself is `tasks`' rule: this screen calls `groupFamilyBoard(open, nameFor, viewerId)` and renders `{columns, unassigned}`. |
+| `familyHub.board.rules.ts` | rules | `boardEmptyState({tab, open, completed, publicCount, tagFilter})` → which of the five states shows (`tab` is needed to answer the Public tab's own empty), `pendingForViewer(tasks, viewerId)`, `publicTabLabel(count)`, `windowCompletedTasks(rows, limit)` (Q-091) and `groupBoardColumns(assigned, nameFor, viewerId, now)` — the board's grouping (viewer first, urgency inside a column; unassigned rows are the Nobody card, the caller's split). |
 | `familyHub.service.server.ts` | service | `getFamilyHub(ctx, actor, {familyId})` → `FamilyHubModel`, `notFound('Family not found')` for a non-member and a missing family; `getFamilyBoard(ctx, actor, {familyId, completedLimit})` → `FamilyBoardModel` (chosen family, `notFound`/`null` rules as today). Reads run in parallel, bounded and with no writes. |
-| `familyHub.http.server.ts` | http | `familyHubPageLoad` (`pageLoad` auth `user`), `familyHubActions` (`formAction` × 5, auth `user`, mapping `AppError` onto the legacy `fail(status,{error})` contract), `familyBoardPageLoad` (redirects `/family` when no family), `familyBoardEndpoint` (`endpoint` auth `user`, params `{id}`, 404 `Family not found`, body `{tasks,publicTasks,familyRoster,taskCategories}`), `legacyFamilyBoardPathLoad` (302 `/login`, else 308 `/family/tasks`). |
+| `familyHub.http.server.ts` | http | `familyHubPageLoad` (`pageLoad` auth `user`), the five actions as their own `formAction` handlers (`familyHubRemoveMemberAction` … `familyHubToggleModuleAction`, auth `user`, mapping `AppError` onto the legacy `fail(status,{error})` contract) plus `familyHubActions` naming them, `familyBoardPageLoad` (redirects `/family` when no family), `familyBoardEndpoint` (`endpoint` auth `user`, params `{id}`, 404 `Family not found`, body `{tasks,publicTasks,familyRoster,taskCategories}`), `legacyFamilyBoardPathLoad` (302 `/login`, else 308 `/family/tasks`). |
 | `familyHub.detail.state.svelte.ts` | state | `FamilyHubState`: remove confirm, editing role, sheet member, per-member pending flags, saving flag, name/colour inputs + seed key, module optimistic map + pending id; methods `seed`, `begin*`/`settle*` per action, `flipModule`/`settleModule`, toasts in the constructor. No `$effect`. |
 | `familyHub.board.state.svelte.ts` | state | `FamilyBoardState`: tab, tag filter, busy id, editing task, saving flag, confirm-delete id; `toggle`, `advance`, `respond(accept)`, `openEdit`, `saveEdit`, `remove` through the `tasks` api client + toasts, rollback and pending flags. |
 | `ui/FamilyHubScreen.svelte` | screen | Layout only: hero, main column (members, activity, settings, invitations), side rail; builds `FamilyHubState` from `data`, passes `refresh`/`enhance`. |
@@ -154,6 +154,8 @@ Legacy exports that die or move (each destination is a v2 module; nothing new is
 
 Deliberate changes to log at S7 (visual baseline + Notes): the colourless-family fallback becomes the palette default instead of the retired blue; the completed list is windowed with the true count in its heading; the editor's categories arrive when it opens.
 
+Initial-JS round 2 (ADR 0010): the mobile member sheet (kernel `Sheet` plus the member-type/role/remove forms) is `FamilyMemberSheet.svelte`, imported when a member is picked, so `/family/[familyId]` ships neither in first paint. `/family/tasks` no longer reaches the quick-add parser: `tasks`' entry stopped exporting its page state classes (see tasks.md), which was the ~7 KB `parsing.task.rules` chunk on this page.
+
 ## Notes
 
 ### S1 verification
@@ -200,33 +202,31 @@ Deliberate changes to log at S7 (visual baseline + Notes): the colourless-family
   2. `seedFamilySettings` takes `fallbackColor` as a fourth parameter instead of importing `DEFAULT_FAMILY_COLOR` (`family.palette.rules.ts`) for the same reason. That keeps the default in one home (`family`); the S7 state class passes it from `family`'s entry, once it exports it.
 - The response schemas read dates as `z.string()` on purpose: `dueDate`/`completedAt`/`archivedAt` are `mode: 'string'` columns (the wire carries Postgres text, `2026-02-01 10:00:00+00`), while `createdAt`/`focusStartedAt`/`eventStart` are `Date`s `json()` serialises. `isoInstant()` would refuse the first kind (the tasks goldens pin that format), so it is not used here.
 
+### S5–S9 notes (2026-11-21)
+
+- **Where the detail composition lives.** `getFamilyHub` delegates to `family`'s public `getFamily` — that service already composes the family, roster, activity, switches, live invite and plan usage for `GET /api/families/{id}`, so the screen reuses the one composition instead of writing a second. The screen's model type is asserted against it at compile time.
+- **Q-086 (answered B):** a colourless family falls back to `DEFAULT_FAMILY_COLOR` in the hero and the settings band.
+- **Q-091 (answered B):** the page load keeps the newest 50 completed Tasks (`FAMILY_BOARD_COMPLETED_LIMIT`) and the completed heading prints the true count (`completedTotal`); the `/api` twin passes no limit, so the wire is unchanged.
+- **Q-087/088/089/090** are kept as the recorded defaults (assignee-named completions, accepted-only handoffs, `0` for a missing limit, both invitation doors) — no behaviour change.
+- **Board grouping is `tasks`' rule** (2026-11-21 FINAL, superseding the earlier 'this screen's rule' note): `groupFamilyBoard` in `tasks.board.rules.ts`, ONE export for this board and the Day Dashboard card (`rosterIds` is the only difference). The two screen copies (`groupBoardColumns`, `groupBoardTasks`) and legacy `utils/familyTaskGroups.ts` are deleted; urgency comes from `tasks`' `compareTaskUrgency`.
+- **Page chrome.** The `(family)` layout provides Navbar/BottomNav/Toaster only, so the detail page renders its own breadcrumb (`ui/FamilyHubBreadcrumbs.svelte`, the legacy component's look) rather than depending on `shell`, which still exports no component.
+- **One visible fix.** A completion's `completedAt` is a `mode: 'string'` column, so it reads back as Postgres text (`2026-02-01 10:00:00+00`); legacy `relativeTime` answered `''` for it. `activityAgo` falls back to Luxon `fromSQL`, so completed rows now print their age. Not wire-visible.
+- **`updateFamily` trims** the name/colour (family's service does); legacy `updateFamilyDetails` passed the raw strings. Product-invisible.
+- **Board write toasts** carry the server's `{error}` text (legacy `j.error || fallback`); a network failure shows the kernel client ladder's copy (K-07), not the legacy per-action sentence.
+- **The endpoint body is built explicitly** from the four keys; the model also carries `familyId`, `userId` and `completedTotal` for the page, and the golden's `Object.keys` check proved they must not leak.
+- **Deleted (S8):** `src/lib/server/services/familyData.ts`, `src/lib/server/db/actions/familyActivity.ts`, and the six legacy tests `routes/(family)/family/[familyId]/{links,page.server,page.svelte}.test.ts`, `routes/(family)/family/[familyId]/tasks/page.server.test.ts`, `routes/(family)/family/tasks/{page.server,page.svelte}.test.ts`. No production importer remained (the two family service-test headers only cite the file in prose).
+- **Census block below is stale**: `npm run census -- --write` is orchestrator-only, so the generated block still lists the deleted files.
+
 ## Census
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# familyHub: 0% ported
+# familyHub: 100% ported
 
-legacy source files left (2/2, 600 LOC):
-  - src/lib/server/db/actions/familyActivity.ts (91 LOC, server) importers: 1
-  - src/lib/server/services/familyData.ts (509 LOC, server) importers: 11
-      NOTE: SPLIT: member/role/member-type/invite/create use-cases -> family service; loadFamilyDetail/loadFamilyTasks read models -> familyHub screen; loadFamiliesOverview/loadInvitations -> family http.
+legacy source files left (0/2, 0 LOC):
 
-route files not yet wiring-only (6/6):
-  - src/routes/(family)/family/[familyId]/+page.server.ts  /family/[familyId]
-  - src/routes/(family)/family/[familyId]/+page.svelte  /family/[familyId]
-      NOTE: Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines.
-  - src/routes/(family)/family/[familyId]/tasks/+page.server.ts  /family/[familyId]/tasks
-  - src/routes/(family)/family/tasks/+page.server.ts  /family/tasks
-  - src/routes/(family)/family/tasks/+page.svelte  /family/tasks
-      NOTE: Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines.
-  - src/routes/api/families/[id]/tasks/+server.ts  /api/families/[id]/tasks
+route files not yet wiring-only (0/6):
 
-legacy test files left (6/6) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/routes/(family)/family/[familyId]/links.test.ts [route, 7 tests]
-  - src/routes/(family)/family/[familyId]/page.server.test.ts [route, 1 tests]
-  - src/routes/(family)/family/[familyId]/page.svelte.test.ts [component, 24 tests]
-  - src/routes/(family)/family/[familyId]/tasks/page.server.test.ts [route, 4 tests]
-  - src/routes/(family)/family/tasks/page.server.test.ts [route, 5 tests]
-  - src/routes/(family)/family/tasks/page.svelte.test.ts [component, 13 tests]
+legacy test files left (0/6) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

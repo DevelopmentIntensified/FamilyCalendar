@@ -1,6 +1,6 @@
 import { test, expect, loginWithSession } from '../testUtils';
 import { collectRoute, marketingTokens } from './helpers';
-import { findDeviations, formatDeviations } from '../../src/lib/conformance/tokens';
+import { findDeviations, formatDeviations } from '../../src/lib/kernel/conformance/tokens';
 
 /**
  * 129 + the owner ruling on 131's fork: the PROTOTYPE governs geometry (sizes

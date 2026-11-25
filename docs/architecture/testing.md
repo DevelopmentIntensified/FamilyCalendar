@@ -28,7 +28,7 @@ This is a near-rewrite, so the ~3,700 legacy tests do not gate v2 work. A full l
 1. **Reference.** At S1 of a module rebuild, skim the module's legacy tests to write its behaviour inventory (README Invariants). `npm run census -- <m>` lists them with their kind. Keep the rules, drop the mechanism.
 2. **Safety net for live legacy code.** Unported modules still run from this branch, so a change that edits a legacy file runs the legacy tests that import it, and only those. That is what `npm run test:affected` (`vitest --changed`) does inside `npm run gate`.
 
-Nobody runs the whole legacy suite in the loop. `npm run test:legacy` exists for a one-off check after a big `sync-with-test` merge. Each module's legacy tests are deleted at S8, and the legacy projects at APP-05.
+Nobody ran the whole legacy suite in the loop; the one-off `test:legacy` script went with the projects (APP-05). Each module's legacy tests were deleted at S8, and the legacy vitest projects at APP-05.
 
 What each kind of legacy test file is worth (kind detected by `npm run census -- <m>`):
 

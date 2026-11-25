@@ -20,4 +20,7 @@ export {
 } from './feedback.register.state.svelte.js';
 export type { FeedbackFormEnhancer } from './feedback.report.state.svelte';
 export { ReportBugState } from './feedback.report.state.svelte.js';
-export { reportBugHref } from './feedback.rules';
+// Issue 257's link lives in kernel so the chrome can render it without this
+// entry's exporters (and their date library); kept here for the module's
+// documented surface.
+export { reportBugHref } from '$lib/kernel/ui/bugReportLink';

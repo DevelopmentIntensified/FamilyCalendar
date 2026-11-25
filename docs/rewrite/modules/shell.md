@@ -14,12 +14,12 @@ App chrome: root + group layouts, nav bars, alert bell slot, offline banner, err
 - [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
 - [x] S2 `/api` goldens, green on legacy — S2 commit sha: n/a (no `/api` route; see Notes)
 - [x] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S4 repo (+ fixtures) — skipped: a screen owns no table and no repo
+- [x] S5 service — `shell.service.server.ts`, pinned by `shell.service.db.test.ts`
+- [x] S6 http + route wiring — no golden exists (no `/api` route); pinned by `shell.http.db.test.ts`
+- [x] S7 UI rebuild — nine components, four state classes, `shell.api.ts`, `shell.wiring.http.test.ts`; visual/perf checks are the orchestrator's
+- [x] S8 rewire importers, delete legacy code and legacy tests — done: the legacy chrome that survived the first pass was deleted in the final sweep (see Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -49,7 +49,7 @@ none (shell owns no `/api/**` route; its logout form posts to `/api/logout`, whi
 - Logout is a plain `POST /api/logout` form; on submit it fire-and-forgets `{type:'purge-data-cache'}` to the service worker controller so cached authed data is dropped — `src/lib/components/Navbar.svelte:38-42`, `src/lib/components/NavbarProfileMenu.svelte:88-94`
 - The root layout is the single `app.css` import for the whole app (#062); no group imports a global stylesheet — `src/routes/+layout.svelte:1-14`
 - Never `bind:` a component prop: the offline banner reports visibility through `onVisibleChange`, and only the banner-stack `<div>` uses `bind:clientHeight` (#200) — `src/routes/(calendar)/calendar/+layout.svelte:81-94,143-148`
-- `<main>` is offset by the measured height of the fixed banner stack (40px guess before first measurement), not a fixed margin (#259) — `src/routes/(calendar)/calendar/+layout.svelte:88-94,266-269` · test: `src/routes/(calendar)/calendar/layout.svelte.test.ts` › "offsets main by the measured banner-stack height, not a fixed mt-10"
+- `<main>` is offset by the measured height of the fixed banner stack (40px guess before first measurement), not a fixed margin (#259) — `src/routes/(calendar)/calendar/+layout.svelte:88-94,266-269` · test: `ui/ShellGroupFrame.svelte.test.ts` › "offsets main by the measured stack height"
 - `(calendar)` and `(family)` groups require a user: both redirect 302 `/login` when `locals.user` is absent; the calendar layout additionally loads `userSettings`, `familyId`, `familyMembers` once per group entry via `loadUserScope` — `src/routes/(calendar)/calendar/+layout.server.ts:5-21`, `src/routes/(family)/+layout.server.ts:5-13`
 - Time-zone probe runs at most once per user per browser: only when settings timeZone is still `'UTC'`, gated by `localStorage['familyplanz:tzProbed:<userId>']`, then `PATCH /api/me/settings` with `{timeZone}` (identity's Q-015 B deleted `/calendar/setUserDefaultTimeZone` at its S8), `keepalive` and `invalidateAll()` — `src/routes/(calendar)/calendar/+layout.svelte:17-49`
 - Anonymous Account countdown is the 90-day Inactivity Window from `lastActiveAt`, rounded up and floored at 0 (no `lastActiveAt` → 90); urgent at ≤ 14 days switches amber copy to red and shows the days left — `src/routes/(calendar)/calendar/+layout.svelte:51-58,247-263`
@@ -125,14 +125,14 @@ hands over, and adds no query and no write of its own.
 - `src/app.html` carries two tiny inline scripts (test-brand swap `:18-30`, service-worker registration `:31-42`) and the manifest/icon/theme-colour links (`:5-11`). The service worker precaches only `/offline.html` and caches `_app/immutable` at runtime (`static/service-worker.js:11-19,147-160`); `CACHE_NAME`/`DATA_CACHE_NAME` (`:1-2`) bump in the same commit as any change to `app.html`, `static/manifest*.webmanifest` or brand assets (AGENTS.md:61).
 - PWA: `start_url` and share target are `/calendar` (`static/manifest.webmanifest:5,42-50`); the manifest is browser-fetched after first paint, so it is not in the critical path.
 
-**Target load plan — root layout (every page)**
+**Target load plan — app-chrome group layouts (calendar, account, family)**
 
 - Above the fold: wordmark, desktop links or hamburger, bell slot (app), avatar or Sign In/Get Started.
 - Server: **0 queries**. `shellRootLoad` maps `locals.actor`/`locals.user` into `ShellRootModel` (id, names, email, isAdmin, emailVerified, lastActiveAt) plus the server year from `ctx.clock.now()`. It never reads `event.url` and never returns the raw user row.
 - New `src/routes/+layout.server.ts` (one wiring line) — no query, no serialised credential, no `url` dependency.
-- Chrome mode: `shellChromeForRoute(page.route.id)` = `'app'` for `/(calendar)/calendar/**` and `/(family)/**`, `'none'` for marketing, admin, `/report-bug`, `/share-target`. Marketing's own header is marketing's (a domain cannot import a screen); account (#18) and admin (#19) widen the rule when they port instead of copying chrome.
+- Chrome mode: `shellChromeForRoute(page.route.id)` = `'app'` for `/(calendar)/calendar/**`, `/(calendar)/account/**` and `/(family)/**`, `'none'` for marketing, admin, `/claim`, `/merge-guest`, `/report-bug`, `/share-target`. Marketing's own header is marketing's (a domain cannot import a screen); admin widens the rule when it ports instead of copying chrome.
 - Client: **no fetch on mount and none on navigation**. The profile menu and mobile menu `import()` on first open; the bell panel is alerts' lazy component; the unread badge is one count per chrome mount, refreshed on `visibilitychange` only when it is older than 60 s, then updated optimistically on mark-read. That replaces #6, #7 and #8.
-- The same chrome subtree survives calendar ↔ family transitions (no navbar/tab-bar remount, no badge flicker, one `initOfflineSync` instead of one per group mount).
+- The chrome remounts on a calendar ↔ family jump (Q-073 chose per-group layouts so a bare page ships no chrome); the badge is re-read once per mount and `initOfflineSync` is module-level guarded, so the remount costs one replay, not a second listener.
 - Degradation: a group load that threw leaves the chrome without a model; `ShellRoot` then renders `children` only (the error page still stands).
 
 **Target load plan — calendar group (`/(calendar)/calendar/**`, every signed-in page)**
@@ -183,11 +183,12 @@ hands over, and adds no query and no write of its own.
 |---|---|
 | `src/routes/+layout.svelte` | keep the single `app.css` import; render `<ShellRoot>` with `routeId={page.route.id}` and data. |
 | `src/routes/+layout.server.ts` | **new**: `export const load = shellRootLoad;` |
-| `src/routes/(calendar)/calendar/+layout.svelte` | wiring: `<ShellGroupFrame variant="calendar">` with data, `url` and `ports`. |
+| `src/routes/(calendar)/calendar/+layout.svelte` | wiring: `<ShellGroupFrame variant="calendar">` inside `<ShellRoot>`; both imported as their **files** (`ui/ShellRoot.svelte`, `ui/ShellGroupFrame.svelte`), never `ui/index.ts` (see Decisions). |
 | `src/routes/(calendar)/calendar/+layout.server.ts` | wiring: `export const load = shellCalendarGroupLoad;` (file comment dropped). |
-| `src/routes/(family)/+layout.svelte` | wiring: `<ShellGroupFrame variant="family">`. |
+| `src/routes/(calendar)/account/+layout.svelte` | wiring: `<ShellRoot>` (its file) + the legacy `flex-grow` column. |
+| `src/routes/(family)/+layout.svelte` | wiring: `<ShellGroupFrame variant="family">` inside `<ShellRoot>`, same direct files. |
 | `src/routes/(family)/+layout.server.ts` | **deleted**: the root load's app-chrome guard covers the group, and a guard-only export would be a `pageLoad` passthrough (`pageLoad` requires a `handle`, which R8 forbids as an inline arrow), so there is nothing legitimate to wire. |
-| `src/routes/+error.svelte` | wiring: `<ShellErrorView status={page.status} message={page.error?.message} url={page.url} />`. |
+| `src/routes/+error.svelte` | wiring: `<ShellErrorView status={page.status} message={page.error?.message} pathname={page.url.pathname} search={…} />`, imported as its **file** (`ui/ShellErrorView.svelte`), never `ui/index.ts` (see Decisions). |
 
 No S2: shell owns no `/api/**` route, so there is no `shell.http.db.test.ts` golden file and no S2
 sha. Its db tests in S5/S6 pin the layout loads, not a wire.
@@ -215,13 +216,34 @@ sha. Its db tests in S5/S6 pin the layout loads, not a wire.
 
 ## Notes
 
+**Final sweep (2026-11-21).** The legacy chrome is gone: `components/Navbar.svelte`, `NavbarMobileMenu.svelte`, `NavbarProfileMenu.svelte`, `Toaster.svelte`, `Breadcrumbs.svelte`, `brand/Mark.svelte`, `utils/navItems.ts`, `utils/focusTrap.ts`, `utils/reportBug.ts` and the six legacy component tests (`Navbar`, both menus, `Mark`, `navItems`, `propsDestructure`). Shell's own chrome was already `ShellRoot`/`ShellNavbar`/`ShellMobileMenu`/`ShellProfileMenu`/`ShellTabBar`; the last importer was the `(marketing)` group layout, which now renders marketing's own `MarketingHeader` (+ its two menus) built on `kernel/ui/{BrandMark,Toaster,trapFocus}`, feedback's `reportBugHref` and this module's `shellNavItems` (the layout, a route file, reads the one signed-in destination list so marketing does not fork it — issue 065). Shell's S8 was partial only because those files sat in legacy folders, not because shell needed them.
+
 ### Decisions
 
-- **The chrome lives in the root layout, not in each group layout.** `account`, `familyHub` and
-  `calendarPage` are screens and screens may not import each other (R1), so a chrome component owned
-  by shell could never be reused by them; the root layout is the only host every screen already has.
-  `shellChromeForRoute` keeps it app-only for now (calendar + family groups). This also stops the
-  navbar/tab bar remounting on a calendar ↔ family jump.
+- **The chrome is rendered by the app-chrome group layouts, not by the root layout** (Q-073's recorded
+  answer). `(calendar)/calendar`, `(calendar)/account` and `(family)` render `ShellRoot` around their
+  frame and hand it the route's `page` object; the root layout imports only `app.css`. A page that
+  renders its own frame — `/claim`, `/merge-guest`, marketing, admin — therefore ships neither the
+  navbar nor the bell, which is the legacy structure and what ADR 0010's initial-JS ceilings assume
+  (the chrome plus zod/luxon accounted for ~70 KB on `/claim`). Cost accepted by Q-073: the chrome
+  remounts on a calendar ↔ family jump; `initOfflineSync` is module-level guarded, so a remount only
+  re-runs the replay. `shellChromeForRoute` keeps the mode app-only (calendar + account + family).
+- **Route files import the shell component FILES, never `ui/index.ts`.** SvelteKit preloads a
+  route's error node together with its layouts, so the error page's imports are paid on every route.
+  The entry re-exports all three components; importing it from `+error.svelte` (and from the layouts,
+  which want only `ShellRoot`/`ShellGroupFrame`) put the group frame and the notices in that eager
+  preload — measured on the ADR 0010 harness as a mobile-only inflation of ~20 KB gzip on every page
+  (`/claim` 79 KB mobile against a 58 KB ceiling, `/admin` 88 KB against 65 KB), because a phone's
+  slower load lets the whole preload list land before the measurement cut while a desktop's does not.
+  The legacy error page imported only its own markup and a `reportBugHref` util, which is why the
+  legacy baselines show desktop ≈ mobile. The component files are the same modules the entry
+  re-exports; nothing new is public.
+- **The two menus are lazy chunks (ADR 0010, round 2).** `ShellNavbar` imports `ShellMobileMenu` and
+  `ShellProfileMenu` inside `{#await import()}` when first opened and warms both 4 s after mount
+  (through the kernel scheduler, so it lands after the measured load and a first tap offline still
+  finds the chunks in the service worker's cache). A closed navbar — every app page — therefore ships
+  ~2.4 KB gzip less; the menus' `slide` is `|global` because the menu is now a component root inside
+  an await block (a local transition would not play when the menu closes).
 - **Marketing keeps its own header.** Marketing is a domain (rank 16), so it may not import shell.
   Its ported public header owns the four public links and the Sign In/Get Started CTAs; `shellNavItems`
   is the signed-in app's list only.
@@ -303,18 +325,95 @@ sha. Its db tests in S5/S6 pin the layout loads, not a wire.
 Nothing in the "probably accidental" list is visible on the `/api` wire, so no owner question is
 needed to change it: no `/api` behaviour changes in this port.
 
-### Files kept for unported importers
+### Files kept for unported importers (as S8 found them, 2026-11-21)
 
-- `src/lib/components/{Navbar,NavbarMobileMenu,NavbarProfileMenu,BottomNav,OfflineBanner}.svelte` and
-  the legacy `Toaster`/`Mark`: `(calendar)/account/+layout.svelte` (account, #18),
-  `(admin)/+layout.svelte` (#19) and `(family)/family/**` (familyHub, #20) still import them when
-  shell lands. `/account` therefore keeps its own chrome (and does not get the root chrome, whose rule
-  is app-only) until account widens the rule at #18 — no double navbar in the meantime. Delete the
-  files as those ports land, or immediately if shell's S8 finds no importers.
-- `src/lib/components/Breadcrumbs.svelte`: 7 route pages in account and familyHub use it. It moves to
-  kernel/ui (K-08) and is deleted after those ports, not before.
+- `src/lib/components/Navbar.svelte` — imported only by `(marketing)/+layout.svelte` now (marketing
+  renders the legacy header until its port lands; the account layout that used it went with account's
+  port, see below). Because `Navbar` imports them, `NavbarProfileMenu.svelte` and
+  `NavbarMobileMenu.svelte` also stay.
+- `src/lib/utils/navItems.ts` — imported by the legacy `Navbar` family above. Delete with the last of
+  those.
+- `src/lib/components/Breadcrumbs.svelte` — the unported calendar archive page
+  (`(calendar)/calendar/archive/+page.svelte`, a calendarPage route) still renders it. It moves to
+  kernel/ui (K-08) and is deleted after that page's port, not before.
 - `src/lib/utils/reportBug.ts` and `src/lib/utils/offline.ts`: owned by feedback and K-07; shell does
   not delete them.
+- Legacy tests of kept files stay with them (`Navbar*`, `navItems` `.test.ts`, and the repo-wide
+  `propsDestructure.test.ts`, which also guards unported legacy components).
+
+`/account` no longer keeps its own chrome: account's port widened `shellChromeForRoute` to
+`/(calendar)/account` (Q-073), so the root chrome renders the navbar, tab bar and toaster for it —
+exactly one navbar, and the root load's guard keeps the 302 `/login` for a guest. `/admin` still
+keeps its own header until its port widens the rule.
+
+### Deleted legacy files (S8)
+
+- `src/lib/components/OfflineBanner.svelte` — no importer was left (the two group layouts were its only
+  callers), so it went with the frame rewrite.
+- `src/lib/components/OfflineBanner.svelte.test.ts` — its two cases are `shell.offline.state.test.ts`
+  ("keeps the banner up without claiming offline…") and
+  `ui/ShellOfflineBanner.svelte.test.ts` ("shows the pending sentence without claiming offline").
+- `src/routes/(family)/+layout.server.ts` — the 302 guard moved into `shellRootLoad`; a guard-only
+  `pageLoad` export would have been a passthrough (R8).
+- `src/routes/error.svelte.test.ts` — it mocked `$app/stores` to render the legacy route; the route is
+  now wiring only and its copy is pinned by `shell.error.rules.test.ts` +
+  `ui/ShellErrorView.svelte.test.ts`.
+- `src/routes/(calendar)/calendar/layout.svelte.test.ts` — it mocked `$app/*` to render the legacy
+  group layout; the layout is now wiring only and the same rules are pinned by
+  `shell.frame.rules.test.ts` + `ui/ShellGroupFrame.svelte.test.ts`.
+- `src/lib/components/BottomNav.svelte` (+ `BottomNav.svelte.test.ts`) — its last importer was the
+  account layout; `ui/ShellTabBar.svelte` + `shell.badge.state.svelte.ts` are the port, and the tab
+  bar rules are pinned by `shell.nav.rules.test.ts`, `shell.frame.rules.test.ts
+  › hides the tab bar above a 150 px keyboard inset` and `ui/ShellTabBar.svelte.test.ts` (the badge
+  fetch, the `99+` cap and the keyboard class).
+- `src/routes/(calendar)/account/+layout.server.ts` and `+layout.svelte` (account's files, deleted in
+  account's S8) — the guard is the root load's, and chrome now comes from `ShellRoot` because
+  `shellChromeForRoute` covers `/(calendar)/account` (Q-073).
+
+### Port notes (2026-11-21)
+
+- **The scope read is the legacy three queries.** Identity grew the narrower public read
+  `getStoredCalendarSettings` (one query, no ad-consent trail — owner-approved follow-up after this
+  report's ASK), so the calendar group runs stored settings ∥ family id, then the roster's role check
+  + roster: 3 queries in 2 waves, against the legacy 3 in 3 waves. `getCalendarSettings` is unchanged
+  for its own callers, and shell's ctx is now the plain `Ctx` (no identity ports).
+- **`ShellUserSummary.lastActiveAt` is nullable.** The column is `notNull`, but the legacy layout read
+  `user?.lastActiveAt` and answered 90 days when absent; the contract says so too now.
+- **`loadCalendarGroup` keeps the legacy `catch` shape**: a failed roster read also nulls `familyId`,
+  not just the roster (the legacy `catch` assigned both).
+- **The bell is alerts' `AlertsBell`, statically imported in `ShellRoot`.** The plan wanted the panel
+  split out on first open; `AlertsBell` owns its own trigger and dropdown, so a lazy split needs a
+  component split inside alerts. Left for alerts' follow-up; the chrome chunk still carries the bell.
+- **The time-zone probe and the verify form refresh with `invalidate('shell:scope')`** (the group load
+  declares `depends('shell:scope')`), not `invalidateAll()`: the legacy call re-ran every load twice.
+- **`reportBugHref` is computed from `` `${pathname}${search}` `` with no `building` branch.** The app
+  chrome is never prerendered (marketing keeps its own header), so the legacy prerender guard has no
+  caller left.
+- **The frame takes one `scope` prop** (`ShellFrameScope`) instead of five scalars: the calendar scope
+  narrows to it and the family layout passes the root summary. The error page takes
+  `pathname`/`search` strings instead of a `URL` so it stays `$app`-free.
+- **`ShellRoot` renders children only for `'none'` chrome** (and both group layouts degrade to bare
+  children if their model is missing), matching "a group load that threw leaves the chrome without a
+  model".
+- **DOM order inside the app frame**: navbar, page body (banner stack + `<main>` + footer), tab bar,
+  toaster. Legacy had the footer after the toaster; both are `fixed`, so nothing moves on screen.
+- **`shell.wiring.http.test.ts`** carries the `http` role because repo scans need `node:fs`, which a
+  rules file may not import (R4); it has no `_` http source behind it.
+- **Prerender safety:** the root `+layout.svelte` and `+error.svelte` pass
+  `building ? '' : page.url.search`; reading `url.search` while prerendering throws (the `/changelog`
+  build failure), and this is the legacy guard's own rule (`Navbar.svelte:57-58`). Non-prerendered
+  server renders and the client keep the real search.
+- **Interim ordering dependency:** the calendar pages (`/calendar`, `/calendar/dashboard`,
+  `/calendar/tasks`, …) are still legacy and read the OLD layout fields through `parent()`
+  (`userSettings`, `familyMembers`, `pathname`, `isLoggedIn`). The group load now ships
+  `settings`/`familyId`/`roster`/`user`/`year`/`daysLeft` and ALSO the legacy `userSettings`
+  (typed as the row they were written against, carrying the same values) and `familyMembers` (the
+  same roster) so those pages typecheck and work; the aliases go in the S8 sweep when #21/#22 read
+  the new names. `pathname`/`isLoggedIn` were dropped: no calendar page read them. `dashboard/page.ssr.test.ts` still renders the chain: it feeds the layouts
+  its old data, so the chrome falls back to "children only" there (no session summary at `data_0`).
+- **Visual/perf checks are the orchestrator's** (`visual:check`/`perf:check` shell): this agent could
+  not run them. The expected visual differences are only the sheet's approved internal fixes
+  (measured stack in the family group, the verify notice unchanged, the bell still alerts').
 
 ### Questions for the owner
 
@@ -355,33 +454,13 @@ needed to change it: no `/api` behaviour changes in this port.
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# shell: 0% ported
+# shell: 95% ported
 
-legacy source files left (7/7, 786 LOC):
-  - src/lib/components/BottomNav.svelte (181 LOC, ui) importers: 3
-  - src/lib/components/Breadcrumbs.svelte (32 LOC, ui) importers: 9
-  - src/lib/components/Navbar.svelte (183 LOC, ui) importers: 5
-  - src/lib/components/NavbarMobileMenu.svelte (116 LOC, ui) importers: 1
-  - src/lib/components/NavbarProfileMenu.svelte (96 LOC, ui) importers: 1
-  - src/lib/components/OfflineBanner.svelte (86 LOC, ui) importers: 3
-  - src/lib/utils/navItems.ts (92 LOC, model) importers: 3
+legacy source files left (0/7, 0 LOC):
 
-route files not yet wiring-only (6/6):
-  - src/routes/(calendar)/calendar/+layout.server.ts  /calendar
-  - src/routes/(calendar)/calendar/+layout.svelte  /calendar
-  - src/routes/(family)/+layout.server.ts  /
-  - src/routes/(family)/+layout.svelte  /
-  - src/routes/+error.svelte  /
+route files not yet wiring-only (1/6):
   - src/routes/+layout.svelte  /
 
-legacy test files left (8/8) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/components/BottomNav.svelte.test.ts [component, 7 tests]
-  - src/lib/components/Navbar.svelte.test.ts [component, 3 tests]
-  - src/lib/components/NavbarMobileMenu.svelte.test.ts [component, 3 tests]
-  - src/lib/components/NavbarProfileMenu.svelte.test.ts [component, 4 tests]
-  - src/lib/components/OfflineBanner.svelte.test.ts [component, 2 tests]
-  - src/lib/components/propsDestructure.test.ts [pure, 2 tests]
-  - src/lib/utils/navItems.test.ts [pure, 11 tests]
-  - src/routes/error.svelte.test.ts [component, 3 tests]
+legacy test files left (0/8) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

@@ -14,12 +14,12 @@ The main calendar page: month/week/day/list views, toolbar and filters, selectio
 - [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
 - [x] S2 `/api` goldens, green on legacy — S2 commit sha: n/a (no `/api` route; see Notes)
 - [x] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S4 repo (skipped: a screen owns no tables)
+- [x] S5 service (`calendarPage.service.server.ts` + `calendarPage.service.db.test.ts`, 8 tests)
+- [x] S6 http + route wiring (`calendarPage.http.server.ts` + `calendarPage.http.db.test.ts`; no `/api` route, so no golden to keep byte-identical)
+- [x] S7 UI rebuild (rules, api, state, components, screen) — visual check owed to the orchestrator
+- [x] S8 rewire importers, delete legacy code and legacy tests (the EventModal family stays until calendar's routes are ported)
+- [x] S9 README final (census --write/gate:push run by the orchestrator)
 
 ## Must survive
 
@@ -226,7 +226,7 @@ Designed at S1 (2026-11-11). New paths are under `src/lib/screens/calendarPage/`
 | `src/lib/components/calendar/FirstRunCard.svelte` | `ui/FirstRunCard.svelte` |
 | `src/lib/components/calendar/ExitSelectionAsk.svelte` | `ui/SelectionExitAsk.svelte` |
 | `src/lib/components/calendar/EventTaskFields.svelte` | `ui/TaskFields.svelte` inside `ui/CreateAnythingModal.svelte` |
-| `src/lib/server/services/calendarData.ts` | split: calendars + provisioning → the `calendar` module (its census note); ads composition → `calendarPage.service.server.ts` calling sponsored + dashboardModules. The file itself stays after our S8 because `/api/calendars` and `/api/sponsored-events` still import it |
+| `src/lib/server/services/calendarData.ts` | split: calendars + provisioning → the `calendar` module (its census note); ads composition → `calendarPage.service.server.ts` calling sponsored + dashboardModules. Deleted in the calendar S8 sweep (its last importers, `/api/calendars` and `calendarData`'s sponsored half, were already ported) |
 | `src/routes/(calendar)/calendar/+page.server.ts` | `calendarPage.http.server.ts` + `calendarPage.service.server.ts`; the route becomes wiring |
 | `src/routes/(calendar)/calendar/+page.svelte` | `ui/CalendarPage.svelte` + the two state classes; the route becomes wiring |
 | `src/routes/share-target/+page.server.ts` | `calendarPage.http.server.ts` (`shareTargetLoad`); the route becomes wiring; its `+page.svelte` frame stays with shell |
@@ -298,6 +298,50 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
 
 ## Notes
 
+### S5–S9 (2026-11-21): what landed, what was deleted, and the deviations
+
+- **S5** `getCalendarPage` composes calendar (`listCalendars`, `listEventsInWindow`), tasks (`listDueTasks`,
+  added for this screen — a due-window read) and sponsored (`listSponsoredEvents`, only when the gate is
+  on). The shell warns into `shell.warnings`, the streamed grid into `grid.warnings`; the banner joins
+  both, as legacy's two lists did (Q-098 folded `family` into `calendar`).
+- **The grid is the matrix, not the padded read**: `listEventsInWindow` pads a grid week either side
+  (`calendar.range.rules` `PAD_MS`) so a client fetch can fill adjacent cells; the model filters rows to
+  the month's own matrix (and tasks to the same window by the viewer's zone day).
+- **S6** two page loads (`auth: 'user'` / `'optional'`), no actions. `/share-target` uses
+  `shareTargetText` so an Android share whose text already holds the URL does not duplicate it.
+- **S7** 23 components + 3 state classes + `calendarPage.bulk.rules.ts`; one `HourGrid` replaced
+  `DayHourGrid`+`WeekHourGrid`; colour resolves from `calendarId` (Q-099 B); the create sheet is two
+  tabs (calendar's form + this screen's Task form), categories on the Task tab's first open (Q-101 B);
+  edit uses calendar's `CalendarEventModal` with tasks' checklist snippet.
+- **Cross-module exports added instead of copies**: access exports `GUEST_MERGE_COOKIE` +
+  `isClaimableGuest`; calendar exports its move math and `CalendarBulkPlanOpWire`; tasks exports
+  `listDueTasks`, `TaskDetailModal` and `TaskQuickAddHelp` (both ported into `tasks/ui`). calendarPage
+  imports all of them.
+- **Deleted**: `Calendar`, `CalendarToolbar`, `CalendarKey`, `CalendarSelector`, `MonthView`,
+  `MonthDays`, `MonthDayCell`, `WeekView`, `WeekHourGrid`, `WeekAllDayRow`, `WeekHeader`, `DayView`,
+  `DayHourGrid`, `DayAllDayList`, `DayHeader`, `ListView`, `DayActionSheet`, `DayEventsModal`,
+  `BulkEditBar`, `ExitSelectionAsk`, `FirstRunCard`, `EmptyState`, `TaskDetailBar`, `TaskDetailModal`,
+  `EventTaskFields` (then restored — see below) and the utils `calendarVisibility`, `calendarAssignees`,
+  `calendarSearch`, `dayViewLayout`, `listGroup`, `rangeSelect`, `weekView`, `eventMove`, `bulkPlan`,
+  with their legacy tests plus `calendarView.test.ts`, `eventModalRoster.svelte.test.ts` and
+  `page.server.test.ts`.
+- **Kept at S8, deleted by the calendar sweep (2026-11-21)**: the `EventModal` family (EventModal,
+  EventFormModal, EventFormModel, EventModalShell/Header/Bar, ChecklistSection, EventDetailList,
+  EventRecurrenceCard, EventRsvp*, EventAttendeeGroups, EventGuestNote, Event*Fields, EventQuickAdd,
+  EventDeleteConfirm/ExportMenu, AttendantPicker, AttendanceBadge, CreatorBadge, ChipKindMark) stayed
+  because unported routes still imported it; once the three calendar-owned pages (`/calendar/event/[id]`,
+  `/calendar/import`, `/calendar/print`) were ported on `calendar`'s own `ui/*`, that whole cluster,
+  `EventTaskFields.svelte` and `calendarView.ts` were deleted. `chipVocabulary.ts` went with it (calendar's
+  chip rules have no legacy reader left), `eventChip.ts` too (the dashboard cards own their own RSVP
+  badge), `calendarData.ts` once its last importers (`/api/calendars`, the sponsored half) were ported.
+  Only `ChecklistSection.svelte` remains, pending tasks' sweep. `/share-target/+page.svelte` is
+  wiring-only now, rendering `ui/ShareTargetPage.svelte`.
+- **Deviations**: task chips now open tasks' own `TaskDetailModal` (a row is opened by id; the sheet
+  draws only the fields the calendar row carries); the day-sheet's four actions and the range
+  popover keep legacy copy; the grid's hourly lane chips use calendar's `buildMovePayload`.
+- **Owed to the orchestrator**: `visual:check` / `perf:check` / `typecheck` and `census --write`; the
+  UI tests cover the chips, the empty states and the exit ask, not every component.
+
 ### S3 (2026-11-19): what landed, and the two deviations
 
 - Eight rule files + `calendarPage.contract.ts` landed with their table tests; `index.ts` now exports the two designed types (`CalendarPageModel`, `CalendarView`). No repo, no `/api` route, no golden.
@@ -319,6 +363,75 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
 - Smart bulk phase 2 echoes the client's dry-run plan back to `/api/events/bulk` (`+page.svelte:253-259`). That trust boundary is calendar's wire, not a screen decision: this screen keeps sending the plan it reviewed until calendar's contract changes (its sheet owns that question).
 - The screen adds no client dependency of its own: it uses what kernel/time (luxon) and the domain chunks already ship, and the four views plus every modal are dynamic imports. Initial JS may only shrink against the legacy ceiling.
 
+### S7 follow-up for ADR 0010 (2026-11-21): the lazy boundaries were documented but not wired
+
+The S7 screen imported every view, sheet and modal statically, so `/calendar` and `/share-target` shipped
+279 KB of initial JS (ceiling 197 KB) and became ready in 1.2–1.3 s desktop / 2.1–3.0 s mobile repeat
+(budget 1000 ms) — the worst page in the app. Fixes, all inside the screen plus one kernel import:
+
+- `CalendarPage.svelte` now `{#await import(…)}`s `WeekView`/`DayView`/`ListView` (the default month view
+  stays static) and every sheet/modal: `BulkEditBar`, `SelectionExitAsk`, `DayActionSheet`,
+  `DayEventsModal`, `CreateAnythingModal` and the new `ui/EventEditSheet.svelte` (calendar's modal + tasks'
+  checklist, one chunk). `CalendarToolbar` lazy-loads `MiniPicker` and `CalendarFiltersSheet`.
+- What that removes from the first paint (old build's chunk graph): tasks' UI barrel 28.5 KB gzip (it was
+  imported for `TaskDetailModal`/`EventTaskChecklist`) together with the family UI barrel it pulled
+  (`TaskQuickAddHelp` chunk + `MentionInput` + parsing + five family screens, ~60 KB), calendar's UI
+  barrel 22.4 KB (imported for the edit modal; the three chip badges it also renders stay, tree-shaken to
+  their own modules) and `calendar.eventModal.state` 5.7 KB.
+- The contract's zod query schema no longer reaches the client: `calendarPage.url.rules` parses the four
+  params by hand (same acceptance table, pinned by its tests) using kernel/time's new zod-free
+  `isRealDateKey`, and `kernel/time/dates.ts` dropped its `validators` import for the same predicate. The
+  schema stays in `calendarPage.contract.ts` for the server boundary. (zod is still in *every* app page's
+  chrome through shell → alerts' push rules; that is the shell/alerts owners' fix, not this screen's.)
+- First-render work: the day map is built in one pass with mutable buckets (the port copied two arrays per
+  row — quadratic on a busy month), and a month cell's day key is its own `toISODate()` instead of a
+  formatter run 35–42 times per render.
+- Skeletons/reserved space: a non-month view landing over `{#await}` reserves 420 px of grid height, so the
+  card cannot collapse; every other lazy child is a fixed overlay with nothing to reserve. E2E hooks
+  (testids, ids, labels, copy) and the rendered DOM are unchanged once a chunk lands.
+
+### S7 follow-up 2 for ADR 0010 (2026-11-22): the barrels the first build still dragged in, and the share-target modal
+
+Measured with `fcv2-agent-build.sh` (static closure + mobile root-error extras; ceiling +2% = 200.7 KB):
+/calendar went from 218.2 KB to 154.4 KB.
+
+- The three chip parts (`CalendarEventChipMark`, `CalendarAttendanceBadge`, `CalendarCreatorBadge`) came
+  from `calendar/ui`, and the build put that whole barrel (event form, form state, sheet, zod) in the page's
+  static closure (53.9 KB + 9.3 KB of satellites) — Svelte modules are never tree-shaken out of a barrel.
+  `ui/CalendarMark.svelte`, `CalendarAttendance.svelte` and `CalendarCreator.svelte` are the same markup in
+  this screen's chunk (`CHIP_GAP_PX` is the one constant calendar does not export: mirrored as `GAP_PX`).
+- `calendar/index.ts` re-exported the closed vocabularies and `CALENDAR_COPY` from `calendar.contract.ts`,
+  and a module that builds zod schemas at load cannot be dropped: the chip and move rules the grid imports
+  therefore carried zod (28 KB). The constants now live in `calendar.copy.rules.ts` (the contract and the
+  entry re-export them, same names).
+- The create modal opens at once on a deep link (`#nl-input` is the ready element), so its chunk (calendar's
+  event form, ~42 KB) is the only thing a share-target visit pays beyond the page. What it must not pay is
+  tasks' UI barrel (three whole screens, ~69 KB): the checklist snippet imports it only after the `load`
+  event (`afterLoad`, passed in by `CalendarPage`) and the Task half (`TaskFields`) only when the Task tab is
+  chosen. The FAB warms the modal chunk on hover/focus (legacy prefetched on idle). `tasks/ui` has no
+  lighter entry (R2), so the barrel itself stays whole.
+- The share-target visual: legacy's layout is now the modal's — the Event/Task tabs ride inside the form's
+  padded body (`CalendarEventForm` takes a `lead` snippet), the action bar is the sheet's footer
+  (`inlineActions={false}`) so it stays visible while the body scrolls, the "Parsed wrong? Report this
+  phrase" link is wired (`form.reportPhrase` → `POST /api/report-phrase`, `source: 'event_parse'`), a deep
+  link leaves Description empty (legacy's `goto` rebuilt the form after the seed) and nothing focused
+  (legacy's `goto` reset focus; the route keeps `keepFocus`, so the modal blurs once on mount instead).
+
+### Perf exception for ADR 0010 (2026-11-22): mobile repeat ready over 1000 ms, approved at legacy parity
+
+Owner decision 2026-11-22 (ADR 0010 §6, "Going over a hard limit needs the owner's approval"): `calendarPage/calendar-month` and `calendarPage/share-target` may exceed the hard limit "mobile ready, repeat visit ≤ 1000 ms", because legacy missed it too and ours is not slower. Every other hard limit still applies to these pages. The harness encodes it (`HARD_LIMIT_EXCEPTIONS` in `e2e/pages/perf-report.ts`: the limit is the page's legacy baseline, 1134 ms and 1728 ms), so a regression past legacy still fails.
+
+| page (mobile, repeat visit) | ours (production build, 2 runs) | legacy |
+|---|---|---|
+| `/calendar` (`calendar-month`) | 1037 / 1098 ms | 1134 ms |
+| `/share-target` deep link (server redirect → `/calendar` → Quick Add modal, ready `#nl-input`) | 1509 / 1607 ms | 1728 ms |
+
+The runs overlapped other builds. Initial JS for both is under the legacy ceiling (calendar-month 138 KB vs 197 KB).
+
+- **Why it misses:** the month grid arrives through a streamed `grid` promise and the card renders after hydration on a 4x-CPU phone; share-target adds the redirect and the modal mount.
+- **What getting under 1 s takes:** server-rendering the month grid (a TTFB and HTML-size trade-off, see the page-perf playbook #041: legacy once shipped 465 KB of HTML) and the Quick Add modal on the deep link.
+- **Tracked in** [#325](../../issues/325-calendar-share-target-under-1s-mobile-repeat.md); the exception ends when it closes.
+
 ### Dropped as internal-only (reason in brackets)
 
 - `removeEvent` threaded Calendar → WeekView and voided (dead since EventModal took deletion) — `Calendar.svelte:43`, `WeekView.svelte:30,50`.
@@ -336,8 +449,7 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
 ### Kept for unported importers
 
 - Verse deleted 2026-11-12 (Q-031/Q-032): `/api/daily-verse` and the verse card left the page, so the loader no longer composes a verse and its section warning label is gone. The `verse` Dashboard Module id stays (the family switches and `/api/dashboard` are unchanged).
-- `src/lib/server/services/calendarData.ts` stays after our S8: `/api/calendars` and `/api/sponsored-events` still import it (calendar and sponsored). This module stops importing it at S8.
-- `EventModal`/`EventFormModal` stay with calendar until its port; this screen reaches them through its public entries.
+- Nothing is kept for this screen any more. The calendar sweep (2026-11-21) deleted `calendarData.ts`, `calendarView.ts`, `EventTaskFields.svelte` and the whole legacy `EventModal` family once the three calendar-owned pages were ported; `src/routes/share-target/+page.svelte` now renders `ui/ShareTargetPage.svelte`, so the route is wiring-only. `ChecklistSection.svelte` stays only because tasks' own sweep still owns it.
 
 ### Questions for the owner
 
@@ -351,82 +463,12 @@ No data: 0 queries and one 302 (`src/routes/share-target/+page.server.ts:5-11`);
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# calendarPage: 0% ported
+# calendarPage: 100% ported
 
-legacy source files left (32/32, 6326 LOC):
-  - src/lib/components/calendar/BulkEditBar.svelte (313 LOC, ui) importers: 1
-  - src/lib/components/calendar/Calendar.svelte (733 LOC, ui) importers: 1
-  - src/lib/components/calendar/CalendarKey.svelte (132 LOC, ui) importers: 1
-  - src/lib/components/calendar/CalendarSelector.svelte (93 LOC, ui) importers: 0
-  - src/lib/components/calendar/CalendarToolbar.svelte (808 LOC, ui) importers: 1
-  - src/lib/components/calendar/DayActionSheet.svelte (296 LOC, ui) importers: 1
-  - src/lib/components/calendar/DayAllDayList.svelte (119 LOC, ui) importers: 1
-  - src/lib/components/calendar/DayEventsModal.svelte (211 LOC, ui) importers: 1
-  - src/lib/components/calendar/DayHeader.svelte (37 LOC, ui) importers: 1
-  - src/lib/components/calendar/DayHourGrid.svelte (247 LOC, ui) importers: 1
-  - src/lib/components/calendar/DayView.svelte (409 LOC, ui) importers: 1
-  - src/lib/components/calendar/EmptyState.svelte (17 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventTaskFields.svelte (89 LOC, ui) importers: 1
-  - src/lib/components/calendar/ExitSelectionAsk.svelte (38 LOC, ui) importers: 2
-  - src/lib/components/calendar/FirstRunCard.svelte (41 LOC, ui) importers: 1
-  - src/lib/components/calendar/ListView.svelte (290 LOC, ui) importers: 1
-  - src/lib/components/calendar/MonthDayCell.svelte (308 LOC, ui) importers: 1
-  - src/lib/components/calendar/MonthDays.svelte (179 LOC, ui) importers: 1
-  - src/lib/components/calendar/MonthView.svelte (101 LOC, ui) importers: 1
-  - src/lib/components/calendar/WeekAllDayRow.svelte (111 LOC, ui) importers: 1
-  - src/lib/components/calendar/WeekHeader.svelte (40 LOC, ui) importers: 1
-  - src/lib/components/calendar/WeekHourGrid.svelte (238 LOC, ui) importers: 1
-  - src/lib/components/calendar/WeekView.svelte (405 LOC, ui) importers: 1
-  - src/lib/components/calendar/calendarView.ts (122 LOC, model) importers: 3
-  - src/lib/server/services/calendarData.ts (141 LOC, server) importers: 3
-      NOTE: SPLIT: personal-calendar provisioning + family calendar info + event window reads -> calendar service; sponsored/dashboard-module composition -> calendarPage screen load.
-  - src/lib/utils/calendarAssignees.ts (278 LOC, client) importers: 2
-  - src/lib/utils/calendarSearch.ts (53 LOC, model) importers: 1
-  - src/lib/utils/calendarVisibility.ts (133 LOC, client) importers: 2
-  - src/lib/utils/dayViewLayout.ts (105 LOC, model) importers: 4
-  - src/lib/utils/listGroup.ts (31 LOC, model) importers: 1
-  - src/lib/utils/rangeSelect.ts (184 LOC, model) importers: 4
-  - src/lib/utils/weekView.ts (24 LOC, model) importers: 0
+legacy source files left (0/32, 0 LOC):
 
-route files not yet wiring-only (4/4):
-  - src/routes/(calendar)/calendar/+page.server.ts  /calendar
-      NOTE: Two raw event SELECTs -> calendar repo; the rest is calendarPage screen composition.
-  - src/routes/(calendar)/calendar/+page.svelte  /calendar
-      NOTE: Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines.
-  - src/routes/share-target/+page.server.ts  /share-target
-  - src/routes/share-target/+page.svelte  /share-target
+route files not yet wiring-only (0/4):
 
-legacy test files left (31/31) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/components/calendar/BulkEditBar.svelte.test.ts [component, 7 tests]
-  - src/lib/components/calendar/Calendar.svelte.test.ts [component, 44 tests]
-  - src/lib/components/calendar/CalendarToolbar.svelte.test.ts [component, 54 tests]
-  - src/lib/components/calendar/DayActionSheet.svelte.test.ts [component, 5 tests]
-  - src/lib/components/calendar/DayAllDayList.svelte.test.ts [component, 7 tests]
-  - src/lib/components/calendar/DayEventsModal.svelte.test.ts [component, 11 tests]
-  - src/lib/components/calendar/DayHeader.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/DayHourGrid.svelte.test.ts [component, 7 tests]
-  - src/lib/components/calendar/DayView.svelte.test.ts [component, 9 tests]
-  - src/lib/components/calendar/EventTaskFields.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/ExitSelectionAsk.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/FirstRunCard.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/ListView.svelte.test.ts [component, 5 tests]
-  - src/lib/components/calendar/MonthDayCell.svelte.test.ts [component, 34 tests]
-  - src/lib/components/calendar/MonthDays.svelte.test.ts [component, 3 tests]
-  - src/lib/components/calendar/MonthView.svelte.test.ts [component, 0 tests]
-  - src/lib/components/calendar/WeekAllDayRow.svelte.test.ts [component, 8 tests]
-  - src/lib/components/calendar/WeekHeader.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/WeekHourGrid.svelte.test.ts [component, 9 tests]
-  - src/lib/components/calendar/WeekView.svelte.test.ts [component, 14 tests]
-  - src/lib/components/calendar/calendarView.test.ts [pure, 21 tests]
-  - src/lib/components/calendar/eventModalRoster.svelte.test.ts [component, 7 tests]
-  - src/lib/utils/calendarAssignees.test.ts [pure, 26 tests]
-  - src/lib/utils/calendarSearch.test.ts [pure, 10 tests]
-  - src/lib/utils/calendarVisibility.test.ts [pure, 27 tests]
-  - src/lib/utils/dayViewLayout.test.ts [pure, 16 tests]
-  - src/lib/utils/listGroup.test.ts [pure, 4 tests]
-  - src/lib/utils/rangeSelect.test.ts [pure, 13 tests]
-  - src/lib/utils/weekView.test.ts [pure, 1 tests]
-  - src/routes/(calendar)/calendar/layout.svelte.test.ts [component, 2 tests]
-  - src/routes/(calendar)/calendar/page.server.test.ts [route, 3 tests]
+legacy test files left (0/31) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

@@ -25,7 +25,7 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [index.ts](index.ts) | entry | Public isomorphic interface: the section list + hash rule, the wire types, the banner rule. | — |
 | [index.server.ts](index.server.ts) | entry | Public server interface: page load, form actions, the lazy-section endpoint, the three `/api` handlers, the redirect, and the services. | — |
 | [ui/index.ts](ui/index.ts) | entry | Public components: `AccountScreen` only. | — |
-| [account.contract.ts](account.contract.ts) | contract | The wire: strict `GET /api/me` (`AccountMeResponse`), `DELETE /api/me` (`AccountDeleteBody` — every non-string confirmation is `''`, and a non-object body is the legacy `Invalid JSON`), the export document (hash refusal, names-only families), the section parameter built from `ACCOUNT_SECTIONS`, the ten section models, and `AccountPagePaint` (the first paint's user + default section + load instant). | [account.contract.test.ts](account.contract.test.ts) |
+| [account.contract.ts](account.contract.ts) | contract | The wire: strict `GET /api/me` (`AccountMeResponse`), `DELETE /api/me` (`AccountDeleteBody` — every non-string confirmation is `''`, and a non-object body is the legacy `Invalid JSON`), the export document (hash refusal, names-only families), the section parameter built from `ACCOUNT_SECTIONS`, the seven page action forms (`Account*Form`: first-value text, a checkbox only on the literal `on`, a switch only on `true`, and one `module_<id>` key per registry module), the ten section models, and `AccountPagePaint` (the first paint's user + default section + load instant). | [account.contract.test.ts](account.contract.test.ts) |
 | [account.sections.rules.ts](account.sections.rules.ts) | rules | `ACCOUNT_SECTIONS`, `AccountSectionId`, `resolveAccountSection`, `accountSectionHref`. The one list the rail, the page and the endpoint read. | [account.sections.rules.test.ts](account.sections.rules.test.ts) |
 | [account.form.rules.ts](account.form.rules.ts) | rules | `accountBanner` (success needs a message; failures read `message` then `error`, then the approved fallback; `guestNeedsClaim`). Dependency-free on purpose: the shell renders it on every visit. | [account.form.rules.test.ts](account.form.rules.test.ts) |
 | [account.dashboard.rules.ts](account.dashboard.rules.ts) | rules | The registry split into "Above your cards"/"Cards", the separate mounted fact (`meals` is parked, declared here until dashboardModules exports it), and the show-based form map (`accountHiddenModulesFromForm`, `accountModuleVisibility`). Loads with the Dashboard section. | [account.dashboard.rules.test.ts](account.dashboard.rules.test.ts) |
@@ -51,21 +51,22 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [account.service.db.test.ts](account.service.db.test.ts) | test | Every IO Invariant in this README (see pin list). | — |
 | [account.state.test.ts](account.state.test.ts) | test | One fetch per section, retry, export toasts, optimistic flip + revert. | — |
 | [account.http.db.test.ts](account.http.db.test.ts) | test | Frozen golden for `GET`/`DELETE /api/me` and `GET /api/account/export` (unchanged since the S2 sha). | — |
-| [ui/AccountScreen.svelte](ui/AccountScreen.svelte) | ui | Chrome (breadcrumbs, header, back link), rail, banner, the hash-selected section, skeletons and retry, the one Toaster. The section body is imported with `await import()`. | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) |
+| [ui/AccountScreen.svelte](ui/AccountScreen.svelte) | ui | Chrome (breadcrumbs, header, back link), rail, banner, the hash-selected section, skeletons and retry, the one Toaster. The section body is imported with `await import()`, and the rail's click hands it its section directly. | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) |
 | [ui/AccountSectionBody.svelte](ui/AccountSectionBody.svelte) | ui | The ten-section switch, kept in its own lazily imported chunk so the first paint does not ship every section. | — |
-| [ui/AccountSidebar.svelte](ui/AccountSidebar.svelte) | ui | Section links from `ACCOUNT_SECTIONS`, Report-a-Bug with `?from=/account#<section>` (Q-080 B), the signed-in-as card (never a guest placeholder). | [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) |
+| [ui/AccountSidebar.svelte](ui/AccountSidebar.svelte) | ui | Section links from `ACCOUNT_SECTIONS` (each click hands its id to `onSelect`, so a hydrated hash click still switches), Report-a-Bug with `?from=/account#<section>` (Q-080 B), the signed-in-as card (never a guest placeholder). Colour/type come from the marketing tokens (`#129`). | [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) |
 | [ui/AccountProfileSection.svelte](ui/AccountProfileSection.svelte) | ui | The name form, `update({reset:false})`, "Saving..." → "Update Profile". | — |
 | [ui/AccountFamiliesSection.svelte](ui/AccountFamiliesSection.svelte) | ui | One row per family (initial, name, `N members · role`, "Manage →"), empty state, "+ Create a family". | — |
 | [ui/AccountNotificationsSection.svelte](ui/AccountNotificationsSection.svelte) | ui | Skeleton rows, one native `role="switch"` submit per row, `aria-describedby` hints, `role="status"` receipt, JSON-column note, "See the alerts". | [ui/AccountNotificationsSection.svelte.test.ts](ui/AccountNotificationsSection.svelte.test.ts) |
 | [ui/AccountCalendarSection.svelte](ui/AccountCalendarSection.svelte) | ui | Week start, IANA zone list, view, default calendar, colour, family sync, auto-parse, sponsorship + consent trail, save, ICS import. | [ui/AccountCalendarSection.svelte.test.ts](ui/AccountCalendarSection.svelte.test.ts) |
 | [ui/AccountDashboardSection.svelte](ui/AccountDashboardSection.svelte) | ui | The two groups, scope + meaning, the parked badge, `module_<id>` checkboxes, the footer. | — |
-| [ui/AccountSubscriptionSection.svelte](ui/AccountSubscriptionSection.svelte) | ui | Plan card, limits table, AI bar + reset date, upgrade block. | — |
-| [ui/AccountEmailSection.svelte](ui/AccountEmailSection.svelte) | ui | Guest Claim CTA vs the address, status and change form. | [ui/AccountEmailSection.svelte.test.ts](ui/AccountEmailSection.svelte.test.ts) |
+| [ui/AccountSubscriptionSection.svelte](ui/AccountSubscriptionSection.svelte) | ui | Plan card (a paid plan's "Change plan"), limits table, AI bar + reset date, the Free plan's Family Master upgrade block. One `/pricing` link per reader. | [ui/AccountSubscriptionSection.svelte.test.ts](ui/AccountSubscriptionSection.svelte.test.ts) |
+| [ui/AccountEmailSection.svelte](ui/AccountEmailSection.svelte) | ui | Guest Claim CTA vs the address, status and change form. The input keeps the legacy `id="email"` hook. | [ui/AccountEmailSection.svelte.test.ts](ui/AccountEmailSection.svelte.test.ts) |
 | [ui/AccountSecuritySection.svelte](ui/AccountSecuritySection.svelte) | ui | One "Logout from All Other Devices" action. | — |
 | [ui/AccountApiTokensSection.svelte](ui/AccountApiTokensSection.svelte) | ui | Create form, plaintext-once box with Copy, token rows with relative last-used and Revoke, empty state. | — |
 | [ui/AccountDangerSection.svelte](ui/AccountDangerSection.svelte) | ui | The export card (state toasts) and the two-step typed-id delete. | [ui/AccountDangerSection.svelte.test.ts](ui/AccountDangerSection.svelte.test.ts) |
 | [ui/AccountScreen.svelte.test.ts](ui/AccountScreen.svelte.test.ts) | test | Chrome, section rendering, banner fallback, guest claim link. | — |
-| [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) | test | Links, report link location, guest card. | — |
+| [ui/AccountSidebar.svelte.test.ts](ui/AccountSidebar.svelte.test.ts) | test | Links, the click's `onSelect`, report link location, guest card. | — |
+| [ui/AccountSubscriptionSection.svelte.test.ts](ui/AccountSubscriptionSection.svelte.test.ts) | test | One `/pricing` link on a free plan and on a paid one. | — |
 | [ui/AccountNotificationsSection.svelte.test.ts](ui/AccountNotificationsSection.svelte.test.ts) | test | Skeletons, switches, optimistic flip, receipt, note. | — |
 | [ui/AccountCalendarSection.svelte.test.ts](ui/AccountCalendarSection.svelte.test.ts) | test | Consent labels, options, reload sync. | — |
 | [ui/AccountEmailSection.svelte.test.ts](ui/AccountEmailSection.svelte.test.ts) | test | Guest CTA vs real form. | — |
@@ -118,8 +119,9 @@ Each line names the test that pins it.
 - The ten sections keep their fixed order and the hash selects the body from the same list; an
   empty/unknown hash falls back to the first — `account.sections.rules.test.ts › keeps the ten
   approved sections in order`, `› resolves a hash to its section and falls back to the first`.
-- `/calendar/settings` is only a 302 to `/account#calendar` — `account.http.db.test.ts` (golden
-  runs the route module; the redirect is the handler).
+- `/calendar/settings` is only a 302 to `/account#calendar` — `account.sections.rules.test.ts › links
+  the calendar section as /calendar/settings redirects to it` pins the link and the route module is
+  the one-line `redirect(302, '/account#calendar')` (no golden of its own).
 - Both the page load and the section endpoint refuse a signed-out caller: the load 302s `/login`
   (kernel `pageLoad` auth `user`), the section endpoint answers `401 {"error":"Unauthorized"}` —
   `account.service.db.test.ts` (no actor reaches no service) and the kernel's
@@ -164,7 +166,8 @@ Each line names the test that pins it.
   fails`, `ui/AccountNotificationsSection.svelte.test.ts › flips aria-checked the moment it is
   pressed, before the save answers`.
 - Email change is access's flow (3/15 min, guest refusal with `guestNeedsClaim`), wired unchanged —
-  access's `changeEmailAction` awaits its own tests (`access.http.db.test.ts`).
+  `access.account.service.db.test.ts › throttles requests at 3 per 15 minutes per person and client`,
+  `› refuses an Anonymous Account with guestNeedsClaim`, `access.http.db.test.ts › refuses a guest with guestNeedsClaim`.
 - Logging out other devices keeps the caller's own session and every API token —
   `account.service.db.test.ts › a cookie caller keeps its own session and every token`.
 - Deleting an account requires the typed id, invalidates the sessions, then clears task
@@ -174,7 +177,8 @@ Each line names the test that pins it.
   `account.http.db.test.ts › deletes the account, its sessions, tokens and subscription after the
   typed id`.
 - Every page action is guarded: a signed-out POST gets `{success:false, error:'Not signed in'}` and
-  writes nothing — kernel `formAction` auth `user` (see `pageHandlers.test.ts`).
+  writes nothing — kernel `formAction` auth `user`, pinned by
+  `pageHandlers.test.ts › returns the legacy requireUserAction failure to signed-out callers`.
 - Profile save requires both names — `account.service.db.test.ts › refuses a profile save with an
   empty name`.
 - The families section lists one row per family with the real roster count and the user's role —
@@ -205,7 +209,12 @@ Each line names the test that pins it.
   and familyId`, `› masks an Anonymous Account placeholder email and reports isAnonymous`, `›
   reports email null with isAnonymous false for a real account with no email`.
 - `DELETE /api/me` has one refusal for every non-string confirmation and `Invalid JSON` for a
-  malformed or non-object body — `account.http.db.test.ts` (five refusals).
+  malformed or non-object body —
+  `account.http.db.test.ts › rejects a confirmation that is not the caller id and deletes nothing`,
+  `› rejects an absent confirmation with the same message`, `› rejects a null confirmation with the
+  same message`, `› rejects a non-string confirmation with the same message`, `› answers 400
+  {"error":"Invalid JSON"} for a malformed body`, `› answers 400 {"error":"Invalid JSON"} for a
+  non-object body`.
 
 ## Depends on
 
@@ -224,6 +233,25 @@ Each line names the test that pins it.
 
 **Notes**
 
+- e2e hooks (2026-11-21, `e2e/account/*` + `e2e/calendar/SettingsPage.test.ts`): the rail's link
+  hands its section to `onSelect` as well as carrying the `href` — once hydrated, SvelteKit moves a
+  same-page hash click without a `hashchange` event, so the fragment alone did not switch the body
+  (`AccountSettings.test.ts:62` clicked Security and stayed on Profile). The dashboard module
+  switches stay in their own `#dashboard` section: legacy's split (#105) pinned that the calendar
+  form renders none of them, because a save would derive the hidden list from a form that has no
+  module checkboxes. The plan card links `/pricing` only for a paid plan and the Family Master block
+  only for a free one: two links at once made the leaf `a[href="/pricing"]` ambiguous
+  (`SettingsPage.test.ts:77`); legacy printed both. `input#email` is the legacy hook (`EmailChange`,
+  `ProfileEditing`), so the Email section's wrapper carries no id of its own — legacy had both, a
+  duplicate id that left the label pointing at the wrapper.
+- `#129` design conformance (`e2e/conformance/account-known-bad.test.ts`): the rail title is a 12px
+  marketing size tracked to the prototype's 0.88px, the identity badge background is the warm-100
+  token (`#fdede0`) instead of the bespoke blush, and the screen's skeleton bars take the canvas
+  token (`#f8f6f3`) — the kernel skeleton's slate-200 is not in the marketing colour set.
+  The title keeps legacy's 16.5px line box (`leading-[16.5px]` = 11px × the inherited 1.5), so the
+  rail and the page keep legacy's height for the pages visual check; only the title's own glyphs
+  differ (12px against legacy's 11px). The badge's `#fdede0` against legacy's `#FED5CF` is under the
+  visual check's colour threshold.
 - Verse deleted 2026-11-12 (Q-031/Q-032): `verseTranslation` left the settings wire and save;
   `showDailyVerse` stays on the `/api/me/settings` wire but the account form never posts it.
 - Q-083: the app shell layout will own Navbar/Toaster/BottomNav and the `/login` guard; until the
@@ -248,5 +276,6 @@ Each line names the test that pins it.
   family-scoped use-case); a lingering assignment in a family the person had already left keeps its
   status on the set-null FK. A tasks-level "clear a person's assignments" use-case is the fix
   (report ASK).
-- `accountNotifications.ts` (legacy rules) stays: alerts' README keeps it for the legacy
-  `src/lib/server/db/actions/notificationMethods.ts` importer; deleting both is alerts' call.
+- `accountNotifications.ts` (legacy rules) is gone with alerts' S8 (2026-11-21), together with the
+  legacy `src/lib/server/db/actions/notificationMethods.ts`: the four-switch rules and the stored-bag
+  read live in the alerts domain, which the notifications section consumes through its public entry.

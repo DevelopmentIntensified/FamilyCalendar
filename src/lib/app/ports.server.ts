@@ -34,10 +34,11 @@
  *   that writes the child's `users` row, `email` account, settings and personal
  *   calendar. Identity's S5 has no such use-case and `calendars` belongs to
  *   calendar, so both owning modules must export one before this bridge goes.
- * - `inviteLink.mintInviteLink` → `oslo/jwt` with `EMAILSECRET` plus the legacy
- *   `getUrl()`: the legacy invite page still validates the token with that
- *   secret, and only `app` may read the environment (R6). A kernel token port
- *   would be the real home; it does not exist yet.
+ * - `inviteLink.mintInviteLink` → `oslo/jwt` with `EMAILSECRET` plus the config's
+ *   `siteUrl` (APP-02-era app rule, the legacy `getUrl()`): the legacy invite
+ *   page still validates the token with that secret, and only `app` may read
+ *   the environment (R6). A kernel token port would be the real home; it does
+ *   not exist yet.
  *
  * dashboardModules' Q-030 adapter is an exception in rank terms: it is not a
  * bridge, because `family` declares that port for a HIGHER-ranked module
@@ -63,8 +64,8 @@ import type {
 import type { IdentityPorts } from '$lib/domains/identity/index.server';
 import { sponsoredAdConsentPort } from '$lib/domains/sponsored/index.server';
 import { unassignMemberTasks } from '$lib/domains/tasks/index.server';
-import { createNewUser } from '$lib/server/utils/createNewUser';
-import { getUrl } from '$lib/utils/getUrl';
+import { createEmailPerson } from '$lib/domains/identity/index.server';
+import { ensurePersonalCalendar } from '$lib/domains/calendar/index.server';
 
 /** Cross-module adapters. Grows one owning module at a time. */
 export type AppPorts = IdentityPorts & FamilyPorts;
@@ -80,37 +81,48 @@ const dashboardModuleSwitches: FamilyModuleSwitchesPort = {
 	listFamilyModuleSwitches: async (ctx, familyId) => listFamilyModuleSwitches(ctx, familyId)
 };
 
-/** TRANSITION BRIDGE — identity's + calendar's S5 replace this with one account use-case. */
-const legacyChildAccount: FamilyChildAccountPort = {
-	createChildAccount: async (_ctx, input) => {
-		const user = await createNewUser(input.firstName, input.lastName, input.email);
+/**
+ * The child door's account: identity's verified person (user row + `email`
+ * account + settings) plus calendar's lazy personal calendar — the same
+ * composition access' sign-up uses, in place of the legacy `createNewUser`.
+ */
+const childAccount: FamilyChildAccountPort = {
+	createChildAccount: async (ctx, input) => {
+		const person = await createEmailPerson(ctx, {
+			email: input.email,
+			firstName: input.firstName,
+			lastName: input.lastName
+		});
+		await ensurePersonalCalendar(ctx, person.id);
 		return {
-			id: user.id,
-			firstName: user.firstName,
-			lastName: user.lastName,
-			email: user.email
+			id: person.id,
+			firstName: person.firstName,
+			lastName: person.lastName,
+			email: person.email
 		};
 	}
 };
 
 /** TRANSITION BRIDGE — a kernel token port (or access' mail tokens) replaces this. */
-const legacyInviteLink: FamilyInviteLinkPort = {
-	mintInviteLink: async ({ email, firstName, lastName, familyId, inviteCode }) => {
-		const token = await createJWT(
-			'HS256',
-			INVITE_TOKEN_SECRET,
-			{ email, firstName, lastName, familyId, inviteCode },
-			{
-				headers: {
-					alg: 'HS256',
-					typ: 'JWT'
-				},
-				expiresIn: INVITE_TOKEN_LIFETIME
-			}
-		);
-		return `${getUrl()}/family/invite/email?token=${token}`;
-	}
-};
+function inviteLinkPort(siteUrl: string): FamilyInviteLinkPort {
+	return {
+		mintInviteLink: async ({ email, firstName, lastName, familyId, inviteCode }) => {
+			const token = await createJWT(
+				'HS256',
+				INVITE_TOKEN_SECRET,
+				{ email, firstName, lastName, familyId, inviteCode },
+				{
+					headers: {
+						alg: 'HS256',
+						typ: 'JWT'
+					},
+					expiresIn: INVITE_TOKEN_LIFETIME
+				}
+			);
+			return `${siteUrl}/family/invite/email?token=${token}`;
+		}
+	};
+}
 
 /** Returns `ctx` with every cross-module adapter attached. */
 export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
@@ -121,7 +133,7 @@ export function wirePorts<C extends Ctx>(ctx: C): C & AppPorts {
 		calendar: createFamilyCalendarPort(),
 		tasks: { unassignMemberTasks },
 		moduleSwitches: dashboardModuleSwitches,
-		childAccount: legacyChildAccount,
-		inviteLink: legacyInviteLink
+		childAccount,
+		inviteLink: inviteLinkPort(ctx.config.siteUrl)
 	};
 }

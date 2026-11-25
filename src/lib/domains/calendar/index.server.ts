@@ -36,10 +36,12 @@ export {
 } from './calendar.calendars.service.server';
 export {
 	listEventsInWindow,
+	listArchivedEvents,
 	createEvent,
 	updateEvent,
 	deleteEvent,
 	getEventForViewer,
+	type CalendarArchivedEvent,
 	type CalendarRangedEvents,
 	type CalendarRangedEvent,
 	type CalendarEventWriteResult,
@@ -103,3 +105,12 @@ export {
 	printMonthEndpoint,
 	searchLocationsEndpoint
 } from './calendar.bulk.http.server';
+
+// --- Page loads ---------------------------------------------------------------
+
+export {
+	calendarEventDetailPage,
+	calendarImportPage,
+	calendarPrintPage,
+	type CalendarEventDetailPageData
+} from './calendar.pages.http.server';

@@ -10,8 +10,7 @@ Family Planz is a family calendar.
 
 | your task | read |
 |---|---|
-| executing the v2 rewrite (branch `rewrite/v2`) | [docs/rewrite/README.md](docs/rewrite/README.md) |
-| changing website/server code | [docs/architecture/README.md](docs/architecture/README.md), then the `README.md` of the module you touch |
+| changing website/server code, or learning the architecture | [docs/architecture/README.md](docs/architecture/README.md), then the `README.md` of the module you touch |
 | writing or running tests | [docs/architecture/testing.md](docs/architecture/testing.md) |
 | natural-language parsing (quick-add, dates) | [testing.md, NLP section](docs/architecture/testing.md#natural-language-parsing): test-first, phrase tables |
 | writing Svelte | [docs/guides/svelte-mcp.md](docs/guides/svelte-mcp.md) |

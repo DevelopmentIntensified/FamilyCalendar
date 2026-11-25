@@ -14,11 +14,16 @@
  */
 import { DateTime } from 'luxon';
 
-/** A timed row as the grid gives it to the layout. */
+/**
+ * A timed row as the grid gives it to the layout. `start` may be absent (the
+ * screen's row carries the display `date` as the fallback) and `allDay` may be
+ * the row's own nullable flag: an unplaceable row still keeps its slot at
+ * midnight rather than disappearing.
+ */
 export interface CalendarTimelineRow {
-	start: Date | string;
+	start?: Date | string | null;
 	end?: Date | string | null;
-	allDay?: boolean;
+	allDay?: boolean | null;
 }
 
 export interface CalendarLaneSlot<T extends CalendarTimelineRow> {
@@ -55,9 +60,9 @@ function instantIn(value: Date | string, zone: string): DateTime | null {
 
 /** An event's slot on the day timeline, in minutes from midnight. */
 function spanMinutes(row: CalendarTimelineRow, zone: string): { startMin: number; endMin: number } {
-	const start = instantIn(row.start, zone);
-	// An unparseable start cannot be placed by clock time; midnight keeps the
-	// row on screen rather than silently dropping a plan.
+	const start = row.start ? instantIn(row.start, zone) : null;
+	// An absent or unparseable start cannot be placed by clock time; midnight
+	// keeps the row on screen rather than silently dropping a plan.
 	const startMin = start ? start.hour * 60 + start.minute : 0;
 	let endMin = startMin + CALENDAR_DEFAULT_DURATION_MIN;
 	if (row.end) {

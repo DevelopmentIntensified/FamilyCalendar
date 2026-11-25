@@ -11,7 +11,7 @@
  *
  * Doc: ./README.md#invariants
  */
-import { dayKey, formatDateTimeMinute } from '$lib/kernel/time/dates';
+import { dayKey, formatDateTimeMinute } from '$lib/kernel/time/civil';
 import type { BugReportWithReporter, UnmatchedPhraseView } from './feedback.contract';
 import { bugAreaLabel, unmatchedSourceLabel } from './feedback.rules';
 

@@ -4,7 +4,7 @@
 //
 // Doc: e2e/pages/README.md
 import { expect, type Page } from '@playwright/test';
-import { isAnonymousAccount } from '$lib/utils/anonymous';
+import { isAnonymousAccount } from '$lib/domains/identity';
 import { resolvePath, type PageEntry } from './catalog';
 import { loginWithSession } from '../testUtils';
 import { runSeed, type SeedName, type SeedResult } from './seeds';

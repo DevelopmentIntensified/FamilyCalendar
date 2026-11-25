@@ -27,6 +27,7 @@ export { unassignMemberTasks } from './tasks.items.service.server';
 
 export {
 	listTasks,
+	listDueTasks,
 	listTaskSections,
 	listFamilyTasks,
 	createTask,
@@ -36,6 +37,7 @@ export {
 	type TaskWithTagsRow,
 	type TaskListRow,
 	type TaskSectionRow,
+	type TaskDueWindowInput,
 	type TaskFamilyBoardRows,
 	type TaskListInput
 } from './tasks.items.service.server';
@@ -62,11 +64,13 @@ export {
 export {
 	getTaskStats,
 	listCompletionInstants,
+	listDayCompletions,
 	getStatsPage,
 	TASK_STATS_RECENT_LIMIT,
 	TASK_STATS_PEOPLE_LIMIT,
 	TASK_STATS_DONE_BY_LIMIT,
-	TASK_STATS_INSTANT_LIMIT
+	TASK_STATS_INSTANT_LIMIT,
+	type TaskDayCompletion
 } from './tasks.stats.service.server';
 export {
 	resolveTaskQuickAdd,
@@ -102,3 +106,5 @@ export {
 // --- Page loads ---------------------------------------------------------------
 
 export { tasksPageLoad } from './tasks.http.server';
+export { statsPageLoad } from './tasks.http.server';
+export { archiveEndpoint, archivePageLoad } from './tasks.archive.http.server';

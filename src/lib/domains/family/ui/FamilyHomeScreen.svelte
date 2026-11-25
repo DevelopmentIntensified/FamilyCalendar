@@ -19,7 +19,7 @@
 		familyRosterByFamily
 	} from '../family.home.rules';
 	import { FamilyHomeState } from '../family.home.state.svelte';
-	import FamilyBreadcrumbs from './FamilyBreadcrumbs.svelte';
+	import Breadcrumbs from '$lib/kernel/ui/Breadcrumbs.svelte';
 	import FamilyHomeCard from './FamilyHomeCard.svelte';
 	import FamilyHomeRail from './FamilyHomeRail.svelte';
 	import FamilyInviteByLinkRow from './FamilyInviteByLinkRow.svelte';
@@ -58,7 +58,7 @@
 
 <div class="min-h-screen bg-slate-50">
 	<div class="mx-auto max-w-6xl px-3 py-4 pb-20 sm:px-4">
-		<FamilyBreadcrumbs crumbs={[{ label: 'Calendar', href: '/calendar' }, { label: 'Family' }]} />
+		<Breadcrumbs crumbs={[{ label: 'Calendar', href: '/calendar' }, { label: 'Family' }]} />
 
 		<div class="lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-5">
 			<main class="min-w-0">

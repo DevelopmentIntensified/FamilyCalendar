@@ -8,18 +8,13 @@
  * `wirePorts` (./ports.server.ts), the one place they are chosen; the `/api`
  * goldens get the same adapters through `goldenCtx` (./testing/goldenCtx.server.ts).
  *
- * TRANSITION BRIDGES (each line names the task that removes it — see
- * docs/rewrite/LEDGER.md):
- * - db       legacy pooled singleton, so ported and unported code share one
- *            pool and one transaction model. Stays (it is the real adapter);
- *            K-04 only moves where the table definitions live.
- * - limiter  legacy module-level buckets: web and mobile sign-in must share
- *            buckets until `access` is ported (issue 288). Swap to
- *            createMemoryRateLimiter(systemClock) in task APP-02.
- * - log      legacy JSON logger; identical line format to createJsonLog.
- * - push     legacy `fcmService` FCM transport behind the kernel `Push` port
- *            (./pushTransport.server.ts); the web-push half has no legacy
- *            import. Stays until the kernel grows its own FCM sender.
+ * TRANSITION BRIDGES: none left here.
+ * - db       the real pooled adapter now, built here from `DATABASE_URL` with
+ *            kernel's `connectDb` (the legacy `$lib/server/db` singleton: same
+ *            pool size, same fail-loud message, same `dotenv/config` loader).
+ * - limiter  the kernel's in-memory sliding-window adapter on `systemClock`
+ *            (APP-02), so web and mobile sign-in share the buckets `access`
+ *            keys by `clientKeyOf` (issue 288).
  *
  * `faults` is not a bridge any more: it is `feedback`'s `fileAutoBugReport`
  * through the module's public entry, so `endpoint()`'s 5xx filing and the
@@ -30,21 +25,30 @@
  *
  * Doc: src/lib/app/README.md
  */
-import { db } from '$lib/server/db';
-import { logEvent } from '$lib/server/services/logger';
-import { rateLimit } from '$lib/server/utils/rateLimit';
+import 'dotenv/config';
 import { fileAutoBugReport } from '$lib/domains/feedback/index.server';
 import { createCerebrasAi } from '$lib/kernel/ai/cerebrasAi.server';
 import type { Ctx, Fault } from '$lib/kernel/ctx/ctx.server';
+import { connectDb } from '$lib/kernel/db/database.server';
 import { createFetchOutboundHttp } from '$lib/kernel/http/fetchOutboundHttp.server';
 import { systemIds } from '$lib/kernel/ids/ids';
+import { createJsonLog } from '$lib/kernel/log/jsonLog';
 import { createResendMailer } from '$lib/kernel/mail/resendMailer.server';
+import { createMemoryRateLimiter } from '$lib/kernel/ratelimit/rateLimiter';
 import { systemClock } from '$lib/kernel/time/clock';
 import { resolveCodePepper, resolveSessionSecret } from '$lib/domains/identity/index.server';
 import { wirePorts } from './ports.server';
 import { createPushTransport } from './pushTransport.server';
 
 const production = process.env.NODE_ENV === 'production';
+
+/** The pooled production database: the legacy `$lib/server/db` singleton, same
+ * pool size and fail-loud message. `dotenv/config` stays because the server
+ * entry has no other `.env` loader. */
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) throw new Error('DATABASE_URL is not set');
+const dbHandle = connectDb(databaseUrl);
+const db = dbHandle.db;
 
 /** Production without `BETTER_AUTH_SECRET` refuses to boot (identity's rule). */
 const sessionSecret = resolveSessionSecret(process.env.BETTER_AUTH_SECRET, production);
@@ -55,7 +59,8 @@ const codePepper = resolveCodePepper(process.env.EMAILSECRET, production);
 const mailFrom = process.env.NOREPLYEMAIL ?? '';
 /**
  * The public origin mailed links point at — the legacy `getUrl()` rule
- * (`src/lib/utils/getUrl.ts`): localhost while developing, the test host under
+ * (`src/lib/utils/getUrl.ts`, deleted with the sweep): localhost while
+ * developing, the test host under
  * NODE_ENV=test, the marketing origin otherwise.
  */
 const siteUrl =
@@ -73,12 +78,8 @@ export const appCtx = wirePorts({
 	db,
 	clock: systemClock,
 	ids: systemIds,
-	log: {
-		info: (event, fields) => logEvent('info', event, fields),
-		warn: (event, fields) => logEvent('warn', event, fields),
-		error: (event, fields) => logEvent('error', event, fields)
-	},
-	limiter: { allow: (key, limit, windowMs) => rateLimit(key, limit, windowMs) },
+	log: createJsonLog(systemClock),
+	limiter: createMemoryRateLimiter(systemClock),
 	mail: createResendMailer({ apiKey: process.env.RESEND_API_KEY ?? '', from: mailFrom }),
 	push: createPushTransport({
 		vapidPublicKey: process.env.VAPID_PUBLIC_KEY ?? null,
@@ -115,3 +116,10 @@ export const appCtx = wirePorts({
 		userAgent
 	}
 } satisfies Ctx);
+
+/**
+ * The pool behind `appCtx`. A server never closes it (the process owns it for
+ * its lifetime); a script that must exit does — `scripts/db-seed.ts` awaits
+ * `runDevSeed(appCtx)` and then closes this handle.
+ */
+export const appDbHandle = dbHandle;

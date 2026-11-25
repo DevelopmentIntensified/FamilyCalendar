@@ -11,15 +11,15 @@ Sponsored Events: serve gate (showAdsAsEvents), month generation, impressions/cl
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S5 service
+- [x] S6 http + route wiring (goldens unchanged since S2)
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — **S7: none**; the module owns no page or component (`ui/index.ts` exports nothing): its serve/display rules feed calendarPage's grid and the account consent rows
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; the `adService.ts` it kept then was deleted in the final sweep (see Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -101,10 +101,10 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 | `sponsored.display.rules.ts` | rules | `toSponsoredEvent(source, serving)` — `📢 <message>`, `allDay: true`, `calendarId: ''`, `end === start === date`, amber, `isAd: true` (`adService.ts:294-334`, `calendarData.ts:60`, `+server.ts:35`). **S3 as built:** `serving` carries `ownerId` and `createdAt` (the response instant today, Q-042 ported as today; fix B changes only what the service passes); `sponsoredSourceOfRow(row)` maps an own 📢 row to a source. |
 | `sponsored.consent.rules.ts` | rules | `sponsoredConsentDecision(previous, next)` (`adConsentService.ts:21-36`), plus `SPONSORED_CONSENT_DECISIONS`. |
 | `sponsored.serve.rules.test.ts`, `sponsored.month.rules.test.ts`, `sponsored.display.rules.test.ts`, `sponsored.consent.rules.test.ts` | tests | one input → output table per rules file; expected values from the rule and CONTEXT.md, never from running the code. Plus `sponsored.contract.test.ts`. |
-| `sponsored.repo.server.ts` | repo | **S4 as built (renamed for one scheme: `list*` for many rows, `insert*`, `delete*` naming table and anchor):** `listOwnedSponsoredEventRows(db, {ownerId, fromIso, toIso})` (4 columns, start order; `adService.ts:93-108`), `insertSponsoredConsentRecord(db, {userId, decision, recordedAt})`, `listSponsoredConsentRecords(db, userId)` (newest first), `deleteAdEventsCreatedBefore(db, cutoff)` → count. No impression/click update and no target-plan query: nothing calls them (Notes). |
+| `sponsored.repo.server.ts` | repo | **S4 as built (renamed for one scheme: `list*` for many rows, `insert*`, `delete*` naming table and anchor):** `insertSponsoredConsentRecord(db, {userId, decision, recordedAt})`, `listSponsoredConsentRecords(db, userId)` (newest first), `deleteAdEventsCreatedBefore(db, cutoff)` → count, plus (dev-seed task, 2026-11-21) `insertAdEventsIfAbsent(db, rows)` → new-row count for the legacy seed's demo ads. No impression/click update and no target-plan query: nothing calls them (Notes). |
 | `sponsored.fixtures.server.ts` | fixtures | the settings row (gate), a user-owned 📢 Event row, an `adEvents` row, a consent record — as built: `seedSponsoredSettings`, `seedOwnedSponsoredEvent`, `seedAdEvent`, `seedAdConsentRecord` (`db` first). |
 | `sponsored.repo.db.test.ts` | test | a `rollbackTest` per filtered, ordered or aggregate query. |
-| `sponsored.service.server.ts` | service | `listSponsoredEvents`, `recordSponsoredConsentChange`, `listSponsoredConsentHistory`, `pruneSponsoredEventsOlderThan`; authorization, `ctx.clock`, `ctx.ids`; ONE existence read on the generation path (legacy reads the month twice: `adService.ts:138,299`). |
+| `sponsored.service.server.ts` | service | `listSponsoredEvents`, `recordSponsoredConsentChange`, `listSponsoredConsentHistory`, `pruneSponsoredEventsOlderThan`, and (dev-seed task, 2026-11-21) `seedSponsoredDemoAdEvents`; authorization, `ctx.clock`, `ctx.ids`; ONE existence read on the generation path (legacy reads the month twice: `adService.ts:138,299`). |
 | `sponsored.service.db.test.ts` | test | every IO invariant, titled after the rule. |
 | `sponsored.http.server.ts` | http | `listSponsoredEventsEndpoint` = `endpoint({ auth: 'user', query: SponsoredEventsQuery })`, reproducing the golden exactly (`auth`, 400 `Invalid month`, body). |
 | `ui/index.ts` | entry | stays empty — the screens own the visuals. |
@@ -153,7 +153,7 @@ The module owns no page and one JSON route; its cost lands on `calendarPage` and
 | "any own event titled 📢 is an ad" (`adService.ts:97-123`) | KEPT (wire-visible) → invariant + owner question 1 |
 | generation re-randomises every request (`adService.ts:145-183`) | fix: deterministic per `(user, month)` seed → owner question 2 |
 | `created_at` invented per response (`adService.ts:314,332`) | fix: stable value → owner question 3 |
-| `injectAdEvent` + never-incrementing counters + target-plan read | all three die: `adEvents` has no writer, no route exposes engagement, and nothing calls the reporting read (Notes) |
+| `injectAdEvent` + never-incrementing counters + target-plan read | all three die: `adEvents`' only writer is the dev seed's insert-if-absent, no route exposes engagement, and nothing calls the reporting read (Notes) |
 | `adType` / `deadline` / `sponsorName` / `impressionCount` fabrication | dropped: internal, not on the wire |
 | the gate in the caller, not the read | fixed: first check inside `listSponsoredEvents` |
 | `/calendar` rows not marked `isAd` (`(calendar)/calendar/+page.server.ts:301`) | fixed in port: the service marks rows, so every consumer gets `isAd` |
@@ -162,13 +162,19 @@ The module owns no page and one JSON route; its cost lands on `calendarPage` and
 
 ## Notes
 
+### S8 sweep (2026-11-21)
+
+Deleted: `server/db/actions/adEvents.ts` (+ `adEvents.prune.test.ts`) and `server/services/adConsentService.ts` (+ its test). Kept: `server/services/adService.ts` (+ its legacy test) — `services/calendarData.ts`, which the unported calendar page loads, still calls it.
+
+Final sweep (2026-11-21): `calendarData` went with the calendar pages, so `server/services/adService.ts` (+ `adService.test.ts`) was deleted with no importer left — serving, the consent gate and the monthly generation are this module's `sponsored.serve.rules.ts`/`sponsored.consent.rules.ts`/`sponsored.display.rules.ts`/`sponsored.month.rules.ts`, pinned by the goldens (census: 0 legacy files).
+
 ### Decisions
 
 - **Q-003 is answered: the blob store is DELETED in S8.** (Owner answer relayed for this port; `docs/rewrite/questions.md` still shows an empty Answer field, and neither file is in this task's file set.) No `blob` port is designed: `blobService.ts` and `uploadAdImage` / `getAdImageUrl` / `deleteAdImage` / `listAdImages` go in S8, together with `adService.ts`'s `@vercel/blob` import. Ads serve without images.
 - **`scripts/arch/registry.mjs`: both edits already landed.** The `sponsored` purpose line no longer says "blob assets", and the `FOREIGN_READS.sponsored.events` entry exists with its reason (S4). Nothing else is needed from the registry.
 - **Consent seam, agreed with the identity port:** identity's `index.ts` declares `CalendarSettingsConsentPort` (`listConsentHistory`, `recordConsentChange`); `/api/me/settings` GET+PATCH and the account page pass this module's two functions. Structural satisfaction, so identity never imports sponsored. The save reads the previous flag before writing and logs a record failure without failing the save (`accountData.ts:184-206`).
 - **`events` is read as a declared foreign read.** The 📢 rule lives in `events` (calendar's table); S4 adds the `FOREIGN_READS` entry with its reason. If owner question 1 lands "drop", the read and the entry both disappear and the module needs no calendar access at all.
-- **The engagement counters and the target-plan reporting read are dropped, not kept.** `adEvents` has no writer in v2 once `injectAdEvent` dies (`adService.ts:186-221` had no caller), no route exposes impressions/clicks, no served id can match an `adEvents` row (served ids are `events.id` or generated ids; the ad row gets its own id — `adService.ts:113,167,207`), and nothing calls `countRecentAdEventsByTargetPlan` (`adEvents.ts:27-38`). Both are consumer-less internal paths (Speculative Generality), so the port keeps neither; the `adEvents` columns and `pruneSponsoredEventsOlderThan` stay because retention is a must-survive rule of the table the schema owns. A future ad-inventory ticket designs the writer, the counters and the reporting together.
+- **The engagement counters and the target-plan reporting read are dropped, not kept.** `injectAdEvent` dies (`adService.ts:186-221` had no caller) and the dev seed is `adEvents`' only writer (insert-if-absent, dev-seed task 2026-11-21), no route exposes impressions/clicks, no served id can match an `adEvents` row (served ids are `events.id` or generated ids; the ad row gets its own id — `adService.ts:113,167,207`), and nothing calls `countRecentAdEventsByTargetPlan` (`adEvents.ts:27-38`). Both are consumer-less internal paths (Speculative Generality), so the port keeps neither; the `adEvents` columns and `pruneSponsoredEventsOlderThan` stay because retention is a must-survive rule of the table the schema owns. A future ad-inventory ticket designs the writer, the counters and the reporting together.
 - **Internal-only accidents, dropped (not visible on the wire):** `injectAdEvent` (no caller, `adService.ts:186-221`); `userAllowsAds` (a second gate read inside generation only, so the gate lived in two places, `adService.ts:84-86,132`); `trackAdImpression`/`trackAdClick` and `countRecentAdEventsByTargetPlan` (the paragraph above); the `AdEventData`/`AdDisplayEvent` internal types with `adType: 'sponsored' | 'promotional' | 'newsletter'`, `deadline`, `sponsorName` and `impressionCount: 1` (never on the wire, `adService.ts:10-23,108-122`); the blob helpers and their hardcoded `contentType`/`size` (Q-003); and the second zone resolution (`getUserZone` falling back to the server zone while the route fell back to UTC).
 - **No `ui/` component on purpose.** The account checkbox and consent history belong to the `account` screen, the chip word "Ad" / accessible name "Sponsored" and the legend to `calendarPage`; the calendar's glance row keys on `isAd` when it is handed a sponsored event. The module contributes only the `isAd` flag and the amber.
 
@@ -189,7 +195,7 @@ The module owns no page and one JSON route; its cost lands on `calendarPage` and
 
 Deleted:
 - `src/lib/server/services/blobService.ts` (Q-003) and, in `adService.ts`, the `@vercel/blob` import with `uploadAdImage` / `getAdImageUrl` / `deleteAdImage` / `listAdImages` / `UploadAdImageParams`. Ads serve without assets.
-- `adService.ts`'s `injectAdEvent`, `trackAdImpression` and `trackAdClick`: the dead write path and the never-incrementing counters (no caller in `src/`). `adEvents` now has no writer, and the retention prune keeps the columns meaningful.
+- `adService.ts`'s `injectAdEvent`, `trackAdImpression` and `trackAdClick`: the dead write path and the never-incrementing counters (no caller in `src/`). `adEvents` had no writer until the dev seed's `insertAdEventsIfAbsent` (Notes › Dev seed), and the retention prune keeps the columns meaningful.
 - `src/routes/api/sponsored-events/server.test.ts`: the route is wiring-only to `listSponsoredEventsEndpoint`, and the S2 goldens replace the legacy route test.
 - `src/lib/server/services/calendarData.ts`'s own `SPONSORED_EVENT_COLOR` literal: it now imports the amber from the module's isomorphic entry, so the live legacy calendar path cannot drift from the wire colour (#067). The rest of that file still imports `adService` (next list).
 
@@ -198,6 +204,13 @@ Kept, each with the unported importer that still needs it:
 - `src/lib/server/services/adConsentService.ts` + `adConsentService.test.ts` — `src/lib/server/services/accountData.ts:30` imports `recordAdConsentChange` / `getAdConsentRecords` for the unported account page and `/api/me/*` routes, and `src/routes/api/me/settings/server.test.ts` still mocks the module. Dies with the `account` screen reaching settings through identity's `AdConsentPort`.
 - `src/lib/server/db/actions/adEvents.ts` + `adEvents.prune.test.ts` — `src/routes/api/cron/cleanup/+server.ts:8` imports `pruneAdEventsOlderThan`. The cron is app logic, not wiring, so **R8 forbids it calling `pruneSponsoredEventsOlderThan`** (`arch: R8 route file uses module code but is not wiring-only`); the file goes when `app`'s cleanup cron is ported as its own piece. The module's own prune is already pinned by `sponsored.service.db.test.ts` and `sponsored.repo.db.test.ts`.
 - `@vercel/blob` in `package.json`: its last import is gone, but removing the dependency means editing `package.json` / the lockfile, which this task may not do. Ask for it in the dependency pass.
+
+### Dev seed as built (2026-11-21)
+
+- **Why:** the legacy `src/lib/server/seed.ts` was deleted with the sweep (APP-05) while `package.json`'s `db:seed` and `README.md:16` still pointed at it, so a fresh dev/e2e database had no tiers, discounts or demo ads (billing sheet line 218).
+- **Where the data went:** the six tiers and two discounts were already `billing`'s `ensureBillingDefaults`; the five demo ads are this module's `seedSponsoredDemoAdEvents` over the new repo `insertAdEventsIfAbsent` (`.onConflictDoNothing()`, the legacy skip-if-present, answering the new-row count). `app`'s `runDevSeed` composes the two and `scripts/db-seed.ts` runs it with the production `appCtx`, closing the pool afterwards; `db:seed` keeps the local `:5433` default but an exported `DATABASE_URL` wins, so the e2e runner can seed its own database.
+- **Deviation — the legacy `users`-exists gate is dropped.** The legacy seed wrote the ads only when `select id from users limit 5` returned a row (`seed.ts:146-152`). The demo rows reference no user, and reading identity's table here would be an undeclared foreign read (R3 `FOREIGN_READS` has no `sponsored.users` entry, and the registry is not this task's to edit), so a fresh dev database now gets the inventory without waiting for a registration. Nothing reads the rows back per user.
+- **Deviation — the counters are derived, not random.** Legacy drew `impressions`/`clicks` with `Math.random()` (`seed.ts:203-204`); R5 bans the global generator outside kernel/app, so the same `sha256` seeded draw the month rules use (`sponsoredSeededDraw(sha256Hex('sponsored-demo-ad:<n>'))`) yields one stable, testable set inside the legacy bounds (`10 + floor(r*100)`, `floor(r*10)`). Pinned by `src/lib/app/app.devSeed.db.test.ts` with the exact legacy rows (93/5, 28/8, 91/8, 34/9, 69/7) and the `(i - 2)`-week/30-day schedule around `ctx.clock`.
 
 ### S9 as built
 
@@ -226,21 +239,12 @@ Golden rows changed in `sponsored.http.db.test.ts` (only these): "serves the req
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# sponsored: 0% ported
+# sponsored: 100% ported
 
-legacy source files left (4/4, 513 LOC):
-  - src/lib/server/db/actions/adEvents.ts (39 LOC, server) importers: 1
-  - src/lib/server/services/adConsentService.ts (65 LOC, server) importers: 2
-  - src/lib/server/services/adService.ts (335 LOC, server) importers: 2
-  - src/lib/server/services/blobService.ts (74 LOC, server) importers: 1
+legacy source files left (0/4, 0 LOC):
 
-route files not yet wiring-only (1/1):
-  - src/routes/api/sponsored-events/+server.ts  /api/sponsored-events
+route files not yet wiring-only (0/1):
 
-legacy test files left (4/4) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/server/db/actions/adEvents.prune.test.ts [stub-db, 4 tests]
-  - src/lib/server/services/adConsentService.test.ts [stub-db, 12 tests]
-  - src/lib/server/services/adService.test.ts [stub-db, 13 tests]
-  - src/routes/api/sponsored-events/server.test.ts [route, 3 tests]
+legacy test files left (0/4) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

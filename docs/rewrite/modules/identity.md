@@ -104,7 +104,8 @@ New files, all under `src/lib/domains/identity/` (S3–S6 unless marked S7). Rol
 |---|---|---|
 | `identity.contract.ts` | contract | zod for the seven endpoint bodies/params and the response shapes (token row/mint, profile echo, revoke count, settings view + consent trail), with the legacy messages as schema messages. **S3:** no person response schema — no identity `/api` route answers a person (the `/api/me` shell is account's); `PersonView` arrives with `getPerson` at S5. The PATCH body is `z.unknown()` lifted through `calendarSettingsPatch`, so precedence stays legacy's. |
 | `identity.settings.rules.ts` | rules | `ACCOUNT_SETTINGS_DEFAULTS`, the PATCH allowlist, week-start/view/colour vocabularies, merge-over-stored, the default-calendar decision. **S3:** plus `isLuxonTimeZone` (kernel `isValidZone` is IANA-only, so it cannot carry today's pseudo-zones until Q-107), `calendarSettingsView` (strips `verseTranslation`) and `writableSettings` (the #168 write allowlist, legacy's eleven fields). |
-| `identity.person.rules.ts` | rules | `isAnonymousAccount`, `isRegisteredAccount`, `guestSafeEmail`, `displayName`, `profilePatch` (privilege drop), `touchDue(lastActiveAt, now)`, `zoneFromStored`. **S3:** `maskEmail` renamed `guestSafeEmail` (family's search rules export a different `maskEmail(email)`; R11 needs unique names); plus `anonymousPersonValues(id)` + `SIGN_UP_TIME_ZONE`, the guest row `createAnonymousAccount` writes. |
+| `identity.person.rules.ts` | rules | `isAnonymousAccount`, `isRegisteredAccount`, `guestSafeEmail`, `displayName`, `profilePatch` (privilege drop), `touchDue(lastActiveAt, now)`. **S3:** `maskEmail` renamed `guestSafeEmail` (family's search rules export a different `maskEmail(email)`; R11 needs unique names); plus `anonymousPersonValues(id)` + `SIGN_UP_TIME_ZONE`, the guest row `createAnonymousAccount` writes. |
+| `identity.zone.rules.ts` | rules | `zoneFromStored` — the stored-zone resolution and the module's one Luxon use; split out of the person rules at S7 so the browser chrome (shell profile menu, marketing header) never ships Luxon (ADR 0010). Q-107 stays: reading a stored zone is permissive (`local`/`UTC+5` keep resolving); only the PATCH validator narrowed. |
 | `identity.session.rules.ts` | rules | lifetime/update constants, cookie attribute policy, `isSessionExpired`, `sessionRenewalDue`. **S3:** plus `sessionExpiresAt`, the raw signed value and its shape split (`signedSessionCookieValue`, `splitSignedSessionCookie`), `sessionSetCookieHeader` (the `serialize()` the JSON sign-ins use) and `resolveSessionSecret` (production fails closed). HMAC + `timingSafeEqual` stay in the S5 service (node:crypto). |
 | `identity.token.rules.ts` | rules | `fp_` format guard, `apiTokenName` (trim + 60 cap); hashing stays kernel `sha256Hex`. **S3:** plus `apiTokenPlaintext(randomBytes)` (`fp_` + unpadded base64url); the service draws the 32 bytes. |
 | `identity.code.rules.ts` | rules | code TTL, type vocabulary and the `(hash, email, type)` lookup key. |
@@ -135,11 +136,17 @@ Where the legacy exports go:
 - `src/lib/server/db/actions/accounts.ts` → accounts repo; dead `getAccounts`/`updateAccount`/`deleteAccount` die (`getAccount` becomes `findAccountBinding` with a real `| undefined`).
 - `src/lib/utils/anonymous.ts` → `identity.person.rules.ts` (one predicate for everyone).
 - `src/lib/server/utils/password.ts` → credentials service (bcrypt cost 10 stays).
-- `src/lib/server/utils/userTimezone.ts` → `zoneFromStored` rule + `getTimeZone` service.
+- `src/lib/server/utils/userTimezone.ts` → `zoneFromStored` rule (`identity.zone.rules.ts`) + `getTimeZone` service.
 
 Cross-module ports (the R8-legal seam): identity declares `CalendarAccessPort` and `AdConsentPort` — with `IdentityPorts` and `IdentityCtx = Ctx & IdentityPorts` — in `index.server.ts` (declared at S3; the family precedent); `calendar` and `sponsored` implement them; a small kernel/app change (not this module's files) adds `ctx.calendarAccess` / `ctx.adConsent` to `Ctx`, `testCtx` fakes and the `appCtx.server.ts` wiring per [add-a-port.md](../../rewrite/playbooks/add-a-port.md). Routes stay `export const PATCH = patchSettingsEndpoint.handler`; no route or endpoint composes a port.
 
 ## Notes
+
+### S8 sweep (2026-11-21)
+
+Deleted, every importer rewired: `server/auth.ts`, `server/db/actions/{accounts,users,apiTokens,codes}.ts`, `server/utils/password.ts`, `server/utils/createNewUser.ts` and `utils/anonymous.ts`. `src/app.d.ts` now types `Locals.user`/`Locals.session` from this module + the kernel tables; `identity.person.rules`' `ANONYMOUS_EMAIL_DOMAIN` is on `index.ts` and `e2e/pages/{seeds,session}.ts` + the legacy `NavbarProfileMenu` import it. Kept with their importers: `server/db/actions/userSettings.ts` (legacy service layer: adService/printData/userTimezone/event detail) and `server/utils/userTimezone.ts` (cursor/adService/icsImportFlow/printData).
+
+Final sweep (2026-11-21): those importers all went with their own modules, so `server/db/actions/userSettings.ts` and `server/utils/userTimezone.ts` were deleted with no importer left — this module's `identity.settings.service.server.ts` owns the settings read/write (the `#168` writable-field allowlist lives in its contract) and `identity.zone.rules.ts`'s `zoneFromStored` owns the zone validation (census: 0 legacy files). The marketing header keeps importing `isRegisteredAccount` from `index.ts` (#242).
 
 **S1**
 
@@ -207,18 +214,9 @@ Cross-module ports (the R8-legal seam): identity declares `CalendarAccessPort` a
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# identity: 59% ported
+# identity: 100% ported
 
-legacy source files left (9/9, 735 LOC):
-  - src/lib/server/auth.ts (241 LOC, server) importers: 15
-  - src/lib/server/db/actions/accounts.ts (35 LOC, server) importers: 7
-  - src/lib/server/db/actions/apiTokens.ts (92 LOC, server) importers: 6
-  - src/lib/server/db/actions/codes.ts (83 LOC, server) importers: 14
-  - src/lib/server/db/actions/userSettings.ts (54 LOC, server) importers: 19
-  - src/lib/server/db/actions/users.ts (166 LOC, server) importers: 22
-  - src/lib/server/utils/password.ts (12 LOC, server) importers: 7
-  - src/lib/server/utils/userTimezone.ts (24 LOC, server) importers: 16
-  - src/lib/utils/anonymous.ts (28 LOC, model) importers: 22
+legacy source files left (0/9, 0 LOC):
 
 route files not yet wiring-only (0/6):
 

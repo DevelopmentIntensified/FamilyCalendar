@@ -28,11 +28,13 @@ import { isAppError } from '$lib/kernel/errors/appError';
 import { created, endpoint, ok, reply, type Endpoint } from '$lib/kernel/http/endpoint.server';
 import {
 	CALENDAR_COPY,
-	type CalendarEventCreateBody,
+	CalendarEventCreateBody,
+	CalendarEventParams,
+	CalendarEventRangeQuery,
+	CalendarEventUpdateBody,
+	CalendarRsvpBody,
 	type CalendarEventDeleteBody,
-	type CalendarEventRowWire,
-	type CalendarEventUpdateBody,
-	type CalendarRsvpBody
+	type CalendarEventRowWire
 } from './calendar.contract';
 import {
 	createEvent,
@@ -69,8 +71,9 @@ export async function rejectUnparseableCalendarBody(request: Request): Promise<v
  */
 export const listEventsEndpoint = endpoint({
 	auth: 'user',
-	handle: async ({ ctx, actor, event }) => {
-		const range = resolveEventRange(event.url.searchParams);
+	query: CalendarEventRangeQuery,
+	handle: async ({ ctx, actor, query }) => {
+		const range = resolveEventRange(query);
 		if ('error' in range) return reply(400, { error: range.error });
 		return ok(await listEventsInWindow(ctx, actor, range));
 	}
@@ -79,14 +82,10 @@ export const listEventsEndpoint = endpoint({
 /** `POST /api/events`: 201 `{success, event}` or the route's 500. */
 const createEventHandler = endpoint({
 	auth: 'user',
+	body: CalendarEventCreateBody,
 	failMessage: CALENDAR_COPY.failedToCreate,
-	handle: async ({ ctx, actor, event }) => {
-		// SAFETY: the legacy writer handed the parsed object straight on, so a
-		// missing `title` is the DATABASE's refusal and the golden pins a 500.
-		// The contract type is the seam here, not a runtime schema.
-		const body = (await event.request.json()) as CalendarEventCreateBody;
-		return created({ success: true, event: eventWire(await createEvent(ctx, actor, body)) });
-	}
+	handle: async ({ ctx, actor, body }) =>
+		created({ success: true, event: eventWire(await createEvent(ctx, actor, body)) })
 });
 
 /** `POST /api/events`, with legacy's unguarded body read in front of the boundary. */
@@ -104,12 +103,11 @@ export const createEventEndpoint: Endpoint = {
  */
 const updateEventHandler = endpoint({
 	auth: 'user',
+	params: CalendarEventParams,
+	body: CalendarEventUpdateBody,
 	failMessage: CALENDAR_COPY.failedToUpdate,
-	handle: async ({ ctx, actor, event }) => {
-		// SAFETY: as on create — the service owns every refusal and lets the
-		// database refuse a `title: null` (the golden pins that 500).
-		const body = (await event.request.json()) as CalendarEventUpdateBody;
-		const result = await updateEvent(ctx, actor, event.params.id ?? '', body);
+	handle: async ({ ctx, actor, params, body }) => {
+		const result = await updateEvent(ctx, actor, params.id, body);
 		if (result.kind === 'series-note') {
 			return ok({ success: true, note: CALENDAR_COPY.seriesNote });
 		}
@@ -129,12 +127,15 @@ export const updateEventEndpoint: Endpoint = {
 /** `DELETE /api/events/[id]`: always `200 {success:true}`; the scope lives in the body. */
 export const deleteEventEndpoint = endpoint({
 	auth: 'user',
+	params: CalendarEventParams,
 	failMessage: CALENDAR_COPY.failedToDelete,
-	handle: async ({ ctx, actor, event }) => {
+	handle: async ({ ctx, actor, params, event }) => {
 		// SAFETY: legacy `await request.json().catch(() => ({}))` — an absent or
-		// unparseable body reads as `{}`, i.e. the whole series.
+		// unparseable body reads as `{}`, i.e. the whole series, and the golden
+		// pins `200` for junk. No `bodyMode` turns a malformed body into `{}`
+		// while a literal `null` still throws, so this read stays hand-rolled.
 		const body = (await event.request.json().catch(() => ({}))) as CalendarEventDeleteBody;
-		await deleteEvent(ctx, actor, event.params.id ?? '', body);
+		await deleteEvent(ctx, actor, params.id, body);
 		return ok({ success: true });
 	}
 });
@@ -144,32 +145,30 @@ export const deleteEventEndpoint = endpoint({
 /** `GET /api/events/[id]/rsvp`: attendance, the viewer's answer and the guests. */
 export const getEventRsvpEndpoint = endpoint({
 	auth: 'user',
+	params: CalendarEventParams,
 	failMessage: CALENDAR_COPY.failedToFetchAttendance,
-	handle: async ({ ctx, actor, event }) =>
-		ok(await getEventAttendance(ctx, actor, event.params.id ?? ''))
+	handle: async ({ ctx, actor, params }) =>
+		ok(await getEventAttendance(ctx, actor, params.id))
 });
 
 /** `POST .../rsvp` with a `status`: `{success, rsvpStatus, attendance}`. */
 const setEventRsvpHandler = endpoint({
 	auth: 'user',
+	params: CalendarEventParams,
+	body: CalendarRsvpBody,
 	failMessage: CALENDAR_COPY.failedToUpdateRsvp,
-	handle: async ({ ctx, actor, event }) => {
-		// SAFETY: the service validates `status` and owns the 400 copy; the
-		// schema would answer a different message for the same legacy leniency.
-		const body = (await event.request.json()) as CalendarRsvpBody;
-		return ok(await rsvpEvent(ctx, actor, event.params.id ?? '', body));
-	}
+	handle: async ({ ctx, actor, params, body }) =>
+		ok(await rsvpEvent(ctx, actor, params.id, body))
 });
 
 /** `POST .../rsvp` with a `guest`: `{success, attendance}` and its own 500 copy. */
 const inviteGuestHandler = endpoint({
 	auth: 'user',
+	params: CalendarEventParams,
+	body: CalendarRsvpBody,
 	failMessage: CALENDAR_COPY.failedToInviteGuest,
-	handle: async ({ ctx, actor, event }) => {
-		// SAFETY: as above — the service reads and validates `guest`.
-		const body = (await event.request.json()) as CalendarRsvpBody;
-		return ok(await inviteEventGuest(ctx, actor, event.params.id ?? '', body));
-	}
+	handle: async ({ ctx, actor, params, body }) =>
+		ok(await inviteEventGuest(ctx, actor, params.id, body))
 });
 
 /**
@@ -181,6 +180,10 @@ const inviteGuestHandler = endpoint({
 export const setEventRsvpEndpoint: Endpoint = {
 	auth: 'user',
 	handler: async (event) => {
+		// SAFETY: this read is the strut that reproduces legacy's uncaught throw
+		// (malformed and empty bodies reject before the handler's `try`), not the
+		// input boundary — the chosen handler schema-parses the body. A `body`
+		// schema here would answer 400 where legacy threw.
 		const body = (await event.request.clone().json()) as CalendarRsvpBody;
 		return body.guest !== undefined
 			? inviteGuestHandler.handler(event)
@@ -206,10 +209,11 @@ function icsHeaders(filename: string): HeadersInit {
  */
 export const exportEventIcsEndpoint = endpoint({
 	auth: 'optional',
-	handle: async ({ ctx, actor, event }) => {
+	params: CalendarEventParams,
+	handle: async ({ ctx, actor, params, event }) => {
 		if (!actor) return new Response(CALENDAR_COPY.unauthorized, { status: 401 });
 		try {
-			const file = await exportEventIcs(ctx, actor, { id: event.params.id ?? '' });
+			const file = await exportEventIcs(ctx, actor, { id: params.id });
 			return new Response(file.body, { status: 200, headers: icsHeaders(file.filename) });
 		} catch (error) {
 			if (isAppError(error)) return new Response(error.message, { status: error.status });

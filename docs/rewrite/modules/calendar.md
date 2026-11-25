@@ -11,15 +11,15 @@ Calendars, Events, Recurring Event expansion, Exception Overrides, family mirror
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
-- [ ] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S3 contract + rules
+- [x] S4 repo (+ fixtures)
 - [x] S5 service
 - [x] S6 http + route wiring (goldens unchanged since S2)
 - [x] S7 UI rebuild (rules, api, state, components, screen) + visual check
 - [x] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -328,9 +328,23 @@ Two more gaps are pinned as today's behaviour, not as intent (no owner ticket ye
 
 **S8 — deletions** (nothing unported imported them; verified with `git grep` before deleting): `src/lib/server/services/eventRange.ts`(+`.test.ts`), `eventRecurrence.ts`(+`.test.ts`), `icsImportApi.ts`, `bulkAiService.ts`(+`.test.ts`), `bulkApplyService.ts`, `src/lib/server/utils/eventInvites.ts`(+`.test.ts`), and the dead `src/lib/components/calendar/__diag2.svelte.test.ts`.
 
-**Kept for unported importers** (legacy screens/components still import them; they die with those screens at S8 of `calendarPage`): `src/lib/server/services/calendarData.ts`, `eventDisplayService.ts`, `eventsChangedNudge.ts`, `icsImportFlow.ts`, `icsImportPreview.ts`, `icsImportService.ts`; `src/lib/server/db/actions/calendar.ts`, `calendarScope.ts`, `events.ts`; `src/lib/server/utils/eventIds.ts`; `src/lib/utils/ics.ts`, `attendance.ts`, `eventDuplicate.ts`, `actionError.ts`, `eventDisplay.ts`, `eventChip.ts`, `chipVocabulary.ts`, `eventRoster.ts`, `eventMove.ts`, `rangeSelect.ts`, `bulkPlan.ts`, `calendarMatch.ts`, `shareTarget.ts`, `dayOverlap.ts`; and the legacy `src/lib/components/calendar/**` + their tests.
+**S8 sweep (pages + legacy delete).** The three calendar-owned pages were still legacy fat route files; they are now ported and wired:
+
+- `/calendar/event/[id]` — load `calendarEventDetailPage` (`pageLoad`, `auth: 'user'`, one `getEventForViewer` call; the service's 404 `Event not found` / 403 `No access to this event` become the page's own statuses, and the layout's zone rides along). UI `ui/CalendarEventDetailScreen.svelte`; the RSVP paint/clear/rollback and the single-flight DELETE are `CalendarEventModalState`'s, so the page and the event sheet have one writer. The legacy page action `?/deleteEvent` is gone: deletion goes through `DELETE /api/events/{id}` and then `/calendar`.
+- `/calendar/import` — load `calendarImportPage` (`auth: 'optional'`, empty calendar list when signed out, the legacy behaviour); UI `ui/CalendarImportScreen.svelte` with the new `CalendarImportState` (files read as base64 through an injected reader, preview, duplicate-aware ticks, commit, undo). The page's three SvelteKit form actions (`?/preview|commit|undo`) were replaced by the same three steps over `/api/import/*` through `calendar.api.ts`; nothing changed on the wire.
+- `/calendar/print` — load `calendarPrintPage` (`getPrintMonth`, the same read `/api/print` serves); UI `ui/CalendarPrintScreen.svelte` (fridge sheet, prev/next, `?auto=1` print). The "Jump to now" link now targets `/calendar/print` with no params instead of a client-read `new Date()` — the loader resolves the viewer's current month the same way, and R5 forbids the ambient clock.
+
+Deleted with the pages (legacy tests included): the whole legacy `src/lib/components/calendar/**` cluster (26 components/models + `MODALS_SPEC.md`, `BottomSheetHandle.svelte`, `bottomSheetSwipe.ts` — all folded into kernel `Sheet`/`sheetSwipe` or rebuilt as `ui/*`), `src/lib/components/LocationSearch.svelte`, `src/lib/data/smartEventTemplates.ts` (its table lives in tasks' `tasks.smart.rules.ts`), the legacy model/server chain `server/services/{calendarData,eventDisplayService,printData,icsImportFlow,icsImportPreview,icsImportService,eventsChangedNudge}.ts`, `server/db/actions/{events,calendarScope}.ts`, `server/utils/eventIds.ts`, `utils/{ics,attendance,chipVocabulary,eventChip,eventDisplay,eventDuplicate,eventRoster,calendarMatch,dayOverlap,shareTarget}.ts`, `lib/types.ts`, and the import page's two legacy route tests.
+
+**Kept for code outside this sweep** (census names them; each still has a live importer): `src/lib/server/services/archiveData.ts` and `src/lib/components/archive/archiveMonths.ts` (the unported `/calendar/archive` page and `GET /api/archive`); `src/lib/server/db/actions/calendar.ts` (access' legacy `guestMergeService.ts` still imports `ensurePersonalCalendar`); `src/lib/server/services/recurrenceService.ts` and `src/lib/server/utils/eventTimes.ts` (tasks' legacy `db/actions/tasks/cursor.ts` imports `scheduleStep`/`toDateTime`; both die with that file in tasks' sweep). No behaviour is lost: every export they serve has a v2 home already.
+
+**Final sweep (2026-11-21).** Those importers are gone, so the three kept files went too: `server/db/actions/calendar.ts` (+ `calendar.test.ts`), `server/services/recurrenceService.ts` (+ `recurrenceService.test.ts`) and `server/utils/eventTimes.ts`, all with no importer left (verified with `git grep`). Their rules live in this module's `calendar.recurrence.rules.ts`/`calendar.occurrence.rules.ts`/`calendar.time.rules.ts` and the repo/services, pinned by the module's own tests and goldens; census reports 0 legacy files for calendar.
 
 **S9 — left to the orchestrator:** the README is final (Files table, Invariants, this section) and both allowed checks print OK; `npm run census -- --write`, `npm run gate:push`, the visual/perf checks and the ledger row need npm, which this agent may not run.
+
+**Initial-JS round 2 (ADR 0010):** `/calendar/event/[id]` paints from the page payload alone (facts, attendee rows, RSVP counts) and imports `CalendarEventModalState` (the RSVP/delete writer) on the first hover or focus of an RSVP button or on delete, so the writer and its rules stay out of first paint. The group chrome's bell panel and menus are lazy too (alerts.md, shell.md), which is most of what the three calendar pages' ceilings needed.
+
+**Initial-JS final gate (ADR 0010):** `/calendar/event/[id]` imports its printed day and attendance buckets from `calendar.eventDay.rules.ts` (re-exported by `calendar.eventView.rules.ts`, so no other caller moved) instead of the whole detail-region rules module: the page's `static + err` closure went from 115.2 to 113.3 KB (PROD build, ceiling +2% 113.8) because a Rollup chunk carries every used export of a shared module.
 
 
 
@@ -339,156 +353,12 @@ Two more gaps are pinned as today's behaviour, not as intent (no owner ticket ye
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# calendar: 0% ported
+# calendar: 100% ported
 
-legacy source files left (60/60, 9953 LOC):
-  - src/lib/components/LocationSearch.svelte (273 LOC, ui) importers: 2
-  - src/lib/components/archive/archiveMonths.ts (144 LOC, model) importers: 1
-  - src/lib/components/calendar/AttendanceBadge.svelte (33 LOC, ui) importers: 10
-  - src/lib/components/calendar/AttendantPicker.svelte (227 LOC, ui) importers: 2
-  - src/lib/components/calendar/ChipKindMark.svelte (64 LOC, ui) importers: 10
-  - src/lib/components/calendar/CreatorBadge.svelte (19 LOC, ui) importers: 8
-  - src/lib/components/calendar/EventActionBar.svelte (87 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventAttendeeGroups.svelte (316 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventDateTimeFields.svelte (133 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventDeleteConfirm.svelte (69 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventDetailList.svelte (167 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventExportMenu.svelte (102 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventFormModal.svelte (759 LOC, ui) importers: 2
-      NOTE: Calendar keeps the event form. Task mode (taskSubmit, TaskQuickAddHelp, EventTaskFields, ChecklistSection) moves to the calendarPage screen as a wrapper that composes the event form with tasks' quick-add.
-  - src/lib/components/calendar/EventFormModel.svelte.ts (732 LOC, client) importers: 7
-  - src/lib/components/calendar/EventGuestNote.svelte (34 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventMetaFields.svelte (139 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventModal.svelte (443 LOC, ui) importers: 5
-      NOTE: Drop the direct ChecklistSection import: give EventModal a `checklist?: Snippet` prop; screens pass tasks' checklist component.
-  - src/lib/components/calendar/EventModalBar.svelte (176 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventModalHeader.svelte (62 LOC, ui) importers: 1
-      NOTE: Recurrence label (freqNoun) becomes calendar rule `describeRecurrence`; tasks imports it from calendar (dedupes taskDisplay.freqNoun, taskFeedback copy, TaskQuickAddPreview FREQ_NOUN).
-  - src/lib/components/calendar/EventModalShell.svelte (82 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventQuickAdd.svelte (137 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventRecurrenceCard.svelte (144 LOC, ui) importers: 1
-      NOTE: Same as EventModalHeader: use calendar's `describeRecurrence`, not tasks' taskDisplay.
-  - src/lib/components/calendar/EventRecurrenceFields.svelte (101 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventRsvpList.svelte (63 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventRsvpRow.svelte (165 LOC, ui) importers: 1
-  - src/lib/components/calendar/EventTitleFields.svelte (58 LOC, ui) importers: 1
-  - src/lib/components/calendar/MODALS_SPEC.md (250 LOC, ui) importers: 0
-  - src/lib/data/smartEventTemplates.ts (277 LOC, model) importers: 1
-  - src/lib/server/db/actions/calendar.ts (91 LOC, server) importers: 9
-  - src/lib/server/db/actions/calendarScope.ts (80 LOC, server) importers: 11
-  - src/lib/server/db/actions/events.ts (508 LOC, server) importers: 10
-      NOTE: SPLIT: normalizeInvites/shiftException -> calendar rules; queries -> calendar repo; createEvent/updateEventById/deleteEventInScope/upsertException orchestration + access checks -> calendar service.
-  - src/lib/server/services/archiveData.ts (138 LOC, server) importers: 2
-  - src/lib/server/services/bulkAiService.ts (392 LOC, server) importers: 2
-  - src/lib/server/services/bulkApplyService.ts (90 LOC, server) importers: 1
-  - src/lib/server/services/eventDisplayService.ts (176 LOC, server) importers: 5
-  - src/lib/server/services/eventRange.ts (80 LOC, model) importers: 1
-  - src/lib/server/services/eventRecurrence.ts (91 LOC, model) importers: 2
-  - src/lib/server/services/eventsChangedNudge.ts (75 LOC, server) importers: 5
-  - src/lib/server/services/icsImportApi.ts (58 LOC, server) importers: 3
-  - src/lib/server/services/icsImportFlow.ts (414 LOC, server) importers: 6
-  - src/lib/server/services/icsImportPreview.ts (449 LOC, model) importers: 1
-  - src/lib/server/services/icsImportService.ts (278 LOC, model) importers: 2
-  - src/lib/server/services/printData.ts (167 LOC, server) importers: 2
-  - src/lib/server/services/recurrenceService.ts (280 LOC, model) importers: 3
-  - src/lib/server/utils/eventIds.ts (65 LOC, model) importers: 4
-  - src/lib/server/utils/eventInvites.ts (83 LOC, server) importers: 2
-  - src/lib/server/utils/eventTimes.ts (20 LOC, model) importers: 6
-  - src/lib/types.ts (69 LOC, model) importers: 29
-  - src/lib/utils/attendance.ts (91 LOC, model) importers: 1
-  - src/lib/utils/bulkPlan.ts (64 LOC, model) importers: 1
-  - src/lib/utils/calendarMatch.ts (25 LOC, model) importers: 1
-  - src/lib/utils/chipVocabulary.ts (276 LOC, model) importers: 12
-  - src/lib/utils/dayOverlap.ts (55 LOC, model) importers: 1
-  - src/lib/utils/eventChip.ts (78 LOC, model) importers: 13
-  - src/lib/utils/eventDisplay.ts (75 LOC, model) importers: 3
-  - src/lib/utils/eventDuplicate.ts (69 LOC, model) importers: 1
-  - src/lib/utils/eventMove.ts (105 LOC, model) importers: 5
-  - src/lib/utils/eventRoster.ts (30 LOC, model) importers: 8
-  - src/lib/utils/ics.ts (197 LOC, model) importers: 3
-  - src/lib/utils/shareTarget.ts (28 LOC, model) importers: 1
+legacy source files left (0/60, 0 LOC):
 
-route files not yet wiring-only (18/18):
-  - src/routes/(calendar)/calendar/event/[id]/+page.server.ts  /calendar/event/[id]
-      NOTE: Raw select + duplicated visibility rule -> calendar service getEventForViewer.
-  - src/routes/(calendar)/calendar/event/[id]/+page.svelte  /calendar/event/[id]
-      NOTE: Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines.
-  - src/routes/(calendar)/calendar/import/+page.server.ts  /calendar/import
-  - src/routes/(calendar)/calendar/import/+page.svelte  /calendar/import
-      NOTE: Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines.
-  - src/routes/(calendar)/calendar/print/+page.server.ts  /calendar/print
-  - src/routes/(calendar)/calendar/print/+page.svelte  /calendar/print
-  - src/routes/api/calendars/+server.ts  /api/calendars
-  - src/routes/api/events/+server.ts  /api/events
-      NOTE: Inline SELECT + db.transaction + family mirror -> calendar service createEvent / listEventsInWindow.
-  - src/routes/api/events/[id]/+server.ts  /api/events/[id]
-  - src/routes/api/events/[id]/ics/+server.ts  /api/events/[id]/ics
-  - src/routes/api/events/[id]/rsvp/+server.ts  /api/events/[id]/rsvp
-  - src/routes/api/events/bulk/+server.ts  /api/events/bulk
-      NOTE: Inline attendance-merge transaction + per-item loop -> calendar service bulk operations.
-  - src/routes/api/import/+server.ts  /api/import
-  - src/routes/api/import/commit/+server.ts  /api/import/commit
-  - src/routes/api/import/preview/+server.ts  /api/import/preview
-  - src/routes/api/import/undo/+server.ts  /api/import/undo
-  - src/routes/api/location-search/+server.ts  /api/location-search
-  - src/routes/api/print/+server.ts  /api/print
+route files not yet wiring-only (0/18):
 
-legacy test files left (56/56) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/components/LocationSearch.svelte.test.ts [component, 1 tests]
-  - src/lib/components/archive/archiveMonths.test.ts [pure, 11 tests]
-  - src/lib/components/calendar/EventActionBar.svelte.test.ts [component, 4 tests]
-  - src/lib/components/calendar/EventAttendeeGroups.svelte.test.ts [component, 16 tests]
-  - src/lib/components/calendar/EventDateTimeFields.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/EventDeleteConfirm.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/EventDetailList.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/EventExportMenu.svelte.test.ts [component, 3 tests]
-  - src/lib/components/calendar/EventFormModal.svelte.test.ts [component, 56 tests]
-  - src/lib/components/calendar/EventFormModel.svelte.test.ts [component, 32 tests]
-  - src/lib/components/calendar/EventGuestNote.svelte.test.ts [component, 3 tests]
-  - src/lib/components/calendar/EventMetaFields.svelte.test.ts [component, 3 tests]
-  - src/lib/components/calendar/EventModal.svelte.test.ts [component, 38 tests]
-  - src/lib/components/calendar/EventModalBar.svelte.test.ts [component, 4 tests]
-  - src/lib/components/calendar/EventModalHeader.svelte.test.ts [component, 3 tests]
-  - src/lib/components/calendar/EventModalShell.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/EventQuickAdd.svelte.test.ts [component, 4 tests]
-  - src/lib/components/calendar/EventRecurrenceCard.svelte.test.ts [component, 11 tests]
-  - src/lib/components/calendar/EventRecurrenceFields.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/EventRsvpList.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/EventRsvpRow.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/EventTitleFields.svelte.test.ts [component, 3 tests]
-  - src/lib/components/calendar/__diag2.svelte.test.ts [dead, 1 tests]
-  - src/lib/server/db/actions/calendar.test.ts [stub-db, 4 tests]
-  - src/lib/server/db/actions/calendarScope.test.ts [stub-db, 15 tests]
-  - src/lib/server/db/actions/events.creatorNames.test.ts [stub-db, 3 tests]
-  - src/lib/server/db/actions/events.test.ts [stub-db, 19 tests]
-  - src/lib/server/services/bulkAiService.test.ts [mocked, 51 tests]
-  - src/lib/server/services/eventDisplayService.creators.test.ts [mocked, 4 tests]
-  - src/lib/server/services/eventDisplayService.test.ts [mocked, 5 tests]
-  - src/lib/server/services/eventRange.test.ts [pure, 9 tests]
-  - src/lib/server/services/eventRecurrence.test.ts [pure, 3 tests]
-  - src/lib/server/services/eventsChangedNudge.test.ts [pure, 4 tests]
-  - src/lib/server/services/icsImportPreview.test.ts [pure, 35 tests]
-  - src/lib/server/services/icsImportService.test.ts [pure, 18 tests]
-  - src/lib/server/services/recurrenceService.test.ts [pure, 22 tests]
-  - src/lib/server/utils/eventIds.test.ts [pure, 15 tests]
-  - src/lib/server/utils/eventInvites.test.ts [mocked, 11 tests]
-  - src/lib/utils/attendance.test.ts [pure, 5 tests]
-  - src/lib/utils/bulkPlan.test.ts [pure, 4 tests]
-  - src/lib/utils/calendarMatch.test.ts [pure, 3 tests]
-  - src/lib/utils/chipVocabulary.test.ts [pure, 18 tests]
-  - src/lib/utils/dayOverlap.test.ts [pure, 7 tests]
-  - src/lib/utils/eventDisplay.test.ts [pure, 10 tests]
-  - src/lib/utils/eventDuplicate.test.ts [pure, 2 tests]
-  - src/lib/utils/eventMove.test.ts [pure, 11 tests]
-  - src/lib/utils/ics.test.ts [pure, 15 tests]
-  - src/lib/utils/shareTarget.test.ts [pure, 8 tests]
-  - src/routes/(calendar)/calendar/import/page.server.test.ts [route, 37 tests]
-  - src/routes/(calendar)/calendar/import/page.svelte.test.ts [component, 29 tests]
-  - src/routes/api/calendars/server.test.ts [route, 5 tests]
-  - src/routes/api/events/[id]/server.test.ts [route, 10 tests]
-  - src/routes/api/events/nudge.test.ts [route, 10 tests]
-  - src/routes/api/events/server.test.ts [route, 11 tests]
-  - src/routes/api/import/server.test.ts [route, 4 tests]
-  - src/routes/api/print/server.test.ts [route, 3 tests]
+legacy test files left (0/56) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

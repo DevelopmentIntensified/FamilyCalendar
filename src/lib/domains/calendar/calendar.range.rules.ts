@@ -38,11 +38,15 @@ function parseDay(day: string): Date | null {
 /**
  * The window a ranged read will serve, or the reason there isn't one. Bounded,
  * ordered and both ends required: a half-open range would silently widen to
- * "everything" the moment the caller asked for the wrong end.
+ * "everything" the moment the caller asked for the wrong end. `from`/`to` are
+ * the query's own values (`searchParams.get` semantics: absent is undefined).
  */
-export function resolveEventRange(search: URLSearchParams): EventRangeResult {
-	const from = search.get('from');
-	const to = search.get('to');
+export function resolveEventRange(query: {
+	readonly from?: string | null;
+	readonly to?: string | null;
+}): EventRangeResult {
+	const from = query.from;
+	const to = query.to;
 	if (!from || !to) return BAD_RANGE;
 
 	const start = parseDay(from);

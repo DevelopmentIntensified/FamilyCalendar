@@ -12,7 +12,9 @@ import {
 	CHANGELOG_ENTRIES,
 	MARKETING_NAV,
 	ROADMAP_SECTIONS,
+	changelogDateLabel,
 	changelogNewestFirst,
+	marketingActiveHref,
 	type ChangelogEntry
 } from './marketing.content.rules';
 
@@ -24,6 +26,29 @@ describe('MARKETING_NAV', () => {
 			{ href: '/about', label: 'About' },
 			{ href: '/contact', label: 'Contact' }
 		]);
+	});
+});
+
+describe('marketingActiveHref', () => {
+	it.each<[string, string | null]>([
+		['/pricing', '/pricing'],
+		['/pricing/compare', '/pricing'],
+		['/features/', '/features'],
+		['/pricingfoo', null],
+		['/', null],
+		['', null]
+	])('%s → %s', (pathname, expected) => {
+		expect(marketingActiveHref(pathname, MARKETING_NAV)).toBe(expected);
+	});
+
+	it('longest prefix wins, and an href’s query half is ignored', () => {
+		const items = [
+			{ href: '/calendar?dashboardView=1', label: 'Calendar' },
+			{ href: '/calendar/tasks', label: 'Tasks' }
+		];
+		expect(marketingActiveHref('/calendar', items)).toBe('/calendar?dashboardView=1');
+		expect(marketingActiveHref('/calendar/tasks/1', items)).toBe('/calendar/tasks');
+		expect(marketingActiveHref('/calendar/archive', items)).toBe('/calendar?dashboardView=1');
 	});
 });
 
@@ -84,7 +109,8 @@ describe('the changelog', () => {
 		'%s "%s" is a real calendar day',
 		(date) => {
 			expect(date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-			expect(formatLongDate(date, 'UTC')).not.toBe('');
+			expect(changelogDateLabel(date)).toBe(formatLongDate(date, 'UTC'));
+			expect(changelogDateLabel(date)).not.toBe('');
 		}
 	);
 
@@ -94,8 +120,16 @@ describe('the changelog', () => {
 		{ date: '2026-12-31', printed: 'December 31, 2026' },
 		{ date: '2026-01-01', printed: 'January 1, 2026' }
 	])('prints $date as the en-US long date $printed', ({ date, printed }) => {
-		expect(formatLongDate(date, 'UTC')).toBe(printed);
+		expect(changelogDateLabel(date)).toBe(printed);
+		expect(changelogDateLabel(date)).toBe(formatLongDate(date, 'UTC'));
 	});
+
+	it.each(['', 'not-a-date', '2026-02-30', '2026-13-01', '2026-9-7', '2026-09-07T00:00:00Z'])(
+		'refuses %j: only a real YYYY-MM-DD day prints',
+		(date) => {
+			expect(changelogDateLabel(date)).toBe('');
+		}
+	);
 });
 
 describe('the roadmap', () => {

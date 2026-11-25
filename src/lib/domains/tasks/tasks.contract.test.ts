@@ -17,6 +17,7 @@ import {
 	FocusCommandBody,
 	FocusSessionEndBody,
 	FocusSessionStartBody,
+	FocusSessionsQuery,
 	TASK_CATEGORY_NAME_REQUIRED,
 	TASK_CATEGORY_NAME_TOO_LONG,
 	TASK_CATEGORY_NOT_STRING,
@@ -33,7 +34,9 @@ import {
 	TASK_TITLE_REQUIRED,
 	TaskCategoryNameBody,
 	TaskCreateBody,
+	TaskListQuery,
 	TaskListRowWire,
+	TaskRouteParams,
 	TaskUpdateBody
 } from './tasks.contract';
 
@@ -280,6 +283,27 @@ describe('focus session bodies', () => {
 		expect(firstMessage(FocusSessionEndBody, {})).toBe('endedAt is required');
 		expect(firstMessage(FocusSessionEndBody, { endedAt: 'nope' })).toBe('Invalid endedAt');
 		expect(firstMessage(FocusSessionEndBody, [])).toBe(FOCUS_INVALID_JSON);
+	});
+});
+
+describe('boundary inputs', () => {
+	it('reads ?eventId= as the optional filter, empty and absent both "no filter"', () => {
+		expect(TaskListQuery.parse({})).toEqual({ eventId: undefined });
+		expect(TaskListQuery.parse({ eventId: '' })).toEqual({ eventId: '' });
+		expect(TaskListQuery.parse({ eventId: 'evtoneoff01' })).toEqual({ eventId: 'evtoneoff01' });
+	});
+
+	it('accepts only ?unabsorbed=1, with the focus route copy for every other value', () => {
+		expect(FocusSessionsQuery.parse({ unabsorbed: '1' })).toEqual({ unabsorbed: '1' });
+		expect(firstMessage(FocusSessionsQuery, {})).toBe('Only ?unabsorbed=1 is supported');
+		expect(firstMessage(FocusSessionsQuery, { unabsorbed: '2' })).toBe(
+			'Only ?unabsorbed=1 is supported'
+		);
+	});
+
+	it('requires a path segment id', () => {
+		expect(TaskRouteParams.parse({ id: 'task-1' })).toEqual({ id: 'task-1' });
+		expect(TaskRouteParams.safeParse({}).success).toBe(false);
 	});
 });
 

@@ -23,7 +23,12 @@ const overlay = {
 	NOREPLYEMAIL: 'noreply@example.invalid',
 	RESEND_API_KEY: 're_local_build_placeholder',
 	ADAPTER: '',
-	NODE_OPTIONS: '--max-old-space-size=4096'
+	NODE_OPTIONS: '--max-old-space-size=4096',
+	// Vite honours an inherited NODE_ENV: a shell with NODE_ENV=development
+	// (agent and tool shells set it) builds DEV bundles — the Svelte dev runtime
+	// and Kit dev paths, +4–10 KB per page — so the pages perf check would judge
+	// a bundle production never ships. Pin production, like Vercel's build.
+	NODE_ENV: 'production'
 };
 
 console.log(`build:safe: overlay ${Object.keys(overlay).join(', ')}`);

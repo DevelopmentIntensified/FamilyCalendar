@@ -20,6 +20,7 @@
 import { redirect } from '@sveltejs/kit';
 import published from '$lib/fdroid/published.json';
 import { FREE_PLAN_LIMITS, isPlanType, planTypeOrDefault } from '$lib/domains/billing/index';
+import { toPublicUser } from '$lib/domains/identity/index';
 import { listFamilies } from '$lib/domains/family/index.server';
 import {
 	getCheckoutQuote,
@@ -27,9 +28,9 @@ import {
 	recordPlanView
 } from '$lib/domains/billing/index.server';
 import { endpoint, ok } from '$lib/kernel/http/endpoint.server';
-import { formAction, formFields, pageLoad } from '$lib/kernel/http/pageHandlers.server';
+import { formAction, pageLoad } from '$lib/kernel/http/pageHandlers.server';
 import { androidRelease } from './marketing.android.rules';
-import { CONTACT_API_FAULT_MESSAGE } from './marketing.contract';
+import { CheckoutPurchaseForm, CONTACT_API_FAULT_MESSAGE } from './marketing.contract';
 import {
 	CHECKOUT_INVALID_MESSAGE,
 	CHECKOUT_LOGIN_REDIRECT,
@@ -52,6 +53,10 @@ export const contactEndpoint = endpoint({
 	auth: 'public',
 	failMessage: CONTACT_API_FAULT_MESSAGE,
 	handle: async ({ ctx, actor, event }) => {
+		// SAFETY: form-encoded, and the budget is spent BEFORE the form is read
+		// (legacy order), so neither a spec `body` (JSON) nor one parsed ahead of
+		// `handle` fits. The service reads the form and parses it with
+		// `ContactApiBody`, whose refusals are the 400 copy the golden pins.
 		await sendContactMessage(ctx, actor, event.request);
 		return ok({ success: true });
 	}
@@ -61,8 +66,10 @@ export const contactEndpoint = endpoint({
  * The `(marketing)` layout load: the ORIGIN THE REQUEST ARRIVED ON (prod,
  * test.familyplanz.com and preview URLs all canonicalise to themselves — a
  * hardcoded domain would be worse than no canonical), plus the pathname, the
- * viewer the navbar needs, and the year the footer prints (from `ctx.clock`:
- * v2 code never reads the ambient clock, rule R5).
+ * viewer the navbar needs — whitelisted by identity's `toPublicUser`, never the
+ * session's whole `users` row (#324: `passwordHash`, `receiptIngestToken` and
+ * `phonenumber` must not ride page data) — and the year the footer prints (from
+ * `ctx.clock`: v2 code never reads the ambient clock, rule R5).
  */
 export const marketingLayoutLoad = pageLoad({
 	auth: 'public',
@@ -70,7 +77,7 @@ export const marketingLayoutLoad = pageLoad({
 		pathname: event.url.pathname,
 		origin: event.url.origin,
 		isLoggedIn: Boolean(event.locals.user),
-		user: event.locals.user,
+		user: toPublicUser(event.locals.user),
 		year: ctx.clock.now().getUTCFullYear()
 	})
 });
@@ -133,12 +140,12 @@ export const checkoutPageLoad = pageLoad({
  */
 export const checkoutPurchaseAction = formAction({
 	auth: 'optional',
-	handle: async ({ actor, event }) => {
+	form: CheckoutPurchaseForm,
+	handle: async ({ actor, form }) => {
 		if (!actor) return { success: false, error: CHECKOUT_NOT_AUTHENTICATED_MESSAGE };
 
-		const form = formFields(await event.request.formData());
 		const planType = isPlanType(form.planType) ? form.planType : null;
-		const finalPrice = Number(form.finalPrice ?? 0);
+		const finalPrice = Number(form.finalPrice || 0);
 		if (!planType || !finalPrice) return { success: false, error: CHECKOUT_INVALID_MESSAGE };
 
 		return { success: false, message: CHECKOUT_STUB_MESSAGE };

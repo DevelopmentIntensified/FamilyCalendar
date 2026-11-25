@@ -1,0 +1,188 @@
+import { describe, it, expect, afterEach } from 'vitest';
+import { render, screen, cleanup } from '@testing-library/svelte';
+import StatsScreen from './StatsScreen.svelte';
+import type { TaskStatsResponse } from '../tasks.contract';
+
+/**
+ * The approved stats prototype, line by line (legacy
+ * `(calendar)/calendar/stats/page.svelte.test.ts`, carried over whole): the
+ * streak hero, the monthly totals, the two assignment bars and the structure
+ * the prototype fixes.
+ */
+
+function makeData(): TaskStatsResponse {
+	return {
+		stats: {
+			completedOnce: 12,
+			recurringTasks: 3,
+			recurringCompletions: 41,
+			topAssigners: [{ name: 'Sarah Hopper', total: 9 }],
+			topAssignees: [
+				{ name: 'Jon', total: 14 },
+				{ name: 'Sarah', total: 9 },
+				{ name: 'Mia', total: 4 },
+				{ name: 'Eli', total: 3 }
+			],
+			recentlyCompleted: [
+				{ title: 'Take the bins out', completedAt: '2026-09-29T18:04:00.000Z', recurring: false },
+				{ title: 'Book the dentist', completedAt: '2026-09-28T18:04:00.000Z', recurring: true }
+			],
+			month: { completed: 23, recurring: 7 },
+			doneBy: [
+				{ name: 'Jon', count: 12 },
+				{ name: 'Sarah', count: 9 }
+			]
+		},
+		streak: { current: 6, best: 11, freezeUsedInCurrentGap: false, lastCompletedWeek: '2026-W40' },
+		completionIso: [
+			'2026-09-30T18:04:00.000Z',
+			'2026-09-28T18:04:00.000Z',
+			'2026-09-21T18:04:00.000Z'
+		],
+		todayIso: '2026-09-30T08:00:00.000Z',
+		month: { completed: 23, recurring: 7 },
+		doneBy: [
+			{ name: 'Jon', count: 12 },
+			{ name: 'Sarah', count: 9 }
+		],
+		roster: [
+			{ firstName: 'Jon', memberType: 'parent' },
+			{ firstName: 'Sarah', memberType: 'parent' },
+			{ firstName: 'Mia', memberType: 'child' },
+			{ firstName: 'Eli', memberType: 'child' }
+		]
+	};
+}
+
+describe('Task stats page — the streak hero', () => {
+	afterEach(cleanup);
+
+	it('states the streak as an eyebrow, a number and its unit', () => {
+		render(StatsScreen, { data: makeData() });
+		expect(screen.getByText('Current streak')).toBeTruthy();
+		expect(screen.getByTestId('streak-weeks').textContent).toContain('6');
+		expect(screen.getByText('weeks')).toBeTruthy();
+		expect(screen.getByText(/Best: 11 weeks/)).toBeTruthy();
+	});
+
+	it('draws the seven-square week grid the prototype shows', () => {
+		render(StatsScreen, { data: makeData() });
+		const cells = [...document.querySelectorAll('[data-testid="streak-week"]')];
+		expect(cells).toHaveLength(7);
+		expect(cells.map((cell) => cell.textContent?.trim())).toEqual([
+			'W1',
+			'W2',
+			'W3',
+			'W4',
+			'W5',
+			'W6',
+			'W7'
+		]);
+		// Three completions in two different weeks -> two lit squares:
+		// 2026-W40 (twice), 2026-W39.
+		const lit = cells.filter((cell) => cell.querySelector('i')?.className.includes('bg-mint-200'));
+		expect(lit).toHaveLength(2);
+	});
+
+	it('outlines the week that is still running', () => {
+		render(StatsScreen, { data: makeData() });
+		const current = [...document.querySelectorAll('[data-testid="streak-week"]')].at(-1);
+		expect(current?.querySelector('i')?.className).toContain('ring-2');
+	});
+
+	it('keeps the hero caption the prototype writes under it', () => {
+		render(StatsScreen, { data: makeData() });
+		expect(screen.getByText(/at least one task completed/i)).toBeTruthy();
+	});
+});
+
+describe('Task stats page — the monthly totals', () => {
+	afterEach(cleanup);
+
+	it('reads its two numbers from the month that is running', () => {
+		render(StatsScreen, { data: makeData() });
+		expect(screen.getByText('This month')).toBeTruthy();
+		expect(screen.getByText('September 2026')).toBeTruthy();
+		expect(screen.getByTestId('month-completed').textContent).toContain('23');
+		expect(screen.getByTestId('month-recurring').textContent).toContain('7');
+	});
+
+	it('no longer labels the all-time task totals as this month', () => {
+		render(StatsScreen, { data: makeData() });
+		// `stats.completedOnce` counts `tasks.completedAt`, which the recurring
+		// cursor overwrites; showing it under "This month" was the wrong number.
+		expect(screen.queryByText('Completed tasks')).toBeNull();
+		expect(screen.queryByText('Recurring check-offs')).toBeNull();
+	});
+});
+
+describe('Task stats page — the assignment bars', () => {
+	afterEach(cleanup);
+
+	it('names the two assignment charts the way the prototype names them', () => {
+		render(StatsScreen, { data: makeData() });
+		expect(screen.getByText('Tasks land on')).toBeTruthy();
+		expect(screen.getByText('Tasks come from')).toBeTruthy();
+	});
+
+	it('scales each bar against the largest count', () => {
+		render(StatsScreen, { data: makeData() });
+		const bars = [...document.querySelectorAll<HTMLElement>('[data-testid="bar-fill"]')];
+		const widths = bars.map((bar) => bar.style.width);
+		expect(widths).toContain('100%');
+		expect(widths).toContain('64%'); // 9 of 14
+	});
+});
+
+describe('Task stats page — structure the prototype fixes', () => {
+	afterEach(cleanup);
+
+	it('puts Recently completed above the totals it summarises', () => {
+		render(StatsScreen, { data: makeData() });
+		const order = [...document.querySelectorAll('h1, h2, h3, p')].map(
+			(node) => node.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+		);
+		expect(order.indexOf('Recently completed')).toBeLessThan(order.indexOf('This month'));
+	});
+
+	it('puts the totals box in the same row as the two bar charts', () => {
+		render(StatsScreen, { data: makeData() });
+		const row = document.querySelector('[data-testid="stats-equal-row"]');
+		expect(row).toBeTruthy();
+		const headings = [...(row?.querySelectorAll('h2') ?? [])].map((heading) =>
+			heading.textContent?.trim()
+		);
+		expect(headings).toEqual(['This month', 'Tasks land on', 'Tasks come from']);
+	});
+
+	it('states the one-row-one-height contract on the row itself', () => {
+		render(StatsScreen, { data: makeData() });
+		expect(document.querySelector('[data-testid="stats-equal-row"]')?.className).toContain(
+			'items-stretch'
+		);
+	});
+
+	it('marks a repeating completion with the repeating pill', () => {
+		render(StatsScreen, { data: makeData() });
+		expect(screen.getByTestId('recently-completed').textContent).toContain('↻ repeating');
+	});
+
+	it('renders an empty history with the copy the prototype implies', () => {
+		const empty = makeData();
+		render(StatsScreen, {
+			data: {
+				...empty,
+				completionIso: [],
+				month: { completed: 0, recurring: 0 },
+				doneBy: [],
+				stats: {
+					...empty.stats,
+					topAssignees: [],
+					topAssigners: [],
+					recentlyCompleted: []
+				}
+			}
+		});
+		expect(screen.getByText(/first win awaits/i)).toBeTruthy();
+	});
+});

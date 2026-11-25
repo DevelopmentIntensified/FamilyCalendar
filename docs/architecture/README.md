@@ -99,4 +99,4 @@ sequenceDiagram
 
 ## Where things stand
 
-The rewrite is in progress. Track it in [docs/rewrite/LEDGER.md](../rewrite/LEDGER.md) and with `npm run census`. Code that hasn't been ported yet still lives in the legacy folders (`src/lib/server`, `src/lib/utils`, `src/lib/components`, …). The port sheet for each module ([docs/rewrite/modules/](../rewrite/modules/)) lists the legacy files that module will absorb.
+The rewrite is done: every domain, screen and app task is ported, and the legacy folders are gone (`npm run census` reports 0 legacy source files). Track the task list in [docs/rewrite/LEDGER.md](../rewrite/LEDGER.md) and the per-module sheets in [docs/rewrite/modules/](../rewrite/modules/). What remains is the cutover — merging `rewrite/v2` into `test` — which is the owner's decision ([plan.md › Cutover](../rewrite/plan.md#cutover)); APP-04 (Playwright e2e against a local build) is the last agent task.

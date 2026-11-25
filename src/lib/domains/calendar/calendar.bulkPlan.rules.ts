@@ -8,13 +8,20 @@
  * the endpoint's honest answer is the 422. `parseBulkPlan` still validates a
  * client-posted plan against the editable ids.
  *
- * The month/weekday words are duplicated from the legacy date vocabulary
- * because `parsing` (their owning module) has not exported them yet; they move
- * to `parsing` when it ports. Everything here is pure.
+ * The month/weekday words come from `parsing`'s vocabulary (the one token
+ * address, #323). Everything here is pure.
  *
  * Doc: ./README.md#invariants
  */
 import { DateTime } from 'luxon';
+import {
+	DAY_ALT,
+	MONTH_ALT,
+	MONTH_INDEX_1,
+	applyPeriod,
+	dayNumber,
+	escapeRegExp
+} from '$lib/domains/parsing';
 
 export interface BulkEventSummary {
 	readonly id: string;
@@ -40,61 +47,6 @@ export interface BulkPlanOp {
 	readonly delete?: boolean;
 }
 
-/** Longest month token first so "september" wins over "sept"/"sep". */
-const MONTH_ALT =
-	'january|february|september|december|november|october|august|april|march|june|july|jun|jul|may|sept|jan|feb|mar|apr|aug|sep|oct|nov|dec';
-
-const MONTH_INDEX: Readonly<Record<string, number>> = {
-	january: 1,
-	february: 2,
-	march: 3,
-	april: 4,
-	may: 5,
-	june: 6,
-	july: 7,
-	august: 8,
-	september: 9,
-	october: 10,
-	november: 11,
-	december: 12,
-	jan: 1,
-	feb: 2,
-	mar: 3,
-	apr: 4,
-	jun: 6,
-	jul: 7,
-	aug: 8,
-	sep: 9,
-	sept: 9,
-	oct: 10,
-	nov: 11,
-	dec: 12
-};
-
-const DAY_ALT = 'sunday|monday|tuesday|wednesday|thursday|friday|saturday';
-
-/** JS weekday order (Sunday = 0), matching the legacy vocabulary. */
-const DAY_NUMBER: Readonly<Record<string, number>> = {
-	sunday: 0,
-	monday: 1,
-	tuesday: 2,
-	wednesday: 3,
-	thursday: 4,
-	friday: 5,
-	saturday: 6
-};
-
-function escapeRegExp(value: string): string {
-	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function applyPeriod(hour: number, period?: string): number {
-	const meridiem = period?.toLowerCase();
-	if (meridiem === 'pm' && hour < 12) return hour + 12;
-	if (meridiem === 'am' && hour === 12) return 0;
-	return hour;
-}
-
 /**
  * Resolve a date expression against `today`. Returns `YYYY-MM-DD` or null.
  * Patterns are ordered most-explicit first. `skipBareDay` is set when the
@@ -117,7 +69,7 @@ export function resolveBulkDate(
 	if (nextMonthName) {
 		const dt = DateTime.fromObject({
 			year: today.year + 1,
-			month: MONTH_INDEX[nextMonthName[1]],
+			month: MONTH_INDEX_1[nextMonthName[1]],
 			day: 1
 		});
 		if (dt.isValid) return dt.toISODate();
@@ -129,7 +81,7 @@ export function resolveBulkDate(
 		new RegExp(`\\b(${MONTH_ALT})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(20\\d{2}))?\\b`)
 	);
 	if (monthDay) {
-		const month = MONTH_INDEX[monthDay[1]];
+		const month = MONTH_INDEX_1[monthDay[1]];
 		const day = +monthDay[2];
 		let year = monthDay[3] ? +monthDay[3] : today.year;
 		let dt = DateTime.fromObject({ year, month, day });
@@ -148,7 +100,7 @@ export function resolveBulkDate(
 	);
 	if (dayMonth) {
 		const day = +dayMonth[1];
-		const month = MONTH_INDEX[dayMonth[2]];
+		const month = MONTH_INDEX_1[dayMonth[2]];
 		let year = dayMonth[3] ? +dayMonth[3] : today.year;
 		let dt = DateTime.fromObject({ year, month, day });
 		if (
@@ -206,7 +158,7 @@ export function resolveBulkDate(
 	// "last <weekday>" — most recent past occurrence (before the generic match).
 	const lastDayMatch = lower.match(new RegExp(`\\blast\\s+(${DAY_ALT})\\b`));
 	if (lastDayMatch) {
-		const target = DAY_NUMBER[lastDayMatch[1]] ?? 0;
+		const target = dayNumber(lastDayMatch[1]) ?? 0;
 		const current = today.weekday % 7;
 		let daysSince = (current - target + 7) % 7;
 		if (daysSince === 0) daysSince = 7;
@@ -216,7 +168,7 @@ export function resolveBulkDate(
 	// Weekday, optionally "next/this/on <day>": upcoming occurrence 1-7 days out.
 	const dayMatch = lower.match(new RegExp(`\\b(?:next|this|on)?\\s*(${DAY_ALT})\\b`));
 	if (dayMatch) {
-		const target = DAY_NUMBER[dayMatch[1]] ?? 0;
+		const target = dayNumber(dayMatch[1]) ?? 0;
 		const current = today.weekday % 7;
 		let daysUntil = target - current;
 		if (daysUntil <= 0) daysUntil += 7;

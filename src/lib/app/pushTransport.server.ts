@@ -1,16 +1,12 @@
 /**
- * Real `Push`: the two transports the legacy `pushService` and `fcmService`
- * wrap — `web-push` (VAPID) and the Firebase Cloud Messaging HTTP v1 sender —
- * behind the kernel `Push` port. It lives here, not in the kernel, because it
- * imports legacy code (allowed in app only, rule R14).
+ * Real `Push`: `web-push` (VAPID) plus the kernel's Firebase Cloud Messaging
+ * HTTP v1 sender (`kernel/push/fcm.server.ts`), behind the kernel `Push` port.
+ * The adapter lives in app because it reads the deployment's configuration.
  *
  * Config is a parameter, never `process.env` (rule R6): appCtx reads
  * `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` and
  * `FCM_SERVICE_ACCOUNT_JSON` and builds this adapter. The transports are
  * injectable so its test never touches the network.
- *
- * TRANSITION BRIDGE: `createFcmSender` is the legacy FCM transport; alerts'
- * S5 can drop it only if the kernel grows its own sender.
  *
  * Doc: src/lib/app/README.md, src/lib/kernel/README.md#push
  */
@@ -28,7 +24,7 @@ import {
 	createFcmSender,
 	parseServiceAccount,
 	type FcmSender
-} from '$lib/server/services/fcmService';
+} from '$lib/kernel/push/fcm.server';
 
 export type PushTransportConfig = {
 	/** `VAPID_PUBLIC_KEY`; also the key `GET /api/push/public-key` answers. */

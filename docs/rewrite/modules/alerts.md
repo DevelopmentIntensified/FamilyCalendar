@@ -11,15 +11,15 @@ The Alert feed (closed type set, needs-you vs news), notification preferences, w
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S5 service
+- [x] S6 http + route wiring (goldens unchanged since S2)
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — `ui/` bell, feed, row, toolbar, push toggle and the state classes; visual/perf checks are the orchestrator's
+- [x] S8 rewire importers, delete legacy code and legacy tests — 2026-11-21 sweep; the one file it kept then was deleted in the final sweep (see Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final after the 2026-11-21 final sweep; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -166,6 +166,12 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Notes
 
+### S8 sweep (2026-11-21)
+
+Deleted: `server/db/actions/notificationMethods.ts` + `components/account/accountNotifications.ts` (preferences read through this module), `server/db/actions/notifications.ts` + `server/services/pushService.ts` (superseded by `ctx.push`/`pushTransport`) and `server/services/web-push.d.ts` (moved to `app/app.web-push.d.ts`). Kept: `server/services/devicePushService.ts` — the legacy `eventsChangedNudge` (event detail page, `icsImportFlow`) still fans out through it.
+
+Final sweep (2026-11-21): `eventsChangedNudge` and `icsImportFlow` went with the calendar pages, so `server/services/devicePushService.ts` was deleted with no importer left — the FCM fan-out is this module's `alerts.push.service.server.ts` over the kernel push transport, with the message builders in `alerts.push.rules.ts`; the legacy file's cases live in `alerts.push.service.db.test.ts` (`sendAlertPush`, `nudgeEventsChanged`) and `alerts.push.rules.test.ts` (census: 0 legacy files).
+
 **Verified against the code (S1).** The draft's API table holds. Corrections and additions:
 
 - The PUT preference refusal for a non-object body is `400 {"error":"Invalid JSON"}` (from `readJsonObject`), not `Invalid request body`; an empty body reads as `{}` and gets `Notification preference value is required`.
@@ -190,6 +196,7 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 - `NotificationBell.svelte` passes `rawType ?? notification.type` into the label tables although `rawType` is always a string (`:238,255`): dead fallback, gone from the new bell.
 - `notificationSaveOutcome` computes the reverted switches as `!intent.value` rather than the last server value (`:191-210`): only correct while `current` is exactly the optimistic flip. The new state class captures the server value before flipping and restores that; the copy (`<Label> didn’t save — try again.`) survives unchanged.
 - The bell refetches the full 50-row feed every 60 s because there is no unread-count endpoint (`:31-45,156-158`): that is an acknowledged gap, not a rule. The wire is fixed, so the bell keeps polling the same GET; a count endpoint would be an Android-contract ticket (question below). No new endpoint in this port.
+- **The bell's panel and push click are lazy chunks (ADR 0010, round 2).** The closed bell every app page ships is the trigger, the badge and the count poll. `AlertsBellPanel.svelte` (rows, relative age, "Mark all read", the push block) is imported when the dropdown opens; `subscribeToPush`/`unsubscribeFromPush` moved to `alerts.push.subscribe.api.ts`, imported by `AlertsBellState.enablePush`/`disablePush` (the panel warms it on open so the import is resolved while the click's activation is live), which keeps the base64 key decoder (~2.9 KB gzip) out of first paint. Together about 8–9 KB gzip off every app page; no behaviour or copy changed.
 
 **Boundary decision (R1).** The `events_changed` audience (calendar owners + family members + the actor's accessible calendars) is resolved by `calendar`/`family`, which own those tables; `alerts` only transports the message to the user ids it is given and dedupes tokens. `eventsChangedNudge.ts`'s audience SQL dies here; the ids-in contract is pinned by an S5 test and must be re-created in `calendar` at its port. `#186` (retry/backoff/DLQ) stays a separate ticket: the channel seam is the one-adapter change.
 
@@ -259,43 +266,12 @@ The behaviour inventory above still cites the legacy files' line numbers (`Notif
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# alerts: 0% ported
+# alerts: 100% ported
 
-legacy source files left (9/9, 1378 LOC):
-  - src/lib/components/NotificationBell.svelte (311 LOC, ui) importers: 2
-  - src/lib/components/account/accountNotifications.ts (210 LOC, model) importers: 6
-  - src/lib/server/db/actions/notificationMethods.ts (98 LOC, server) importers: 1
-  - src/lib/server/db/actions/notifications.ts (101 LOC, server) importers: 6
-  - src/lib/server/services/devicePushService.ts (117 LOC, server) importers: 3
-  - src/lib/server/services/pushService.ts (147 LOC, server) importers: 4
-  - src/lib/server/services/web-push.d.ts (16 LOC, server) importers: 0
-  - src/lib/utils/notificationTypes.ts (187 LOC, model) importers: 4
-  - src/lib/utils/pushClient.ts (191 LOC, client) importers: 1
+legacy source files left (0/9, 0 LOC):
 
-route files not yet wiring-only (9/9):
-  - src/routes/(calendar)/calendar/notifications/+page.server.ts  /calendar/notifications
-  - src/routes/(calendar)/calendar/notifications/+page.svelte  /calendar/notifications
-  - src/routes/api/devices/+server.ts  /api/devices
-  - src/routes/api/me/notification-preferences/+server.ts  /api/me/notification-preferences
-  - src/routes/api/me/notification-preferences/[id]/+server.ts  /api/me/notification-preferences/[id]
-  - src/routes/api/notifications/+server.ts  /api/notifications
-  - src/routes/api/push/public-key/+server.ts  /api/push/public-key
-  - src/routes/api/push/subscribe/+server.ts  /api/push/subscribe
-  - src/routes/api/push/unsubscribe/+server.ts  /api/push/unsubscribe
+route files not yet wiring-only (0/9):
 
-legacy test files left (13/13) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/components/NotificationBell.svelte.test.ts [component, 5 tests]
-  - src/lib/components/account/accountNotifications.test.ts [pure, 20 tests]
-  - src/lib/server/db/actions/notificationMethods.test.ts [stub-db, 8 tests]
-  - src/lib/server/db/actions/notifications.test.ts [stub-db, 6 tests]
-  - src/lib/server/services/devicePushService.test.ts [pure, 7 tests]
-  - src/lib/server/services/pushService.test.ts [pure, 2 tests]
-  - src/lib/utils/notificationTypes.test.ts [pure, 21 tests]
-  - src/lib/utils/pushClient.test.ts [pure, 9 tests]
-  - src/routes/(calendar)/calendar/notifications/page.server.test.ts [route, 8 tests]
-  - src/routes/(calendar)/calendar/notifications/page.svelte.test.ts [component, 16 tests]
-  - src/routes/api/devices/server.test.ts [route, 7 tests]
-  - src/routes/api/notifications/server.test.ts [route, 2 tests]
-  - src/routes/api/push/unsubscribe/server.test.ts [route, 3 tests]
+legacy test files left (0/13) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

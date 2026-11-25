@@ -6,8 +6,8 @@
  * Legacy homes, one definition each: `utils/taskUrgency.ts` (buckets, late
  * chip, flat comparator, jump-bar labels), `utils/taskSort.ts` (the non-urgency
  * keys), `utils/taskRecurrence.ts` (the one-off/recurring split) and the page's
- * own `matchesChip`/`matchesSearch`/`matchesTagFilter`. The legacy modules stay
- * for dashboard/family until their ports; this file is the tasks UI's copy.
+ * own `matchesChip`/`matchesSearch`/`matchesTagFilter`. Every legacy file is
+ * deleted: this file is the one home.
  */
 
 import { systemClock } from '$lib/kernel/time/clock';
@@ -117,7 +117,18 @@ export function isTaskDueToday(
 	return at >= startOfLocalDay(now).getTime() && at <= endOfLocalDay(now);
 }
 
-export function taskUrgencyBucket(task: TaskPageRow, now: Date = systemClock.now()): TaskUrgencyBucket {
+/**
+ * The fields the urgency order reads. Narrow on purpose: the board's rows
+ * (`tasks.board.rules.ts`) carry no notes, tags or priority, and they still
+ * sort through this one comparator.
+ */
+export type TaskUrgencyRow = {
+	readonly title: string;
+	readonly dueDate: string | null;
+	readonly completedAt: string | null;
+};
+
+export function taskUrgencyBucket(task: TaskUrgencyRow, now: Date = systemClock.now()): TaskUrgencyBucket {
 	if (task.completedAt) return 'done';
 	if (isTaskOverdue(task.dueDate, now)) return 'overdue';
 	if (isTaskDueToday(task.dueDate, now)) return 'today';
@@ -142,12 +153,13 @@ export function taskLateChip(
 	return `${days} ${days === 1 ? 'day' : 'days'} late`;
 }
 
-function dueTime(task: TaskPageRow): number {
+/** The two order keys the urgency comparator uses; a page row satisfies it. */
+function dueTime(task: TaskUrgencyRow): number {
 	const at = timeOf(task.dueDate);
 	return Number.isNaN(at) ? Number.POSITIVE_INFINITY : at;
 }
 
-function titleOrder(a: TaskPageRow, b: TaskPageRow): number {
+function titleOrder(a: TaskUrgencyRow, b: TaskUrgencyRow): number {
 	return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
 }
 
@@ -158,7 +170,7 @@ function priorityRank(priority: string | null | undefined): number {
 }
 
 /** overdue → today → up next → done, then by due date (undated last), then title. */
-export function compareTaskUrgency(a: TaskPageRow, b: TaskPageRow, now: Date = systemClock.now()): number {
+export function compareTaskUrgency(a: TaskUrgencyRow, b: TaskUrgencyRow, now: Date = systemClock.now()): number {
 	const rankA = BUCKET_RANK[taskUrgencyBucket(a, now)];
 	const rankB = BUCKET_RANK[taskUrgencyBucket(b, now)];
 	if (rankA !== rankB) return rankA - rankB;
@@ -224,6 +236,23 @@ export function splitTasksByRecurrence<T extends { readonly recurrenceFrequency?
 	const oneOff: T[] = [];
 	for (const row of rows) (row.recurrenceFrequency != null ? recurring : oneOff).push(row);
 	return { recurring, oneOff };
+}
+
+/**
+ * The day's completed rows, newest first: the viewer's one-off Tasks that are
+ * currently completed plus the recurring check-offs recovered from the history
+ * table. A row with no instant sorts last (legacy treated it as epoch 0), and
+ * the input arrays are never mutated.
+ */
+export function mergeDayCompletions<T extends { readonly completedAt: string | null }>(
+	oneOff: readonly T[],
+	recurring: readonly T[]
+): T[] {
+	return [...oneOff, ...recurring].sort(
+		(a, b) =>
+			(b.completedAt ? Date.parse(b.completedAt) : 0) -
+			(a.completedAt ? Date.parse(a.completedAt) : 0)
+	);
 }
 
 /** Chip predicate: Family Tasks partition off first, then visibility. */

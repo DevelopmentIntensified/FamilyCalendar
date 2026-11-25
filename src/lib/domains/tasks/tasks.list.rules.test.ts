@@ -7,6 +7,7 @@ import {
 	matchesTaskChip,
 	matchesTaskSearch,
 	matchesTaskTagFilter,
+	mergeDayCompletions,
 	sortTaskRows,
 	splitTasksByRecurrence,
 	taskBucketCounts,
@@ -218,5 +219,33 @@ describe('taskRowFromWire', () => {
 		expect(row.tags).toEqual(['home']);
 		expect(row.eventTitle).toBeNull();
 		expect(row.assigneeFirstName).toBeNull();
+	});
+});
+
+describe('mergeDayCompletions', () => {
+	const rows = [
+		{ id: 'one-off-late', completedAt: '2026-11-02T12:00:00.000Z' },
+		{ id: 'recurring-early', completedAt: '2026-11-02T07:00:00.000Z' },
+		{ id: 'one-off-mid', completedAt: '2026-11-02T09:30:00.000Z' }
+	];
+
+	it('merges the two halves newest first without mutating either input', () => {
+		const oneOff = rows.slice(0, 1);
+		const recurring = rows.slice(1);
+		expect(mergeDayCompletions(oneOff, recurring).map((row) => row.id)).toEqual([
+			'one-off-late',
+			'one-off-mid',
+			'recurring-early'
+		]);
+		expect(oneOff.map((row) => row.id)).toEqual(['one-off-late']);
+		expect(recurring.map((row) => row.id)).toEqual(['recurring-early', 'one-off-mid']);
+	});
+
+	it('sorts a null instant last (legacy read it as epoch 0)', () => {
+		expect(
+			mergeDayCompletions([{ id: 'none', completedAt: null }], [
+				{ id: 'at', completedAt: '2026-11-02T07:00:00.000Z' }
+			]).map((row) => row.id)
+		).toEqual(['at', 'none']);
 	});
 });

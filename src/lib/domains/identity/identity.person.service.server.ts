@@ -26,9 +26,9 @@ import {
 	guestSafeEmail,
 	isAnonymousAccount,
 	SIGN_UP_TIME_ZONE,
-	touchDue,
-	zoneFromStored
+	touchDue
 } from './identity.person.rules';
+import { zoneFromStored } from './identity.zone.rules';
 import {
 	claimPersonEmail as claimPersonEmailRow,
 	deletePersonRow,

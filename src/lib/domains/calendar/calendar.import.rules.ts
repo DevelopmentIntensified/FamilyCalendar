@@ -66,6 +66,24 @@ export function dedupeKey(title: string, startIso: string): string {
 	return `${title.trim().toLowerCase()}|${startIso}`;
 }
 
+/**
+ * The day the success card links: the EARLIEST event the commit wrote, as the
+ * `YYYY-MM-DD` the calendar's `?date=` takes (issue 082). An import usually
+ * lands in a month the user is not looking at, so the card names one and links
+ * there; comparing the ISO instants is the legacy comparison, and it is the
+ * same order as the days because every start is one UTC instant shape.
+ */
+export function calendarEarliestImportDay(
+	events: readonly { readonly startIso: string }[]
+): string | null {
+	if (events.length === 0) return null;
+	const earliest = events.reduce(
+		(min, event) => (event.startIso < min ? event.startIso : min),
+		events[0].startIso
+	);
+	return earliest.slice(0, 10);
+}
+
 /** `"Tue, Sep 29, 2026 · 2:00 PM–3:30 PM · every week on Mon"`. */
 export function describeWhen(draft: IcsEventDraft, zone = 'utc'): string {
 	const start = DateTime.fromISO(draft.startIso, { zone });

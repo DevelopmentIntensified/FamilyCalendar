@@ -27,78 +27,34 @@ import type { EventInvite, InviteType } from './calendar.invites.rules';
 import { RECURRENCE_FREQUENCIES, type RecurrenceFrequency } from './calendar.recurrence.rules';
 import type { ChipKind } from './calendar.chips.rules';
 
-// --- Closed vocabularies ----------------------------------------------------
+import {
+	BULK_OP_TYPES,
+	CALENDAR_COPY,
+	CALENDAR_KINDS,
+	RSVP_STATUSES,
+	WEEKDAY_CODES,
+	type BulkOpType,
+	type CalendarKind,
+	type RsvpStatus,
+	type WeekdayCode
+} from './calendar.copy.rules';
 
-/** The four RSVP answers; `undecided` is the stored "no answer yet". */
-export const RSVP_STATUSES = ['going', 'maybe', 'declined', 'undecided'] as const;
-export type RsvpStatus = (typeof RSVP_STATUSES)[number];
-
-/** A calendar is the viewer's own or their family's. */
-export const CALENDAR_KINDS = ['personal', 'family'] as const;
-export type CalendarKind = (typeof CALENDAR_KINDS)[number];
-
-/** The five bulk operations the endpoint accepts. */
-export const BULK_OP_TYPES = ['delete', 'calendar', 'location', 'attendants', 'smart'] as const;
-export type BulkOpType = (typeof BULK_OP_TYPES)[number];
-
-/** The weekday codes BYDAY uses (RFC 5545). */
-export const WEEKDAY_CODES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
-export type WeekdayCode = (typeof WEEKDAY_CODES)[number];
+// The closed vocabularies and the wire copy live in `calendar.copy.rules.ts`
+// (no schema library behind them, so the browser can read them without zod);
+// this file is where callers have always found them.
+export {
+	BULK_OP_TYPES,
+	CALENDAR_COPY,
+	CALENDAR_KINDS,
+	RSVP_STATUSES,
+	WEEKDAY_CODES,
+	type BulkOpType,
+	type CalendarKind,
+	type RsvpStatus,
+	type WeekdayCode
+};
 
 export type { DuplicateReason, EventInvite, InviteType, RecurrenceFrequency, ChipKind };
-
-// --- Wire copy --------------------------------------------------------------
-
-/**
- * Every status + `{ error }` body this module answers, in one place. The
- * goldens pin each string; a copy change is a wire change.
- */
-export const CALENDAR_COPY = {
-	unauthorized: 'Unauthorized',
-	invalidEventId: 'Invalid event id',
-	eventNotFound: 'Event not found',
-	eventNotAccessible: 'Event not accessible',
-	noAccessToEvent: 'No access to this event',
-	calendarNotAccessible: 'Calendar not accessible',
-	occurrenceDateRequired: 'A valid occurrenceDate is required',
-	guestNameRequired: 'Guest name is required',
-	invalidRsvpStatus: 'Invalid RSVP status',
-	failedToCreate: 'Failed to create event',
-	failedToUpdate: 'Failed to update event',
-	failedToDelete: 'Failed to delete event',
-	failedToInviteGuest: 'Failed to invite guest',
-	failedToUpdateRsvp: 'Failed to update RSVP',
-	failedToFetchAttendance: 'Failed to fetch attendance',
-	failedToExport: 'Failed to export event',
-	seriesNote: 'Attendee changes apply to the whole series.',
-	bulkIdsAndOpRequired: 'ids and op are required',
-	bulkNoValidIds: 'No valid event ids',
-	bulkNoEditableEvents: 'No editable events matched',
-	bulkCalendarIdRequired: 'calendarId required',
-	bulkAddNamesRequired: 'add names required',
-	bulkInstructionRequired: 'instruction required',
-	bulkNoMatch: 'Could not match that instruction. Try naming a date or the events.',
-	bulkNoValidChanges: 'No valid changes in plan',
-	bulkUnknownOp: 'Unknown op type',
-	bulkFailed: 'Bulk edit failed',
-	searchQueryInvalid: 'q is required and must be 2-100 characters',
-	searchRateLimited: 'Too many searches. Try again shortly.',
-	chooseCalendar: 'Choose a calendar to import into.',
-	notYourCalendar: 'That calendar is not yours to import into.',
-	chooseIcsFile: 'Choose an .ics file to import.',
-	tooManyFiles: 'Choose up to 10 files at a time.',
-	emptyParse:
-		'No events found in that file. An .ics export wraps each event in BEGIN:VEVENT with a ' +
-		'SUMMARY and a DTSTART — check you picked the .ics from inside the export, not the whole zip.',
-	pickEvents: 'Pick the events you want to add.',
-	selectionUnreadable: 'That selection could not be read — preview the file again.',
-	tickAtLeastOne: 'Tick at least one event before importing.',
-	nothingToUndo: 'Nothing to undo — import a file first.',
-	undoUnreadable: 'That undo could not be read — import the file again.',
-	/** The JSON→upload adapter's own refusals (legacy `icsImportApi.previewForm`). */
-	importFilesNotArray: 'files must be an array',
-	importFileNeedsBase64: 'Each file needs contentBase64 (base64 text)'
-} as const;
 
 // --- Shared wire shapes -----------------------------------------------------
 
@@ -177,12 +133,31 @@ export const CalendarDisplayEventWire = z.object({
 });
 export type CalendarDisplayEventWire = z.infer<typeof CalendarDisplayEventWire>;
 
-/** `GET /api/events?from&to`. */
+/**
+ * `GET /api/events?from&to`. Both ends are optional here: `resolveEventRange`
+ * owns the three 400 messages, and an absent or empty end must reach it as the
+ * "ask for a range" refusal it has always answered.
+ */
+export const CalendarEventRangeQuery = z.object({
+	from: z.string().optional(),
+	to: z.string().optional()
+});
+export type CalendarEventRangeQuery = z.infer<typeof CalendarEventRangeQuery>;
+
+/** `GET /api/events`. */
 export const CalendarEventsResponse = z.object({
 	window: z.object({ from: z.string(), to: z.string() }),
 	events: z.array(CalendarDisplayEventWire)
 });
 export type CalendarEventsResponse = z.infer<typeof CalendarEventsResponse>;
+
+/**
+ * An event path segment: a master id or the composite `${masterId}~${iso}` the
+ * display pipeline builds. The rules own whether it resolves (`Invalid event
+ * id`); a missing segment is the only thing the schema refuses.
+ */
+export const CalendarEventParams = z.object({ id: z.string() });
+export type CalendarEventParams = z.infer<typeof CalendarEventParams>;
 
 /**
  * The raw Event row `POST`/`PUT` answer. `start`/`end`/`recurrenceUntil` are
@@ -223,12 +198,14 @@ const wireText = z
 /**
  * `POST /api/events`. Absent `end`/`description`/`location` store null and
  * absent `allDay` stores false; an absent `calendarId` uses (or creates) the
- * personal calendar. A missing `title` is NOT a 400 — the legacy writer lets
- * the database reject it and the route answers 500, which the golden pins.
+ * personal calendar. `title` and `start` stay `nullish`: a missing title is NOT
+ * a 400 — the legacy writer lets the database reject it and the route answers
+ * 500, which the golden pins, and an explicit `null` takes the same path (the
+ * `PUT` golden pins `title: null` as a 500 too).
  */
 export const CalendarEventCreateBody = z.object({
-	title: z.string().optional(),
-	start: z.string().optional(),
+	title: z.string().nullish(),
+	start: z.string().nullish(),
 	end: wireText,
 	description: wireText,
 	location: wireText,
@@ -387,6 +364,24 @@ export type CalendarBulkPlanResponse = z.infer<typeof CalendarBulkPlanResponse>;
 
 export const CalendarListResponse = z.object({ calendars: z.array(CalendarSummaryWire) });
 export type CalendarListResponse = z.infer<typeof CalendarListResponse>;
+
+/**
+ * `GET /api/print?year&month`: the raw values, both optional. `getPrintMonth`
+ * owns the "current month" default and the 1–12 clamp, so nothing is coerced
+ * here — an absent or junk value must reach it exactly as `searchParams.get` did.
+ */
+export const CalendarPrintQuery = z.object({
+	year: z.string().optional(),
+	month: z.string().optional()
+});
+export type CalendarPrintQuery = z.infer<typeof CalendarPrintQuery>;
+
+/**
+ * `GET /api/location-search?q=`: optional, so the flow's own
+ * `q is required and must be 2-100 characters` answers an absent or short query.
+ */
+export const CalendarLocationQuery = z.object({ q: z.string().optional() });
+export type CalendarLocationQuery = z.infer<typeof CalendarLocationQuery>;
 
 export const CalendarPrintCellWire = z.object({
 	day: z.number().int(),

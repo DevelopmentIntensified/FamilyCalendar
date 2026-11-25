@@ -9,6 +9,7 @@ import {
 	formatShortDate,
 	formatUsDate,
 	groupByDay,
+	isRealDateKey,
 	isValidZone,
 	startOfDayIn,
 	toInstantString
@@ -174,6 +175,25 @@ describe('month math', () => {
 
 	it.each(rows)('addMonthsClamped(%j, %d) → %j', (date, months, expected) => {
 		expect(addMonthsClamped(date, months)).toBe(expected);
+	});
+});
+
+describe('real date keys', () => {
+	// The acceptance rule `?date=` and a stored date key share with the
+	// contract's `isoDate()` refinement, but without importing its schema.
+	it.each([
+		['2026-11-11', true],
+		['2028-02-29', true],
+		['2026-02-30', false],
+		['2026-11-31', false],
+		['2026-13-01', false],
+		['2026-00-10', false],
+		['2026-1-1', false],
+		['2026-11-11T00:00:00Z', false],
+		['tomorrow', false],
+		['', false]
+	])('isRealDateKey(%j) → %j', (value, expected) => {
+		expect(isRealDateKey(value)).toBe(expected);
 	});
 });
 

@@ -8,12 +8,16 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+	dashboardDueTone,
+	familyBoardTaskBody,
+	glanceRsvpVisual,
 	groupKidsSchedule,
 	initialsFromName,
 	orderGlanceEvents,
 	type KidsScheduleKid,
 	type KidsScheduleRow
 } from './dayDashboard.cards.rules';
+import { parseTaskQuickAdd } from '$lib/domains/parsing';
 
 type GlanceRow = { readonly id: string; readonly allDay: boolean; readonly start: string | Date };
 
@@ -164,5 +168,71 @@ describe('initialsFromName', () => {
 		['   ', '?']
 	])('draws %j as %j', (name, expected) => {
 		expect(initialsFromName(name)).toBe(expected);
+	});
+});
+
+describe('glanceRsvpVisual', () => {
+	it.each<[string | undefined, string | null]>([
+		['going', '✓ Going'],
+		['maybe', '? Maybe'],
+		['declined', "✕ Can't go"],
+		[undefined, null],
+		['undecided', null]
+	])('draws %j as %j', (status, expected) => {
+		const visual = glanceRsvpVisual(status);
+		expect(visual ? `${visual.icon} ${visual.label}` : null).toBe(expected);
+	});
+
+	it('dims a declined row and rings a going one (the legacy container classes)', () => {
+		expect(glanceRsvpVisual('declined')?.containerClass).toBe('opacity-60 saturate-50');
+		expect(glanceRsvpVisual('going')?.containerClass).toContain('ring-emerald-400/60');
+	});
+});
+
+describe('dashboardDueTone', () => {
+	const NOW = new Date(2026, 10, 2, 12, 0, 0, 0);
+
+	it.each<[string | null, string]>([
+		['2026-11-01T09:00:00.000Z', 'bg-red-100 text-red-700'],
+		['2026-11-02T18:00:00.000Z', 'bg-amber-100 text-amber-700'],
+		['2026-11-05T09:00:00.000Z', 'bg-slate-100 text-slate-600'],
+		[null, '']
+	])('tones %j as %j', (due, expected) => {
+		expect(dashboardDueTone(due, NOW)).toBe(expected);
+	});
+});
+
+describe('familyBoardTaskBody', () => {
+	const parsed = parseTaskQuickAdd('saturday for Dad #public', {
+		now: new Date(2026, 10, 2, 12, 0, 0, 0),
+		zone: 'UTC',
+		members: [{ userId: 'user-dad', firstName: 'Dad', lastName: 'Chen' }]
+	});
+
+	it('files a family task, assigns the @member, and omits a blank category', () => {
+		const body = familyBoardTaskBody(parsed, {
+			familyId: 'family-chen',
+			meId: 'user-me',
+			category: '   '
+		});
+		expect(body.familyId).toBe('family-chen');
+		expect(body.assignedTo).toBe('user-dad');
+		expect(body.visibility).toBe('public');
+		expect('category' in body).toBe(false);
+	});
+
+	it('assigns the creator when no member was named, and sends a typed category', () => {
+		const plain = parseTaskQuickAdd('water the plants', {
+			now: new Date(2026, 10, 2, 12, 0, 0, 0),
+			zone: 'UTC',
+			members: []
+		});
+		const body = familyBoardTaskBody(plain, {
+			familyId: 'family-chen',
+			meId: 'user-me',
+			category: ' Errands '
+		});
+		expect(body.assignedTo).toBe('user-me');
+		expect(body.category).toBe('Errands');
 	});
 });

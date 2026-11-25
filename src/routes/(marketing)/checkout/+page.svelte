@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CheckoutScreen } from '$lib/domains/marketing/ui';
+	import CheckoutScreen from '$lib/domains/marketing/ui/CheckoutScreen.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();

@@ -2,15 +2,15 @@
  * identity person rules: the ONE Anonymous Account predicate (and its
  * "registered" complement), the email a client may see, the person label,
  * the guest row, the profile privilege drop, where an Anonymous Account may be
- * created, the hourly Inactivity Window touch and the stored-zone resolution.
+ * created, the hourly Inactivity Window touch.
  *
  * Isomorphic on purpose: client components share the exact definition the
- * server writes. "Now" is a parameter (R5).
+ * server writes. "Now" is a parameter (R5). Luxon-free: the stored-zone
+ * resolution (the one rule that needs it) lives in `identity.zone.rules.ts` so
+ * the chrome does not ship Luxon (ADR 0010).
  *
  * Doc: ./README.md#invariants
  */
-import { DateTime } from 'luxon';
-
 /**
  * Guests are user rows whose email is a generated placeholder at this
  * reserved domain (#196, the better-auth anonymous model).
@@ -53,6 +53,50 @@ export function displayName(
 	person: { readonly firstName?: string | null; readonly lastName?: string | null } | null | undefined
 ): string | null {
 	return [person?.firstName, person?.lastName].filter(Boolean).join(' ').trim() || null;
+}
+
+/** The `users` row fields a page load may put in page data (#324). */
+export type PublicUser = {
+	readonly id: string;
+	readonly firstName: string;
+	readonly lastName: string;
+	readonly email: string | null;
+	readonly emailVerified: boolean | null;
+	readonly roles: string[];
+	readonly lastActiveAt: Date | null;
+};
+
+/**
+ * Whitelist a person row for page data (#324, hotfix `be915320`). The session
+ * keeps the whole row server-side; a serialised load gets only these fields,
+ * copied one by one — never a spread — so `passwordHash`,
+ * `receiptIngestToken`, `phonenumber` or any column added later cannot reach
+ * the browser by default. No person stays `null` (a signed-out page).
+ */
+export function toPublicUser(
+	person:
+		| {
+				readonly id: string;
+				readonly firstName: string;
+				readonly lastName: string;
+				readonly email: string | null;
+				readonly emailVerified?: boolean | null;
+				readonly roles: readonly string[];
+				readonly lastActiveAt?: Date | null;
+		  }
+		| null
+		| undefined
+): PublicUser | null {
+	if (!person) return null;
+	return {
+		id: person.id,
+		firstName: person.firstName,
+		lastName: person.lastName,
+		email: person.email,
+		emailVerified: person.emailVerified ?? null,
+		roles: [...person.roles],
+		lastActiveAt: person.lastActiveAt ?? null
+	};
 }
 
 /**
@@ -141,15 +185,3 @@ export function touchDue(lastActiveAt: Date | null | undefined, now: Date): bool
 	return now.getTime() - last > LAST_ACTIVE_TOUCH_MS;
 }
 
-/**
- * The stored zone when Luxon can resolve it, else `undefined` (= server-local,
- * a transitional fallback). Feeds every cursor pin (#214).
- *
- * Deliberately permissive, unlike `isIanaTimeZone` (Q-107): rows written
- * before that fix may hold `local`, `system`, `default` or `UTC+5`, and every
- * reader must resolve them exactly as before rather than dropping the zone.
- */
-export function zoneFromStored(timeZone: string | null | undefined): string | undefined {
-	if (!timeZone) return undefined;
-	return DateTime.fromMillis(0).setZone(timeZone).isValid ? timeZone : undefined;
-}

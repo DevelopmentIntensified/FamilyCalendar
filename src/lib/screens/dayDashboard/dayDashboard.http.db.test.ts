@@ -340,7 +340,7 @@ describe('GET /api/dashboard (G8)', () => {
 		}
 	});
 
-	it('returns the full contract for a family day, resolved, in the viewer zone', async () => {
+	it('returns the full contract for a family day, resolved, in the viewer zone (Q-005a)', async () => {
 		const me = await seedFamilyDay();
 		const res = await invoke(GET, {
 			ctx: ctx(),
@@ -376,7 +376,8 @@ describe('GET /api/dashboard (G8)', () => {
 		expect(Object.keys(wire.data).sort()).toEqual([...DATA_KEYS].sort());
 
 		// The viewer's list: own Tasks + every Family Task, completed included,
-		// newest first. This is the payload the phone reads (spec's `<Task+tags>`).
+		// newest first, minus another member's private Task (Q-005a). This is the
+		// payload the phone reads (spec's `<Task+tags>`).
 		// `dueDate`/`completedAt` are timestamptz `mode: 'string'`: the wire carries
 		// the driver's Postgres render (space, `+00`), not ISO.
 		expect(wire.data.userTasks).toEqual([
@@ -427,19 +428,11 @@ describe('GET /api/dashboard (G8)', () => {
 				recurrenceFrequency: 'daily',
 				recurrenceInterval: 1
 			}),
-			userTaskRow({
-				id: 'task-diary',
-				title: 'My diary',
-				userId: 'user-mia',
-				familyId: 'family-chen',
-				visibility: 'private',
-				priority: 'low'
-			})
 		]);
 
 		// The board list: family Tasks, OPEN only (Done chore is gone), newest
-		// first, with the creator name joined. Q-005a leak pinned: `task-diary`
-		// is another member's private Task and is on the board TODAY.
+		// first, with the creator name joined. Q-005a: `task-diary` is another
+		// member's private Task, so neither list carries it.
 		expect(wire.data.familyTasks).toEqual([
 			familyTaskRow({
 				id: 'task-cat',
@@ -470,15 +463,6 @@ describe('GET /api/dashboard (G8)', () => {
 				recurrenceFrequency: 'daily',
 				recurrenceInterval: 1,
 				creatorFirstName: 'Riley'
-			}),
-			familyTaskRow({
-				id: 'task-diary',
-				title: 'My diary',
-				userId: 'user-mia',
-				familyId: 'family-chen',
-				visibility: 'private',
-				priority: 'low',
-				creatorFirstName: 'Mia'
 			})
 		]);
 

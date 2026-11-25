@@ -1,7 +1,11 @@
 import type { Page } from '@playwright/test';
-import { PROPERTIES } from '../../src/lib/conformance/rules';
-import { collectMeasurements } from '../../src/lib/conformance/collect';
-import { deriveTokens, type Measurement, type TokenSet } from '../../src/lib/conformance/tokens';
+import { PROPERTIES } from '../../src/lib/kernel/conformance/rules';
+import { collectMeasurements } from '../../src/lib/kernel/conformance/collect';
+import {
+	deriveTokens,
+	type Measurement,
+	type TokenSet
+} from '../../src/lib/kernel/conformance/tokens';
 
 /**
  * 131 — the e2e side of the design-conformance harness.

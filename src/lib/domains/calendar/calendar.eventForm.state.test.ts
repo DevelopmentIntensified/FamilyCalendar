@@ -94,6 +94,28 @@ describe('CalendarEventFormState (EventFormModel.svelte.ts)', () => {
 		expect(state.phraseReportable).toBe(true);
 	});
 
+	it('still mirrors the phrase into the description and never calls the parser when auto-parse is off', () => {
+		vi.useFakeTimers();
+		try {
+			const { api } = fakeApi();
+			const parseEvent = vi.fn(async () => ({ parsed: { title: 'Lunch' } }));
+			const state = new CalendarEventFormState(api, parseEvent, {
+				calendars,
+				familyMembers,
+				defaultCalendarId: 'cal-2',
+				autoParse: false
+			});
+			state.onQuickAddInput('lunch fri');
+			vi.advanceTimersByTime(1000);
+			expect(parseEvent).not.toHaveBeenCalled();
+			expect(state.fields.description).toBe('lunch fri');
+			expect(state.fields.title).toBe('');
+			expect(state.parsing).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('says so when the parser finds nothing', async () => {
 		const { api } = fakeApi();
 		const state = new CalendarEventFormState(api, async () => ({}), {

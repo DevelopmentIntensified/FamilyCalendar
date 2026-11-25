@@ -11,15 +11,15 @@ Tasks: visibility, priority, assignment handoff, Recurring Task cursor, tags, ca
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
-- [ ] S3 contract + rules
-- [ ] S4 repo (+ fixtures)
-- [ ] S5 service
-- [ ] S6 http + route wiring (goldens unchanged since S2)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S3 contract + rules
+- [x] S4 repo (+ fixtures)
+- [x] S5 service
+- [x] S6 http + route wiring (goldens unchanged since S2)
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — visual/perf checks are the orchestrator's
+- [x] S8 rewire importers, delete legacy code and legacy tests
+- [x] S9 README final, census --write, gate:push, ledger done — README final; `census --write` and `gate:push` are the orchestrator's
 
 ## Must survive
 
@@ -276,6 +276,18 @@ Where the legacy exports go, or why they die:
 
 - 2026-11-21 (S9): README Files/Public interface rows carry the new files and the browser exports; the tests and their projects are listed under How to test. Measured: `npx vitest run src/lib/domains/tasks --project unit` → 13 files, 276 tests, all green.
 
+### Notes (S8 sweep + archive/stats routes, 2026-11-21)
+- `server/db/actions/tasks/cursor.ts` was the only tasks file importing `server/utils/eventTimes.ts` and `server/services/recurrenceService.ts`; both KEPT because calendar's own legacy files still import them (`db/actions/events.ts`, `utils/eventIds.ts`, `services/eventDisplayService.ts` + tests) — calendar's S8 deletes them.
+
+- 2026-11-21 (final sweep): the census is **0 legacy files / 0 legacy tests / 0 unported routes** for this module. Deleted every remaining legacy file and its tests: the client helpers (`client/task{EditSave,Feedback,Submit}.ts`), all legacy task components (`components/tasks/*`, `components/TaskQuickAddHelp.svelte`, `components/calendar/ChecklistSection.svelte`), the server actions (`server/db/actions/tasks/*`, `taskCategories.ts`, `taskPriority.ts`, `taskStats.ts`, `taskfocusSessions(.memoryStore).ts`, `completionAttribution.ts`), the services (`statsData.ts`, `streakService.ts`), `server/utils/focusStartedAt.ts` and the utils (`familyTask*.ts`, `priorityTone.ts`, `task*.ts`).
+  - **Dead cross-module files deleted with them** (nothing but their own tests imported them; leaving them would have broken the build): calendar `components/calendar/{EventModal,EventFormModal,EventModalHeader,EventRecurrenceCard}.svelte` + tests, calendarPage `EventTaskFields.svelte`, kernel `components/MentionInput.svelte` (+ harness, tests) and `utils/mentionFilter.ts` + test, dayDashboard `server/db/actions/dashboard.ts` (its `getCompletionTimestamps` reader already lives in `tasks.stats.repo.server.ts`).
+  - **Board grouping consolidated** (the brief's explicit ask): `dayDashboard.cards.rules.ts`'s `groupBoardTasks` and `familyHub.board.rules.ts`'s `groupBoardColumns` are ONE export, `tasks.board.rules.ts`'s `groupFamilyBoard` (with `rosterIds` as the dashboard card's only difference), tested in `tasks.board.rules.test.ts`; both screens import it and their copies + legacy `utils/familyTaskGroups.ts` are gone. `compareTaskUrgency`/`taskUrgencyBucket` now take the narrower `TaskUrgencyRow`, so the board sorts through the one comparator without a full `TaskPageRow`.
+- 2026-11-21 (routes): `/calendar/archive`, `/calendar/stats` (+ `statsPageModel.ts`) and `/api/archive` are ported and wiring-only.
+  - `statsPageLoad` (`tasks.http.server.ts`) is the `/api/stats` body verbatim (`getStatsPage`), and `StatsScreen` keeps the approved prototype's markup/testids; the pure shapes moved to `tasks.statsPage.rules.ts` with the legacy `statsPageModel.test.ts` table and the 13 page assertions (`ui/StatsScreen.svelte.test.ts`).
+  - `getArchivePage` (`tasks.archive.service.server.ts`) composes billing (`getPlanLimits` + `getSubscriptionSummary` + `archiveRefusal`), family (`listFamilies`) and calendar; `archiveEndpoint`/`archivePageLoad` share it so `/api/archive` and the page cannot drift. The month grouping + retention scale moved to `tasks.archive.rules.ts` (16 page assertions in `ui/ArchiveScreen.svelte.test.ts`, 11 model cases in `tasks.archive.rules.test.ts`).
+  - **Additive reads in calendar (outside this module's files, needed by the archive route):** `calendar.repo.server.ts` `findArchivedEventRows` + `calendar.events.service.server.ts` `listArchivedEvents` (+ `CalendarArchivedEvent`), exported from calendar's `index.server.ts`, with a repo `rollbackTest` and two service tests. The read does NOT expand occurrences or apply Exception Overrides — legacy read the masters, and the page says so.
+  - **Breadcrumb:** the archive page draws the one v2 trail from `kernel/ui/Breadcrumbs.svelte` (K-08) — family's temporary `FamilyBreadcrumbs` export is deleted, so the page no longer pulls family's component entry into its first paint (ADR 0010).
+  - **Wire parity notes:** `end` is the epoch when the Event has none (spec G16); the look-back cutoff is `ctx.clock.now()` minus the plan's `retentionViewDays` in 24h steps (legacy's `setDate` in the process zone, which is UTC in production); a plan whose `archivedRetentionDays <= 0` answers `archiveAllowed:false` + the legacy reason copy and no rows, with the gate facts still present. No golden exists for `/api/archive`; `tasks.archive.http.db.test.ts` is its own pin (401, key set, free/paid/refused plans, labels, the epoch).
 ### Notes (owner answers landed, S5–S9 follow-up)
 
 - 2026-11-21: the owner's answers in `docs/rewrite/questions.md` were applied golden-first (`tasks.http.db.test.ts`, `tasks.update.http.db.test.ts`, `tasks.focus.http.db.test.ts`), then the rules/services/contract/http, then the unit/service tests and the README Invariants. Only the rows an answer flips were edited; `Q-057` (A, keep the 25-row FIFO) needed nothing.
@@ -294,6 +306,8 @@ Where the legacy exports go, or why they die:
   - **Merge with rewrite/v2 (2026-11-21) — `@family` pinned to legacy**: the parser reads `@family` only when the roster has members (`66a11131:src/lib/utils/taskQuickAdd.ts:538-545`) and a family-less caller's roster is empty (`66a11131:src/lib/server/services/userScope.ts:11-24`), so `resolveTaskQuickAdd` keeps the token in the title and files a personal Task; the `400 @family needs a family — …` copy survives as `taskQuickAddRefusal`'s defensive branch (the browser state's guard, reachable only for the roster-without-family shape). Test: `tasks.quickadd.service.db.test.ts › leaves @family as title text when the caller has no roster`.
   - **Pre-Q tests corrected (2026-11-21)**: `tasks.items.service.db.test.ts` now pins Q-051 B through `TaskUpdateBody.safeParse` (the old row still wrote a raw `completedAt`); `tasks.focus.service.db.test.ts` seeds `archivedAt` with the column's Postgres text form (`'2026-02-01 00:00:00+00'`, not a `Date`); `tasks.completion.service.db.test.ts` expects legacy `advanceCursor`'s `n = 1` anchor for the Kiritimati zone (`2026-03-01 10:00:00+00`), which the port already produced.
   - **Integration type fix (2026-11-21) — no behaviour change**: the browser client now takes the SEND side of the two bodies (`TaskCreatePayload`/`TaskUpdatePayload` = `Partial<z.input<…>>`), because a caller sets only the fields it has (`{ toggleComplete: true }`, `{ title, dueDate, cadence }`) while `TaskCreateBody`/`TaskUpdateBody` are the routes' *parsed* types and mark every key present. `TasksPageState`'s two clock-reading derivations are `$derived.by(…)` so the lazily-read `clock` is not flagged before its constructor assignment, and `TaskQuickAdd`/`TaskCategoryManager` alias their `state` prop (`state: quickAdd` / `state: manager`) because a binding named `state` makes `$state(…)` parse as a store subscription (the same alias `CalendarEventForm` uses).
+
+- **Initial-JS round 2 (ADR 0010)**: `index.ts` no longer exports the state classes (`TasksPageState`, `TaskQuickAddState`, `EventTaskChecklistState`, `FOCUS_SETTLE_MS`, their option types): only this module's components use them and import the files, while the export made every rules-only consumer (the family board, the day dashboard) pull `parsing.task.rules` (~7 KB gzip) into first paint. On `/calendar/tasks` the editor sheet (`TaskEditor`, kernel `Sheet`), the category manager's list (`TaskCategoryManagerBody`), the "?" tips (`TaskQuickAddTips`), the "More" extras (`TaskQuickAddMore`) and the smart-task groups (`TaskQuickAddSmart`) are lazy chunks imported on open; each renders exactly the markup it had inline.
 
 ### Questions for the owner
 
@@ -315,166 +329,12 @@ Where the legacy exports go, or why they die:
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# tasks: 0% ported
+# tasks: 100% ported
 
-legacy source files left (59/59, 8321 LOC):
-  - src/lib/client/taskCategories.ts (44 LOC, client) importers: 1
-  - src/lib/client/taskEditSave.ts (46 LOC, client) importers: 2
-  - src/lib/client/taskFeedback.ts (99 LOC, client) importers: 5
-  - src/lib/client/taskFocus.ts (44 LOC, client) importers: 1
-  - src/lib/client/taskSubmit.ts (83 LOC, client) importers: 2
-  - src/lib/components/TaskQuickAddHelp.svelte (57 LOC, ui) importers: 4
-  - src/lib/components/TaskQuickAddPreview.svelte (94 LOC, ui) importers: 2
-  - src/lib/components/calendar/ChecklistSection.svelte (269 LOC, ui) importers: 2
-  - src/lib/components/calendar/TaskDetailBar.svelte (75 LOC, ui) importers: 1
-  - src/lib/components/calendar/TaskDetailModal.svelte (295 LOC, ui) importers: 8
-  - src/lib/components/tasks/AddTaskCard.svelte (500 LOC, ui) importers: 1
-  - src/lib/components/tasks/AssignmentsCard.svelte (134 LOC, ui) importers: 1
-  - src/lib/components/tasks/CategoryChip.svelte (24 LOC, ui) importers: 6
-  - src/lib/components/tasks/CategoryField.svelte (57 LOC, ui) importers: 3
-  - src/lib/components/tasks/CategorySelect.svelte (141 LOC, ui) importers: 2
-  - src/lib/components/tasks/EditTaskDialog.svelte (291 LOC, ui) importers: 4
-  - src/lib/components/tasks/FamilyCompletedTaskList.svelte (61 LOC, ui) importers: 1
-  - src/lib/components/tasks/FamilyOpenTaskRow.svelte (215 LOC, ui) importers: 1
-  - src/lib/components/tasks/FamilyTaskAddForm.svelte (156 LOC, ui) importers: 0
-  - src/lib/components/tasks/FamilyTaskFilterBar.svelte (88 LOC, ui) importers: 0
-  - src/lib/components/tasks/FamilyTaskRow.svelte (298 LOC, ui) importers: 2
-  - src/lib/components/tasks/FamilyTasksList.svelte (141 LOC, ui) importers: 0
-  - src/lib/components/tasks/TaskCategoryManager.svelte (205 LOC, ui) importers: 1
-  - src/lib/components/tasks/TaskCompletedRow.svelte (110 LOC, ui) importers: 1
-  - src/lib/components/tasks/TaskRow.svelte (452 LOC, ui) importers: 1
-  - src/lib/components/tasks/TaskTagFilter.svelte (59 LOC, ui) importers: 2
-  - src/lib/components/tasks/TaskToolbar.svelte (222 LOC, ui) importers: 2
-  - src/lib/components/tasks/TasksHeader.svelte (33 LOC, ui) importers: 1
-  - src/lib/components/tasks/TasksMainList.svelte (402 LOC, ui) importers: 1
-  - src/lib/server/db/actions/completionAttribution.ts (18 LOC, server) importers: 2
-  - src/lib/server/db/actions/taskCategories.ts (216 LOC, server) importers: 9
-  - src/lib/server/db/actions/taskPriority.ts (32 LOC, model) importers: 3
-  - src/lib/server/db/actions/taskStats.ts (156 LOC, server) importers: 3
-  - src/lib/server/db/actions/taskfocusSessions.memoryStore.ts (80 LOC, server) importers: 0
-  - src/lib/server/db/actions/taskfocusSessions.ts (376 LOC, server) importers: 5
-  - src/lib/server/db/actions/tasks/assignment.ts (133 LOC, server) importers: 1
-  - src/lib/server/db/actions/tasks/auth.ts (47 LOC, server) importers: 3
-  - src/lib/server/db/actions/tasks/cursor.ts (307 LOC, server) importers: 3
-  - src/lib/server/db/actions/tasks/index.ts (47 LOC, server) importers: 1
-  - src/lib/server/db/actions/tasks/mutations.ts (220 LOC, server) importers: 1
-  - src/lib/server/db/actions/tasks/queries.ts (225 LOC, server) importers: 2
-  - src/lib/server/db/actions/tasks/tags.ts (51 LOC, server) importers: 4
-  - src/lib/server/db/actions/tasks/types.ts (75 LOC, server) importers: 4
-  - src/lib/server/services/statsData.ts (46 LOC, server) importers: 2
-      NOTE: Uses dashboard.ts getCompletionTimestamps: that reader moves into tasks (it reads taskCompletions).
-  - src/lib/server/services/streakService.ts (95 LOC, model) importers: 2
-  - src/lib/server/services/tasksData.ts (61 LOC, server) importers: 2
-  - src/lib/server/utils/focusStartedAt.ts (21 LOC, model) importers: 2
-  - src/lib/utils/familyTaskActions.ts (144 LOC, model) importers: 5
-  - src/lib/utils/familyTaskGroups.ts (62 LOC, model) importers: 2
-  - src/lib/utils/familyTaskList.ts (93 LOC, model) importers: 0
-  - src/lib/utils/priorityTone.ts (72 LOC, model) importers: 9
-  - src/lib/utils/taskBulk.ts (65 LOC, model) importers: 1
-  - src/lib/utils/taskCategory.ts (39 LOC, model) importers: 8
-  - src/lib/utils/taskDisplay.ts (40 LOC, model) importers: 13
-  - src/lib/utils/taskEditPayload.ts (86 LOC, model) importers: 1
-  - src/lib/utils/taskQuickAdd.ts (599 LOC, model) importers: 8
-  - src/lib/utils/taskRecurrence.ts (35 LOC, model) importers: 2
-  - src/lib/utils/taskSort.ts (79 LOC, model) importers: 5
-  - src/lib/utils/taskUrgency.ts (106 LOC, model) importers: 4
+legacy source files left (0/59, 0 LOC):
 
-route files not yet wiring-only (20/20):
-  - src/routes/(calendar)/calendar/archive/+page.server.ts  /calendar/archive
-  - src/routes/(calendar)/calendar/archive/+page.svelte  /calendar/archive
-  - src/routes/(calendar)/calendar/stats/+page.server.ts  /calendar/stats
-  - src/routes/(calendar)/calendar/stats/+page.svelte  /calendar/stats
-  - src/routes/(calendar)/calendar/stats/statsPageModel.ts  /calendar/stats
-  - src/routes/(calendar)/calendar/tasks/+page.server.ts  /calendar/tasks
-  - src/routes/(calendar)/calendar/tasks/+page.svelte  /calendar/tasks
-      NOTE: Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines.
-  - src/routes/api/archive/+server.ts  /api/archive
-  - src/routes/api/stats/+server.ts  /api/stats
-  - src/routes/api/task-categories/+server.ts  /api/task-categories
-  - src/routes/api/task-categories/[id]/+server.ts  /api/task-categories/[id]
-  - src/routes/api/taskfocus/commands/+server.ts  /api/taskfocus/commands
-      NOTE: Inline drizzle on taskfocusCommands -> tasks repo (focus commands).
-  - src/routes/api/taskfocus/commands/[id]/+server.ts  /api/taskfocus/commands/[id]
-  - src/routes/api/taskfocus/sessions/+server.ts  /api/taskfocus/sessions
-  - src/routes/api/taskfocus/sessions/[id]/+server.ts  /api/taskfocus/sessions/[id]
-  - src/routes/api/taskfocus/sessions/[id]/absorb/+server.ts  /api/taskfocus/sessions/[id]/absorb
-  - src/routes/api/tasks/+server.ts  /api/tasks
-  - src/routes/api/tasks/[id]/+server.ts  /api/tasks/[id]
-      NOTE: 353-line PUT: each branch (undo, advance, toggle, assignment response, field patch) becomes its own tasks service function; the endpoint dispatches by body shape. Keep the focusMinutes never-wipe rule.
-  - src/routes/api/tasks/completed/+server.ts  /api/tasks/completed
-  - src/routes/api/tasks/sections/+server.ts  /api/tasks/sections
+route files not yet wiring-only (0/20):
 
-legacy test files left (71/71) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/client/taskCategories.test.ts [pure, 3 tests]
-  - src/lib/client/taskEditSave.test.ts [pure, 5 tests]
-  - src/lib/client/taskFeedback.test.ts [mocked, 3 tests]
-  - src/lib/client/taskFocus.test.ts [pure, 5 tests]
-  - src/lib/client/taskSubmit.test.ts [pure, 8 tests]
-  - src/lib/components/calendar/TaskDetailBar.svelte.test.ts [component, 4 tests]
-  - src/lib/components/calendar/TaskDetailModal.svelte.test.ts [component, 3 tests]
-  - src/lib/components/tasks/AddTaskCard.svelte.test.ts [component, 8 tests]
-  - src/lib/components/tasks/AssignmentsCard.svelte.test.ts [component, 9 tests]
-  - src/lib/components/tasks/CategoryChip.svelte.test.ts [component, 1 tests]
-  - src/lib/components/tasks/CategorySelect.svelte.test.ts [component, 5 tests]
-  - src/lib/components/tasks/EditTaskDialog.svelte.test.ts [component, 9 tests]
-  - src/lib/components/tasks/FamilyCompletedTaskList.svelte.test.ts [component, 3 tests]
-  - src/lib/components/tasks/FamilyOpenTaskRow.svelte.test.ts [component, 5 tests]
-  - src/lib/components/tasks/FamilyTaskAddForm.svelte.test.ts [component, 5 tests]
-  - src/lib/components/tasks/FamilyTaskFilterBar.svelte.test.ts [component, 2 tests]
-  - src/lib/components/tasks/FamilyTaskRow.svelte.test.ts [component, 6 tests]
-  - src/lib/components/tasks/FamilyTasksList.svelte.test.ts [component, 2 tests]
-  - src/lib/components/tasks/TaskCategoryManager.svelte.test.ts [component, 8 tests]
-  - src/lib/components/tasks/TaskCompletedRow.svelte.test.ts [component, 4 tests]
-  - src/lib/components/tasks/TaskRow.svelte.test.ts [component, 21 tests]
-  - src/lib/components/tasks/TaskTagFilter.svelte.test.ts [component, 2 tests]
-  - src/lib/components/tasks/TaskToolbar.svelte.test.ts [component, 10 tests]
-  - src/lib/components/tasks/TasksHeader.svelte.test.ts [component, 3 tests]
-  - src/lib/components/tasks/TasksMainList.svelte.test.ts [component, 20 tests]
-  - src/lib/server/db/actions/taskCategories.real.test.ts [real-db, 3 tests]
-  - src/lib/server/db/actions/taskCategories.test.ts [pure, 17 tests]
-  - src/lib/server/db/actions/taskStats.attribution.test.ts [stub-db, 3 tests]
-  - src/lib/server/db/actions/taskStats.completions.test.ts [stub-db, 2 tests]
-  - src/lib/server/db/actions/taskStats.test.ts [pure, 4 tests]
-  - src/lib/server/db/actions/taskfocusSessions.real.test.ts [real-db, 5 tests]
-  - src/lib/server/db/actions/taskfocusSessions.test.ts [stub-db, 9 tests]
-  - src/lib/server/db/actions/tasks/advanceTaskToNext.test.ts [stub-db, 7 tests]
-  - src/lib/server/db/actions/tasks/familyTaskSeam.test.ts [stub-db, 8 tests]
-  - src/lib/server/db/actions/tasks/queries.category.test.ts [stub-db, 0 tests]
-  - src/lib/server/db/actions/tasks/syncRecurringCursors.test.ts [stub-db, 10 tests]
-  - src/lib/server/db/actions/tasks/taskMutation.test.ts [stub-db, 18 tests]
-  - src/lib/server/db/actions/tasks/tasks.test.ts [stub-db, 31 tests]
-  - src/lib/server/db/actions/tasks/toggleTaskComplete.real.test.ts [real-db, 6 tests]
-  - src/lib/server/db/actions/tasks/toggleTaskComplete.test.ts [stub-db, 6 tests]
-  - src/lib/server/db/actions/tasks/undoRecurringCompletion.test.ts [stub-db, 7 tests]
-  - src/lib/server/services/streakService.test.ts [pure, 14 tests]
-  - src/lib/utils/familyTaskActions.test.ts [pure, 8 tests]
-  - src/lib/utils/familyTaskGroups.test.ts [pure, 9 tests]
-  - src/lib/utils/familyTaskList.test.ts [pure, 5 tests]
-  - src/lib/utils/priorityTone.test.ts [pure, 5 tests]
-  - src/lib/utils/taskBulk.test.ts [pure, 4 tests]
-  - src/lib/utils/taskCategory.test.ts [pure, 3 tests]
-  - src/lib/utils/taskDisplay.test.ts [pure, 6 tests]
-  - src/lib/utils/taskEditPayload.test.ts [pure, 6 tests]
-  - src/lib/utils/taskQuickAdd.test.ts [pure, 2 tests]
-  - src/lib/utils/taskRecurrence.test.ts [pure, 4 tests]
-  - src/lib/utils/taskSort.test.ts [pure, 5 tests]
-  - src/lib/utils/taskUrgency.test.ts [pure, 10 tests]
-  - src/routes/(calendar)/calendar/archive/page.svelte.test.ts [component, 16 tests]
-  - src/routes/(calendar)/calendar/stats/page.svelte.test.ts [component, 13 tests]
-  - src/routes/(calendar)/calendar/stats/statsPageModel.test.ts [route, 14 tests]
-  - src/routes/(calendar)/calendar/tasks/page.server.test.ts [route, 4 tests]
-  - src/routes/(calendar)/calendar/tasks/page.ssr.test.ts [route, 7 tests]
-  - src/routes/(calendar)/calendar/tasks/page.svelte.test.ts [component, 5 tests]
-  - src/routes/api/stats/server.test.ts [route, 6 tests]
-  - src/routes/api/task-categories/server.test.ts [route, 13 tests]
-  - src/routes/api/taskfocus/commands/[id]/server.test.ts [route, 3 tests]
-  - src/routes/api/taskfocus/commands/server.test.ts [route, 9 tests]
-  - src/routes/api/taskfocus/sessions/server.test.ts [route, 25 tests]
-  - src/routes/api/tasks/[id]/bearer.test.ts [route, 3 tests]
-  - src/routes/api/tasks/[id]/category.test.ts [route, 6 tests]
-  - src/routes/api/tasks/[id]/server.test.ts [route, 36 tests]
-  - src/routes/api/tasks/category.test.ts [route, 5 tests]
-  - src/routes/api/tasks/sections/server.test.ts [route, 4 tests]
-  - src/routes/api/tasks/server.test.ts [route, 28 tests]
+legacy test files left (0/71) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

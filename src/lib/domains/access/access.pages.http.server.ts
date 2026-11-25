@@ -14,8 +14,9 @@
  * `guest_merge` cookie at the top of the flows legacy stashed, so
  * `/merge-guest` can offer the move once the person is signed in.
  *
- * `/family/invite/email` is family's port (its sheet says so), not access's:
- * it joins a membership, and the family module owns `acceptInvite`.
+ * `/family/invite/email` is here, not in family: it joins a membership (family's
+ * `joinFamily`) but it also creates the person and its personal calendar, and
+ * family ranks below calendar, so only access can compose both.
  *
  * Doc: ./README.md#public-interface
  */
@@ -29,7 +30,15 @@ import { getPerson, type SessionCookie } from '$lib/domains/identity/index.serve
 import { CALENDAR_LANDING_PATH, authRedirectTarget, EMAIL_LINK_LANDING_PATH } from './access.redirect.rules';
 import { isGuestPerson, isRegisteredPerson } from './access.person.rules';
 import { claimEmail } from './access.claim.rules';
-import { CLAIM_SEND_FAILED_MESSAGE, EMAIL_CHANGE_SEND_FAILED_MESSAGE } from './access.contract';
+import {
+	AccessClaimParams,
+	AccessEmailLinkQuery,
+	ChangeEmailForm,
+	ClaimRequestForm,
+	CLAIM_SEND_FAILED_MESSAGE,
+	EMAIL_CHANGE_SEND_FAILED_MESSAGE,
+	VerifyEmailForm
+} from './access.contract';
 import { clientIpOf, sessionCookieHeader } from './access.http.server';
 import { completeEmailLoginLink } from './access.login.service.server';
 import { completeEmailSignupLink } from './access.signup.service.server';
@@ -42,6 +51,18 @@ import {
 	stashGuestFromCookies
 } from './access.guestMerge.service.server';
 import { requestEmailChange, verifyEmailChange } from './access.account.service.server';
+import {
+	INVITE_EMAIL_INVALID_TOKEN,
+	INVITE_EMAIL_INVALID_TOKEN_MESSAGE,
+	INVITE_EMAIL_JOINED_MESSAGE,
+	INVITE_EMAIL_MISSING_TOKEN,
+	INVITE_EMAIL_MISSING_TOKEN_MESSAGE,
+	INVITE_EMAIL_SKIP_ACTION,
+	INVITE_EMAIL_UNAVAILABLE_MESSAGE,
+	InviteEmailForm,
+	inviteEmailPasswordRefusal
+} from './access.inviteEmail.rules';
+import { acceptInviteEmail, readInviteEmailToken } from './access.inviteEmail.service.server';
 
 // --- `/login` and `/signup` -------------------------------------------------
 
@@ -96,10 +117,11 @@ function redirectWithCookie(location: string, cookie: SessionCookie): Response {
 /** `GET /login/email/callback?token` — 302 with the session cookie. */
 export const loginCallback = endpoint({
 	auth: 'public',
-	handle: async ({ ctx, event }) => {
+	query: AccessEmailLinkQuery,
+	handle: async ({ ctx, query, event }) => {
 		await stashGuestFromCookies(ctx, event.cookies);
 		const result = await completeEmailLoginLink(ctx, {
-			token: event.url.searchParams.get('token'),
+			token: query.token ?? null,
 			actor: event.locals.actor ?? null,
 			sessionId: event.locals.session?.id ?? null
 		});
@@ -115,10 +137,11 @@ export const loginCallback = endpoint({
 /** `GET /signup/email/callback?token` — 302 with the session cookie. */
 export const signupCallback = endpoint({
 	auth: 'public',
-	handle: async ({ ctx, event }) => {
+	query: AccessEmailLinkQuery,
+	handle: async ({ ctx, query, event }) => {
 		await stashGuestFromCookies(ctx, event.cookies);
 		const result = await completeEmailSignupLink(ctx, {
-			token: event.url.searchParams.get('token'),
+			token: query.token ?? null,
 			actor: event.locals.actor ?? null
 		});
 		if (result.outcome === 'signed-in') {
@@ -148,10 +171,12 @@ export type ClaimRequestActionData = { readonly success: true; readonly email: s
 /** `/claim?/request` — the guests-only claim link request. */
 export const claimRequestAction = formAction({
 	auth: 'optional',
+	form: ClaimRequestForm,
 	failMessage: CLAIM_SEND_FAILED_MESSAGE,
 	handle: async ({
 		ctx,
 		actor,
+		form,
 		event
 	}): Promise<ClaimRequestActionData | ActionFailure<{ success: false; error: string }>> => {
 		if (!actor) {
@@ -160,9 +185,8 @@ export const claimRequestAction = formAction({
 				error: 'Not signed in'
 			});
 		}
-		const rawEmail = (await event.request.formData()).get('email');
 		const result = await requestClaim(ctx, actor, {
-			email: rawEmail,
+			email: form.email,
 			clientIp: clientIpOf(event.request),
 			baseUrl: ctx.config.siteUrl
 		});
@@ -172,7 +196,7 @@ export const claimRequestAction = formAction({
 				error: CLAIM_SEND_FAILED_MESSAGE
 			});
 		}
-		return { success: true, email: claimEmail(rawEmail) };
+		return { success: true, email: claimEmail(form.email) };
 	}
 });
 
@@ -197,18 +221,20 @@ function claimConfirmPage(token: string): Response {
 /** `GET /claim/verify/[token]` — renders the confirm page; it never burns. */
 export const claimVerifyPage = endpoint({
 	auth: 'optional',
-	handle: async ({ actor, event }) => {
+	params: AccessClaimParams,
+	handle: async ({ actor, params }) => {
 		if (!actor) throw redirect(302, '/login');
-		return claimConfirmPage(event.params.token ?? '');
+		return claimConfirmPage(params.token);
 	}
 });
 
 /** `POST /claim/verify/[token]` — consumes the token and claims or merges. */
 export const claimVerifyAction = endpoint({
 	auth: 'optional',
-	handle: async ({ ctx, actor, event }) => {
+	params: AccessClaimParams,
+	handle: async ({ ctx, actor, params, event }) => {
 		if (!actor) throw redirect(302, '/login');
-		const result = await confirmClaim(ctx, actor, { token: event.params.token ?? '' });
+		const result = await confirmClaim(ctx, actor, { token: params.token });
 		if (result.outcome === 'invalid') throw redirect(302, '/claim?error=invalid');
 		if (result.outcome === 'merged') {
 			// The merge deleted the guest session; sign into the merged target.
@@ -236,17 +262,17 @@ export type ChangeEmailActionData = {
  */
 export const changeEmailAction = formAction({
 	auth: 'user',
+	form: ChangeEmailForm,
 	handle: async ({
 		ctx,
 		actor,
+		form,
 		event
 	}): Promise<ChangeEmailActionData | ActionFailure<ChangeEmailActionData>> => {
 		try {
 			// Legacy read its form inside the flow's own `try`, after the throttle.
-			const form = await event.request.formData();
-			const email = form.get('email');
 			return await requestEmailChange(ctx, actor, {
-				email: typeof email === 'string' ? email : '',
+				email: form.email,
 				clientKey: clientKeyOf(event.request, `email-change:${actor.id}`),
 				siteUrl: ctx.config.siteUrl
 			});
@@ -286,22 +312,21 @@ export type VerifyEmailActionData = {
  */
 export const verifyEmailAction = formAction({
 	auth: 'optional',
+	form: VerifyEmailForm,
 	failMessage: 'Failed to verify email',
 	handle: async ({
 		ctx,
 		actor,
+		form,
 		event
 	}): Promise<VerifyEmailActionData | ActionFailure<VerifyEmailActionData>> => {
-		const form = await event.request.formData();
-		const token = form.get('token');
-		const code = form.get('code');
 		// Legacy's own `try` swallowed the unauthenticated `requireUser` throw
 		// into the 500 copy, which this keeps.
 		if (!actor) return fail(500, { success: false, message: 'Failed to verify email' });
 		try {
 			return await verifyEmailChange(ctx, actor, {
-				token: typeof token === 'string' ? token : '',
-				code: typeof code === 'string' ? code : '',
+				token: form.token,
+				code: form.code,
 				clientKey: clientKeyOf(event.request, 'verify-email-change')
 			});
 		} catch (cause) {
@@ -376,5 +401,81 @@ export const mergeGuestSkipAction = formAction({
 	handle: async ({ event }): Promise<never> => {
 		event.cookies.delete(GUEST_MERGE_COOKIE, { path: '/' });
 		throw redirect(302, CALENDAR_LANDING_PATH);
+	}
+});
+
+// --- `/family/invite/email` -------------------------------------------------
+
+/** The invite page's data: the token plus the claims the heading prints. */
+export type InviteEmailPageData = {
+	readonly token: string;
+	readonly email: string;
+	readonly firstName: string;
+	readonly lastName: string;
+	readonly familyId: string;
+};
+
+/**
+ * `GET /family/invite/email?token=…` — the emailed invite's password step. A
+ * missing or undecodable token is a redirect to `/login` with the legacy
+ * `error=` code, never a 404; the page itself needs no session.
+ */
+export const inviteEmailPageLoad = pageLoad<'public', InviteEmailPageData>({
+	auth: 'public',
+	handle: async ({ ctx, event }): Promise<InviteEmailPageData> => {
+		const token = event.url.searchParams.get('token');
+		if (!token) throw redirect(302, `/login?error=${INVITE_EMAIL_MISSING_TOKEN}`);
+		const payload = await readInviteEmailToken(ctx, token);
+		if (!payload) throw redirect(302, `/login?error=${INVITE_EMAIL_INVALID_TOKEN}`);
+		return {
+			token,
+			email: payload.email,
+			firstName: payload.firstName,
+			lastName: payload.lastName,
+			familyId: payload.familyId
+		};
+	}
+});
+
+/** The action's own refusal body: the legacy `{ error }`, read by the form's banner. */
+type InviteEmailFailure = { readonly error: string };
+
+/**
+ * `POST /family/invite/email` — join through the token. The checks keep the
+ * legacy order: missing token, then (password path) the length and the
+ * confirmation, then the token itself, then the join. Success is a 303 —
+ * `/family/<id>` for a newly created and signed-in person, `/login?notice=` for
+ * an existing account (which is never signed in from the link), and
+ * `/login?error=` for the one invite refusal.
+ */
+export const inviteEmailAcceptAction = formAction({
+	auth: 'public',
+	form: InviteEmailForm,
+	handle: async ({
+		ctx,
+		form,
+		event
+	}): Promise<InviteEmailFailure | ActionFailure<InviteEmailFailure> | never> => {
+		if (!form.token) return fail<InviteEmailFailure>(400, { error: INVITE_EMAIL_MISSING_TOKEN_MESSAGE });
+
+		let password: string | undefined;
+		if (form._action !== INVITE_EMAIL_SKIP_ACTION) {
+			const refusal = inviteEmailPasswordRefusal(form.password, form.passwordConfirm);
+			if (refusal) return fail<InviteEmailFailure>(400, { error: refusal });
+			password = form.password;
+		}
+
+		const payload = await readInviteEmailToken(ctx, form.token);
+		if (!payload) return fail<InviteEmailFailure>(400, { error: INVITE_EMAIL_INVALID_TOKEN_MESSAGE });
+
+		const result = await acceptInviteEmail(ctx, { payload, ...(password ? { password } : {}) });
+		if (result.outcome === 'unavailable') {
+			throw redirect(303, `/login?error=${encodeURIComponent(INVITE_EMAIL_UNAVAILABLE_MESSAGE)}`);
+		}
+		if (result.outcome === 'joined-existing') {
+			throw redirect(303, `/login?notice=${encodeURIComponent(INVITE_EMAIL_JOINED_MESSAGE)}`);
+		}
+		event.cookies.set(result.cookie.name, result.cookie.value, result.cookie.attributes);
+		throw redirect(303, `/family/${encodeURIComponent(result.familyId)}`);
 	}
 });

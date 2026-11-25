@@ -321,18 +321,6 @@
 			"layer": "ui",
 			"loc": 32
 		},
-		"src/lib/components/DayNav.svelte": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "ui",
-			"loc": 126
-		},
-		"src/lib/components/DayNav.svelte.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 142,
-			"subject": "src/lib/components/DayNav.svelte"
-		},
 		"src/lib/components/LocationSearch.svelte": {
 			"module": "calendar",
 			"kind": "source",
@@ -344,24 +332,6 @@
 			"kind": "test",
 			"loc": 72,
 			"subject": "src/lib/components/LocationSearch.svelte"
-		},
-		"src/lib/components/MentionInput.svelte": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "ui",
-			"loc": 280
-		},
-		"src/lib/components/MentionInput.svelte.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 228,
-			"subject": "src/lib/components/MentionInput.svelte"
-		},
-		"src/lib/components/MentionInputHarness.svelte": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "ui",
-			"loc": 17
 		},
 		"src/lib/components/Navbar.svelte": {
 			"module": "shell",
@@ -1224,23 +1194,12 @@
 			"kind": "test",
 			"loc": 35
 		},
-		"src/lib/components/calendar/bottomSheetSwipe.svelte.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 49,
-			"subject": "src/lib/components/calendar/bottomSheetSwipe.ts"
-		},
-		"src/lib/components/calendar/bottomSheetSwipe.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 29,
-			"subject": "src/lib/components/calendar/bottomSheetSwipe.ts"
-		},
 		"src/lib/components/calendar/bottomSheetSwipe.ts": {
 			"module": "kernel",
 			"kind": "source",
 			"layer": "ui",
-			"loc": 74
+			"loc": 74,
+			"note": "KEPT: EventModal/EventFormModal (unported calendar UI) still import it; calendar's sweep repoints them at kernel/ui/sheetSwipe.ts and deletes it then."
 		},
 		"src/lib/components/calendar/calendarView.test.ts": {
 			"module": "calendarPage",
@@ -1717,36 +1676,6 @@
 			"kind": "test",
 			"loc": 335,
 			"subject": "src/lib/components/tasks/TasksMainList.svelte"
-		},
-		"src/lib/conformance/collect.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "testing/conformance",
-			"loc": 57
-		},
-		"src/lib/conformance/rules.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 75,
-			"subject": "src/lib/conformance/rules.ts"
-		},
-		"src/lib/conformance/rules.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "testing/conformance",
-			"loc": 154
-		},
-		"src/lib/conformance/tokens.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 124,
-			"subject": "src/lib/conformance/tokens.ts"
-		},
-		"src/lib/conformance/tokens.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "testing/conformance",
-			"loc": 97
 		},
 		"src/lib/dashboardModules.test.ts": {
 			"module": "dashboardModules",
@@ -2504,18 +2433,6 @@
 			"loc": 509,
 			"note": "SPLIT: member/role/member-type/invite/create use-cases -> family service; loadFamilyDetail/loadFamilyTasks read models -> familyHub screen; loadFamiliesOverview/loadInvitations -> family http."
 		},
-		"src/lib/server/services/fcmService.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 317,
-			"subject": "src/lib/server/services/fcmService.ts"
-		},
-		"src/lib/server/services/fcmService.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "push",
-			"loc": 250
-		},
 		"src/lib/server/services/guestMergeService.ts": {
 			"module": "access",
 			"kind": "source",
@@ -2557,12 +2474,6 @@
 			"kind": "source",
 			"layer": "model",
 			"loc": 278
-		},
-		"src/lib/server/services/llm.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "ai",
-			"loc": 64
 		},
 		"src/lib/server/services/logger.test.ts": {
 			"module": "kernel",
@@ -2770,24 +2681,6 @@
 			"layer": "ids",
 			"loc": 22
 		},
-		"src/lib/server/utils/guard.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 35,
-			"subject": "src/lib/server/utils/guard.ts"
-		},
-		"src/lib/server/utils/guard.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "http",
-			"loc": 21
-		},
-		"src/lib/server/utils/jsonBody.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "http",
-			"loc": 29
-		},
 		"src/lib/server/utils/password.ts": {
 			"module": "identity",
 			"kind": "source",
@@ -2811,18 +2704,6 @@
 			"kind": "source",
 			"layer": "http",
 			"loc": 54
-		},
-		"src/lib/server/utils/svixVerify.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 85,
-			"subject": "src/lib/server/utils/svixVerify.ts"
-		},
-		"src/lib/server/utils/svixVerify.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "http",
-			"loc": 68
 		},
 		"src/lib/server/utils/userTimezone.test.ts": {
 			"module": "identity",
@@ -2877,18 +2758,6 @@
 			"kind": "source",
 			"layer": "model",
 			"loc": 91
-		},
-		"src/lib/utils/avatarColor.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 19,
-			"subject": "src/lib/utils/avatarColor.ts"
-		},
-		"src/lib/utils/avatarColor.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "util",
-			"loc": 17
 		},
 		"src/lib/utils/bulkPlan.test.ts": {
 			"module": "calendar",
@@ -2985,18 +2854,6 @@
 			"kind": "source",
 			"layer": "model",
 			"loc": 281
-		},
-		"src/lib/utils/dateUtils.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 268,
-			"subject": "src/lib/utils/dateUtils.ts"
-		},
-		"src/lib/utils/dateUtils.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "time",
-			"loc": 92
 		},
 		"src/lib/utils/dateVocab.test.ts": {
 			"module": "parsing",
@@ -3196,18 +3053,6 @@
 			"layer": "model",
 			"loc": 31
 		},
-		"src/lib/utils/mentionFilter.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 97,
-			"subject": "src/lib/utils/mentionFilter.ts"
-		},
-		"src/lib/utils/mentionFilter.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "ui",
-			"loc": 28
-		},
 		"src/lib/utils/moduleRowState.test.ts": {
 			"module": "dashboardModules",
 			"kind": "test",
@@ -3303,24 +3148,6 @@
 			"kind": "source",
 			"layer": "model",
 			"loc": 43
-		},
-		"src/lib/utils/safeRedirect.test.ts": {
-			"module": "kernel",
-			"kind": "test",
-			"loc": 40,
-			"subject": "src/lib/utils/safeRedirect.ts"
-		},
-		"src/lib/utils/safeRedirect.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "util",
-			"loc": 21
-		},
-		"src/lib/utils/sendEmail.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "mail",
-			"loc": 23
 		},
 		"src/lib/utils/shareTarget.test.ts": {
 			"module": "calendar",
@@ -3429,12 +3256,6 @@
 			"kind": "source",
 			"layer": "model",
 			"loc": 106
-		},
-		"src/lib/utils/testDom.ts": {
-			"module": "kernel",
-			"kind": "source",
-			"layer": "testing",
-			"loc": 51
 		},
 		"src/lib/utils/touchTarget.test.ts": {
 			"module": "kernel",

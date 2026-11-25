@@ -14,6 +14,8 @@
  *
  * Doc: ./README.md#invariants
  */
+import type { TaskQuickAddResult } from '$lib/domains/parsing';
+import type { TaskCreatePayload } from '$lib/domains/tasks';
 
 /** The fields the glance ordering reads: the flag and the start of one day event. */
 export type GlanceOrderRow = {
@@ -105,4 +107,145 @@ export function initialsFromName(name: string): string {
 		.slice(0, 2)
 		.map((part) => part[0].toUpperCase())
 		.join('');
+}
+
+// --- Glance chip -------------------------------------------------------------
+
+/** Which mark a glance row wears: an ad outranks all-day, all-day outranks timed. */
+export type GlanceChipKind = 'timed' | 'allDay' | 'sponsored';
+
+/** The mark's geometry, mirrored from calendar's chip table for the three kinds a day can carry. */
+export type GlanceChip = {
+	readonly kind: GlanceChipKind;
+	/** The row's inline style: the calendar colour as a CSS variable. */
+	readonly style: string;
+	readonly width: number;
+	readonly height: number;
+	readonly radius: string;
+	/** The visible word ('' for a timed chip). */
+	readonly word: string;
+};
+
+/**
+ * The glance chip, computed here rather than through `calendar.chips.rules`:
+ * that module imports luxon for its day split, and the dashboard's first paint
+ * must not pay 21.5 KB for one 10px dot. The geometry and words are calendar's
+ * table (`chrome` kinds only); when calendar splits its chip rules out of the
+ * luxon file, this rule goes away and the mark component comes back.
+ */
+export function glanceChip(event: {
+	readonly allDay: boolean;
+	readonly isAd?: boolean | null;
+	readonly color: string;
+}): GlanceChip {
+	const kind: GlanceChipKind = event.isAd ? 'sponsored' : event.allDay ? 'allDay' : 'timed';
+	return {
+		kind,
+		style: `--chip-color:${event.color || '#fa8072'};`,
+		width: kind === 'timed' ? 6 : kind === 'allDay' ? 10 : 9,
+		height: kind === 'timed' ? 6 : kind === 'allDay' ? 5 : 9,
+		radius: kind === 'timed' ? '9999px' : kind === 'allDay' ? '1px' : '0px',
+		word: kind === 'allDay' ? 'All day' : kind === 'sponsored' ? 'Ad' : ''
+	};
+}
+
+// --- Glance RSVP badge -------------------------------------------------------
+
+/** The badge a glance row draws for the viewer's answer to a family event. */
+export type GlanceRsvpVisual = {
+	readonly label: string;
+	readonly icon: string;
+	/** Extra classes on the row's shell (`opacity-60` for a declined event). */
+	readonly containerClass: string;
+	readonly badgeClass: string;
+};
+
+/**
+ * The RSVP badge, exactly the legacy `utils/eventChip.rsvpVisual` table: Going
+ * and Maybe tint the row's ring, a decline dims it, and no answer draws
+ * nothing at all (an own, un-invited event has no attendance row).
+ */
+export function glanceRsvpVisual(status?: string | null): GlanceRsvpVisual | null {
+	switch (status) {
+		case 'going':
+			return {
+				label: 'Going',
+				icon: '✓',
+				containerClass: 'ring-1 ring-inset ring-emerald-400/60',
+				badgeClass: 'bg-emerald-100 text-emerald-700'
+			};
+		case 'maybe':
+			return {
+				label: 'Maybe',
+				icon: '?',
+				containerClass: 'ring-1 ring-inset ring-amber-400/60',
+				badgeClass: 'bg-amber-100 text-amber-700'
+			};
+		case 'declined':
+			return {
+				label: "Can't go",
+				icon: '✕',
+				containerClass: 'opacity-60 saturate-50',
+				badgeClass: 'bg-slate-200 text-slate-500'
+			};
+		default:
+			return null;
+	}
+}
+
+// --- Board quick-add body ----------------------------------------------------
+
+/**
+ * The body the board's quick-add posts: the parsed title with its due date,
+ * priority, tags and cadence, filed to the family, assigned to the `@member`
+ * (or the creator, who then owns it), public by default, and the category field
+ * only when something was typed (a blank never reaches the wire). Unlike the
+ * tasks page's personal quick-add, a board task is always a Family Task.
+ */
+export function familyBoardTaskBody(
+	parsed: TaskQuickAddResult,
+	input: {
+		readonly familyId: string;
+		readonly meId: string;
+		readonly category: string;
+	}
+): TaskCreatePayload {
+	const body: TaskCreatePayload = {
+		title: parsed.title,
+		dueDate: parsed.dueDate,
+		familyId: input.familyId,
+		assignedTo: parsed.assignedTo ?? input.meId,
+		priority: parsed.priority,
+		visibility: 'public',
+		tags: parsed.tags,
+		recurrenceFrequency: parsed.recurrenceFrequency,
+		recurrenceInterval: parsed.recurrenceInterval ?? undefined
+	};
+	const category = input.category.trim();
+	if (category) body.category = category;
+	return body;
+}
+
+// --- Task card tones (the shared palette, with "now" passed in) -------------
+
+/** The priority chips a card can set, low → high (legacy `PRIORITY_ORDER`). */
+export const DASHBOARD_PRIORITY_ORDER = ['low', 'normal', 'high'] as const;
+
+/** Due chip tone: overdue red / today amber / later grey; '' without a due date. */
+export function dashboardDueTone(due: string | null | undefined, now: Date): string {
+	if (!due) return '';
+	const at = Date.parse(due);
+	if (Number.isNaN(at)) return 'bg-slate-100 text-slate-600';
+	const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+	const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+	if (at < start) return 'bg-red-100 text-red-700';
+	if (at <= end) return 'bg-amber-100 text-amber-700';
+	return 'bg-slate-100 text-slate-600';
+}
+
+/** Label chip tone: high shouts, normal neutral, low muted. */
+export function dashboardPriorityTone(priority: string): string {
+	if (priority === 'high') return 'bg-red-100 text-red-700';
+	if (priority === 'low') return 'bg-slate-100 text-slate-500';
+	return 'bg-slate-100 text-slate-600';
 }

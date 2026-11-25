@@ -10,6 +10,21 @@
 
 	`#242`: an Anonymous Account's placeholder email is never printed; the card
 	says "No email yet · Save your calendar" instead.
+
+	A link keeps its `href` (a mid-hydration click is a plain fragment
+	navigation the page's own hash read completes), and it ALSO hands the
+	section to `onSelect`: SvelteKit intercepts a same-page hash click and moves
+	the URL without a `hashchange` event, so the fragment alone is not a
+	reliable signal once the page is hydrated. The e2e journeys click these
+	links and expect the section to be on screen.
+
+	Colour/type/shadow come from the marketing token set (`#129`): the rail
+	title is a 12px label tracked to the prototype's 0.88px, and the identity
+	badge sits on the warm-100 token, not a bespoke hex.
+
+	The title's line box stays legacy's 16.5px (11px × the inherited 1.5): the
+	12px marketing size alone takes text-xs's 16px and pulls everything below it
+	up half a pixel, which the pages visual check sees as a 1px shorter page.
 -->
 <script lang="ts">
 	import { ACCOUNT_SECTIONS, type AccountSectionId } from '../account.sections.rules';
@@ -19,9 +34,11 @@
 		activeSection: AccountSectionId;
 		/** The signed-in person; absent renders no card rather than an empty one. */
 		user?: AccountPersonModel | null;
+		/** Tells the screen which section the reader picked, before the URL settles. */
+		onSelect: (section: AccountSectionId) => void;
 	}
 
-	let { activeSection, user = null }: Props = $props();
+	let { activeSection, user = null, onSelect }: Props = $props();
 
 	// Presentation of the wire's own fields: `email` already arrived masked for
 	// an Anonymous Account (`guestSafeEmail`), so a real address is simply a
@@ -69,7 +86,7 @@
 	>
 		<div
 			data-testid="account-rail-title"
-			class="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-400"
+			class="mb-3 text-xs font-bold uppercase leading-[16.5px] tracking-[0.88px] text-slate-400"
 		>
 			Settings
 		</div>
@@ -79,6 +96,7 @@
 					<a
 						href="#{section.id}"
 						aria-current={activeSection === section.id ? 'true' : undefined}
+						onclick={() => onSelect(section.id)}
 						class="flex items-center gap-2 rounded-[0.625rem] px-2.5 py-2 text-sm font-semibold transition-colors
 						{activeSection === section.id
 							? 'bg-primary-50 text-primary-700'

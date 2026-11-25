@@ -207,6 +207,50 @@ describe('ConfirmAction', () => {
 		expect(screen.getByTestId('member-remove-cancel')).toHaveClass('h-11', 'bg-slate-200');
 	});
 
+	it('offers the legacy tasks footer’s bare text trigger and compact pair as the text variant', async () => {
+		const onconfirm = vi.fn();
+		render(ConfirmAction, {
+			props: {
+				label: 'Clear completed',
+				ask: 'Delete all completed?',
+				confirmLabel: 'Yes, delete',
+				cancelLabel: 'No',
+				variant: 'text',
+				onconfirm,
+				testid: 'clear-completed'
+			}
+		});
+
+		// `TasksMainList.svelte:374-402`: a plain text trigger, not the default
+		// bordered pill (whose 38px height made the footer row 22px too tall).
+		const trigger = screen.getByTestId('clear-completed');
+		expect(trigger).toHaveTextContent('Clear completed');
+		expect(trigger).toHaveClass('text-xs', 'font-medium', 'text-slate-400');
+		expect(trigger.className).not.toContain('border');
+		expect(trigger.className).not.toContain('py-2');
+
+		await fireEvent.click(trigger);
+
+		expect(screen.getByText('Delete all completed?')).toHaveClass(
+			'text-xs',
+			'font-medium',
+			'text-red-600'
+		);
+		const yes = screen.getByTestId('clear-completed-confirm');
+		expect(yes).toHaveTextContent('Yes, delete');
+		expect(yes).toHaveClass('rounded-full', 'bg-red-600', 'px-3', 'py-1.5', 'text-xs');
+		expect(screen.getByTestId('clear-completed-cancel')).toHaveClass(
+			'rounded-full',
+			'bg-slate-200',
+			'px-3',
+			'py-1.5',
+			'text-xs'
+		);
+
+		await fireEvent.click(yes);
+		expect(onconfirm).toHaveBeenCalledTimes(1);
+	});
+
 	it('keeps the ask open, disabled and labelled while a promised confirm runs', async () => {
 		let settle = (): void => {};
 		const onconfirm = vi.fn(

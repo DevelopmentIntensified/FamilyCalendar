@@ -23,6 +23,7 @@ import {
 	PAGES_AUTH_SECRET,
 	PAGES_DATABASE_NAME,
 	PAGES_DATABASE_URL,
+	PAGES_EMAIL_SECRET,
 	PAGES_PORT
 } from './env';
 
@@ -81,6 +82,10 @@ function startPreview(): ChildProcess {
 		...process.env,
 		DATABASE_URL: PAGES_DATABASE_URL,
 		BETTER_AUTH_SECRET: PAGES_AUTH_SECRET,
+		// The runtime code pepper (`resolveCodePepper`): seeds sign invite and
+		// recovery tokens with it, so the server must be pinned to the same
+		// placeholder the build baked instead of inheriting the developer's .env.
+		EMAILSECRET: PAGES_EMAIL_SECRET,
 		NODE_ENV: 'production',
 		// Production parity, and host-independence: the preview's clock and
 		// `Intl` defaults are UTC whatever the machine is set to. Dates that

@@ -9,6 +9,13 @@ Platform toolkit: ctx ports (db, clock, ids, log, limiter, mail, faults), errors
 - **Must be ported first:** nothing (from the legacy import graph; see the ledger).
 - **Playbook:** [kernel-tasks.md](../playbooks/kernel-tasks.md).
 
+## Steps
+
+- [x] S6 http + route wiring (goldens unchanged since S2) — kernel owns no `/api` or page route: 0/0 routes, per census.
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — done under K-06/K-08: `kernel/ui` primitives and `kernel/client` pieces, no page of its own.
+- [x] S8 rewire importers, delete legacy code and legacy tests — done in two passes: the 2026-11-21 S8 sweep left 17 legacy sources (13 deleted, 4 moved into kernel: conformance ×3, `push/fcm.server.ts`) and kept 22 for importers that still existed; the final sweep (with APP-02/APP-05) deleted all 19 that remained, plus 5 legacy tests (see Notes).
+- [x] S9 README final (Files table covers every file), Notes + census refreshed — ledger row stays with the orchestrator.
+
 ## Must survive
 
 Behaviour the port must keep (each becomes an Invariant in the README, pinned by a test):
@@ -143,77 +150,29 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Notes
 
-(Surprises, decisions, files kept for unported importers.)
+**S8 sweep (2026-11-21)**
+
+- **Deleted (13 legacy sources; 10 legacy test files; 3 more moved with their source).** `components/DayNav.svelte`, `components/MentionInput.svelte`, `components/MentionInputHarness.svelte`, `server/services/llm.ts`, `server/utils/guard.ts`, `server/utils/jsonBody.ts`, `server/utils/svixVerify.ts`, `utils/avatarColor.ts`, `utils/dateUtils.ts`, `utils/mentionFilter.ts`, `utils/safeRedirect.ts`, `utils/sendEmail.ts`, `utils/testDom.ts`. Each v2 replacement already existed: `kernel/ui/DayNav.svelte`, `kernel/ui/MentionInput.svelte`, `kernel/ai/cerebrasAi.server.ts`, `kernel/http/pageHandlers.server.ts` + the screens' own section guards, `kernel/http/endpoint.server.ts` (`Invalid JSON`), `kernel/ui/colorHash.ts` (`idColor`), `kernel/time/dates.ts`, `kernel/ui/mentionFilter.ts`, access' `access.redirect.rules.ts`, `kernel/mail/*`, and v2 component tests' own stubs. `svixVerify.ts` was deleted rather than ported: its only importer is `_attic/money` (archived Resend inbound-email route), so v2 has nothing to verify yet — if an inbound webhook returns it goes into `kernel/http` with its own test.
+- **Moved into kernel (4).** `conformance/{collect,rules,tokens}.ts` + `rules.test.ts`, `tokens.test.ts` → `kernel/conformance/` (#131 design-conformance harness; e2e imports repointed); `server/services/fcmService.ts` + test → `kernel/push/fcm.server.ts` + `fcm.test.ts`, with the message builders left out (alerts owns that vocabulary in `alerts.push.rules.ts`), `FcmSendResult` renamed `FcmDeviceResult` (R11) and `getFcmSender(raw)` taking the key instead of reading `process.env` (R6). `app/pushTransport.server.ts` + `server/services/{devicePushService,eventsChangedNudge}.ts` (legacy alerts) repointed.
+- **Kept for unported importers (22).** `client/toasts.ts`, `components/Toaster.svelte`, `components/brand/Mark.svelte`, `components/calendar/BottomSheetHandle.svelte`, `components/calendar/bottomSheetSwipe.ts` → calendar/shell sweeps (legacy calendar UI and `shell`'s `Navbar` still import them). `server/db/index.ts` and `schema.ts` → the legacy `db/actions/*` of identity/calendar/tasks/family/groceries/alerts; `appCtx`'s db import is the documented app exception. `server/db/testHarness.ts` → tasks' legacy `.real.test.ts` files. `server/services/logger.ts` → marketing `analyticsService` + tasks `queries` (appCtx now uses `kernel/log/jsonLog`). `server/utils/{clampCount,generateId,pickWritableFields,rateLimit,requireUser}.ts` → family tests, identity/family/sponsored actions, the app's APP-02 limiter bridge, and the calendar/archive routes. `utils/{actionError,contactColors,eventTime,focusTrap,hashName,typeGuards,touchTarget,getUrl}.ts` → calendar/shell/tasks legacy UI and app's site-URL config.
+- `getUrl.ts` stayed through the S8 sweep although its one importer is `app`: the app's public-origin rule is documented inline in `appCtx.server.ts` and `ports.server.ts` reads `getUrl()` for invite links; folding the two into one app helper belongs to the app sweep, not here.
+
+**Final sweep (2026-11-21, with APP-02/APP-05)**
+
+- **Deleted — the 19 files the S8 sweep had to keep, plus 5 legacy tests.** `client/toasts.ts`, `components/Toaster.svelte`, `components/brand/Mark.svelte`, `server/db/index.ts`, `server/db/schema.ts`, `server/db/testHarness.ts`, `server/services/logger.ts`, `server/utils/{clampCount,generateId,pickWritableFields,requireUser}.ts`, `utils/{actionError,contactColors,eventTime,focusTrap,getUrl,hashName,touchTarget,typeGuards}.ts`; tests `components/brand/Mark.svelte.test.ts`, `server/services/logger.test.ts`, `utils/{actionError,hashName,touchTarget}.test.ts`. Every importer had already moved to the v2 home: toasts/Toaster → `kernel/client/toasts.svelte.ts` + `kernel/ui/Toaster.svelte` (the marketing header was the last importer), Mark → `kernel/ui/BrandMark.svelte`, `db/index` → `appCtx.server.ts` builds the pool with kernel `connectDb` on `DATABASE_URL` (R6: app reads the environment; same 10-connection pool, same fail-loud message and `dotenv/config` side effect), `schema.ts` → the K-04 table split (no importer left), `logger` → `kernel/log/jsonLog.ts`, `clampCount` → `validators.clampedInt`, `generateId` → `ids.systemIds`, `requireUser` → `kernel/http/pageHandlers.server.ts` auth guards, `actionError` → `kernel/client/apiClient.ts`'s error ladder + calendar's modal rules, `contactColors`/`hashName` → `kernel/ui/colorHash.ts`, `eventTime` → `kernel/time/dates.ts`, `focusTrap` → `kernel/ui/trapFocus.ts`, `typeGuards` → `kernel/validation/primitives.ts`, `getUrl` → `ctx.config.siteUrl` (invite-link port). Two had no v2 caller and were dropped outright: `touchTarget.ts` (`measureBox` was imported only by its own test) and `pickWritableFields.ts` (only the legacy `userSettings` action used it).
+- **APP-02.** `appCtx.limiter` is `createMemoryRateLimiter(systemClock)`; `src/lib/server/utils/rateLimit.ts` deleted (no test file existed). Web and mobile sign-in keep sharing buckets because both key by `clientKeyOf` (issue 288).
+- **APP-05.** `src/lib/server/`, `src/lib/utils/`, `src/lib/client/` and `src/lib/components/` (all empty), `vitest-setup-server.ts` and the `client`/`server` vitest projects are gone; `test:unit` runs plain `vitest` and the dead `test:legacy` script went with the projects. `LEGACY_PREFIXES` stays in the registry so the folders cannot come back.
 
 ## Census
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# kernel: 12% ported
+# kernel: 100% ported
 
-legacy source files left (39/44, 3412 LOC):
-  - src/lib/client/toasts.ts (26 LOC, client) importers: 24
-  - src/lib/components/DayNav.svelte (126 LOC, ui) importers: 2
-  - src/lib/components/MentionInput.svelte (280 LOC, ui) importers: 4
-  - src/lib/components/MentionInputHarness.svelte (17 LOC, ui) importers: 0
-  - src/lib/components/Toaster.svelte (51 LOC, ui) importers: 6
-  - src/lib/components/brand/Mark.svelte (57 LOC, ui) importers: 3
-  - src/lib/components/calendar/BottomSheetHandle.svelte (22 LOC, ui) importers: 2
-  - src/lib/components/calendar/bottomSheetSwipe.ts (74 LOC, ui) importers: 2
-  - src/lib/conformance/collect.ts (57 LOC, testing/conformance) importers: 1
-  - src/lib/conformance/rules.ts (154 LOC, testing/conformance) importers: 2
-  - src/lib/conformance/tokens.ts (97 LOC, testing/conformance) importers: 2
-  - src/lib/server/db/index.ts (9 LOC, db) importers: 6
-  - src/lib/server/db/schema.ts (1227 LOC, db) importers: 86
-      NOTE: Re-exports BILL_CATEGORIES (no table uses it) and defines TASK_VISIBILITIES for legacy importers. Task K-04 split the tables into src/lib/kernel/db/tables/<module>.tables.server.ts and kept this compat re-export; bills owns the BILL_CATEGORIES vocabulary.
-  - src/lib/server/db/testHarness.ts (52 LOC, testing) importers: 0
-  - src/lib/server/services/fcmService.ts (250 LOC, push) importers: 3
-  - src/lib/server/services/llm.ts (64 LOC, ai) importers: 4
-  - src/lib/server/services/logger.ts (59 LOC, log) importers: 3
-  - src/lib/server/utils/clampCount.ts (14 LOC, http) importers: 1
-  - src/lib/server/utils/generateId.ts (22 LOC, ids) importers: 6
-  - src/lib/server/utils/guard.ts (21 LOC, http) importers: 5
-  - src/lib/server/utils/jsonBody.ts (29 LOC, http) importers: 14
-  - src/lib/server/utils/pickWritableFields.ts (12 LOC, http) importers: 2
-  - src/lib/server/utils/rateLimit.ts (42 LOC, ratelimit) importers: 27
-  - src/lib/server/utils/requireUser.ts (54 LOC, http) importers: 54
-  - src/lib/server/utils/svixVerify.ts (68 LOC, http) importers: 1
-  - src/lib/utils/actionError.ts (31 LOC, client) importers: 2
-  - src/lib/utils/avatarColor.ts (17 LOC, util) importers: 11
-  - src/lib/utils/contactColors.ts (32 LOC, util) importers: 3
-  - src/lib/utils/dateUtils.ts (92 LOC, time) importers: 10
-  - src/lib/utils/eventTime.ts (24 LOC, time) importers: 14
-  - src/lib/utils/focusTrap.ts (51 LOC, ui) importers: 11
-  - src/lib/utils/getUrl.ts (12 LOC, env) importers: 10
-  - src/lib/utils/hashName.ts (14 LOC, util) importers: 2
-  - src/lib/utils/mentionFilter.ts (28 LOC, ui) importers: 1
-  - src/lib/utils/safeRedirect.ts (21 LOC, util) importers: 3
-  - src/lib/utils/sendEmail.ts (23 LOC, mail) importers: 10
-  - src/lib/utils/testDom.ts (51 LOC, testing) importers: 0
-  - src/lib/utils/touchTarget.ts (115 LOC, ui) importers: 0
-  - src/lib/utils/typeGuards.ts (17 LOC, util) importers: 4
+legacy source files left (0/27, 0 LOC):
 
 route files not yet wiring-only (0/0):
 
-legacy test files left (19/22) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/components/DayNav.svelte.test.ts [component, 7 tests]
-  - src/lib/components/MentionInput.svelte.test.ts [component, 14 tests]
-  - src/lib/components/brand/Mark.svelte.test.ts [component, 6 tests]
-  - src/lib/components/calendar/BottomSheetHandle.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/bottomSheetSwipe.svelte.test.ts [component, 2 tests]
-  - src/lib/components/calendar/bottomSheetSwipe.test.ts [pure, 3 tests]
-  - src/lib/conformance/rules.test.ts [pure, 13 tests]
-  - src/lib/conformance/tokens.test.ts [pure, 12 tests]
-  - src/lib/server/services/fcmService.test.ts [pure, 18 tests]
-  - src/lib/server/services/logger.test.ts [pure, 4 tests]
-  - src/lib/server/utils/guard.test.ts [pure, 3 tests]
-  - src/lib/server/utils/svixVerify.test.ts [pure, 8 tests]
-  - src/lib/utils/actionError.test.ts [pure, 8 tests]
-  - src/lib/utils/avatarColor.test.ts [pure, 3 tests]
-  - src/lib/utils/dateUtils.test.ts [pure, 45 tests]
-  - src/lib/utils/hashName.test.ts [pure, 4 tests]
-  - src/lib/utils/mentionFilter.test.ts [pure, 12 tests]
-  - src/lib/utils/safeRedirect.test.ts [pure, 1 tests]
-  - src/lib/utils/touchTarget.test.ts [pure, 4 tests]
+legacy test files left (0/9) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

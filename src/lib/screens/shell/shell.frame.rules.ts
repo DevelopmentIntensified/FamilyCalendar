@@ -10,14 +10,14 @@
  */
 
 /** The route-id prefixes that render the app chrome (the root navbar + tab bar). */
-const APP_CHROME_PREFIXES = ['/(calendar)/calendar', '/(family)'] as const;
+const APP_CHROME_PREFIXES = ['/(calendar)/calendar', '/(family)', '/(calendar)/account'] as const;
 
 /**
- * Chrome is app-only: the calendar and family groups get the navbar and the
- * tab bar; marketing, admin, `/report-bug`, `/share-target`, `/claim`,
- * `/merge-guest` and the account subtree render their own frames (account and
- * admin widen this rule at their own ports — Q-073). `routeId` is
- * `page.route.id`, which includes the group segment and is null on a 404.
+ * Chrome is app-only: the calendar and family groups and (since account's port,
+ * Q-073) the account subtree get the navbar and the tab bar; marketing, admin,
+ * `/report-bug`, `/share-target`, `/claim` and `/merge-guest` render their own
+ * frames. `routeId` is `page.route.id`, which includes the group segment and is
+ * null on a 404.
  */
 export function shellChromeForRoute(routeId: string | null | undefined): 'app' | 'none' {
 	if (!routeId) return 'none';

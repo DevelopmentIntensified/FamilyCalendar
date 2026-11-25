@@ -260,8 +260,8 @@ export function recordPlanView(ctx: Ctx, actor: Actor, planType: string): void {
 
 /**
  * Write the six tiers and two discounts, keeping existing ids untouched, so a
- * second cold start changes nothing. APP-01 decides whether the app seeds at
- * boot or lazily on first read; this has no caller yet.
+ * second cold start changes nothing. `app`'s `runDevSeed` (the `db:seed` script,
+ * `scripts/db-seed.ts`) is its only caller; nothing seeds at boot.
  */
 export async function ensureBillingDefaults(ctx: Ctx): Promise<void> {
 	const now = ctx.clock.now();

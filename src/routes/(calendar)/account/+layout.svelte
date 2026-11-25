@@ -1,18 +1,28 @@
+<!--
+	The account group: the app chrome and the legacy content column. The
+	`flex-grow` wrapper is the legacy `(calendar)/account/+layout.svelte` div —
+	a page's `mx-auto max-w-md` block must be a block child of a block, or its
+	auto margins shrink it to its text width as a flex item.
+-->
 <script lang="ts">
-	import Navbar from '$lib/components/Navbar.svelte';
-	import BottomNav from '$lib/components/BottomNav.svelte';
-	import Toaster from '$lib/components/Toaster.svelte';
+	import type { Snippet } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import AlertsBell from '$lib/domains/alerts/ui/AlertsBell.svelte';
+	import { createShellPorts } from '$lib/screens/shell';
+	// The file directly: `../ui` also re-exports the error card and the group
+	// frame, so importing it put their graph in this layout (ADR 0010).
+	import ShellRoot from '$lib/screens/shell/ui/ShellRoot.svelte';
 	import type { LayoutData } from './$types';
 
-	export let data: LayoutData;
+	let { data, children }: { data: LayoutData; children: Snippet } = $props();
+
+	const ports = createShellPorts();
 </script>
 
-<div class="flex min-h-screen flex-col">
-	<Navbar isLoggedIn={true} user={data.user} />
-	<!-- Issue 255: bottom padding clears the phone tab bar. -->
+{#snippet bell()}<AlertsBell navigate={goto} />{/snippet}
+<ShellRoot {page} user={data.user} {ports} {bell}>
 	<div class="flex-grow pb-20 md:pb-0 print:pb-0">
-		<slot />
+		{@render children()}
 	</div>
-	<BottomNav isLoggedIn={true} />
-	<Toaster />
-</div>
+</ShellRoot>

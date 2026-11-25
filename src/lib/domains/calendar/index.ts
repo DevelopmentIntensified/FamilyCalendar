@@ -9,6 +9,7 @@ export {
 	resolveMasterId,
 	resolveOccurrenceId
 } from './calendar.occurrence.rules';
+export { buildGoogleCalendarUrl, type GoogleCalendarInput } from './calendar.ics.rules';
 export {
 	describeRecurrence,
 	RECURRENCE_FREQUENCIES,
@@ -28,6 +29,22 @@ export {
 	type ChipTreatment
 } from './calendar.chips.rules';
 export { createCalendarApi, type CalendarApi } from './calendar.api';
+export {
+	MOVE_SNAP_MINUTES,
+	buildDuplicateEventPayload,
+	buildMovePayload,
+	eventDurationMinutes,
+	formatRangeLabel,
+	minutesToDayTime,
+	normalizeRange,
+	snapMinutes,
+	yToMinutes,
+	type DuplicateAttendee,
+	type DuplicateSource,
+	type MoveEvent,
+	type MovePayload,
+	type MoveTarget
+} from './calendar.move.rules';
 export {
 	calendarAttendancePeople,
 	calendarAttendanceSplit,
@@ -51,16 +68,23 @@ export {
 	RSVP_STATUSES,
 	WEEKDAY_CODES,
 	type BulkOpType,
-	type CalendarAttendanceSummaryWire,
-	type CalendarAttendanceWire,
-	type CalendarDisplayEventWire,
-	type CalendarEventsResponse,
-	type CalendarEventRowWire,
 	type CalendarKind,
-	type CalendarSummaryWire,
-	type DuplicateReason,
-	type EventAttendanceSummary,
-	type InviteType,
 	type RsvpStatus,
 	type WeekdayCode
+} from './calendar.copy.rules';
+export type {
+	CalendarAttendanceSummaryWire,
+	CalendarBulkPlanOpWire,
+	CalendarAttendanceWire,
+	CalendarDisplayEventWire,
+	CalendarEventsResponse,
+	CalendarEventRowWire,
+	CalendarImportCommitResponse,
+	CalendarImportPreviewResponse,
+	CalendarImportTargetsResponse,
+	CalendarImportUndoResponse,
+	CalendarSummaryWire,
+	DuplicateReason,
+	EventAttendanceSummary,
+	InviteType
 } from './calendar.contract';

@@ -42,6 +42,14 @@
 		onreportphrase?: () => void;
 		/** The tasks checklist for this event, composed by the screen. */
 		checklist?: Snippet<[{ eventId: string | null }]>;
+		/** Drawn first inside the padded body: the create sheet's Event/Task tabs. */
+		lead?: Snippet;
+		/**
+		 * The action bar follows the form by default. `false` leaves it to the
+		 * caller, who draws `CalendarEventActionBar` in the sheet's footer so it
+		 * stays put while the body scrolls (the legacy sticky bar).
+		 */
+		inlineActions?: boolean;
 	}
 
 	let {
@@ -55,7 +63,9 @@
 		ondeletescope,
 		oncreateall,
 		onreportphrase,
-		checklist
+		checklist,
+		lead,
+		inlineActions = true
 	}: Props = $props();
 
 	let showMore = $state(!!form.fields.date);
@@ -99,6 +109,7 @@
 	data-testid="event-form"
 >
 	<div class="space-y-3 p-5">
+		{@render lead?.()}
 		{#if !isEdit}
 			<CalendarEventQuickAdd state={form} {oncreateall} {onreportphrase} />
 		{/if}
@@ -194,15 +205,17 @@
 	{/if}
 </form>
 
-<CalendarEventActionBar
-	{isEdit}
-	submitting={form.saving}
-	canSubmit={form.canSubmit}
-	{submitBlockedReason}
-	ondelete={() => (showDeleteConfirm = true)}
-	onclose={() => {
-		showDeleteConfirm = false;
-		onclose();
-	}}
-	onclear={() => form.reset()}
-/>
+{#if inlineActions}
+	<CalendarEventActionBar
+		{isEdit}
+		submitting={form.saving}
+		canSubmit={form.canSubmit}
+		{submitBlockedReason}
+		ondelete={() => (showDeleteConfirm = true)}
+		onclose={() => {
+			showDeleteConfirm = false;
+			onclose();
+		}}
+		onclear={() => form.reset()}
+	/>
+{/if}

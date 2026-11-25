@@ -27,7 +27,12 @@ import {
 	removeTaskCategory,
 	renameTaskCategory
 } from './tasks.categories.service.server';
-import { TaskCategoryNameBody, TaskCreateBody } from './tasks.contract';
+import {
+	TaskCategoryNameBody,
+	TaskCreateBody,
+	TaskListQuery,
+	TaskRouteParams
+} from './tasks.contract';
 import {
 	clearCompletedTasks,
 	createTask,
@@ -46,10 +51,9 @@ import { getStatsPage } from './tasks.stats.service.server';
  */
 export const listTasksEndpoint = endpoint({
 	auth: 'user',
-	handle: async ({ ctx, actor, event }) =>
-		ok({
-			tasks: await listTasks(ctx, actor, { eventId: event.url.searchParams.get('eventId') })
-		})
+	query: TaskListQuery,
+	handle: async ({ ctx, actor, query }) =>
+		ok({ tasks: await listTasks(ctx, actor, { eventId: query.eventId ?? null }) })
 });
 
 /** `POST /api/tasks`: 201 `{success, task}`, or the route's own 500 copy. */
@@ -99,12 +103,13 @@ export const createTaskCategoryEndpoint = endpoint({
 /** `PATCH /api/task-categories/[id] {name}`: 409 on a clash, 404 on a foreign id. */
 export const renameTaskCategoryEndpoint = endpoint({
 	auth: 'user',
+	params: TaskRouteParams,
 	body: TaskCategoryNameBody,
 	bodyMode: 'lenient',
-	handle: async ({ ctx, actor, body, event }) =>
+	handle: async ({ ctx, actor, body, params }) =>
 		ok({
 			category: await renameTaskCategory(ctx, actor, {
-				categoryId: event.params.id ?? '',
+				categoryId: params.id,
 				name: body.name
 			})
 		})
@@ -113,8 +118,9 @@ export const renameTaskCategoryEndpoint = endpoint({
 /** `DELETE /api/task-categories/[id]`: deletes and clears the caller's Tasks. */
 export const deleteTaskCategoryEndpoint = endpoint({
 	auth: 'user',
-	handle: async ({ ctx, actor, event }) => {
-		await removeTaskCategory(ctx, actor, { categoryId: event.params.id ?? '' });
+	params: TaskRouteParams,
+	handle: async ({ ctx, actor, params }) => {
+		await removeTaskCategory(ctx, actor, { categoryId: params.id });
 		return ok({ success: true });
 	}
 });
@@ -125,6 +131,15 @@ export const deleteTaskCategoryEndpoint = endpoint({
 export const taskStatsEndpoint = endpoint({
 	auth: 'user',
 	handle: async ({ ctx, actor }) => ok(await getStatsPage(ctx, actor))
+});
+
+/**
+ * `GET /calendar/stats`'s load: the `/api/stats` body verbatim — the page twin
+ * this module owns, so the page and the phone cannot read two different counts.
+ */
+export const statsPageLoad = pageLoad({
+	auth: 'user',
+	handle: async ({ ctx, actor }) => await getStatsPage(ctx, actor)
 });
 
 // --- Page ----------------------------------------------------------------

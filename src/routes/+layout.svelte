@@ -1,14 +1,16 @@
+<!--
+	The single global stylesheet for every route (#062). The chrome is NOT here:
+	it belongs to the group layouts that render it (`(calendar)/calendar`,
+	`(calendar)/account`, `(family)`), so a bare page — `/claim`, `/merge-guest`,
+	marketing, admin — ships neither its navbar nor its bell (ADR 0010).
+
+	Doc: src/lib/screens/shell/README.md#invariants
+-->
 <script lang="ts">
-	/**
-	 * Root layout: the single home for the global stylesheet. Every route
-	 * group previously imported app.css separately → the compiled Tailwind
-	 * globals shipped as multiple ~80KB duplicates (one per group, e.g. two
-	 * 80K Toaster.*.css copies), and page CSS load rode on group chunks —
-	 * the intermittently-missing-styles report (#062). One import here means
-	 * exactly one global stylesheet on every page; per-route CSS stays
-	 * code-split by SvelteKit for everything else.
-	 */
 	import '../app.css';
+	import type { Snippet } from 'svelte';
+
+	let { children }: { children: Snippet } = $props();
 </script>
 
-<slot />
+{@render children()}

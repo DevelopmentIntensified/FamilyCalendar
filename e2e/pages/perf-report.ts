@@ -114,10 +114,37 @@ function formatBytes(value: number): string {
 	return `${kb >= 10 ? Math.round(kb) : kb.toFixed(1)} KB`;
 }
 
+/** One approved exception to a hard limit (ADR 0010 §6). */
+export type HardLimitException = {
+	/**
+	 * The mobile repeat-visit ready limit for this page, ms: its legacy
+	 * baseline (`perf-baseline.json` `profiles.mobile.repeat.ready`, rounded
+	 * down), used instead of `HARD_LIMITS.mobileRepeatReady`.
+	 */
+	mobileRepeatReady: number;
+	/** The issue that removes the exception when it closes. */
+	issue: number;
+};
+
+/**
+ * ADR 0010 §6 exceptions, keyed by `baselineKey` (`<module>/<name>`).
+ * Owner approval 2026-11-22: these two pages may exceed "mobile ready, repeat
+ * visit ≤ 1000 ms" because legacy missed it too and ours is not slower, so the
+ * limit is the legacy number, not 1000 ms. Every other limit (desktop ready,
+ * desktop TTFB, initial JS) still applies to them, and every limit still
+ * applies to a page with no entry. #325 (calendar month + share-target under
+ * 1 s on mobile repeat) deletes these entries when it lands.
+ */
+export const HARD_LIMIT_EXCEPTIONS: Readonly<Record<string, HardLimitException>> = {
+	'calendarPage/calendar-month': { mobileRepeatReady: 1134, issue: 325 },
+	'calendarPage/share-target': { mobileRepeatReady: 1728, issue: 325 }
+};
+
 /**
  * Every hard limit `page` misses; empty means it passes. ADR 0010:
  * desktop ready (first or repeat) above 1000 ms, mobile ready (repeat) above
- * 1000 ms, desktop TTFB above 300 ms, and initial JS above the page's recorded
+ * 1000 ms (a page in `HARD_LIMIT_EXCEPTIONS`: above its legacy value), desktop
+ * TTFB above 300 ms, and initial JS above the page's recorded
  * legacy ceiling plus its tolerance. Mobile TTFB is informational: it includes
  * the profile's 50 ms of emulated latency. A page with no ceiling yet has no
  * JS limit.
@@ -153,13 +180,18 @@ export function compareBudgets(page: PageMeasurement, ceiling?: number): Violati
 	if (page.desktop.repeat.ready > HARD_LIMITS.desktopReady) {
 		fail('desktop', 'ready, repeat visit', page.desktop.repeat.ready, HARD_LIMITS.desktopReady, 'ms');
 	}
-	if (page.mobile.repeat.ready > HARD_LIMITS.mobileRepeatReady) {
+	const exception: HardLimitException | undefined = HARD_LIMIT_EXCEPTIONS[name];
+	const mobileReadyLimit = exception?.mobileRepeatReady ?? HARD_LIMITS.mobileRepeatReady;
+	if (page.mobile.repeat.ready > mobileReadyLimit) {
 		fail(
 			'mobile',
 			'ready, repeat visit',
 			page.mobile.repeat.ready,
-			HARD_LIMITS.mobileRepeatReady,
-			'ms'
+			mobileReadyLimit,
+			'ms',
+			exception
+				? ` (legacy baseline: ADR 0010 §6 exception, #${exception.issue}; the limit is ${formatMs(HARD_LIMITS.mobileRepeatReady)} elsewhere)`
+				: ''
 		);
 	}
 	if (page.desktop.first.ttfb > HARD_LIMITS.ttfb) {

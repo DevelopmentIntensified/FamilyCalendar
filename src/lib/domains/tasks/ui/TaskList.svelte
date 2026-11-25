@@ -329,6 +329,7 @@
 				confirmLabel="Yes, delete"
 				cancelLabel="No"
 				pendingLabel="Deleting…"
+				variant="text"
 				testid="clear-completed"
 				onconfirm={() => state.clearCompleted()}
 			/>

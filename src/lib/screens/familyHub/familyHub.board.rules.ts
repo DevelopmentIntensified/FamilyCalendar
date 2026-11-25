@@ -95,3 +95,32 @@ export function pendingForViewer<T extends PendingTask>(
 export function publicTabLabel(count: number): string {
 	return `Public tasks (${count})`;
 }
+
+/** The fields the completed window reads off a Task row. */
+export type CompletedWindowRow = {
+	readonly completedAt?: string | null;
+};
+
+/**
+ * Q-091 (owner, 2026-11-12): the page keeps the newest 50 completed Tasks and
+ * the heading counts every one of them. `limit` null keeps the whole list —
+ * what the `/api` twin must still answer. Open rows are never windowed, and
+ * the surviving rows keep the read's order, so a family under the limit
+ * renders exactly as before.
+ */
+export function windowCompletedTasks<T extends CompletedWindowRow>(
+	rows: readonly T[],
+	limit: number | null
+): { tasks: readonly T[]; completedTotal: number } {
+	const completedTotal = rows.reduce((count, row) => (row.completedAt ? count + 1 : count), 0);
+	if (limit === null) return { tasks: rows, completedTotal };
+	let kept = 0;
+	const tasks = rows.filter((row) => {
+		if (!row.completedAt) return true;
+		if (kept >= limit) return false;
+		kept += 1;
+		return true;
+	});
+	return { tasks, completedTotal };
+}
+

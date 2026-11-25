@@ -11,7 +11,6 @@
  *
  * Doc: ./README.md#invariants
  */
-import { z } from '$lib/kernel/validation/validators';
 import type { AlertType } from './alerts.contract';
 
 /** Where a task Alert push opens when the Alert carries no link (Q-021). */
@@ -119,14 +118,19 @@ export function shouldPruneDeviceToken(result: FcmSendResult): boolean {
 	return result === 'unregistered';
 }
 
-const GONE_STATUS = z.object({ statusCode: z.union([z.literal(404), z.literal(410)]) });
-
 /**
  * A Web Push error that means the browser's subscription no longer exists
  * (404 Not Found or 410 Gone) and should be deleted. Any other failure, or a
  * thrown value without a `statusCode`, is logged and keeps the subscription.
+ *
+ * A plain field test, not a schema: this is the only parse in the file, and a
+ * schema library here would ship its chunk to the chrome that renders the
+ * push section (ADR 0010).
  */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- boundary: the web-push library throws untyped values.
 export function isSubscriptionGone(error: unknown): boolean {
-	return GONE_STATUS.safeParse(error).success;
+	if (typeof error !== 'object' || error === null || Array.isArray(error)) return false;
+	if (!('statusCode' in error)) return false;
+	const { statusCode } = error as { statusCode: unknown };
+	return statusCode === 404 || statusCode === 410;
 }

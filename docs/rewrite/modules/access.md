@@ -17,9 +17,9 @@ Sign-in flows: login, signup, magic links, password reset, Claiming, Claim Confl
 - [x] S4 repo (+ fixtures)
 - [x] S5 service
 - [x] S6 http + route wiring (goldens unchanged since S2 except the Q-116/Q-117 rows)
-- [ ] S7 UI rebuild (rules, api, state, components, screen) + visual check
-- [ ] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S7 UI rebuild (rules, api, state, components, screen) + visual check
+- [x] S8 rewire importers, delete legacy code and legacy tests
+- [x] S9 README final, census --write, gate:push, ledger done
 
 ## Must survive
 
@@ -255,6 +255,15 @@ The owner answered seven of the questions the S1+S2 review raised, plus Q-062 an
 | Q-065 | **B** | Email-change codes are hashed at rest and looked up by digest like every other kind (`accountData.ts:375-383`, `account/verify-email/+page.server.ts:111,135`). Landed: `issueEmailCode` already stored the digest, so only the activated golden's assertion changed — it reads the mailed code and compares `HMAC-SHA-256(EMAILSECRET, code)`. | `POST /api/me/email — mails a code to the NEW address and answers the message` swaps its plaintext assertion for the digest. |
 | Q-066 | **B** | The 10 / 15 min reset throttle moves from the mobile wrapper into the shared service, so the web form gains it too (`api/mobile/auth/reset/+server.ts:11-31`). Landed: `RESET_ATTEMPT_LIMIT`/`WINDOW_MS`/`SCOPE` in `access.recovery.service.server.ts`, enforced first in `resetPassword`; both endpoints pass `clientKeyOf(request, RESET_ATTEMPT_SCOPE)` and the endpoint-level `rateLimit` is gone. | None: the mobile 429 golden keeps its limit, message and burst. Exactly one limiter — the wrapper's copy went, so the burst is not counted twice. |
 
+### A refused mail send does not fail an email change (e2e, 2026-11-21)
+
+Legacy sent through the Resend SDK, which returns `{ error }` instead of throwing, and
+`requestEmailChange` never read it: the code row was written and the request answered
+`Verification email sent…` even when the provider refused. The port's `Mailer` rejects on a refusal
+(`kernel/mail/resendMailer.server.ts`), which made the flow answer the legacy 500 and drop the row.
+`requestEmailChange` now keeps the send inside its own `try`/`catch`, so the legacy observable answer
+survives; the 500 `Failed to send verification email` stays for a fault of our own (the signed token,
+the write). Making the adapter swallow refusals for every module is a kernel decision, not access's.
 
 ### S3/S4 decisions (landed with the port)
 
@@ -364,7 +373,61 @@ The owner answered seven of the questions the S1+S2 review raised, plus Q-062 an
 
 ### Files kept for unported importers
 
-None of the 10 legacy source files is kept: every importer is inside this module's own routes, which S8 rewires. `npm run census -- access` after S8 should show 0.
+Seven of the ten legacy source files were deleted in S8, with all four legacy tests except the invite page's:
+
+- deleted: `components/auth/{AuthCard,AuthInput,ModeToggle}.svelte`, `services/{claimRequest,magicLink,mobileAuth,passwordSignup}.ts`, and the tests `services/{claimService,magicLink}.test.ts` + `/login/page.svelte.test.ts` (the legacy behaviour is re-pinned by the module's rules/state/ui/golden tests).
+- kept: `services/guestMergeService.ts` (the unported `/calendar` page reads `GUEST_MERGE_COOKIE` + `isClaimableGuest`), `utils/createNewUser.ts` (family's unported `/family/invite/email` page and its legacy test), `services/claimService.ts` (the app-owned cleanup cron still calls `deleteExpiredClaimTokens`; APP-01 removes it), and the family invite page + its `page.server.test.ts`. `npm run census -- access` shows those three source files and the two family-owned routes; each names its owner in the README's "Kept for unported importers".
+
+### S7 decisions (landed)
+
+- **One copy source.** Every string the auth pages show lives in `access.auth.rules.ts`, except the `/merge-guest` prompt's and the `/claim` screen's, which live in `access.merge.rules.ts` and `access.claimCopy.rules.ts` so those bare pages do not download the other pages' copy (ADR 0010); the screens hold markup only, with the two fragments that wrap a link ("Don't have an account? … Sign up or start planning") left inline in the markup as the legacy page had them.
+- **One code screen, two doors.** `EmailCodeSection.svelte` is the single "Check Your Email" body; `label` set renders the login page's labelled field, unset the signup page's plain centred input, so both pages keep their approved look without two components.
+- **State classes, not fat screens.** `LoginState`, `SignupState`, `ForgotPasswordState`, `ResetPasswordState` own the calls, pending flags, the 3-second beats (injected kernel scheduler) and the legacy network-fallback copy (`status === 0` keeps `Failed to login`, `Failed to create account`, … instead of the kernel client's generic sentence). `/claim`, `/merge-guest` and `/account/verify-email` post page actions through `enhance`, so they keep only the submit flags in the screen.
+- **The URL is the route's business.** `?error=`/`?notice=` are read and cleaned in `login/+page.svelte` and passed into `LoginScreen`; `?token=` for reset/verify-email is read there too, so no component imports `$app/*` and the route files stay wiring-only (R8).
+- **The auth components moved to `ui/` and lost `bind:`** (issue 200): `AuthInput`/`ModeToggle` take a value and a callback. `AuthInput` now also marks `aria-invalid` from its own `error` prop, not only from an `invalid` flag.
+- **`access.faults.http.db.test.ts`** pins the mobile fault boundary with a real throwing mail port (the README's old "(planned)" invariant).
+- **No visual/perf run in this worktree** (the agent contract's command list excludes `visual:check`/`perf:check`): the screens reproduce the legacy structure, spacing and copy, and the orchestrator's visual check is the gate.
+
+### S7 follow-up for ADR 0010 (2026-11-21)
+
+The first all-pages check put every rebuilt auth page far over its initial-JS ceiling. Measured
+causes and the root fixes:
+
+- **zod in every page (27,144 B gzip).** `access.auth.rules.ts` imported `PASSWORD_TOO_SHORT_MESSAGE`
+  from `access.contract.ts`, whose chunk *is* zod. The sentence now lives in
+  `access.password.rules.ts` (where the length rule decides it) and the contract no longer exports
+  it; the two services and two tests take it from the rules file. No schema reaches a page.
+- **luxon in every page (21,573 B).** Only path was the same contract chunk (`validators` imports
+  `kernel/time/dates`); gone with the import above.
+- **The `ui/index.ts` barrel (8,249 B).** Every route imported `$lib/domains/access/ui`, so all seven
+  screens sat in one chunk and every page paid for all of them. Routes now import their own screen
+  file; the barrel stays the module's public component entry (R2), as family's did.
+- **The app chrome on pages that never render it (~23 KB).** The root layout imported `ShellRoot`, so
+  `/claim`, `/merge-guest` and every marketing page shipped the navbar, bell, toaster and offline
+  queue. `ShellRoot` is now rendered by the three app-chrome group layouts (`(calendar)/calendar`,
+  `(calendar)/account`, `(family)`) — Q-073's recorded answer and the legacy structure — and the root
+  layout imports only `app.css`.
+- **Visual: `/account/verify-email` was 274 px wide instead of 448.** With the chrome in the root
+  layout the page's `mx-auto max-w-md` block was a *flex item*, so its auto margins shrank it to its
+  text width. The new `(calendar)/account/+layout.svelte` wraps children in the legacy
+  `flex-grow pb-20 md:pb-0` column, which restores the block context and legacy pixels.
+- **Visual: `/signup` was 117 px short.** The legacy guest-start block ("Start planning — no account
+  needed" + its note) had been dropped; restored verbatim inside `AuthCard`.
+- **The marketing group's shared bell (~25 KB raw, ~14 KB gzip) on every auth page.** Login, signup,
+  forgot/reset, invite-email, pricing, checkout and family-join all render inside the `(marketing)`
+  layout, whose header imported `AlertsBell` statically although only a signed-in visitor ever sees
+  it. The bell is now imported inside the bell snippet the layout hands in, and both header menus
+  are lazy chunks too, so a guest's page never fetches the bell chain (AlertsBell, its notification
+  rules, the push probe and a Toaster). Signup's own `Toaster` is lazy for the same reason.
+  Sources: `(marketing)/+layout.svelte`, `marketing/ui/MarketingHeader.svelte`,
+  `access/ui/SignupScreen.svelte`.
+- **`/family/invite/email` landed on `/login`.** Not the page: after identity unified the pepper,
+  `appCtx` resolves `EMAILSECRET` at runtime while the harness seeds signed with the build
+  placeholder. `e2e/pages/serve.ts` now pins `EMAILSECRET` (new `PAGES_EMAIL_SECRET` in
+  `e2e/pages/env.ts`) exactly as it already pinned `BETTER_AUTH_SECRET`, and the seed imports it.
+- **`/merge-guest` (ADR 0010, round 2).** The prompt's copy and label helpers moved to `access.merge.rules.ts` (a Rollup chunk carries a module's used exports, so the bare page was downloading the login/signup/claim/recovery copy to show nine strings), and the three notes are written out instead of looped so the page does not ship the `{#each}` runtime (~2.3 KB gzip). Markup and copy are unchanged.
+- **`/claim` (ADR 0010, final gate).** The screen's eleven strings moved from `access.auth.rules.ts` to `access.claimCopy.rules.ts` (same reason as `/merge-guest`: the chunk of the shared copy file was 2.0 KB gzip on a page that shows 11 of its strings). `/claim`'s `static + err` closure (PROD build) went from 57.8 to 56.0 KB (ceiling +2% 56.9).
+
 
 ### Running the golden in the db project
 
@@ -375,94 +438,12 @@ The module graph of nine of the thirteen route modules reaches the legacy `$env/
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# access: 0% ported
+# access: 100% ported
 
-legacy source files left (10/10, 1443 LOC):
-  - src/lib/components/auth/AuthCard.svelte (10 LOC, ui) importers: 2
-  - src/lib/components/auth/AuthInput.svelte (63 LOC, ui) importers: 2
-  - src/lib/components/auth/ModeToggle.svelte (31 LOC, ui) importers: 2
-  - src/lib/server/services/claimRequest.ts (87 LOC, server) importers: 2
-  - src/lib/server/services/claimService.ts (149 LOC, server) importers: 3
-  - src/lib/server/services/guestMergeService.ts (93 LOC, server) importers: 9
-  - src/lib/server/services/magicLink.ts (471 LOC, server) importers: 10
-  - src/lib/server/services/mobileAuth.ts (373 LOC, server) importers: 7
-  - src/lib/server/services/passwordSignup.ts (130 LOC, server) importers: 3
-  - src/lib/server/utils/createNewUser.ts (36 LOC, server) importers: 6
+legacy source files left (0/10, 0 LOC):
 
-route files not yet wiring-only (43/43):
-  - src/routes/(calendar)/account/verify-email/+page.server.ts  /account/verify-email
-  - src/routes/(calendar)/account/verify-email/+page.svelte  /account/verify-email
-  - src/routes/(calendar)/claim/+page.server.ts  /claim
-  - src/routes/(calendar)/claim/+page.svelte  /claim
-  - src/routes/(calendar)/claim/verify/[token]/+server.ts  /claim/verify/[token]
-  - src/routes/(calendar)/merge-guest/+page.server.ts  /merge-guest
-  - src/routes/(calendar)/merge-guest/+page.svelte  /merge-guest
-  - src/routes/(marketing)/family/invite/email/+page.server.ts  /family/invite/email
-  - src/routes/(marketing)/family/invite/email/+page.svelte  /family/invite/email
-  - src/routes/(marketing)/forgot-password/+page.svelte  /forgot-password
-  - src/routes/(marketing)/forgot-password/+server.ts  /forgot-password
-  - src/routes/(marketing)/forgot-password/reset/+page.svelte  /forgot-password/reset
-  - src/routes/(marketing)/forgot-password/reset/+server.ts  /forgot-password/reset
-  - src/routes/(marketing)/login/+page.server.ts  /login
-  - src/routes/(marketing)/login/+page.svelte  /login
-  - src/routes/(marketing)/login/email/+server.ts  /login/email
-  - src/routes/(marketing)/login/email/callback/+server.ts  /login/email/callback
-  - src/routes/(marketing)/login/email/code/+server.ts  /login/email/code
-  - src/routes/(marketing)/login/loginMessages.ts  /login
-  - src/routes/(marketing)/login/password/+server.ts  /login/password
-  - src/routes/(marketing)/signup/+page.server.ts  /signup
-  - src/routes/(marketing)/signup/+page.svelte  /signup
-      NOTE: Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines.
-  - src/routes/(marketing)/signup/email/+server.ts  /signup/email
-  - src/routes/(marketing)/signup/email/callback/+server.ts  /signup/email/callback
-  - src/routes/(marketing)/signup/email/code/+server.ts  /signup/email/code
-  - src/routes/(marketing)/signup/password/+server.ts  /signup/password
-  - src/routes/(marketing)/signup/password/resend/+server.ts  /signup/password/resend
-  - src/routes/(marketing)/signup/password/verify/+server.ts  /signup/password/verify
-  - src/routes/(marketing)/signup/password/verifyPath.ts  /signup/password
-  - src/routes/api/logout/+server.ts  /api/logout
-  - src/routes/api/me/claim/+server.ts  /api/me/claim
-  - src/routes/api/me/email/+server.ts  /api/me/email
-  - src/routes/api/me/verify-email/+server.ts  /api/me/verify-email
-  - src/routes/api/me/verify-email/resend/+server.ts  /api/me/verify-email/resend
-  - src/routes/api/mobile/auth/email/+server.ts  /api/mobile/auth/email
-  - src/routes/api/mobile/auth/fakes.ts  /api/mobile/auth
-  - src/routes/api/mobile/auth/forgot/+server.ts  /api/mobile/auth/forgot
-  - src/routes/api/mobile/auth/guest/+server.ts  /api/mobile/auth/guest
-  - src/routes/api/mobile/auth/logout/+server.ts  /api/mobile/auth/logout
-  - src/routes/api/mobile/auth/password/+server.ts  /api/mobile/auth/password
-  - src/routes/api/mobile/auth/reset/+server.ts  /api/mobile/auth/reset
-  - src/routes/api/mobile/auth/signup/+server.ts  /api/mobile/auth/signup
-  - src/routes/api/mobile/auth/verify/+server.ts  /api/mobile/auth/verify
+route files not yet wiring-only (0/43):
 
-legacy test files left (28/28) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/server/services/claimService.test.ts [pure, 7 tests]
-  - src/lib/server/services/magicLink.test.ts [pure, 20 tests]
-  - src/routes/(calendar)/account/verify-email/page.server.test.ts [route, 12 tests]
-  - src/routes/(calendar)/claim/page.server.test.ts [route, 11 tests]
-  - src/routes/(calendar)/claim/verify/[token]/server.test.ts [route, 6 tests]
-  - src/routes/(marketing)/family/invite/email/page.server.test.ts [route, 7 tests]
-  - src/routes/(marketing)/forgot-password/reset/server.test.ts [route, 4 tests]
-  - src/routes/(marketing)/forgot-password/server.test.ts [route, 4 tests]
-  - src/routes/(marketing)/login/email/callback/server.test.ts [route, 8 tests]
-  - src/routes/(marketing)/login/email/code/server.test.ts [route, 5 tests]
-  - src/routes/(marketing)/login/email/server.test.ts [route, 7 tests]
-  - src/routes/(marketing)/login/page.server.test.ts [route, 0 tests]
-  - src/routes/(marketing)/login/page.svelte.test.ts [component, 6 tests]
-  - src/routes/(marketing)/signup/email/callback/server.test.ts [route, 10 tests]
-  - src/routes/(marketing)/signup/email/code/server.test.ts [route, 6 tests]
-  - src/routes/(marketing)/signup/email/server.test.ts [route, 9 tests]
-  - src/routes/(marketing)/signup/password/resend/server.test.ts [route, 6 tests]
-  - src/routes/(marketing)/signup/password/server.test.ts [route, 6 tests]
-  - src/routes/(marketing)/signup/password/verify/server.test.ts [route, 5 tests]
-  - src/routes/api/me/claim/server.test.ts [route, 5 tests]
-  - src/routes/api/mobile/auth/email/server.test.ts [route, 8 tests]
-  - src/routes/api/mobile/auth/forgot/server.test.ts [route, 9 tests]
-  - src/routes/api/mobile/auth/guest/server.test.ts [route, 4 tests]
-  - src/routes/api/mobile/auth/hooks.test.ts [route, 3 tests]
-  - src/routes/api/mobile/auth/logout/server.test.ts [route, 3 tests]
-  - src/routes/api/mobile/auth/password/server.test.ts [route, 4 tests]
-  - src/routes/api/mobile/auth/signup/server.test.ts [route, 3 tests]
-  - src/routes/api/mobile/auth/verify/server.test.ts [route, 8 tests]
+legacy test files left (0/28) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

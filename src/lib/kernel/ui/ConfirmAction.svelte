@@ -11,18 +11,21 @@
 	While the ask is open focus sits on Cancel, and closing it (either way) puts
 	focus back on the trigger.
 
-	Three looks, one behaviour: the default toolbar row (TaskDetailBar), `icon`
+	Four looks, one behaviour: the default toolbar row (TaskDetailBar), `icon`
 	for a row's trash trigger with the compact "Yes"/"No" pair (TaskRow,
-	TaskCompletedRow, FamilyOpenTaskRow), and `form`, where confirming POSTs
+	TaskCompletedRow, FamilyOpenTaskRow), `form`, where confirming POSTs
 	`formAction` with `formFields` and `h-11` buttons (the family page's member
-	row). `onconfirm` may return a promise: the ask stays open, both buttons are
-	disabled and the confirm button reads `pendingLabel` until it settles.
+	row), and `text`, the legacy tasks footer's bare "Clear completed" with the
+	compact pair (`TasksMainList.svelte:374-402` — the default pill would make
+	that row 22px taller than the baseline). `onconfirm` may return a promise:
+	the ask stays open, both buttons are disabled and the confirm button reads
+	`pendingLabel` until it settles.
 	Esc closes the ask and stops there, so a sheet around it stays open.
 
 	Doc: src/lib/kernel/README.md
 -->
 <script lang="ts">
-	type Variant = 'default' | 'icon' | 'form';
+	type Variant = 'default' | 'icon' | 'form' | 'text';
 
 	interface Props {
 		/** The trigger's text — and, on the icon variant, its accessible name. */
@@ -87,30 +90,35 @@
 	const ASK_ROW: Record<Variant, string> = {
 		default: 'flex flex-wrap items-center gap-2',
 		icon: 'flex shrink-0 items-center gap-1.5',
-		form: 'flex items-center gap-1.5'
+		form: 'flex items-center gap-1.5',
+		text: 'flex flex-wrap items-center gap-2'
 	};
 	const ASK_LINE: Record<Variant, string> = {
 		default: 'text-sm font-medium text-red-600',
 		icon: 'text-xs font-medium text-red-600',
-		form: 'text-sm text-red-600'
+		form: 'text-sm text-red-600',
+		text: 'text-xs font-medium text-red-600'
 	};
 	const CONFIRM_BUTTON: Record<Variant, string> = {
 		default:
 			'rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50',
 		icon: 'rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50',
-		form: 'h-11 rounded-lg bg-red-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50'
+		form: 'h-11 rounded-lg bg-red-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50',
+		text: 'rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50'
 	};
 	const CANCEL_BUTTON: Record<Variant, string> = {
 		default:
 			'rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50',
 		icon: 'rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300',
-		form: 'h-11 rounded-lg bg-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300'
+		form: 'h-11 rounded-lg bg-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-300',
+		text: 'rounded-full bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300'
 	};
 	const TRIGGER: Record<Variant, string> = {
 		default:
 			'rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50',
 		icon: 'pointer-fine:opacity-40 pointer-fine:group-hover:opacity-100 relative shrink-0 rounded-full p-2 text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 focus-visible:opacity-100 active:bg-red-50',
-		form: 'h-11 rounded-lg border border-red-300 bg-white px-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50'
+		form: 'h-11 rounded-lg border border-red-300 bg-white px-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50',
+		text: 'text-xs font-medium text-slate-400 transition-colors hover:text-red-500'
 	};
 
 	async function confirm() {

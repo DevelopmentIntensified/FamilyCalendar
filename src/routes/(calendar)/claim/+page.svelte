@@ -1,85 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import ClaimScreen from '$lib/domains/access/ui/ClaimScreen.svelte';
 	import type { ActionData } from './$types';
 
-	export let form: ActionData;
-
-	let email = '';
-	let loading = false;
+	let { form }: { form: ActionData } = $props();
 </script>
 
-<div class="mx-auto max-w-md p-6">
-	<h1 class="mb-2 text-2xl font-bold text-slate-900">Save your calendar</h1>
-	<p class="mb-6 text-sm text-slate-600">
-		Add an email to sync your calendar across devices. Without it, your data stays on this device
-		and is deleted after 90 days of inactivity.
-	</p>
-
-	{#if form?.success}
-		<div class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-			<p>
-				Check <strong>{form.email}</strong> for a link to save your calendar. It expires in 15 minutes.
-			</p>
-		</div>
-	{:else}
-		{#if form?.error}
-			<div
-				role="alert"
-				class="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-			>
-				{form.error}
-			</div>
-		{/if}
-
-		<form
-			method="POST"
-			action="?/request"
-			use:enhance={() => {
-				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
-				};
-			}}
-			class="space-y-4"
-		>
-			<div class="space-y-2">
-				<label for="email" class="block text-sm font-medium text-slate-700">Email address</label>
-				<input
-					type="email"
-					id="email"
-					name="email"
-					autocomplete="email"
-					bind:value={email}
-					required
-					placeholder="you@example.com"
-					class="block w-full rounded-[10px] border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 placeholder-slate-400 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-				/>
-			</div>
-
-			<button
-				type="submit"
-				disabled={loading}
-				class="w-full rounded-full bg-primary-600 px-4 py-3 font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-			>
-				{loading ? 'Sending...' : 'Email me a save link'}
-			</button>
-		</form>
-
-		{#if !form?.success}
-			<div class="mt-6 border-t border-slate-100 pt-5 text-center">
-				<p class="mb-2 text-sm text-slate-500">Already have an account with this email?</p>
-				<a
-					href="/login?merge=1"
-					class="block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
-				>
-					Log in with my password &amp; merge my calendar
-				</a>
-			</div>
-		{/if}
-	{/if}
-
-	<a href="/calendar" class="mt-6 block text-center text-sm text-slate-500 hover:text-slate-700">
-		Not now — back to my calendar
-	</a>
-</div>
+<ClaimScreen {form} {enhance} />

@@ -18,22 +18,23 @@
  */
 import { endpoint, ok, type Endpoint } from '$lib/kernel/http/endpoint.server';
 import { clientKeyOf } from '$lib/kernel/ratelimit/rateLimiter';
-import { bulkEditEvents, type CalendarBulkInput } from './calendar.bulk.service.server';
+import { bulkEditEvents } from './calendar.bulk.service.server';
 import { getPrintMonth, listCalendars } from './calendar.calendars.service.server';
-import { CALENDAR_COPY } from './calendar.contract';
+import {
+	CALENDAR_COPY,
+	CalendarBulkBody,
+	CalendarLocationQuery,
+	CalendarPrintQuery
+} from './calendar.contract';
 import { rejectUnparseableCalendarBody } from './calendar.events.http.server';
 import { searchLocations } from './calendar.locations.service.server';
 
 /** `POST /api/events/bulk`: one id at a time, and ONE 500 copy for the batch. */
 const bulkEditHandler = endpoint({
 	auth: 'user',
+	body: CalendarBulkBody,
 	failMessage: CALENDAR_COPY.bulkFailed,
-	handle: async ({ ctx, actor, event }) => {
-		// SAFETY: the service reads `ids`/`op`/`plan`/`dryRun` leniently and owns
-		// every 400/403/422 copy, exactly as the legacy handler did.
-		const body = (await event.request.json()) as CalendarBulkInput;
-		return ok(await bulkEditEvents(ctx, actor, body));
-	}
+	handle: async ({ ctx, actor, body }) => ok(await bulkEditEvents(ctx, actor, body))
 });
 
 /** `POST /api/events/bulk`, with legacy's unguarded body read in front of the boundary. */
@@ -57,11 +58,12 @@ export const listCalendarsEndpoint = endpoint({
  */
 export const printMonthEndpoint = endpoint({
 	auth: 'user',
-	handle: async ({ ctx, actor, event }) =>
+	query: CalendarPrintQuery,
+	handle: async ({ ctx, actor, query }) =>
 		ok(
 			await getPrintMonth(ctx, actor, {
-				year: event.url.searchParams.get('year'),
-				month: event.url.searchParams.get('month')
+				year: query.year ?? null,
+				month: query.month ?? null
 			})
 		)
 });
@@ -73,10 +75,11 @@ export const printMonthEndpoint = endpoint({
  */
 export const searchLocationsEndpoint = endpoint({
 	auth: 'user',
-	handle: async ({ ctx, actor, event }) =>
+	query: CalendarLocationQuery,
+	handle: async ({ ctx, actor, query, event }) =>
 		ok(
 			await searchLocations(ctx, actor, {
-				q: event.url.searchParams.get('q') ?? '',
+				q: query.q ?? '',
 				clientKey: clientKeyOf(event.request, 'location-search')
 			})
 		)

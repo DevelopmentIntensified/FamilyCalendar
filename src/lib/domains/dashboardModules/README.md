@@ -19,7 +19,9 @@ Domain words come from [CONTEXT.md](../../../../CONTEXT.md); use them exactly. A
 | [ui/index.ts](ui/index.ts) | entry | Public components: the family-hub switch row. | `ui/DashboardModuleRow.svelte.test.ts` (S7) |
 | [ui/DashboardModuleRow.svelte](ui/DashboardModuleRow.svelte) | ui | One switch row: label, scope chip, state chip, `aria-pressed`/`aria-busy`, the optimistic override and the acknowledge callback; props in, no `$app/*` (the route passes `enhance`). | [ui/DashboardModuleRow.svelte.test.ts](ui/DashboardModuleRow.svelte.test.ts) |
 | [dashboardModules.api.ts](dashboardModules.api.ts) | api | `createDashboardModulesApi` on the kernel api client: `setFamilyModuleSwitch`, `saveHiddenModules`. | exercised through the screens that adopt it (S7; no DOM logic of its own) |
-| [dashboardModules.contract.ts](dashboardModules.contract.ts) | contract | zod for both PUT bodies, their params and responses, plus every message the routes and services add. A non-object body carries `Invalid JSON` as its object-level error, the way legacy `readJsonObject` refused it. | [dashboardModules.contract.test.ts](dashboardModules.contract.test.ts), the goldens (S6) |
+| [dashboardModules.contract.ts](dashboardModules.contract.ts) | contract | zod for both PUT bodies, their params and responses. A non-object body carries `Invalid JSON` as its object-level error, the way legacy `readJsonObject` refused it. The copy it answers with lives in `dashboardModules.messages.rules.ts` and is re-exported here. | [dashboardModules.contract.test.ts](dashboardModules.contract.test.ts), the goldens (S6) |
+| [dashboardModules.messages.rules.ts](dashboardModules.messages.rules.ts) | rules | Every sentence the routes, the service and the contract answer with (the two 400 bodies, the 403, the required-module and registry refusals, the saved-card count). Outside the contract because the entry exports the row helpers to `familyHub`, and the contract re-export shipped the schema library to that page for copy alone (ADR 0010). | [dashboardModules.messages.rules.test.ts](dashboardModules.messages.rules.test.ts) |
+| [dashboardModules.messages.rules.test.ts](dashboardModules.messages.rules.test.ts) | test | The four pinned sentences, both registry refusals and the saved message's two branches. | itself |
 | [dashboardModules.registry.rules.ts](dashboardModules.registry.rules.ts) | rules | The canonical registry and the predicates read off it: `selectDashboardModules`, `isDashboardModule`, `canonicalHiddenModules`, `showsModule`. | [dashboardModules.registry.rules.test.ts](dashboardModules.registry.rules.test.ts) |
 | [dashboardModules.visibility.rules.ts](dashboardModules.visibility.rules.ts) | rules | The private read table and `dashboardVisibility`, the one composition of the family switch, the viewer's hidden list and the verse setting. | [dashboardModules.visibility.rules.test.ts](dashboardModules.visibility.rules.test.ts) |
 | [dashboardModules.row.rules.ts](dashboardModules.row.rules.ts) | rules | `describeDashboardModuleRow`: one row's state, labels, tone and submit value in one answer; `describeDashboardModuleState` and `dashboardModuleToggleValue` expose the same tables to a caller that already knows the state. | [dashboardModules.row.rules.test.ts](dashboardModules.row.rules.test.ts) |
@@ -110,6 +112,10 @@ Behaviour that must not change, each with the test that pins it (`file › test 
 - Each row reads as one line: the label truncates instead of widening the row (no horizontal overflow at 320px), with a scope chip and a state chip — [ui/DashboardModuleRow.svelte](ui/DashboardModuleRow.svelte); `ui/DashboardModuleRow.svelte.test.ts › truncates the label rather than widening the row`.
 
 Neither route is rate limited today (`grep rateLimit` finds none in either handler), so no golden pins a 429.
+
+## Legacy files (S8, 2026-11-21)
+
+None left: `components/dashboard/DashboardModuleRow.svelte`, `dashboardModules.ts` (the registry), `server/db/actions/dashboardModules.ts` and `utils/moduleRowState.ts` all lost their last importer when `familyHub`/`account`/`dayDashboard` moved to `ui/DashboardModuleRow` and this module's rules/service, and were deleted.
 
 ## Depends on
 

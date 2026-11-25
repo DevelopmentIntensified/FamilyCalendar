@@ -30,7 +30,6 @@ export type {
 	PushUnsubscribeBody,
 	StoredAlertRow
 } from './alerts.contract';
-export { DEVICE_PLATFORMS, MAX_DEVICE_TOKEN_LENGTH } from './alerts.contract';
 
 export { createAlertsApi, type AlertsApi } from './alerts.api';
 
@@ -66,13 +65,8 @@ export {
 } from './alerts.preferences.rules';
 export type { AlertSaveOutcome } from './alerts.preferences.rules';
 
-export {
-	browserPushEnvironment,
-	getPushState,
-	pushFailureText,
-	subscribeToPush,
-	unsubscribeFromPush
-} from './alerts.push.api';
+export { browserPushEnvironment, getPushState, pushFailureText } from './alerts.push.api';
+export { subscribeToPush, unsubscribeFromPush } from './alerts.push.subscribe.api';
 export type {
 	AlertsPushApi,
 	BrowserPushSubscription,

@@ -1,7 +1,11 @@
 /**
  * feedback rules: the two closed vocabularies and their labels, the phrase
- * normalizer, the auto-filing policy (`buildAutoBugReport`) and the issue-257
- * reported-page normalizer.
+ * normalizer and the auto-filing policy (`buildAutoBugReport`).
+ *
+ * The issue-257 reported-page normalizer and its link live in kernel
+ * (`$lib/kernel/ui/bugReportLink`): the app chrome renders the link on every
+ * page, and this module's entry also carries the register exporters, which
+ * import the date library (ADR 0010).
  *
  * Nothing here reads the clock, the environment or the database: "now" and the
  * origin are parameters (rule R5/R4). The 10-minute auto-file throttle is not
@@ -47,8 +51,6 @@ export const UNMATCHED_SOURCE_LABEL: Record<UnmatchedSource, string> = {
 const MAX_DESCRIPTION = 5000;
 const MAX_URL = 2000;
 const MAX_PHRASE = 280;
-const MAX_REPORTED_PATH = 500;
-const REPORT_PATH = '/report-bug';
 
 /** Case-sensitive: `Tasks` is not an area, and must not be folded into one. */
 export function isBugArea(area: string): area is BugArea {
@@ -178,53 +180,6 @@ export function areaForPath(path: string): BugArea {
 		return 'account';
 	}
 	return 'other';
-}
-
-/**
- * Link to the bug form carrying the current in-app path as `?from=`.
- * Issue 257: a report must record the page the bug was on, not the form.
- */
-export function reportBugHref(currentPath: string | null | undefined): string {
-	const from = safeReportedPath(currentPath);
-	return from ? `${REPORT_PATH}?from=${encodeURIComponent(from)}` : REPORT_PATH;
-}
-
-/**
- * Normalize a reported location to a same-origin path (+search). Accepts a
- * rooted path or an absolute URL on `origin`; rejects other origins,
- * protocol-relative paths, `/\` tricks, bare paths, `javascript:` and the bug
- * form itself. The result is capped at 500 chars.
- */
-export function safeReportedPath(raw: string | null | undefined, origin?: string): string {
-	if (!raw) return '';
-	const value = raw.trim();
-	if (!value) return '';
-	let path: string;
-	if (value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')) {
-		path = value;
-	} else if (origin) {
-		const url = tryAbsoluteUrl(value);
-		if (!url || url.origin !== origin) return '';
-		path = url.pathname + url.search;
-	} else {
-		return '';
-	}
-	if (
-		path === REPORT_PATH ||
-		path.startsWith(`${REPORT_PATH}?`) ||
-		path.startsWith(`${REPORT_PATH}/`)
-	) {
-		return '';
-	}
-	return path.slice(0, MAX_REPORTED_PATH);
-}
-
-function tryAbsoluteUrl(value: string): URL | null {
-	try {
-		return new URL(value);
-	} catch {
-		return null;
-	}
 }
 
 /**

@@ -11,6 +11,7 @@ import {
 	boardEmptyState,
 	pendingForViewer,
 	publicTabLabel,
+	windowCompletedTasks,
 	type BoardEmptyFacts,
 	type BoardEmptyState,
 	type PendingTask
@@ -126,3 +127,52 @@ describe('publicTabLabel', () => {
 		expect(publicTabLabel(count)).toBe(expected);
 	});
 });
+
+type WindowRow = { id: string; completedAt: string | null };
+
+/** A board list in the read's own order: newest created first, open and done mixed. */
+const boardRows: readonly WindowRow[] = [
+	{ id: 'open-a', completedAt: null },
+	{ id: 'done-1', completedAt: '2026-01-05 10:00:00+00' },
+	{ id: 'open-b', completedAt: null },
+	{ id: 'done-2', completedAt: '2026-01-04 10:00:00+00' },
+	{ id: 'done-3', completedAt: '2026-01-03 10:00:00+00' }
+];
+
+describe('windowCompletedTasks', () => {
+	// Q-091 (owner, 2026-11-12): the board shows the newest 50 completed Tasks
+	// and the heading keeps the true count; the `/api` twin stays unbounded.
+	it('keeps the window in the read order and counts every completed row', () => {
+		expect(windowCompletedTasks(boardRows, 2)).toEqual({
+			tasks: [
+				{ id: 'open-a', completedAt: null },
+				{ id: 'done-1', completedAt: '2026-01-05 10:00:00+00' },
+				{ id: 'open-b', completedAt: null },
+				{ id: 'done-2', completedAt: '2026-01-04 10:00:00+00' }
+			],
+			completedTotal: 3
+		});
+	});
+
+	it('never windows an open row, even past the limit', () => {
+		const rows: readonly WindowRow[] = [
+			{ id: 'open-1', completedAt: null },
+			{ id: 'open-2', completedAt: null },
+			{ id: 'done', completedAt: '2026-01-05 10:00:00+00' }
+		];
+		expect(windowCompletedTasks(rows, 0).tasks.map((row) => row.id)).toEqual(['open-1', 'open-2']);
+	});
+
+	it('keeps the whole list and still counts it when no limit is asked for', () => {
+		expect(windowCompletedTasks(boardRows, null)).toEqual({
+			tasks: boardRows,
+			completedTotal: 3
+		});
+	});
+
+	it('answers a family with nothing completed as an empty count', () => {
+		const rows: readonly WindowRow[] = [{ id: 'open', completedAt: null }];
+		expect(windowCompletedTasks(rows, 50)).toEqual({ tasks: rows, completedTotal: 0 });
+	});
+});
+

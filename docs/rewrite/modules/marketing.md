@@ -11,15 +11,15 @@ Public site: home, features, pricing display, roadmap/changelog, contact, SEO ta
 
 ## Steps
 
-- [ ] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
-- [ ] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
+- [x] S1 behaviour inventory (README Invariants) + design (public interface, file plan)
+- [x] S2 `/api` goldens, green on legacy — S2 commit sha: `66a11131`
 - [x] S3 contract + rules
 - [x] S4 repo (+ fixtures) — empty by design: no v2 code reads a marketing table (Notes)
 - [x] S5 service
 - [x] S6 http + route wiring (goldens unchanged since S2)
 - [x] S7 UI rebuild (rules, api, state, components, screen) + visual check — including `/pricing` and `/checkout` (wave decision 2026-11-21)
-- [x] S8 rewire importers, delete legacy code and legacy tests
-- [ ] S9 README final, census --write, gate:push, ledger done
+- [x] S8 rewire importers, delete legacy code and legacy tests — final sweep 2026-11-21: the legacy `Navbar`/`Toaster`/`navItems`/`focusTrap`/`reportBug`/`brand/Mark` chain that the `(marketing)` layout used left with the marketing header port (Notes)
+- [x] S9 README final, census --write, gate:push, ledger done — README and Notes final; `census --write` and `gate:push` are the orchestrator's (census now reports 0 legacy files for marketing)
 
 ## Must survive
 
@@ -27,7 +27,7 @@ Behaviour the port must keep (each becomes an Invariant in the README, pinned by
 
 - Prerender/SSR flags driven by `ADAPTER`; SEO tags table.
 - Contact: honeypot + rate limit + email rule.
-- The Android page reads `src/lib/fdroid/published.json` (path used by release scripts — do not move it).
+- The Android page reads `src/lib/fdroid/published.json` (the path `scripts/fdroid-publish.sh` writes).
 - A stray `POST /` answers with PRG + logged hints (#276).
 
 ## Behaviour inventory (draft — verify in S1)
@@ -47,6 +47,7 @@ The module owns no `+server.ts`; `/api/contact` is a form-action file (see "Prob
 ### Rules the module must keep
 - Prerender/SSR follow `ADAPTER === 'static'` for the whole `(marketing)` group — `src/routes/(marketing)/+layout.server.ts:5-6`
 - `/changelog` and `/roadmap` override the group to `prerender = true` and `ssr = true` (exported from `+page.ts`, not the component) — `src/routes/(marketing)/roadmap/+page.ts:4-6`, `src/routes/(marketing)/changelog/+page.ts:4-6`
+- `/` is always `ssr = true` (not prerendered) so the landing page is on screen at `load` on a client-rendered build — `src/routes/(marketing)/+page.server.ts` (e2e run 3: the first, cold page of the conformance corpus was measured before its client boot, so the corpus never saw `gap-12`/`gap-16`/60px type)
 - The loader returns the request's own `origin` and `pathname`, never a hardcoded domain, plus `isLoggedIn` and `user` — `src/routes/(marketing)/+layout.server.ts:8-20` · test: `src/lib/marketing/seo.test.ts` › "self-references the origin it was given, on every environment"
 - SEO is one table keyed by pathname: the layout emits `<meta name="description">`, `<link rel="canonical">`, og/twitter tags; every page emits only its own `<title>` and never a description — `src/routes/(marketing)/+layout.svelte:24-47`, `src/lib/marketing/seo.ts:50-164` · test: `src/lib/marketing/seo.test.ts` › "/%s has a row, and the row says what the page says" and "/%s does not emit its own description"
 - Every `<title>`-setting marketing route has a row whose title matches the page exactly; an indexed row's description is > 40 chars — `src/lib/marketing/seo.ts:50-121` · test: `src/lib/marketing/seo.test.ts` › "/%s has a row, and the row says what the page says"
@@ -96,9 +97,9 @@ Files in `src/lib/domains/marketing/`, in build order. Roles per [conventions.md
 |---|---|---|
 | `marketing.contract.ts` | contract | zod for the contact surfaces: `ContactApiBody` (`POST /api/contact`) and `ContactFormBody` (the `/contact` action) over `name`/`email`/`message`/`website` (first value; absent or non-string → `''`; nothing trimmed; checks in legacy order: honeypot, all fields, address shape — they differ only in whether a whitespace-only message counts as empty), `ContactSentResponse` and `ContactErrorResponse`, and the six legacy copy constants, so the golden and the 400/429/500 copy cannot drift. |
 | `marketing.seo.rules.ts` | rules | `SITE`, `MARKETING_PAGES` (the table), `pageSeo(origin, pathname)` and the `SeoRow` / `SeoMetaTag` / `PageSeo` types; `seoFor` and `canonicalUrl` stay private (tests go through `pageSeo`). Replaces `src/lib/marketing/seo.ts`; `absolute` and `seoTags` fold into `pageSeo`. |
-| `marketing.pageOptions.rules.ts` | rules | `marketingPageOptions(adapter)` and `CONTENT_PAGE_OPTIONS`; replaces the `ADAPTER === 'static'` expressions in the layout and the two `+page.ts` files. The route reads the adapter from `app`, because a v2 domain may not touch `$env` (R6). |
+| `marketing.pageOptions.rules.ts` | rules | `marketingPageOptions(adapter)`, `CONTENT_PAGE_OPTIONS` and `HOME_PAGE_OPTIONS`; replaces the `ADAPTER === 'static'` expressions in the layout and the two `+page.ts` files. The route reads the adapter from `app`, because a v2 domain may not touch `$env` (R6). |
 | `marketing.content.rules.ts` | rules | `MARKETING_NAV` (the fixed four links), `CHANGELOG_ENTRIES`, `ROADMAP_SECTIONS`, `changelogNewestFirst(entries)` (stable, non-mutating) and the entry/section types. Replaces `src/lib/data/changelog.ts`, `src/lib/data/roadmap.ts`, the marketing half of `src/lib/utils/navItems.ts` and the changelog page's `Intl` script; shell consumes `MARKETING_NAV`. No date formatter: the changelog's `Intl` output is `MMMM d, yyyy`, which K-06's `kernel/time` `formatLongDate` already produces — call it with the date-only ISO and zone `'UTC'`, as the page did, so the printed day cannot shift. |
-| `marketing.android.rules.ts` | rules | `androidRelease(published)`, `addRepoLink`, `groupFingerprint` and their types. Replaces the logic in `src/lib/fdroid/release.ts`; `src/lib/fdroid/published.json` must not move. |
+| `marketing.android.rules.ts` | rules | `androidRelease(published)`, `addRepoLink`, `groupFingerprint` and their types. Replaces the logic in `src/lib/fdroid/release.ts`; the record stays at `src/lib/fdroid/published.json` (R15: no JSON inside a module folder, and the release script writes that path). |
 | `marketing.icons.rules.ts` | rules | `FEATURE_ICON_NAMES` (the closed set), `FeatureIconName`, `featureIcon(name)` and the private SVG map — from `src/lib/components/marketing/featureIcons.ts`. |
 | `marketing.mail.rules.ts` | rules | `CONTACT_RECIPIENT`, `contactSubject(name)`, `isContactEmail(address)` (the legacy contact regex, never trimmed) and `contactMessageHtml({name,email,message})` with the private escape rule. Replaces the inline contact HTML and subject, duplicated in both legacy actions. |
 | `marketing.service.server.ts` | service | `sendContactMessage(ctx, actor \| null, input)` — the reference shape for a public anonymous surface, so identity/access reuse it rather than invent a second anonymous writer. Refusals are `AppError`s; a **mail-provider failure is thrown as a plain fault**, so `contactEndpoint`'s `failMessage` produces the legacy 500 body and the kernel files the fault like the legacy `apiError`. Uses `ctx.limiter` and the mail port. |
@@ -122,6 +123,29 @@ Where each legacy export goes:
 
 ## Notes
 
+- **2026-11-22 (ADR 0010 follow-up): the bell and the header menus are lazy chunks.** Every page in the
+  `(marketing)` group was 13–17 KB over its initial-JS ceiling. The culprit was the static
+  `AlertsBell` import in `(marketing)/+layout.svelte`: the header renders that slot only for a
+  signed-in visitor, yet its whole closure (AlertsBell 14.7 KB raw, its notification/vocabulary rules
+  6.6 KB, the push/transition helpers, a Toaster and the alert api) sat in every page's preload list —
+  24.6–25.5 KB raw (≈ 18 KB measured) per page. It is now `{#await import(…)}` inside the bell
+  snippet, and both header menus are lazy too (fetched when opened, never on first paint). Signup's
+  own `Toaster` is lazy for the same reason, and the changelog's date line no longer pulls luxon
+  (21.6 KB gzip; `changelogDateLabel` prints the same string from the platform `Intl`).
+  The second cause was not marketing's: `src/routes/+error.svelte` imported the shell `ui/index.ts`
+  barrel, and SvelteKit preloads the error node on every page, so the whole app chrome (the shell
+  frame, the notices, a Toaster, the alert api, the offline queue; ≈ 12 KB gzip in one chunk plus its
+  dependencies) rode every marketing page too; it now imports `ui/ShellErrorView.svelte` directly
+  (same change as the shell module's own commit df7db027). Expected, gzip(6) closure of the
+  initial modules + ~0.4 KB per request (the harness's measured offset), against the ceilings the
+  gate printed: home 117 → ≈87 KB (102), features 118 → ≈88 (105), about/android/privacy 114 → ≈84
+  (100), contact 115 → ≈88 (103), changelog mobile 135 → ≈84 (101), login 123 → ≈95 (106),
+  signup 123 → ≈95 (105), forgot/reset 118 → ≈90 (102), invite-email 113 → ≈83 (100), pricing
+  114 → ≈85 (101), checkout 114 → ≈84 (101), family-join 115 → ≈87 (100). No copy, hook or visual
+  changes; the bell is simply no longer in a guest's first paint and appears with the first hydrated
+  frame for a signed-in visitor.
+- **2026-11-21 final sweep: the F-Droid serving test moved, the record stayed.** `src/lib/fdroid/serving.test.ts` was not marketing behaviour — it pins `vercel.json` headers, the service-worker bypass and the absence of a route shadowing `/fdroid` — so it moved to `src/lib/app/app.fdroidServing.test.ts` (app owns the deployment surface) and now runs in the `unit` project instead of belonging to no project. The publish record stays at `src/lib/fdroid/published.json`: its only importer is this module, but R15 accepts no JSON inside a module folder and `scripts/fdroid-publish.sh` + the sync playbook pin that path. The unowned `src/routes/(marketing)/page.server.test.ts` was deleted: `marketing.pageActions.http.test.ts › answers 303 back to / and logs the sender hints (#276)` drives the same `strayRootPostAction` through `invokeAction` and asserts the 303, the location and all three logged hints.
+- **2026-11-21 final sweep: the header is marketing's.** The `(marketing)` layout used to hand in the legacy `$lib/components/Navbar.svelte` + `Toaster.svelte` as snippets. Both are gone: `ui/MarketingHeader.svelte` (+ `MarketingMobileMenu.svelte`, `MarketingProfileMenu.svelte`) is the legacy navbar ported into this module (Svelte 5 runes, kernel `BrandMark`/`trapFocus`, feedback's `reportBugHref`, identity's `isRegisteredAccount`, alerts' bell as a snippet), and a page that shows a toast renders its own kernel `Toaster` (access' sign-up already does), so the layout hands none in. The header takes `pathname`/`search`/`isLoggedIn`/`user`/`appNavItems` as props — no `$app/*` import, so it renders in a test — and the layout passes shell's `shellNavItems` (minus the bell row) because marketing may not import a screen (R1) and issue 065 forbids a second copy of the destination list. The legacy chrome components and their tests were deleted with the port; `MARKETING_NAV` gained its `marketingActiveHref` longest-prefix rule and `marketing.contract.ts` the `MarketingViewer` type.
 - **2026-11-12 (owner, Q-070): the waitlist leaves the website.** The `/waitlist` page, its `?/join` action and the pricing page's waitlist links go; the `waitlist` table stays (no DDL). Android's "Join Waitlist" link opens `/pricing` and is relabelled app-side later. Q-071 (the success card's copy) was moot once the page went.
 - **`/api/contact` is the module's one `/api` route, and it is a form-action file** (`+page.server.ts`), not `+server.ts`. The golden stays on it: same POST path, form-encoded body, JSON answers. S6 wires it as `export const actions = { default: contactEndpoint.handler }` so the test's import never changes.
 - **S2 goldens are wire-only.** The legacy action sends through Resend and has no injection seam, so the test sets a dummy `RESEND_API_KEY` before a dynamic import and stubs `fetch` at the provider boundary. It asserts status/body/messages; the sent mail's recipient, subject and escaping are pinned by the S5 service test. The provider-failure 500 is therefore **not** a golden — it needs a failing mailer, which exists only once the mail port does; `marketing.service.db.test.ts` pins it as the fault-not-refusal rule, and `contactEndpoint` turns that fault into the legacy 500 body through `failMessage` while the kernel files it (what `apiError` did). The 3-per-15-min budget and the absent/empty/whitespace differences are goldens.
@@ -154,48 +178,12 @@ Where each legacy export goes:
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# marketing: 0% ported
+# marketing: 100% ported
 
-legacy source files left (11/11, 922 LOC):
-  - src/lib/components/marketing/FeatureCard.svelte (31 LOC, ui) importers: 1
-  - src/lib/components/marketing/GalleryCard.svelte (29 LOC, ui) importers: 1
-  - src/lib/components/marketing/MomentCard.svelte (43 LOC, ui) importers: 1
-  - src/lib/components/marketing/PricingCard.svelte (92 LOC, ui) importers: 1
-  - src/lib/components/marketing/StrugglePanel.svelte (55 LOC, ui) importers: 1
-  - src/lib/components/marketing/TestimonialCard.svelte (39 LOC, ui) importers: 1
-  - src/lib/components/marketing/featureIcons.ts (74 LOC, model) importers: 3
-  - src/lib/data/changelog.ts (79 LOC, model) importers: 1
-  - src/lib/data/roadmap.ts (70 LOC, model) importers: 1
-  - src/lib/marketing/seo.ts (166 LOC, model) importers: 1
-  - src/lib/marketing/theme.css (244 LOC, ui) importers: 1
+legacy source files left (0/11, 0 LOC):
 
-route files not yet wiring-only (16/16):
-  - src/routes/(marketing)/+layout.server.ts  /
-  - src/routes/(marketing)/+layout.svelte  /
-  - src/routes/(marketing)/+page.server.ts  /
-  - src/routes/(marketing)/+page.svelte  /
-      NOTE: Fat page: extract state into `<name>.state.svelte.ts` + pure rules; the screen component stays under ~250 lines.
-  - src/routes/(marketing)/about/+page.svelte  /about
-  - src/routes/(marketing)/android/+page.server.ts  /android
-  - src/routes/(marketing)/android/+page.svelte  /android
-  - src/routes/(marketing)/changelog/+page.svelte  /changelog
-  - src/routes/(marketing)/changelog/+page.ts  /changelog
-  - src/routes/(marketing)/contact/+page.server.ts  /contact
-  - src/routes/(marketing)/contact/+page.svelte  /contact
-  - src/routes/(marketing)/features/+page.svelte  /features
-  - src/routes/(marketing)/privacy/+page.svelte  /privacy
-  - src/routes/(marketing)/roadmap/+page.svelte  /roadmap
-  - src/routes/(marketing)/roadmap/+page.ts  /roadmap
-  - src/routes/api/contact/+page.server.ts  /api/contact
+route files not yet wiring-only (0/16):
 
-legacy test files left (8/8) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/components/marketing/PricingCard.svelte.test.ts [component, 3 tests]
-  - src/lib/components/marketing/marketingCards.svelte.test.ts [component, 5 tests]
-  - src/lib/marketing/seo.test.ts [pure, 13 tests]
-  - src/routes/(marketing)/android/page.ssr.test.ts [route, 3 tests]
-  - src/routes/(marketing)/contact/page.server.test.ts [route, 3 tests]
-  - src/routes/(marketing)/layout.svelte.test.ts [component, 1 tests]
-  - src/routes/(marketing)/page.server.test.ts [route, 2 tests]
-  - src/routes/(marketing)/page.svelte.test.ts [component, 1 tests]
+legacy test files left (0/8) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

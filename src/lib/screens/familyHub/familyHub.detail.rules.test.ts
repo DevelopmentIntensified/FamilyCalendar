@@ -9,9 +9,11 @@
 import { describe, expect, it } from 'vitest';
 import {
 	ACTIVITY_EMPTY_MESSAGE,
+	activityAgo,
 	activityLine,
 	aiUsagePercent,
 	familySettingsKey,
+	inviteExpiryLabel,
 	inviteUsesLabel,
 	seedFamilySettings,
 	type ActivityLineItem,
@@ -182,5 +184,36 @@ describe('activityLine', () => {
 		expect(ACTIVITY_EMPTY_MESSAGE).toBe(
 			'No activity yet — complete something to get things moving.'
 		);
+	});
+});
+
+describe('activityAgo', () => {
+	// Legacy `relativeTime` (`dateUtils.ts:88-91`): Luxon's `toRelative()`.
+	const NOW = new Date('2026-03-01T09:00:00.000Z');
+
+	it.each<[string, string, RegExp]>([
+		['a past ISO stamp reads as "… ago"', '2026-02-26T09:00:00.000Z', /ago$/],
+		// The completed column reads back as Postgres text; legacy printed
+		// nothing for it, `fromSQL` now answers the age.
+		['a Postgres stamp in the future reads as "in …"', '2026-03-04 09:00:00+00', /^in /]
+	])('%s', (_title, at, expected) => {
+		expect(activityAgo(at, NOW)).toMatch(expected);
+	});
+
+	it('prints nothing for an instant that does not parse', () => {
+		expect(activityAgo('not a date', NOW)).toBe('');
+	});
+});
+
+describe('inviteExpiryLabel', () => {
+	// Legacy `inviteExpiry` (`+page.svelte:41-44`): `toLocaleDateString()`.
+	it('prints the locale date of a real instant', () => {
+		const date = new Date('2026-04-01T00:00:00.000Z');
+		expect(inviteExpiryLabel(date)).toBe(date.toLocaleDateString());
+		expect(inviteExpiryLabel('2026-04-01T00:00:00.000Z')).toBe(date.toLocaleDateString());
+	});
+
+	it('prints nothing for an instant that does not parse', () => {
+		expect(inviteExpiryLabel('not a date')).toBe('');
 	});
 });

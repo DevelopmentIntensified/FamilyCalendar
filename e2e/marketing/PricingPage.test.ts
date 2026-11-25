@@ -29,7 +29,8 @@ test.describe('Pricing Page', () => {
 		await page.goto('/pricing');
 		await expect(page.locator('text=1 family calendar')).toBeVisible();
 		await expect(page.locator('text=Unlimited family members')).toBeVisible();
-		await expect(page.locator('text=Unlimited smart algorithm event creations')).toBeVisible();
+		// #317 (685ca05a) renamed this tier line on legacy; the spec never followed.
+		await expect(page.locator('text=Extra smart paste capacity')).toBeVisible();
 	});
 
 	test('Pricing page displays FAQ section', async ({ page }) => {

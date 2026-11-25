@@ -1,0 +1,106 @@
+<!--
+	The header's avatar dropdown: the account rows every signed-in surface shows
+	(Settings, Family Management, Task Stats, Archive, Report a Bug) plus the
+	admin pair and the logout form.
+
+	A registered account gets the name/email header; a guest's placeholder email
+	never shows (identity's `isRegisteredAccount`, the legacy #242 rule). The bug
+	link is `feedback`'s `reportBugHref` rule, so the form records the page the
+	bug was on, never `/report-bug` itself (#257).
+
+	Moved from the legacy `src/lib/components/NavbarProfileMenu.svelte` with the
+	same markup, roles and copy.
+
+	Doc: ../README.md#invariants
+-->
+<script lang="ts">
+	import { slide } from 'svelte/transition';
+	import { isRegisteredAccount } from '$lib/domains/identity';
+	import { trapFocus } from '$lib/kernel/ui/trapFocus';
+	import type { MarketingViewer } from '../marketing.contract';
+
+	interface Props {
+		user: MarketingViewer | null;
+		onNavigate: () => void;
+		onLogoutSubmit: () => void;
+		/** Issue 257: bug-form link carrying the current page as `?from=`. */
+		reportBugHref?: string;
+	}
+
+	let { user, onNavigate, onLogoutSubmit, reportBugHref = '/report-bug' }: Props = $props();
+</script>
+
+<div
+	use:trapFocus
+	transition:slide={{ duration: 150 }}
+	class="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
+>
+	<!-- #242: a guest's email is the #196 placeholder; no header for guests. -->
+	{#if isRegisteredAccount(user)}
+		<div class="border-b border-slate-100 px-4 pb-2">
+			<p class="truncate text-sm font-medium text-slate-900">
+				{user?.firstName}
+				{user?.lastName}
+			</p>
+			<p class="truncate text-xs text-slate-500">{user?.email}</p>
+		</div>
+	{/if}
+	{#if user?.roles?.includes?.('admin')}
+		<a
+			href="/admin/nlp"
+			onclick={onNavigate}
+			class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+		>
+			Admin
+		</a>
+		<a
+			href="/admin/bugs"
+			onclick={onNavigate}
+			class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+		>
+			Bug Reports
+		</a>
+	{/if}
+	<a
+		href="/account"
+		onclick={onNavigate}
+		class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+	>
+		Settings
+	</a>
+	<a
+		href="/family"
+		onclick={onNavigate}
+		class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+	>
+		Family Management
+	</a>
+	<a
+		href="/calendar/stats"
+		onclick={onNavigate}
+		class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+	>
+		Task Stats
+	</a>
+	<a
+		href="/calendar/archive"
+		onclick={onNavigate}
+		class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+	>
+		Archive
+	</a>
+	<a
+		href={reportBugHref}
+		onclick={onNavigate}
+		class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+	>
+		Report a Bug
+	</a>
+	<div class="mt-2 border-t border-slate-100 pt-2">
+		<form action="/api/logout" method="POST" onsubmit={onLogoutSubmit}>
+			<button type="submit" class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+				Logout
+			</button>
+		</form>
+	</div>
+</div>

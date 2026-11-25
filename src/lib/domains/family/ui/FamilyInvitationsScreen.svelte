@@ -19,7 +19,7 @@
 	} from '../family.invitations.rules';
 	import { isInviteUsable } from '../family.invites.rules';
 	import { FamilyInvitationsState } from '../family.invitations.state.svelte';
-	import FamilyBreadcrumbs from './FamilyBreadcrumbs.svelte';
+	import Breadcrumbs from '$lib/kernel/ui/Breadcrumbs.svelte';
 	import FamilyInviteCodeRow from './FamilyInviteCodeRow.svelte';
 	import FamilyLiveInviteCard from './FamilyLiveInviteCard.svelte';
 	import FamilyNewCodeBand from './FamilyNewCodeBand.svelte';
@@ -61,7 +61,7 @@
 
 <div class="min-h-screen bg-slate-50 px-4 py-8">
 	<div class="mx-auto max-w-6xl">
-		<FamilyBreadcrumbs
+		<Breadcrumbs
 			crumbs={[
 				{ label: 'Calendar', href: '/calendar' },
 				{ label: 'Family', href: '/family' },

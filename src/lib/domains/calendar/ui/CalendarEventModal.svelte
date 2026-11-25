@@ -220,6 +220,7 @@
 	variant="bottom"
 	swipeToClose={!showEditForm}
 	testid="event-modal"
+	closeLabel={showEditForm ? 'Close modal' : 'Close'}
 >
 	{#if showEditForm && form}
 		<CalendarEventForm

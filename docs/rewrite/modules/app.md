@@ -81,6 +81,12 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 ## Notes
 
+- **2026-11-21 leftovers: the `/fdroid` serving test is app's.** `src/lib/fdroid/serving.test.ts` pinned `vercel.json`'s header rules, the service-worker bypass and "no route shadows `/fdroid`" — deployment surface, not marketing behaviour — so it moved to `app.fdroidServing.test.ts` and runs in the `unit` project. The folder's only other file, the publish record `published.json`, stays where it is: its importer is marketing, but R15 accepts no JSON inside a module folder and `scripts/fdroid-publish.sh` (plus the sync playbook) owns that path.
+- **APP-02 (2026-11-21).** `appCtx.limiter` is `createMemoryRateLimiter(systemClock)` from `$lib/kernel/ratelimit/rateLimiter.ts`; the legacy `src/lib/server/utils/rateLimit.ts` (module-level buckets) was deleted. Same algorithm, same `${scope}:${ip}` keys (`clientKeyOf`), so web and mobile sign-in still share buckets (issue 288); the kernel adapter's clock is injectable, which `testCtx` already injected. The bridge comment in `appCtx.server.ts` now reads "none left": the pooled `db` is built here with kernel `connectDb` on `DATABASE_URL` (the legacy singleton's pool size/message and its `dotenv/config` loader, because no other server entry loads `.env`), and `ports.server.ts`'s invite-link port takes `ctx.config.siteUrl` instead of the legacy `getUrl()`.
+- **APP-05 (2026-11-21).** With census at 0 legacy source files: `src/lib/server/`, `src/lib/utils/`, `src/lib/client/`, `src/lib/components/`, `vitest-setup-server.ts` and `src/lib/server/db/testHarness.ts` are gone; `vite.config.ts` no longer defines the `client`/`server` projects (the one task allowed to edit it); `test:unit` is plain `vitest` and the dead `test:legacy` script was removed with them. `LEGACY_PREFIXES` stays in `scripts/arch/registry.mjs`. The orchestrator runs `npm run typecheck -- --ratchet` next.
+- **Dev seed (2026-11-21).** The legacy `server/seed.ts` went with APP-05 while `db:seed` and `README.md:16` still pointed at it, so `devSeed.server.ts`'s `runDevSeed(ctx)` replaces it: billing's `ensureBillingDefaults` (six tiers, two discounts) then sponsored's `seedSponsoredDemoAdEvents` (five `test-ad-*` ads), each insert-if-absent. `scripts/db-seed.ts` is the runner — it sets the local `:5433` fallback before importing `appCtx` (so a `.env` can never retarget `db:seed`) but lets an exported `DATABASE_URL` win, and closes `appDbHandle` afterwards; `package.json`'s `db:seed` is now `tsx scripts/db-seed.ts`. Nothing seeds at boot (APP-01's boot/lazy question is answered "neither; dev only"). `app.devSeed.db.test.ts` pins the legacy rows once over two runs; the two deviations (no `users`-exists gate, derived counters instead of `Math.random`) are recorded in the sponsored sheet's Notes.
+- **S8 sweep (2026-11-21).** `src/lib/server/utils/apiError.ts` (+ its test) had no importer left and was deleted; the `web-push` ambient declaration moved here as `app.web-push.d.ts` (its only static import is `pushTransport.server.ts`).
+
 - APP-03: `src/hooks.server.ts` is wiring only (`export const handle = appHandle; export const handleError = appHandleError;`). The pipeline lives in `src/lib/app/requestPipeline.server.ts`, composing identity's `resolveBearer` (asked only on `/api/*`), `resolveSessionCookie` (validate, cookie roll, blank-cookie cascade, hourly `lastActiveAt`) and `shouldCreateAnonymousAccount` with access's `isAdminRoute`/`isProtectedRoute`. Behaviour is unchanged, with two implementation notes: the hourly `lastActiveAt` write now happens inside `resolveSessionCookie`, which reuses the person row it already validated (no second read), and `handleError` calls feedback's `fileAutoBugReport` directly and awaits it inside legacy's own try/catch fence — the same service and throttle `ctx.faults.report` wires, the await legacy's `createBugReport` had, and the fence that keeps a filing throw from breaking the error response — instead of building the report itself. The legacy `src/hooks.server.test.ts` is deleted; its rules are pinned by `src/lib/app/app.requestPipeline.db.test.ts`.
 - APP-01 (2026-11-21): `runRetention(ctx)` in `src/lib/app/retention.server.ts` owns the windows and calls each module's prune through its public entry — identity `pruneInactiveAnonymousAccounts` (new), access `pruneExpiredClaimTokens` (new, the module's only service export), alerts `pruneReadAlertsOlderThan`, feedback `pruneFeedbackOlderThan`, sponsored `pruneSponsoredEventsOlderThan`. `src/lib/app/appRoutes.server.ts` holds `cleanupCronEndpoint` (`auth:'cron'`, GET+POST) and `healthEndpoint` (`auth:'public'`), and both `+server.ts` files are wiring only. The health ping moved to the kernel as `pingDb(db)`: app may not import `drizzle-orm` (R3).
   - Deviation (documented, behaviour-preserving for this population): the legacy `deleteUser` also deleted `subscriptions` rows and cleared `tasks.assignmentStatus` in the same transaction. Identity cannot write either table (rank 1, R3), and an Anonymous Account never bills and is never a family member, so those rows cannot exist for the rows the cron selects; the account screen keeps that composition. The per-row `try/catch` (log and continue, `success:true` regardless) is preserved, so a partial run still cannot be told from a complete one (the "Probably accidental" note above stands).
@@ -93,15 +99,12 @@ Extracted from the legacy code and tests on 2026-11-11 as a starting point for S
 
 <!-- census:begin (generated by npm run census -- --write) -->
 ```text
-# app: 60% ported
+# app: 100% ported
 
-legacy source files left (1/1, 39 LOC):
-  - src/lib/server/utils/apiError.ts (39 LOC, server) importers: 2
-      NOTE: Used by ~22 legacy routes across modules. feedback S8: make it delegate to appCtx.faults.report (the feedback service) instead of building reports itself; delete it in APP-05 when the last legacy route using it is ported.
+legacy source files left (0/1, 0 LOC):
 
 route files not yet wiring-only (0/2):
 
-legacy test files left (1/2) — reference only, kinds explained in docs/architecture/testing.md:
-  - src/lib/server/utils/apiError.test.ts [pure, 4 tests]
+legacy test files left (0/2) — reference only, kinds explained in docs/architecture/testing.md:
 ```
 <!-- census:end -->

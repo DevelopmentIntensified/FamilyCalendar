@@ -13,7 +13,7 @@ SvelteKit 2 + Svelte 5 · Postgres (Drizzle) · Tailwind 4
 npm i
 npm run db:up        # local Postgres :5433
 npm run db:apply    # bundled schema -> local DB
-npm run db:seed      # seeded users (tests use these, never real emails)
+npm run db:seed      # subscription tiers, discounts and demo ad events (idempotent)
 npm run dev
 ```
 

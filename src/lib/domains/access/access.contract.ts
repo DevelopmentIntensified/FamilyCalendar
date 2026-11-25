@@ -85,9 +85,6 @@ export const MISSING_NAME_MESSAGE = 'First and last name are required';
 /** Password signup with a blank field (`passwordSignup.ts:71`). */
 export const SIGNUP_FIELDS_REQUIRED_MESSAGE = 'All fields are required';
 
-/** Password signup/reset under 8 characters (`passwordSignup.ts:74`). */
-export const PASSWORD_TOO_SHORT_MESSAGE = 'Password must be at least 8 characters';
-
 /** Web password sign-in's one refusal (`login/password/+server.ts:36`). */
 export const INVALID_CREDENTIALS_MESSAGE = 'Invalid email or password';
 
@@ -384,6 +381,45 @@ export const CodeErrorResponse = z.object({
 	error: z.string()
 });
 export type CodeErrorResponse = z.infer<typeof CodeErrorResponse>;
+
+// --- Page boundary inputs ---------------------------------------------------
+
+/**
+ * `GET /login/email/callback`, `GET /signup/email/callback`: `?token`. Optional,
+ * because an absent token is the callbacks' own "not valid, please try again"
+ * redirect, not a schema error.
+ */
+export const AccessEmailLinkQuery = z.object({ token: z.string().optional() });
+export type AccessEmailLinkQuery = z.infer<typeof AccessEmailLinkQuery>;
+
+/** `/claim/verify/[token]`: the one path segment, decoded by the service. */
+export const AccessClaimParams = z.object({ token: z.string() });
+export type AccessClaimParams = z.infer<typeof AccessClaimParams>;
+
+/**
+ * A form field as the legacy `form.get` read it: the first value when a field
+ * is repeated, and `''` when it is absent or not text (a file).
+ */
+const formText = z.preprocess((value) => {
+	const first = Array.isArray(value) ? value[0] : value;
+	return typeof first === 'string' ? first : '';
+}, z.string());
+
+/**
+ * `POST /claim?/request`: the address. The Claim rules own the reading —
+ * `claimEmail` trims, lowercases and reads a non-string as `''`, so an invalid
+ * or empty field is still the flow's `Please enter a valid email address`.
+ */
+export const ClaimRequestForm = z.object({ email: formText });
+export type ClaimRequestForm = z.infer<typeof ClaimRequestForm>;
+
+/** `POST /account?/updateEmail`: the address the change starts from. */
+export const ChangeEmailForm = z.object({ email: formText });
+export type ChangeEmailForm = z.infer<typeof ChangeEmailForm>;
+
+/** `POST /account/verify-email?/verify`: the emailed token, the typed code, or both. */
+export const VerifyEmailForm = z.object({ token: formText, code: formText });
+export type VerifyEmailForm = z.infer<typeof VerifyEmailForm>;
 
 // --- Server-side row shapes -------------------------------------------------
 

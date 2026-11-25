@@ -22,8 +22,8 @@ import {
 	profilePatch,
 	SIGN_UP_TIME_ZONE,
 	shouldCreateAnonymousAccount,
-	touchDue,
-	zoneFromStored
+	toPublicUser,
+	touchDue
 } from './identity.person.rules';
 
 type EmailHolder = { email?: string | null } | null | undefined;
@@ -183,19 +183,52 @@ describe('shouldCreateAnonymousAccount', () => {
 	});
 });
 
-describe('zoneFromStored', () => {
-	// userTimezone.test.ts:5-14, plus the Luxon pseudo-zones: Q-107 narrows the
-	// PATCH validator, never how an ALREADY stored zone resolves.
-	it.each<[string | null | undefined, string | undefined]>([
-		['America/Chicago', 'America/Chicago'],
-		['UTC', 'UTC'],
-		['local', 'local'],
-		['UTC+5', 'UTC+5'],
-		[null, undefined],
-		[undefined, undefined],
-		['', undefined],
-		['Not/AZone', undefined]
-	])('rejects missing, empty and invalid zones: %j → %j', (stored, expected) => {
-		expect(zoneFromStored(stored)).toBe(expected);
+// #324 (legacy hotfix be915320): page data carries only these fields.
+describe('toPublicUser', () => {
+	const row = {
+		id: 'u-sarah',
+		firstName: 'Sarah',
+		lastName: 'Rivera',
+		email: 'sarah@example.com',
+		passwordHash: 'fake-bcrypt-hash-for-test',
+		emailVerified: true,
+		picture: null,
+		roles: ['admin'],
+		createdAt: new Date('2026-01-02T03:04:05Z'),
+		lastActiveAt: new Date('2026-02-03T04:05:06Z'),
+		updatedAt: new Date('2026-02-03T04:05:06Z'),
+		phonenumber: '+15555550123',
+		phonenumberVerified: true,
+		lastLogin: new Date('2026-02-03T04:05:06Z'),
+		receiptIngestToken: 'fake-receipt-token-for-test'
+	};
+
+	it('copies every whitelisted field and nothing else', () => {
+		expect(toPublicUser(row)).toStrictEqual({
+			id: 'u-sarah',
+			firstName: 'Sarah',
+			lastName: 'Rivera',
+			email: 'sarah@example.com',
+			emailVerified: true,
+			roles: ['admin'],
+			lastActiveAt: new Date('2026-02-03T04:05:06Z')
+		});
+	});
+
+	it('never carries a credential or private column', () => {
+		const keys = Object.keys(toPublicUser(row) ?? {});
+		for (const secret of ['passwordHash', 'receiptIngestToken', 'phonenumber', 'phonenumberVerified']) {
+			expect(keys).not.toContain(secret);
+		}
+	});
+
+	it('copies roles instead of sharing the session array', () => {
+		const publicUser = toPublicUser(row);
+		expect(publicUser?.roles).not.toBe(row.roles);
+	});
+
+	it('keeps a signed-out page signed out', () => {
+		expect(toPublicUser(null)).toBeNull();
+		expect(toPublicUser(undefined)).toBeNull();
 	});
 });

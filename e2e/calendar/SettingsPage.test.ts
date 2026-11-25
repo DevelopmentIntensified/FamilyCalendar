@@ -54,7 +54,10 @@ test.describe('Settings Page - Calendar Settings', () => {
 	});
 
 	test('shows dashboard module toggles', async ({ page }) => {
-		await expect(page.locator('text=Dashboard modules')).toBeVisible();
+		// #105 split the switches into their own Dashboard section on legacy; the spec never followed.
+		await page.locator('a[href="#dashboard"]').click();
+		// Legacy also renders a "Save Dashboard Modules" button, so the bare text locator matched twice.
+		await expect(page.getByRole('heading', { name: 'Dashboard modules' })).toBeVisible();
 		await expect(page.locator('input[name="module_verse"]')).toBeVisible();
 		await expect(page.locator('input[name="module_glance"]')).toBeVisible();
 	});

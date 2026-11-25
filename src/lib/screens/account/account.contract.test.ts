@@ -10,10 +10,17 @@ import { describe, expect, it } from 'vitest';
 import type { JsonValue } from '$lib/kernel/validation/validators';
 import { ACCOUNT_SECTIONS } from './account.sections.rules';
 import {
+	AccountApiTokenForm,
+	AccountCalendarSettingsForm,
+	AccountDashboardModulesForm,
 	AccountDeleteBody,
+	AccountDeleteForm,
 	AccountDeleteResponse,
 	AccountExportDocumentResponse,
 	AccountMeResponse,
+	AccountNotificationPreferenceForm,
+	AccountProfileForm,
+	AccountRevokeTokenForm,
 	AccountSectionModelResponse,
 	AccountSectionParam,
 	CONFIRMATION_MISMATCH_MESSAGE,
@@ -35,6 +42,71 @@ describe('AccountSectionParam', () => {
 		['a hash instead of an id', '#profile']
 	])('refuses %s', (_label, value) => {
 		expect(AccountSectionParam.safeParse(value).success).toBe(false);
+	});
+});
+
+describe('page action forms', () => {
+	it('reads the calendar card: text fields first-value, checkboxes only the literal on/true', () => {
+		expect(
+			AccountCalendarSettingsForm.parse({
+				weekStart: 'monday',
+				timeZone: 'Europe/London',
+				color: '#ffffff',
+				defaultView: 'month',
+				defaultCalendarId: '',
+				syncEventsToFamilyCalendar: 'on',
+				autoParseEventDetails: 'true',
+				showAdsAsEvents: 'true'
+			})
+		).toEqual({
+			weekStart: 'monday',
+			timeZone: 'Europe/London',
+			color: '#ffffff',
+			defaultView: 'month',
+			defaultCalendarId: '',
+			syncEventsToFamilyCalendar: true,
+			autoParseEventDetails: true,
+			showAdsAsEvents: true
+		});
+		expect(
+			AccountCalendarSettingsForm.parse({
+				syncEventsToFamilyCalendar: 'off',
+				autoParseEventDetails: '',
+				showAdsAsEvents: ['true', 'false']
+			})
+		).toEqual({
+			weekStart: '',
+			timeZone: '',
+			color: '',
+			defaultView: '',
+			defaultCalendarId: '',
+			syncEventsToFamilyCalendar: false,
+			autoParseEventDetails: false,
+			showAdsAsEvents: true
+		});
+	});
+
+	it('reads one dashboard box per registry module, an absent box as empty', () => {
+		const parsed = AccountDashboardModulesForm.parse({ module_verse: 'on' });
+		expect(parsed.module_verse).toBe('on');
+		expect(parsed.module_meals).toBe('');
+	});
+
+	it('keeps the posted strings the flows own refusing', () => {
+		expect(AccountNotificationPreferenceForm.parse({ preference: 'x', value: 'maybe' })).toEqual({
+			preference: 'x',
+			value: 'maybe'
+		});
+		expect(AccountProfileForm.parse({ firstName: ' Ann ', lastName: 'Lee' })).toEqual({
+			firstName: ' Ann ',
+			lastName: 'Lee'
+		});
+		expect(AccountApiTokenForm.parse({})).toEqual({ name: '' });
+		expect(AccountRevokeTokenForm.parse({ tokenId: 'token-1' })).toEqual({ tokenId: 'token-1' });
+		expect(AccountDeleteForm.parse({})).toEqual({ confirmation: '' });
+		expect(AccountDeleteForm.parse({ confirmation: ['user-1', 'user-2'] })).toEqual({
+			confirmation: 'user-1'
+		});
 	});
 });
 

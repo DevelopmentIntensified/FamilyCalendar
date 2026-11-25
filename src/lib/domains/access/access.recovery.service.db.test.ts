@@ -20,7 +20,6 @@ import { eq } from 'drizzle-orm';
 import { issueEmailCode } from '$lib/domains/identity/index.server';
 import {
 	FORGOT_EMAIL_REQUIRED_MESSAGE,
-	PASSWORD_TOO_SHORT_MESSAGE,
 	RATE_LIMIT_MESSAGE,
 	RESET_ACCOUNT_NOT_FOUND_MESSAGE,
 	RESET_FIELDS_REQUIRED_MESSAGE,
@@ -29,6 +28,7 @@ import {
 	RESET_USED_MESSAGE
 } from './access.contract';
 import { RESET_TOKEN_PURPOSE } from './access.email.rules';
+import { PASSWORD_TOO_SHORT_MESSAGE } from './access.password.rules';
 import {
 	RESET_ATTEMPT_LIMIT,
 	requestPasswordReset,

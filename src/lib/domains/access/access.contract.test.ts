@@ -9,11 +9,15 @@
 import { describe, expect, it } from 'vitest';
 import { firstIssueMessage, z } from '$lib/kernel/validation/validators';
 import {
+	AccessClaimParams,
+	AccessEmailLinkQuery,
 	CLAIM_ACCOUNT_HAS_EMAIL_MESSAGE,
 	CLAIM_INVALID_EMAIL_MESSAGE,
 	CLAIM_SEND_FAILED_MESSAGE,
 	ClaimRequestBody,
+	ClaimRequestForm,
 	ChangeEmailBody,
+	ChangeEmailForm,
 	ChangeEmailResponse,
 	CodeErrorResponse,
 	EMAIL_CHANGE_GUEST_MESSAGE,
@@ -45,7 +49,6 @@ import {
 	MobileTokenResponse,
 	MobileVerifyBody,
 	PASSWORD_VERIFY_CALLBACK_PATH,
-	PASSWORD_TOO_SHORT_MESSAGE,
 	RATE_LIMIT_MESSAGE,
 	RESET_ACCOUNT_NOT_FOUND_MESSAGE,
 	RESET_FAILED_MESSAGE,
@@ -61,8 +64,10 @@ import {
 	UNAUTHORIZED_MESSAGE,
 	VERIFY_GENERIC_ERROR_MESSAGE,
 	VerifyEmailBody,
+	VerifyEmailForm,
 	WireErrorResponse
 } from './access.contract';
+import { PASSWORD_TOO_SHORT_MESSAGE } from './access.password.rules';
 
 function messageOf(schema: z.ZodType, value: unknown): string | null {
 	const result = schema.safeParse(value);
@@ -325,6 +330,39 @@ describe('the /api/me bodies', () => {
 			expect(messageOf(schema, 'body')).toBe('Invalid JSON');
 		}
 	);
+});
+
+describe('page boundary inputs', () => {
+	it('reads a callback token as an optional string and leaves the redirect to the flow', () => {
+		expect(AccessEmailLinkQuery.parse({})).toEqual({ token: undefined });
+		expect(AccessEmailLinkQuery.parse({ token: '' })).toEqual({ token: '' });
+		expect(AccessEmailLinkQuery.parse({ token: 'abc' })).toEqual({ token: 'abc' });
+	});
+
+	it('requires the claim path segment', () => {
+		expect(AccessClaimParams.parse({ token: 'abc' })).toEqual({ token: 'abc' });
+		expect(AccessClaimParams.safeParse({}).success).toBe(false);
+	});
+
+	it('reads a form field the legacy way: first value, absent or file is empty, no trim', () => {
+		expect(ClaimRequestForm.parse({ email: '  Mia@Example.TEST ' })).toEqual({
+			email: '  Mia@Example.TEST '
+		});
+		expect(ClaimRequestForm.parse({})).toEqual({ email: '' });
+		expect(ClaimRequestForm.parse({ email: ['first@example.test', 'second@example.test'] })).toEqual(
+			{ email: 'first@example.test' }
+		);
+		expect(ClaimRequestForm.parse({ email: 42 })).toEqual({ email: '' });
+	});
+
+	it('reads the change-email and verify forms the same way', () => {
+		expect(ChangeEmailForm.parse({ email: ' a@b.co ' })).toEqual({ email: ' a@b.co ' });
+		expect(VerifyEmailForm.parse({ token: 'tt', code: ' 2468 ' })).toEqual({
+			token: 'tt',
+			code: ' 2468 '
+		});
+		expect(VerifyEmailForm.parse({})).toEqual({ token: '', code: '' });
+	});
 });
 
 describe('ForgotPasswordBody and ResetPasswordBody', () => {

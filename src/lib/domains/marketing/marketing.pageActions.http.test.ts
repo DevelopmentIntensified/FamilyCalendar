@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { invokeAction, invokeLoad } from '$lib/kernel/testing/invokeHandlers.server';
 import { testCtx } from '$lib/kernel/testing/testCtx.server';
 import { androidPageLoad, marketingLayoutLoad, strayRootPostAction } from './marketing.http.server';
+import type { UserRow } from '$lib/kernel/db/tables.server';
 
 describe('the (marketing) layout load', () => {
 	it('returns the origin and pathname the request arrived on', async () => {
@@ -61,7 +62,42 @@ describe('the (marketing) layout load', () => {
 		});
 
 		expect(data.isLoggedIn).toBe(true);
-		expect(data.user).toEqual(user);
+		// The whitelist fills what the session row lacked with null (#324).
+		expect(data.user).toStrictEqual({ ...user, emailVerified: null, lastActiveAt: null });
+	});
+
+	it('never serialises a credential or private column (#324): page data gets the public whitelist only', async () => {
+		// A whole `users` row with every sensitive column populated, as
+		// `locals.user` holds it server-side.
+		const row: UserRow = {
+			id: 'u-sarah',
+			firstName: 'Sarah',
+			lastName: 'Rivera',
+			email: 'sarah@example.com',
+			passwordHash: 'fake-bcrypt-hash-for-test',
+			emailVerified: true,
+			picture: null,
+			roles: ['admin'],
+			createdAt: new Date('2026-01-02T03:04:05Z'),
+			lastActiveAt: new Date('2026-02-03T04:05:06Z'),
+			updatedAt: new Date('2026-02-03T04:05:06Z'),
+			phonenumber: '+15555550123',
+			phonenumberVerified: true,
+			lastLogin: new Date('2026-02-03T04:05:06Z'),
+			receiptIngestToken: 'fake-receipt-token-for-test'
+		};
+		const data = await invokeLoad(marketingLayoutLoad, { ctx: testCtx(), path: '/', user: row });
+
+		expect(data.isLoggedIn).toBe(true);
+		expect(data.user).toStrictEqual({
+			id: 'u-sarah',
+			firstName: 'Sarah',
+			lastName: 'Rivera',
+			email: 'sarah@example.com',
+			emailVerified: true,
+			roles: ['admin'],
+			lastActiveAt: new Date('2026-02-03T04:05:06Z')
+		});
 	});
 });
 
