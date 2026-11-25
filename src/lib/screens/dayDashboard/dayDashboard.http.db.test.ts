@@ -173,7 +173,8 @@ async function seedFamilyDay() {
 		lastName: 'Rivera',
 		email: 'noah@example.test'
 	});
-	await db.insert(families).values({ id: 'family-chen', name: 'The Chens' });
+	// Q-094: the family's configured colour is what its events carry.
+	await db.insert(families).values({ id: 'family-chen', name: 'The Chens', color: '#0f766e' });
 	await db.insert(familyMembers).values([
 		{ userId: 'user-me', familyId: 'family-chen', role: 'owner', memberType: 'parent' },
 		{ userId: 'user-mia', familyId: 'family-chen', role: 'member', memberType: 'child' },
@@ -340,7 +341,7 @@ describe('GET /api/dashboard (G8)', () => {
 		}
 	});
 
-	it('returns the full contract for a family day, resolved, in the viewer zone (Q-005a)', async () => {
+	it('returns the full contract for a family day, resolved, in the viewer zone (Q-005a, Q-093, Q-094)', async () => {
 		const me = await seedFamilyDay();
 		const res = await invoke(GET, {
 			ctx: ctx(),
@@ -583,8 +584,8 @@ describe('GET /api/dashboard (G8)', () => {
 				reminderMinutes: null,
 				mirrorOf: null,
 				created_at: expect.any(String),
-				// The family colour is hard-coded, not read from the family.
-				color: '#e0ffff',
+				// Q-094: the family calendar's configured colour, not a constant.
+				color: '#0f766e',
 				source: 'family',
 				rsvpStatus: 'going',
 				attendance: { going: 1, invited: 3, required: 1, requiredPending: 0, goingNames: ['Riley'] }
@@ -598,11 +599,12 @@ describe('GET /api/dashboard (G8)', () => {
 			['task-rent', 'task-piano', 'task-room'].map((id) => byId.get(id))
 		);
 
-		// Glance counts are the viewer's: open Tasks due before the day's end
-		// (overdue included, no lower bound), and the day's wins.
+		// Glance counts are the viewer's: open Tasks due INSIDE the viewed day
+		// (Q-093: `task-room`, overdue since the day before, no longer counts),
+		// and the day's wins.
 		expect(wire.data.glance).toEqual({
 			doneToday: 2,
-			openToday: 2,
+			openToday: 1,
 			// The streak is computed against the REAL clock: shape only.
 			weekStreak: expect.any(Number)
 		});
