@@ -59,6 +59,7 @@ The design is in [docs/architecture/README.md](../architecture/README.md). The w
 | open tickets the rewrite must honour | [carryover.md](carryover.md) |
 | tests and speed rules | [docs/architecture/testing.md](../architecture/testing.md) |
 | questions waiting for the owner | [questions.md](questions.md) |
+| the cutover package: gate results, deviations, owner checklist | [cutover.md](cutover.md) |
 
 ## Census
 
