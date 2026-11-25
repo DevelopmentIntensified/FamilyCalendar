@@ -36,6 +36,13 @@ describe('LoginScreen', () => {
 		expect(screen.getByText('Start planning — no account needed')).toBeTruthy();
 	});
 
+	it('enters the calendar with a full document navigation, which creates the guest', () => {
+		renderLogin();
+		const link = screen.getByRole('link', { name: 'Start planning — no account needed' });
+		expect(link.getAttribute('href')).toBe('/calendar');
+		expect(link.hasAttribute('data-sveltekit-reload')).toBe(true);
+	});
+
 	it('switches to the email-link form and back', async () => {
 		renderLogin();
 		await fireEvent.click(screen.getByRole('button', { name: 'Email Link' }));
