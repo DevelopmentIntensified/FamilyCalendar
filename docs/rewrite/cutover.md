@@ -59,6 +59,22 @@ Beyond the owner-answered Qs above:
 - The user-page data whitelist (#324): the marketing layout serialises only the public user fields. Legacy hotfix `be915320`, ported into v2 as `5fc6156e`.
 - [ADR 0010](../adr/0010-performance-budget.md) §6 exception: `calendar-month` and `share-target` may exceed "mobile repeat ready ≤ 1000 ms" at legacy parity (owner 2026-11-22, follow-up [#325](../issues/325-calendar-share-target-under-1s-mobile-repeat.md); encoded in `HARD_LIMIT_EXCEPTIONS` in `e2e/pages/perf-report.ts`).
 
+## Landed after the gate (2026-11-24)
+
+Follow-up branch `rewrite/qall`, merged as `78569f25` and pushed to `test` after the gate. It was verified on its own: all 21 module suites and typecheck; pages visual and perf for the modules it touches (account, dayDashboard, tasks, familyHub, calendar, calendarPage, admin, access); Playwright, 90 passed and 2 skipped.
+
+- Seven owner answers (B, 2026-11-12) that were found unbuilt at the gate commit:
+  - Q-079: the export card names what the download includes and what it leaves out.
+  - Q-081: the section heading says "Plan & usage", like the rail.
+  - Q-082: the default-calendar picker shows each calendar's real name, and lists every family's calendar again.
+  - Q-092: no read moves a recurring Task's cursor any more; a check-off or a skip does, and so does a daily sweep.
+  - Q-093: `glance.openToday` counts only the viewed day.
+  - Q-094: family events take the family calendar's colour, falling back to `#e0ffff`.
+  - Q-106: a date-only `recurrenceUntil` is stored as the end of that day in the creator's zone.
+- Q-092's sweep runs daily from its own cron route, `GET|POST /api/cron/tasks-sweep` (`0 5 * * *` in `vercel.json`; owner 2026-11-24). The weekly cleanup is retention prunes only again. Vercel runs cron jobs only for production deployments, so the sweep starts when this reaches `main`; until a sweep or the owner's next check-off, an untouched recurring Task can show a due date up to a day old.
+- Legacy bug fixed: "Start planning — no account needed" on `/login` and `/signup` now forces a full page load (`data-sveltekit-reload`). The visitor gets an Anonymous Account instead of bouncing back to `/login`; a Playwright spec pins each page.
+- `perf:check` enforces the admin register pages' JS ceilings again: their baseline entries are re-keyed to `admin/admin-*`.
+
 ## Performance
 
 Every catalog page's initial JavaScript is at or under its legacy ceiling ([ADR 0010](../adr/0010-performance-budget.md), baselines in [perf-baseline.md](perf-baseline.md)), measured by the final gate on a production build (`npm run perf:check`, medians of 5 runs, 2026-11-24, gate commit `19fa2528`). Initial JS is gzip bytes transferred before the `load` event; on the desktop profile `load` fires before most route chunks land, so the mobile figure is the page's real initial JS. The ceiling is legacy's recorded figure; the check allows +2%.
@@ -107,7 +123,7 @@ Every catalog page's initial JavaScript is at or under its legacy ceiling ([ADR 
 | tasks/stats | 41 / 109 | 111 | 134 / 63 | 253 |
 | tasks/tasks | 45 / 142 | 145 | 179 / 94 | 300 |
 
-Harness gap: the two admin register pages moved from the `feedback` to the `admin` catalog module, but their legacy ceilings were still recorded under `feedback/admin-bugs` (66.7 KB) and `feedback/admin-nlp` (67.1 KB), so `perf:check` enforced no JS limit on them at the gate. Measured against those legacy figures they are within the +2% tolerance (65 and 67 KB). The follow-up branch re-keys the two entries (`8b8cb6c3`) so the check enforces them again.
+Harness gap: the two admin register pages moved from the `feedback` to the `admin` catalog module, but their legacy ceilings were still recorded under `feedback/admin-bugs` (66.7 KB) and `feedback/admin-nlp` (67.1 KB), so `perf:check` enforced no JS limit on them at the gate. Measured against those legacy figures they are within the +2% tolerance (65 and 67 KB). The entries were re-keyed after the gate (see [Landed after the gate](#landed-after-the-gate-2026-11-24)).
 
 Harness finding, 2026-11-22: local builds inherited `NODE_ENV=development` from the shell, so Vite produced DEV bundles (+4 to 10 KB per page) and the checks failed against ceilings recorded on a production build. `scripts/arch/build-safe.mjs` now pins `NODE_ENV=production`.
 
@@ -132,8 +148,7 @@ Harness finding, 2026-11-22: local builds inherited `NODE_ENV=development` from 
    7. Tasks stats month start follows the process zone (UTC in production), as legacy; default: UTC month start, not the caller's stored zone.
    8. Parsing Q-008/Q-009/Q-010 change the web NLP only; the Android parser (`apps/android`, lockstep vectors) needs the same three changes; default: web only, Android follow-up is yours.
    9. Marketing pages `/` and `/features` keep the legacy Pexels image URLs and alts; default: parity until you supply local family imagery (man, woman, children).
-   10. Answered B in [questions.md](questions.md) but found still at legacy behaviour at the gate commit: Q-079 (export card copy), Q-081 ("Plan & usage" heading), Q-082 (default-calendar picker names), Q-092 (recurring-cursor pin inside the board read), Q-093 (`glance.openToday` lower bound), Q-094 (family event colour), Q-106 (date-only `recurrenceUntil` keeps its day). They land right after this push as follow-up `fix(<module>): Q-NNN` commits, verified on their own (module suites, Playwright, pages visual/perf; the account and Day Dashboard baselines become our render where the answer changes them). Q-092's sweep rides the only existing cron, `/api/cron/cleanup`, which runs **weekly** (`0 4 * * 1`), so an untouched recurring Task's due date can lag up to a week; default: keep `vercel.json` as is, say if you want a daily schedule.
-   11. Four `// SAFETY:` input boundaries recorded for #182, each kept because a schema would change a pinned wire: calendar `DELETE`'s tolerant body (`src/lib/domains/calendar/calendar.events.http.server.ts:133`), the rsvp clone dispatch (same file, `:183`), feedback's `/report-bug` echo body (`src/lib/domains/feedback/feedback.http.server.ts:232`) and marketing's form-encoded contact (`src/lib/domains/marketing/marketing.http.server.ts:56`); default: keep.
+   10. Four `// SAFETY:` input boundaries recorded for #182, each kept because a schema would change a pinned wire: calendar `DELETE`'s tolerant body (`src/lib/domains/calendar/calendar.events.http.server.ts:133`), the rsvp clone dispatch (same file, `:183`), feedback's `/report-bug` echo body (`src/lib/domains/feedback/feedback.http.server.ts:232`) and marketing's form-encoded contact (`src/lib/domains/marketing/marketing.http.server.ts:56`); default: keep.
 4. **Promote:** after the review on `test.familyplanz.com`, promote test → main under the usual gate ([archived #143](../archive/issues/143-the-promotion-gate.md)).
 5. **After cutover:** archive `docs/rewrite/` into `docs/archive/rewrite-v2/`; module READMEs and `docs/architecture/` stay as the permanent docs.
 6. **Housekeeping:** delete the stray untracked `falso_tmp.mjs` (385 KB jsDelivr bundle, 2026-11-12) in the main checkout. The orchestrator removes the integration worktrees after cutover (script).
