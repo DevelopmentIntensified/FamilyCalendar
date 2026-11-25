@@ -468,10 +468,11 @@ unless stated otherwise.
 ### GET /api/tasks/sections (G9)
 
 The Tasks screen's three tabs, exactly as `/calendar/tasks` loads them
-(`loadTaskSections`, `src/lib/server/services/tasksData.ts`). Runs the
-Recurring Task cursor pin first, in your stored zone.
+(`loadTaskSections`, `src/lib/server/services/tasksData.ts`). A read never
+moves a Recurring Task cursor (Q-092): a stale one comes back as stored until
+its owner's next check-off/skip or the weekly cleanup sweep pins it.
 
-- `200 {"myTasks":[<Task+tags>],"pendingAssignments":[<Task+tags>],"requestedByMe":[<Task+tags>],"warnings":["myTasks"|"pending"|"requested"|"tasks+cursor", …]}`
+- `200 {"myTasks":[<Task+tags>],"pendingAssignments":[<Task+tags>],"requestedByMe":[<Task+tags>],"warnings":["myTasks"|"pending"|"requested", …]}`
   - `myTasks`: your personal tasks + accepted assignments.
   - `pendingAssignments`: assigned to you, waiting for accept/decline ("To accept").
   - `requestedByMe`: tasks you assigned to someone else ("Requested").

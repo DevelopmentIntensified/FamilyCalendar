@@ -32,6 +32,7 @@ import {
 	listMyTasks,
 	listPendingAssignments,
 	listPinnableTasks,
+	listOverdueRecurringTasks,
 	listPublicFamilyTasks,
 	listRequestedByMe,
 	listTagsForTasks,
@@ -598,24 +599,84 @@ describe('cursor writes', () => {
 			const own = await listPinnableTasks(db, { userId: mia.id, familyId: family.id });
 			expect(own.map((row) => row.id).sort()).toEqual([mine.id, samsFamily.id].sort());
 
-			// The Public tab's member-personal leg: Sam's PERSONAL recurring row
-			// is in no other scope, and the family member list reaches it.
-			const samsPersonal = await seedTask(db, {
+			// A member's PERSONAL recurring row is in neither Mia's own nor the
+			// family scope: only that member's own writes (or the sweep) pin it.
+			await seedTask(db, {
 				title: 'Sam personal stale',
 				dueDate: '2020-01-01T00:00:00.000Z',
 				recurrenceFrequency: 'daily',
 				userId: sam.id
 			});
-			const publicTab = await listPinnableTasks(db, {
-				userId: null,
-				familyId: family.id,
-				memberIds: [mia.id, sam.id]
-			});
-			expect(publicTab.map((row) => row.id).sort()).toEqual(
-				[mine.id, samsFamily.id, samsPersonal.id].sort()
-			);
+			const familyOnly = await listPinnableTasks(db, { userId: null, familyId: family.id });
+			expect(familyOnly.map((row) => row.id)).toEqual([samsFamily.id]);
 
 			expect(await listPinnableTasks(db, { userId: null, familyId: null })).toEqual([]);
+		}
+	);
+
+	rollbackTest(
+		'listOverdueRecurringTasks pages open recurring rows of any owner due before the cutoff, in id order',
+		async (db) => {
+			const mia = await seedUser(db);
+			const sam = await seedUser(db);
+			const overdue = [
+				await seedTask(db, {
+					title: 'Mia overdue',
+					dueDate: '2020-01-01T00:00:00.000Z',
+					recurrenceFrequency: 'daily',
+					userId: mia.id
+				}),
+				await seedTask(db, {
+					title: 'Sam overdue',
+					dueDate: '2020-01-02T00:00:00.000Z',
+					recurrenceFrequency: 'weekly',
+					userId: sam.id
+				}),
+				await seedTask(db, {
+					title: 'Mia overdue 2',
+					dueDate: '2020-01-03T00:00:00.000Z',
+					recurrenceFrequency: 'daily',
+					userId: mia.id
+				})
+			];
+			await seedTask(db, {
+				title: 'Due after the cutoff',
+				dueDate: '2030-01-01T00:00:00.000Z',
+				recurrenceFrequency: 'daily',
+				userId: mia.id
+			});
+			await seedTask(db, {
+				title: 'No frequency',
+				dueDate: '2020-01-01T00:00:00.000Z',
+				userId: mia.id
+			});
+			await seedTask(db, {
+				title: 'Completed',
+				dueDate: '2020-01-01T00:00:00.000Z',
+				completedAt: '2026-01-01T00:00:00Z',
+				recurrenceFrequency: 'daily',
+				userId: mia.id
+			});
+			await seedTask(db, {
+				title: 'Archived',
+				dueDate: '2020-01-01T00:00:00.000Z',
+				archivedAt: '2026-01-01T00:00:00Z',
+				recurrenceFrequency: 'daily',
+				userId: mia.id
+			});
+			const sortedIds = overdue.map((row) => row.id).sort();
+			const beforeIso = '2026-03-01T00:00:00.000Z';
+
+			const first = await listOverdueRecurringTasks(db, { beforeIso, afterId: null, limit: 2 });
+			const second = await listOverdueRecurringTasks(db, {
+				beforeIso,
+				afterId: first[first.length - 1].id,
+				limit: 2
+			});
+
+			expect(first.map((row) => row.id)).toEqual(sortedIds.slice(0, 2));
+			expect(second.map((row) => row.id)).toEqual(sortedIds.slice(2));
+			expect(first[0].userId).toBe(overdue.find((row) => row.id === first[0].id)?.userId);
 		}
 	);
 

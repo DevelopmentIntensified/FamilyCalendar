@@ -177,7 +177,7 @@ describe('createTask', () => {
 });
 
 describe('listTasks', () => {
-	rollbackTest('pins overdue recurring rows to today-end in the stored zone, and sorts tags', async (db) => {
+	rollbackTest('reads a stale recurring row as stored (no pin on a read, Q-092), and sorts tags', async (db) => {
 		const { mia, home } = await seedHousehold(db);
 		await seedUserZone(db, mia.id, 'Pacific/Kiritimati');
 		const stale = await seedTask(db, {
@@ -194,8 +194,8 @@ describe('listTasks', () => {
 		const rows = (await listTasks(ctx, actorFromUser(mia, 'session'))) as readonly TaskListRow[];
 
 		expect(rows).toHaveLength(1);
-		// 2026-03-01T23:59:00+14:00 is 2026-03-01T09:59:00Z — the owner's day, not the server's.
-		expect(rows[0].dueDate).toBe('2026-03-01 09:59:00+00');
+		// Q-092: a read never moves the cursor; the stored due date comes back.
+		expect(rows[0].dueDate).toBe('2026-02-27 10:00:00+00');
 		expect(rows[0].tags).toEqual(['alpha', 'zeta']);
 		expect(rows[0].eventCalendarId).toBeNull();
 		expect(rows[0].phoneFocusMinutes).toBe(0);
@@ -314,7 +314,7 @@ describe('listTasks', () => {
 });
 
 describe('listTaskSections', () => {
-	rollbackTest('returns the three queues with names and the section shape, pinning first', async (db) => {
+	rollbackTest('returns the three queues with names and the section shape, writing nothing (Q-092)', async (db) => {
 		const { mia, sam, home } = await seedHousehold(db);
 		await seedTask(db, {
 			title: 'To accept',
@@ -359,8 +359,8 @@ describe('listTaskSections', () => {
 		expect(row).toMatchObject({ creatorFirstName: 'Sam', assigneeFirstName: 'Mia' });
 		expect('eventCalendarId' in row).toBe(false);
 		expect('phoneFocusMinutes' in row).toBe(false);
-		// The main-list leg pinned the accepted recurring row before the reads.
-		expect(sections.myTasks[0].dueDate).toBe('2026-03-01 23:59:00+00');
+		// Q-092: the read does not pin the accepted recurring row.
+		expect(sections.myTasks[0].dueDate).toBe('2026-02-27 10:00:00+00');
 	});
 });
 
@@ -829,5 +829,105 @@ describe('listDueTasks (the calendar page’s window)', () => {
 
 		expect(rows.map((row) => row.title)).toEqual(['Inside']);
 		expect(rows[0]).toMatchObject({ tags: [], assigneeFirstName: null });
+	});
+});
+
+describe('the recurring-cursor pin runs on writes and the sweep, never on a read (Q-092)', () => {
+	/** Every task row, id-ordered: the "nothing was written" snapshot. */
+	async function snapshot(db: Db) {
+		return await db.select().from(tasks).orderBy(asc(tasks.id));
+	}
+
+	async function dueOf(db: Db, id: string) {
+		const [row] = await db.select({ dueDate: tasks.dueDate }).from(tasks).where(eq(tasks.id, id));
+		return row.dueDate;
+	}
+
+	rollbackTest('no list, section, due-window or board read touches a cursor row', async (db) => {
+		const { mia, sam, home } = await seedHousehold(db);
+		const stale = {
+			dueDate: '2026-02-20 10:00:00+00',
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1
+		} as const;
+		const event = await seedEvent(db, { ownerId: mia.id, title: 'Trip', start: NOW });
+		await seedTask(db, { title: 'Mia own', userId: mia.id, ...stale });
+		await seedTask(db, { title: 'Family', userId: sam.id, familyId: home.id, ...stale });
+		await seedTask(db, { title: 'Sam personal', userId: sam.id, ...stale });
+		await seedTask(db, { title: 'On event', userId: mia.id, eventId: event.id, ...stale });
+		const before = await snapshot(db);
+		const ctx = testCtx({ db, now: NOW });
+		const actor = actorFromUser(mia, 'session');
+
+		await listTasks(ctx, actor);
+		await listTasks(ctx, actor, { eventId: event.id });
+		await listTaskSections(ctx, actor);
+		await listDueTasks(ctx, actor, {
+			fromIso: '2026-02-01T00:00:00.000Z',
+			toIso: '2026-04-01T00:00:00.000Z'
+		});
+		await listFamilyTasks(ctx, actor, { familyId: home.id });
+
+		expect(await snapshot(db)).toEqual(before);
+	});
+
+	rollbackTest('a check-off pins the actor`s other stale rows, own and family, and nobody else`s', async (db) => {
+		const { mia, sam, home } = await seedHousehold(db);
+		const stale = {
+			dueDate: '2026-02-20 10:00:00+00',
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1
+		} as const;
+		const toggled = await seedTask(db, { title: 'Toggled', userId: mia.id, dueDate: NOW, recurrenceFrequency: 'daily', recurrenceInterval: 1 });
+		const own = await seedTask(db, { title: 'Own stale', userId: mia.id, ...stale });
+		const family = await seedTask(db, { title: 'Family stale', userId: sam.id, familyId: home.id, ...stale });
+		const samsPersonal = await seedTask(db, { title: 'Sam personal', userId: sam.id, ...stale });
+		const ctx = testCtx({ db, now: NOW });
+
+		await updateTask(ctx, actorFromUser(mia, 'session'), {
+			taskId: toggled.id,
+			body: TaskUpdateBody.parse({ toggleComplete: true })
+		});
+
+		expect(await dueOf(db, own.id)).toBe('2026-03-01 23:59:00+00');
+		expect(await dueOf(db, family.id)).toBe('2026-03-01 23:59:00+00');
+		expect(await dueOf(db, samsPersonal.id)).toBe('2026-02-20 10:00:00+00');
+	});
+
+	rollbackTest('a skip pins in the actor`s stored zone; an undo restores its cursor and pins nothing', async (db) => {
+		const { mia } = await seedHousehold(db);
+		await seedUserZone(db, mia.id, 'Pacific/Kiritimati');
+		const skipped = await seedTask(db, { title: 'Skipped', userId: mia.id, dueDate: NOW, recurrenceFrequency: 'daily', recurrenceInterval: 1 });
+		const stale = await seedTask(db, {
+			title: 'Own stale',
+			userId: mia.id,
+			dueDate: '2026-02-20 10:00:00+00',
+			recurrenceFrequency: 'daily',
+			recurrenceInterval: 1
+		});
+		const ctx = testCtx({ db, now: NOW });
+		const actor = actorFromUser(mia, 'session');
+
+		const resetStale = async () =>
+			await db.update(tasks).set({ dueDate: '2026-02-20 10:00:00+00' }).where(eq(tasks.id, stale.id));
+
+		await updateTask(ctx, actor, {
+			taskId: skipped.id,
+			body: TaskUpdateBody.parse({ advanceToNext: true })
+		});
+		// 2026-03-01T23:59:00+14:00 is 2026-03-01T09:59:00Z — the actor's day.
+		expect(await dueOf(db, stale.id)).toBe('2026-03-01 09:59:00+00');
+
+		await resetStale();
+		await updateTask(ctx, actor, {
+			taskId: skipped.id,
+			body: TaskUpdateBody.parse({ toggleComplete: true })
+		});
+		await resetStale();
+		await updateTask(ctx, actor, {
+			taskId: skipped.id,
+			body: TaskUpdateBody.parse({ undoComplete: true })
+		});
+		expect(await dueOf(db, stale.id)).toBe('2026-02-20 10:00:00+00');
 	});
 });
