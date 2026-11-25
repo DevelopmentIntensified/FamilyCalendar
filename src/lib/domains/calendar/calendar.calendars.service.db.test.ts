@@ -22,6 +22,7 @@ import {
 	createCalendarAccessPort,
 	createFamilyCalendarPort,
 	getPrintMonth,
+	listCalendarChoices,
 	listCalendars
 } from './calendar.calendars.service.server';
 
@@ -113,6 +114,62 @@ describe('listCalendars', () => {
 			kind: 'personal'
 		});
 		expect(await db.select({ id: calendars.id }).from(calendars)).toHaveLength(1);
+	});
+});
+
+describe('listCalendarChoices (Q-082)', () => {
+	rollbackTest('names every calendar the viewer can pick: each family by its own name, repeats numbered', async (db) => {
+		const ctx = viewerCtx(db);
+		const user = await seedUser(db);
+		const other = await seedUser(db);
+		await seedCalendarRow('cal-personal01', { ownerId: user.id }, db);
+		await seedCalendarRow('cal-personal02', { ownerId: user.id }, db);
+		await seedCalendarRow('cal-someoneelse', { ownerId: other.id }, db);
+		await seedFamily('fam-a', { name: 'Riveras', createdAt: '2026-01-01T00:00:00.000Z' }, db);
+		await seedFamily('fam-b', { name: 'Stones', createdAt: '2026-02-01T00:00:00.000Z' }, db);
+		await seedFamily('fam-c', { name: 'Strangers', createdAt: '2026-03-01T00:00:00.000Z' }, db);
+		await seedMembership('fam-a', user.id, 'member', 'member', db);
+		await seedMembership('fam-b', user.id, 'member', 'member', db);
+		await seedCalendarRow('cal-fam-a', { familyId: 'fam-a' }, db);
+		await seedCalendarRow('cal-fam-b', { familyId: 'fam-b' }, db);
+		await seedCalendarRow('cal-fam-c', { familyId: 'fam-c' }, db);
+
+		const result = await listCalendarChoices(ctx, actorFromUser(user, 'session'));
+
+		expect(result.calendars).toEqual([
+			{ id: 'cal-personal01', name: 'Personal Calendar' },
+			{ id: 'cal-personal02', name: 'Personal Calendar 2' },
+			{ id: 'cal-fam-a', name: 'Riveras' },
+			{ id: 'cal-fam-b', name: 'Stones' }
+		]);
+	});
+
+	rollbackTest('creates the personal calendar when the viewer has none yet', async (db) => {
+		const ctx = viewerCtx(db);
+		const user = await seedUser(db);
+
+		const result = await listCalendarChoices(ctx, actorFromUser(user, 'session'));
+
+		expect(result.calendars).toEqual([
+			{ id: expect.stringMatching(/^[a-z0-9]{15}$/), name: 'Personal Calendar' }
+		]);
+		expect(await db.select({ id: calendars.id }).from(calendars)).toHaveLength(1);
+	});
+
+	rollbackTest('labels a family with no name "Family Calendar"', async (db) => {
+		const ctx = viewerCtx(db);
+		const user = await seedUser(db);
+		await seedCalendarRow('cal-personal01', { ownerId: user.id }, db);
+		await seedFamily('fam-a', { name: '' }, db);
+		await seedMembership('fam-a', user.id, 'member', 'member', db);
+		await seedCalendarRow('cal-fam-a', { familyId: 'fam-a' }, db);
+
+		const result = await listCalendarChoices(ctx, actorFromUser(user, 'session'));
+
+		expect(result.calendars).toEqual([
+			{ id: 'cal-personal01', name: 'Personal Calendar' },
+			{ id: 'cal-fam-a', name: 'Family Calendar' }
+		]);
 	});
 });
 

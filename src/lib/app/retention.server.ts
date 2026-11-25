@@ -11,6 +11,10 @@
  * | ad events                         | 90 days  |
  * | expired claim tokens              | none     |
  *
+ * Recurring Task cursors are not swept here: that is the daily
+ * `/api/cron/tasks-sweep` job (`tasksSweepCronEndpoint`, Q-092), so the
+ * cleanup is retention prunes only.
+ *
  * Runs sequentially, not `Promise.all`: the ctx db may be one transaction
  * session, and no prune gates another (a failed one still rejects the run —
  * the legacy route treated a thrown prune as a 500, while the per-person

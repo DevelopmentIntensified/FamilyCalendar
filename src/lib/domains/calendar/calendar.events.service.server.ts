@@ -248,6 +248,10 @@ export async function createEvent(
 ): Promise<EventRow> {
 	const invites = await resolveEventInvites(ctx, actor, body.attendees ?? body.attendants);
 
+	// Q-106: a date-only recurrenceUntil is stored as the end of that day in the
+	// creator's zone.
+	const writerZone = (await getTimeZone(ctx, actor.id)) ?? 'utc';
+
 	if (body.calendarId) {
 		const accessibleCalendarIds = await listAccessibleCalendarIds(ctx, actor.id);
 		if (!accessibleCalendarIds.includes(body.calendarId)) {
@@ -281,7 +285,7 @@ export async function createEvent(
 			location: body.location || null,
 			allDay: body.allDay || false,
 			reminderMinutes: body.reminderMinutes ?? null,
-			...normalizeEventRecurrence(body)
+			...normalizeEventRecurrence(body, writerZone)
 		} as NewEventRow;
 
 		const createdEvent = await insertEventWithInvites(txCtx.db, values, actor.id, invites);
@@ -386,6 +390,9 @@ export async function updateEvent(
 	// an ABSENT `recurrenceFrequency` leaves the series untouched, an explicit
 	// null (or an unknown value) clears it.
 	const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+	// Q-106: a date-only recurrenceUntil is stored as the end of that day in the
+	// writer's zone, on create and update alike.
+	const writerZone = (await getTimeZone(ctx, actor.id)) ?? 'utc';
 	// SAFETY: as in createEvent, a `title: null` body is the DATABASE's refusal
 	// (the golden pins a 500), so the patch keeps legacy's unvalidated values
 	// and the cast carries them to the update.
@@ -402,7 +409,7 @@ export async function updateEvent(
 			: existing.reminderMinutes,
 		// Q-047: an omitted `recurrenceFrequency` keeps the stored series; only a
 		// present key runs the normalizer (explicit null clears every field).
-		...(has('recurrenceFrequency') ? normalizeEventRecurrence(body) : {})
+		...(has('recurrenceFrequency') ? normalizeEventRecurrence(body, writerZone) : {})
 	} as Partial<NewEventRow>;
 
 	const updated = await updateEventInScope(

@@ -7,7 +7,7 @@
  * Doc: ./README.md#invariants
  */
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render } from '@testing-library/svelte';
+import { cleanup, render, screen } from '@testing-library/svelte';
 import type { AccountSectionModel } from '../account.contract';
 import AccountSubscriptionSection from './AccountSubscriptionSection.svelte';
 
@@ -82,5 +82,12 @@ describe('AccountSubscriptionSection', () => {
 		// The upgrade block is for a reader who has something to upgrade to.
 		expect(document.body).not.toHaveTextContent('See Plans & Pricing');
 		expect(document.body).not.toHaveTextContent('Checkout opens soon');
+	});
+
+	it('heads the section "Plan & usage", the name the rail uses (Q-081)', () => {
+		render(AccountSubscriptionSection, { props: { model: FREE, now: NOW } });
+
+		expect(screen.getByRole('heading', { level: 2, name: 'Plan & usage' })).toBeInTheDocument();
+		expect(screen.queryByRole('heading', { name: 'Subscription' })).not.toBeInTheDocument();
 	});
 });

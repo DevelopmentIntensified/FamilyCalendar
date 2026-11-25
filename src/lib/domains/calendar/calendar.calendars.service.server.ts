@@ -31,6 +31,7 @@ import {
 	getTimeZone
 } from '$lib/domains/identity/index.server';
 import type { CalendarAccessPort } from '$lib/domains/identity/index.server';
+import { calendarDistinctNames } from './calendar.choices.rules';
 import { splitEventsByDay } from './calendar.chips.rules';
 import { expandEventOccurrences } from './calendar.occurrence.rules';
 import {
@@ -49,7 +50,8 @@ import {
 	findExceptions,
 	insertCalendarRow,
 	listEventsByCalendar,
-	listFamilyCalendars
+	listFamilyCalendars,
+	listOwnedCalendars
 } from './calendar.repo.server';
 
 export const CALENDAR_PERSONAL_NAME = 'Personal Calendar';
@@ -138,6 +140,49 @@ export async function listCalendars(
 	}
 
 	return { calendars };
+}
+
+/** One option of the default-calendar picker: the calendar and its label. */
+export type CalendarChoiceRow = { readonly id: string; readonly name: string };
+
+/**
+ * Every calendar the viewer can pick as their default, each under its own
+ * name (Q-082 B): the personal calendar(s) they own, then EVERY family's
+ * calendar (#098/#251 — not just the oldest family's) labelled with that
+ * family's name. A calendar row stores no name, so a repeated label is
+ * numbered ("Personal Calendar 2") rather than shown twice. The personal
+ * calendar is ensured like `listCalendars`, so a new viewer still has a pick.
+ */
+export async function listCalendarChoices(
+	ctx: Ctx,
+	actor: Actor
+): Promise<{ readonly calendars: CalendarChoiceRow[] }> {
+	// Sequential, not Promise.all: the ctx db may be one transaction session.
+	await ensurePersonalCalendarRow(ctx.db, actor.id, ctx.clock.now());
+	const owned = (await listOwnedCalendars(ctx.db, actor.id)).filter((row) => row.familyId === null);
+	const choices: { id: string; label: string }[] = byCreation(owned).map((row) => ({
+		id: row.id,
+		label: CALENDAR_PERSONAL_NAME
+	}));
+
+	const { families } = await listFamilies(ctx, actor);
+	for (const family of families) {
+		const familyCalendars = await listFamilyCalendars(ctx.db, family.id);
+		for (const row of byCreation(familyCalendars)) {
+			choices.push({ id: row.id, label: family.name || FAMILY_CALENDAR_FALLBACK_NAME });
+		}
+	}
+
+	const names = calendarDistinctNames(choices.map((choice) => choice.label));
+	return { calendars: choices.map((choice, index) => ({ id: choice.id, name: names[index] })) };
+}
+
+/** Rows oldest first, the id breaking a tie, so a label's number never moves. */
+function byCreation<T extends { readonly id: string; readonly createdAt: Date }>(rows: readonly T[]): T[] {
+	return [...rows].sort(
+		(left, right) =>
+			left.createdAt.getTime() - right.createdAt.getTime() || left.id.localeCompare(right.id)
+	);
 }
 
 /**

@@ -7,7 +7,6 @@
  * Doc: ./README.md#how-to-test
  */
 import { eq } from 'drizzle-orm';
-import { DateTime } from 'luxon';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
 	calendars,
@@ -50,14 +49,6 @@ import {
 
 const ctx = () => goldenCtx({ db: testDb() });
 const ISO = /^\d{4}-\d{2}-\d{2}T/;
-/** The day legacy uses when the caller has no stored zone: UTC (`new Date().toISOString()`). */
-const utcToday = () => DateTime.now().toUTC().startOf('day');
-/**
- * A `mode:'string'` timestamptz exactly as Postgres renders it. The `+00`
- * depends on the Postgres session TimeZone, which docker and production both
- * set to UTC (docs/rewrite/modules/tasks.md).
- */
-const pgTime = (instant: DateTime) => `${instant.toUTC().toFormat('yyyy-MM-dd HH:mm:ss')}+00`;
 
 function jsonObject(value: unknown): Record<string, unknown> {
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -458,7 +449,9 @@ describe('GET /api/tasks', () => {
 		expect(stored.dueDate).toBe('2020-01-01 00:00:00+00');
 	});
 
-	it('pins overdue recurring rows to today-end in the token owner`s stored zone (#214)', async () => {
+	it('leaves an overdue recurring row`s cursor alone on the list read (Q-092; legacy pinned it, #214)', async () => {
+		// The pin moved out of the read: the stored due date comes back, the
+		// row is untouched, and no history is written either.
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		await seedUserZone(db, mia.id, 'Pacific/Kiritimati');
@@ -470,28 +463,26 @@ describe('GET /api/tasks', () => {
 			createdAt: new Date('2026-01-01T00:00:00.000Z'),
 			userId: mia.id
 		});
-		const todayEnd = DateTime.now()
-			.setZone('Pacific/Kiritimati')
-			.startOf('day')
-			.set({ hour: 23, minute: 59, second: 0, millisecond: 0 });
 
 		const res = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
 
 		expect(res.status).toBe(200);
 		const rows = jsonObject(res.body).tasks as { dueDate: string; completionCount: number }[];
-		expect(rows.map((row) => row.dueDate)).toEqual([pgTime(todayEnd)]);
+		expect(rows.map((row) => row.dueDate)).toEqual(['2020-01-01 00:00:00+00']);
 		expect(rows[0].completionCount).toBe(0);
 		expect(await db.select().from(taskCompletions)).toEqual([]);
+		const [stored] = await db.select().from(tasks).where(eq(tasks.id, stale.id));
+		expect(stored.dueDate).toBe('2020-01-01 00:00:00+00');
 	});
 
-	it('pins the family leg too, so another member`s cursor is not left stale', async () => {
+	it('leaves another member`s family cursor alone on the list read too (Q-092)', async () => {
 		const db = testDb();
 		const mia = await seedUser(db, { firstName: 'Mia' });
 		const sam = await seedUser(db, { firstName: 'Sam' });
 		const family = await seedTaskFamily(db);
 		await addMember(db, mia.id, family.id);
 		await addMember(db, sam.id, family.id);
-		await seedTask(db, {
+		const familyRow = await seedTask(db, {
 			title: 'Family plants',
 			dueDate: '2020-01-01T00:00:00.000Z',
 			recurrenceFrequency: 'weekly',
@@ -500,15 +491,14 @@ describe('GET /api/tasks', () => {
 			createdAt: new Date('2026-01-01T00:00:00.000Z'),
 			userId: sam.id
 		});
-		// No stored zone, so legacy falls back to `new Date().toISOString()`:
-		// the pin is 23:59 in UTC, never in the process zone.
-		const todayEnd = utcToday().set({ hour: 23, minute: 59, second: 0, millisecond: 0 });
 
 		const res = await invoke(getTasks, { ctx: ctx(), user: mia, path: '/api/tasks' });
 
 		expect(res.status).toBe(200);
 		const rows = jsonObject(res.body).tasks as { dueDate: string }[];
-		expect(rows.map((row) => row.dueDate)).toEqual([pgTime(todayEnd)]);
+		expect(rows.map((row) => row.dueDate)).toEqual(['2020-01-01 00:00:00+00']);
+		const [stored] = await db.select().from(tasks).where(eq(tasks.id, familyRow.id));
+		expect(stored.dueDate).toBe('2020-01-01 00:00:00+00');
 	});
 
 	it('reads one family`s rows for a user in two families, never both (#098)', async () => {
@@ -1069,9 +1059,9 @@ describe('GET /api/tasks/sections', () => {
 			createdAt: new Date('2026-01-05T00:00:00.000Z'),
 			userId: mia.id
 		});
-		// A stale recurring row: the hidden getUserFamilyId/getTasksForUser leg
-		// inside loadTaskSections (tasksData.ts:37) pins it BEFORE the section
-		// reads, so the row myTasks returns already carries today-end.
+		// A stale recurring row: since Q-092 the sections read no longer pins
+		// it (legacy pinned it BEFORE the section reads), so myTasks returns
+		// the stored due date and the row is untouched.
 		const stale = await seedTask(db, {
 			title: 'Water plants',
 			dueDate: '2020-01-01T00:00:00.000Z',
@@ -1087,7 +1077,7 @@ describe('GET /api/tasks/sections', () => {
 			taskId: mine.id,
 			startedAt: new Date('2026-12-01T09:00:00.000Z')
 		});
-		const todayEnd = utcToday().set({ hour: 23, minute: 59, second: 0, millisecond: 0 });
+		const storedDue = '2020-01-01 00:00:00+00';
 
 		const res = await invoke(getSections, { ctx: ctx(), user: mia, path: '/api/tasks/sections' });
 
@@ -1154,7 +1144,7 @@ describe('GET /api/tasks/sections', () => {
 					id: stale.id,
 					title: 'Water plants',
 					notes: null,
-					dueDate: pgTime(todayEnd),
+					dueDate: storedDue,
 					completedAt: null,
 					archivedAt: null,
 					recurrenceFrequency: 'daily',

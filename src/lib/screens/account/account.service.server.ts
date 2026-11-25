@@ -22,7 +22,7 @@ import { invalid } from '$lib/kernel/errors/appError';
 import { ALERT_PREFERENCES, type AlertPreferenceId } from '$lib/domains/alerts';
 import { getAlertPreferences, setAlertPreference } from '$lib/domains/alerts/index.server';
 import { deleteSubscriptionsForPerson, getSubscriptionSummary } from '$lib/domains/billing/index.server';
-import { listCalendars } from '$lib/domains/calendar/index.server';
+import { listCalendarChoices } from '$lib/domains/calendar/index.server';
 import { saveHiddenModules } from '$lib/domains/dashboardModules/index.server';
 import { familyIdForActor, listFamilies, listPersonFamilyIds } from '$lib/domains/family/index.server';
 import {
@@ -172,7 +172,7 @@ export async function getAccountSection(
 		case 'calendar': {
 			const [{ settings, consentHistory }, calendars] = await Promise.all([
 				getCalendarSettings(ctx, actor),
-				listCalendars(ctx, actor)
+				listCalendarChoices(ctx, actor)
 			]);
 			return {
 				section,

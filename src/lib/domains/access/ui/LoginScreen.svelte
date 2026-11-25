@@ -222,6 +222,7 @@
 			<div class="mt-6 border-t border-slate-100 pt-5">
 				<a
 					href="/calendar"
+					data-sveltekit-reload
 					class="flex min-h-[48px] w-full items-center justify-center rounded-full border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
 				>
 					{GUEST_START_HEADING}

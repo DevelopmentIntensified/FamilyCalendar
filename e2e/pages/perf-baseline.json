@@ -38,8 +38,8 @@
       },
       "ceiling": 63085
     },
-    "feedback/admin-bugs": {
-      "module": "feedback",
+    "admin/admin-bugs": {
+      "module": "admin",
       "name": "admin-bugs",
       "path": "/admin/bugs",
       "profiles": {
@@ -74,8 +74,8 @@
       },
       "ceiling": 68343
     },
-    "feedback/admin-nlp": {
-      "module": "feedback",
+    "admin/admin-nlp": {
+      "module": "admin",
       "name": "admin-nlp",
       "path": "/admin/nlp",
       "profiles": {

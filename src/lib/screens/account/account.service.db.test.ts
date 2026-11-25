@@ -152,6 +152,24 @@ describe('getAccountSection', () => {
 		expect(await db.select().from(userSettings).where(eq(userSettings.userId, user.id))).toEqual([]);
 	});
 
+	rollbackTest('the default-calendar picker lists each calendar by its real name (Q-082)', async (db) => {
+		const user = await seedUser(db);
+		await seedFamily(db, user.id, 'Lovelace');
+		await seedFamily(db, user.id, 'Turing');
+		const ctx = accountCtx(db);
+
+		const section = await getAccountSection(ctx, { id: user.id, email: user.email, isAdmin: false, via: 'session' }, 'calendar');
+
+		if (section.section !== 'calendar') throw new Error('expected the calendar section');
+		// Every family's calendar under its own family's name, not the oldest family's alone and
+		// not a "Personal Calendar" placeholder on every row.
+		expect(section.calendars.map((calendar) => calendar.name).sort()).toEqual([
+			'Lovelace',
+			'Personal Calendar',
+			'Turing'
+		]);
+	});
+
 	rollbackTest('dashboard hides canonical ids only and lists the registry', async (db) => {
 		const user = await seedUser(db);
 		await db

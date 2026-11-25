@@ -157,7 +157,7 @@ export const DashboardDayEventRow = z.object({
 });
 export type DashboardDayEventRow = z.infer<typeof DashboardDayEventRow>;
 
-/** The viewer's day counts: wins, open work due before the day ends, streak. */
+/** The viewer's day counts: wins, open work due inside the viewed day (Q-093), streak. */
 export const DashboardGlance = z.object({
 	doneToday: z.number().int(),
 	openToday: z.number().int(),

@@ -304,13 +304,16 @@ the UI to carry legacy's hooks; each is in the README Notes as well.
 
 ### "Probably accidental" dispositions
 
-- **Personal calendars all named "Personal Calendar" with the settings colour** — dropped: the page
-  load shape is open, and calendar's model carries each row's real name/colour. The rule that
-  survives is "a default calendar must be one the user can see" (README Invariant).
-- **Export card copy overstates the download** — kept as copy for now; owner question 3 below.
+- **Personal calendars all named "Personal Calendar" with the settings colour** — **Q-082 B
+  answered and landed**: the picker lists every calendar the user can see under its real name
+  (`fix(account): Q-082 …`, below). The rule that survives is "a default calendar must be one the
+  user can see" (README Invariant).
+- **Export card copy overstates the download** — **Q-079 B answered and landed**: the card names
+  what the file includes and what it leaves out.
 - **Rail "Report a Bug" drops `?from=`** — owner question 4; the new rail should use the same
   helper as the navbar.
-- **"Plan & usage" label vs "Subscription" heading** — owner question 5.
+- **"Plan & usage" label vs "Subscription" heading** — **Q-081 B answered and landed**: both say
+  "Plan & usage".
 - **Account layout uses Svelte 4 `export let` / `<slot />`** — dropped: the layout dies; the app
   shell layout renders Navbar/Toaster/BottomNav and owns the guard (README lists where).
 - **`showAdsAsEvents` parser only accepts the literal `'true'`** — dropped: form parsing is
@@ -345,19 +348,26 @@ The export route has no such dependency.
    screen owns no tables. Options: (a) each domain exports a slice service, composed here; (b) an
    `app`-level exporter, which breaks the screen's ownership. Recommendation: (a), accepting the
    wide-but-thin per-domain export entry.
-3. **Export card copy.** (Q-079) Context: the card says "everything your account stores", while
-   `adConsentRecords` and `aiUsageTracking` are deliberately excluded. Options: (a) reword to name
-   what is included/omitted; (b) include the two tables on the wire. Recommendation: (a) —
-   (b) changes a fixed wire.
+3. **Export card copy.** (Q-079) **ANSWERED B, landed** — `fix(account): Q-079 export card names
+   what the file includes and omits`. The card now lists the included slices (profile, settings,
+   subscriptions, families with other members by name only, events with attendance and exceptions,
+   tasks with tags and completions, bills and receipt lines, grocery items, notifications) and the
+   omitted ones (password, sign-in sessions, API tokens, push-notification registrations,
+   sponsored-item consent records, AI usage counts). No wire change.
 4. **Rail Report a Bug link.** (Q-080) Context: the navbar carries `?from=` and the rail does not
    (`AccountSidebar.svelte:93-108` vs `src/lib/utils/reportBug.ts`). Recommendation: share the
    helper, adding `?from=/account#<section>`.
-5. **Plan & usage heading.** (Q-081) Context: rail label "Plan & usage" (`accountSections.ts:21`), section
-   heading "Subscription" (`AccountSubscriptionSection.svelte:63`). Recommendation: make both
-   "Plan & usage".
-6. **Personal-calendar names.** (Q-082) Context: the default-calendar select lists every owned calendar as
-   "Personal Calendar" with one colour, so two rows are indistinguishable. Recommendation: calendar
-   exposes real names; no owner action unless the placeholder was intentional.
+5. **Plan & usage heading.** (Q-081) **ANSWERED B, landed** — `fix(account): Q-081 section heading
+   says Plan & usage`. The heading was "Subscription"; the rail and the heading now both say "Plan &
+   usage" (ids and testids unchanged).
+6. **Personal-calendar names.** (Q-082) **ANSWERED B, landed** — `fix(account): Q-082 default-calendar
+   picker shows each calendar's real name`. Reading: calendar rows store neither a name nor a
+   colour, so the "real name" is the name every other surface gives the row (a family calendar
+   carries its family's name, a personal one is "Personal Calendar"); calendar's new
+   `listCalendarChoices` lists the personal calendar(s) then EVERY family's calendar (the v2 load
+   had narrowed it to the oldest family's), and numbers a repeated label ("Personal Calendar 2") so
+   two rows are never indistinguishable. The picker is a native `<select>`, so the colour the
+   legacy load attached was never drawn and stays out of the model.
 7. **Who owns the `/account` guard.** (Q-083) Context: both the group layout and the page redirect `/login`
    today. Recommendation: the app shell layout takes the guard when this screen is ported; the page
    load keeps a defensive check only if the shell cannot guarantee it.
