@@ -236,6 +236,8 @@ describe('loadDayDashboard', () => {
 		]);
 
 		// Overlap, not start-on-day: the overnight event ending at 00:00 is out.
+		// Q-094 fallback: this family has no configured colour, so its events keep
+		// `#e0ffff` (the http golden pins the configured-colour rule).
 		expect(data.dayEvents.map((event) => [event.title, event.source, event.color])).toEqual([
 			['Dentist', 'own', '#fa8072'],
 			['Soccer', 'family', '#e0ffff']
@@ -252,7 +254,8 @@ describe('loadDayDashboard', () => {
 		// Top-3: mine first, then priority; at most three; the exact input rows.
 		const byId = new Map(data.userTasks.map((row) => [row.id, row]));
 		expect(data.top3).toEqual(['task-rent', 'task-piano', 'task-room'].map((id) => byId.get(id)));
-		expect(data.glance).toEqual({ doneToday: 2, openToday: 2, weekStreak: expect.any(Number) });
+		// Q-093: `task-room` is overdue (due the day before), so only `task-rent` counts.
+		expect(data.glance).toEqual({ doneToday: 2, openToday: 1, weekStreak: expect.any(Number) });
 		// Both completed rows are ISO on the way out, whichever side wrote them.
 		expect(data.completedToday).toEqual([
 			{ id: 'task-plants', title: 'Water plants', completedAt: '2026-11-02T12:00:00.000Z' },

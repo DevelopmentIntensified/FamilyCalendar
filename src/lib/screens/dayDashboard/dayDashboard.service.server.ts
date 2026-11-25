@@ -128,9 +128,9 @@ async function runLeg<T>(
 
 /**
  * A day event's two presentation fields: the viewer's stored colour for their
- * own calendar (else the salmon default), the family tint for the family's,
- * exactly as the legacy loader painted them (Q-094's recorded default keeps the
- * family tint hard-coded).
+ * own calendar (else the salmon default), the family calendar's configured
+ * colour for the family's (Q-094; the calendar list already falls back to the
+ * family tint when the family has none).
  */
 type DayEventPaint = { readonly color: string; readonly source: 'own' | 'family' };
 
@@ -395,9 +395,12 @@ export async function loadDayDashboard(
 				})
 			);
 		const completedToday = mergeDayCompletions(oneOffCompleted, wins.value);
-		const openForDay = userTasks.filter(
-			(row) => !row.completedAt && row.dueDate && new Date(row.dueDate) < dayEndJs
-		).length;
+		// Q-093: only the viewed day counts — due inside `[dayStart, dayEnd)`.
+		const openForDay = userTasks.filter((row) => {
+			if (row.completedAt || !row.dueDate) return false;
+			const due = new Date(row.dueDate);
+			return due >= dayStartJs && due < dayEndJs;
+		}).length;
 
 		return {
 			userTasks,
@@ -463,7 +466,9 @@ async function loadDayEvents(
 
 	const { calendars } = await listCalendars(ctx, actor);
 	const personalId = calendars.find((calendar) => calendar.kind === 'personal')?.id ?? null;
-	const familyCalendarId = calendars.find((calendar) => calendar.kind === 'family')?.id ?? null;
+	const familyCalendar = calendars.find((calendar) => calendar.kind === 'family');
+	const familyCalendarId = familyCalendar?.id ?? null;
+	const familyColor = familyCalendar?.color || CALENDAR_DEFAULT_FAMILY_COLOR;
 	const preferences = await getCalendarPreferences(ctx, actor.id).catch(() => null);
 	const personalColor = preferences?.color || CALENDAR_DEFAULT_PERSONAL_COLOR;
 
@@ -479,14 +484,12 @@ async function loadDayEvents(
 			own.push(toDayEventRow(event, { color: personalColor, source: 'own' }));
 		} else if (familyCalendarId !== null && event.calendarId === familyCalendarId) {
 			if (input.wantFamilyEvents) {
-				family.push(
-					toDayEventRow(event, { color: CALENDAR_DEFAULT_FAMILY_COLOR, source: 'family' })
-				);
+				family.push(toDayEventRow(event, { color: familyColor, source: 'family' }));
 			}
 		}
 	}
 	return {
-		// Legacy drew the viewer's own day first, then the family's (Q-094's default).
+		// Legacy drew the viewer's own day first, then the family's.
 		dayEvents: [...own, ...family],
 		familyDayEvents: family
 	};
