@@ -56,7 +56,7 @@
 </script>
 
 <div id="subscription">
-	<h2 class="mb-4 text-lg font-semibold text-slate-900">Subscription</h2>
+	<h2 class="mb-4 text-lg font-semibold text-slate-900">Plan & usage</h2>
 
 	<div data-testid="plan-card" class="mb-6 rounded-2xl border border-slate-200 bg-white p-6">
 		<div class="flex flex-wrap items-start justify-between gap-4">

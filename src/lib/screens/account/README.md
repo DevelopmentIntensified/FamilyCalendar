@@ -137,6 +137,13 @@ Each line names the test that pins it.
   the user row is missing rather than exporting emptiness`, `account.export.repo.db.test.ts`
   (every slice), `account.http.db.test.ts › downloads the requester document and no other member
   private rows`.
+- The export card names what the file holds (profile, settings, subscriptions, families with other
+  members by name only, events with attendance and exceptions, tasks with tags and completions,
+  bills and receipt lines, grocery items, notifications) and what it leaves out (password, sign-in
+  sessions, API tokens, push-notification registrations, sponsored-item consent records, AI usage
+  counts), never "everything your account stores" (Q-079 B) —
+  `ui/AccountDangerSection.svelte.test.ts › names what the export includes and what it leaves out
+  (Q-079)`.
 - The export is one JSON document as
   `attachment; filename="familyplanz-export-YYYY-MM-DD.json"` with
   `Content-Type: application/json; charset=utf-8` — `account.http.db.test.ts › downloads the
@@ -149,6 +156,13 @@ Each line names the test that pins it.
 - A user with no settings row reads the approved defaults (`sunday`, `UTC`, `#3b82f6`, `dayView`,
   no default calendar, sync off, ads off) and merely viewing writes nothing —
   `account.service.db.test.ts › calendar shows the approved defaults and writes no settings row`.
+- The default-calendar picker lists every calendar the user can see under its real name — each
+  family's calendar under its family's name, a personal calendar as `Personal Calendar`, a repeat
+  numbered from 2 — not a placeholder on every row (Q-082 B). The picker is a native `<select>`, so
+  it paints no colour, as before; the calendar rows store neither a name nor a colour, so none was
+  ever "real" to show — `account.service.db.test.ts › the default-calendar picker lists each
+  calendar by its real name (Q-082)`, `calendar.calendars.service.db.test.ts › listCalendarChoices
+  (Q-082)`.
 - Ads are opt-in; the consent trail is written only on a transition —
   `account.service.db.test.ts › records consent only when the ad setting changes`; a throwing
   consent write cannot fail the save (identity's settings service, pinned by
@@ -194,6 +208,9 @@ Each line names the test that pins it.
   exists, and degrades to the free plan instead of a dead section —
   `account.service.db.test.ts › subscription degrades to the free plan with no rows`,
   `account.subscription.rules.test.ts`.
+- The section's heading says "Plan & usage", the rail's name for it (Q-081 B) —
+  `ui/AccountSubscriptionSection.svelte.test.ts › heads the section "Plan & usage", the name the
+  rail uses (Q-081)`.
 - Notification rows show skeletons before the loader answers, the switch is a native `role="switch"`
   submit with `aria-checked`, and the receipt is a `role="status"` region —
   `ui/AccountNotificationsSection.svelte.test.ts › renders skeleton rows and no switch before the
