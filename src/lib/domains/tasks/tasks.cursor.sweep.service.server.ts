@@ -2,7 +2,7 @@
  * tasks cursor sweep: the scheduled half of the overdue pin (Q-092). Reads no
  * longer pin stale Recurring Task cursors, and a cursor-moving write only
  * pins its own actor's scope, so this sweep pins every OTHER owner's stale
- * cursors once per run (the `app` cleanup cron calls it).
+ * cursors once per run (the `app` daily `/api/cron/tasks-sweep` calls it).
  *
  * A stale cursor is a due date strictly before today's start in its OWNER's
  * stored zone (UTC with none); it moves to 23:59 that day, exactly the pin

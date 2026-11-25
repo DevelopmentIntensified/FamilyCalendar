@@ -271,7 +271,7 @@ describe('runRetention', () => {
 		expect(await db.select({ id: users.id }).from(users).where(eq(users.id, guest.id))).toEqual([]);
 	});
 
-	rollbackTest('also sweeps stale Recurring Task cursors, without adding a body key (Q-092)', async (db) => {
+	rollbackTest('does not sweep Recurring Task cursors: that is the daily tasks-sweep job (Q-092)', async (db) => {
 		const ctx = testCtx({ db, now: NOW.toISOString() });
 		const owner = await seedUser(db, { lastActiveAt: daysBefore(1) });
 		const [stale] = await db
@@ -287,7 +287,7 @@ describe('runRetention', () => {
 
 		const report = await runRetention(ctx);
 
-		// The cron's body keeps the legacy seven keys; the sweep is a pin, not a prune.
+		// The cron's body keeps the legacy seven keys, and the cleanup pins nothing.
 		expect(Object.keys(report).sort()).toEqual([
 			'adEventsPruned',
 			'bugReportsPruned',
@@ -298,6 +298,6 @@ describe('runRetention', () => {
 			'scanned'
 		]);
 		const [stored] = await db.select({ dueDate: tasks.dueDate }).from(tasks).where(eq(tasks.id, stale.id));
-		expect(stored.dueDate).toBe('2026-06-01 23:59:00+00');
+		expect(stored.dueDate).toBe('2026-05-01 10:00:00+00');
 	});
 });

@@ -1,6 +1,7 @@
 /**
  * app `/api` contract tests: `GET|POST /api/cron/cleanup` (the secret gate and
- * the legacy body's keys) and `GET /api/health` (public, 1s-bounded, leaks
+ * the legacy body's keys), `GET|POST /api/cron/tasks-sweep` (the daily Recurring
+ * Task cursor sweep, Q-092) and `GET /api/health` (public, 1s-bounded, leaks
  * nothing), written against the legacy route files before they became wiring.
  *
  * The legacy wire:
@@ -17,14 +18,16 @@
  * Doc: ./README.md#how-to-test
  */
 import type { Db } from '$lib/kernel/db/database.server';
+import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { notifications } from '$lib/kernel/db/tables.server';
+import { notifications, tasks } from '$lib/kernel/db/tables.server';
 import { invoke } from '$lib/kernel/testing/invokeHandlers.server';
 import { seedUser } from '$lib/kernel/testing/seedRows.server';
 import { rollbackTest } from '$lib/kernel/testing/testDb.server';
 import { testCtx, type TestCtx } from '$lib/kernel/testing/testCtx.server';
 import { ANONYMOUS_EMAIL_DOMAIN } from '$lib/domains/identity/identity.person.rules';
 import { GET as cleanupGet, POST as cleanupPost } from '../../routes/api/cron/cleanup/+server';
+import { GET as sweepGet, POST as sweepPost } from '../../routes/api/cron/tasks-sweep/+server';
 import { GET as healthGet } from '../../routes/api/health/+server';
 
 const NOW = new Date('2026-06-01T12:00:00.000Z');
@@ -129,6 +132,74 @@ describe('GET|POST /api/cron/cleanup', () => {
 
 		expect(res.status).toBe(200);
 		expect(res.body).toMatchObject({ success: true, deleted: 0, scanned: 0 });
+	});
+});
+
+describe('GET|POST /api/cron/tasks-sweep', () => {
+	rollbackTest('answers 401 {"error":"Unauthorized"} without the secret, for GET and POST', async (db) => {
+		const ctx = testCtx({ db, now: NOW.toISOString() });
+
+		for (const method of ['GET', 'POST'] as const) {
+			const handler = method === 'GET' ? sweepGet : sweepPost;
+			const refused = await invoke(handler, { ctx, method });
+			expect(refused.status).toBe(401);
+			expect(refused.body).toEqual({ error: 'Unauthorized' });
+
+			const wrongSecret = await invoke(handler, {
+				ctx,
+				method,
+				headers: { authorization: 'Bearer nope' }
+			});
+			expect(wrongSecret.status).toBe(401);
+			expect(wrongSecret.body).toEqual({ error: 'Unauthorized' });
+		}
+	});
+
+	rollbackTest('refuses every caller when CRON_SECRET is not configured', async (db) => {
+		const ctx = testCtx({ db, now: NOW.toISOString(), cronSecret: null });
+
+		const res = await invoke(sweepGet, {
+			ctx,
+			headers: { authorization: 'Bearer blank' }
+		});
+		expect(res.status).toBe(401);
+	});
+
+	rollbackTest('pins a stale recurring cursor with the Bearer secret and answers the counts', async (db) => {
+		const ctx = testCtx({ db, now: NOW.toISOString(), cronSecret: SECRET });
+		const owner = await seedUser(db);
+		const [stale] = await db
+			.insert(tasks)
+			.values({
+				title: 'Water plants',
+				userId: owner.id,
+				dueDate: '2026-05-01 10:00:00+00',
+				recurrenceFrequency: 'daily',
+				recurrenceInterval: 1
+			})
+			.returning({ id: tasks.id });
+
+		const res = await invoke(sweepGet, {
+			ctx,
+			headers: { authorization: `Bearer ${SECRET}` }
+		});
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ success: true, scanned: 1, pinned: 1 });
+		const [stored] = await db
+			.select({ dueDate: tasks.dueDate })
+			.from(tasks)
+			.where(eq(tasks.id, stale.id));
+		expect(stored.dueDate).toBe('2026-06-01 23:59:00+00');
+	});
+
+	rollbackTest('POST is the same handler: the manual x-cron-secret header runs it', async (db) => {
+		const ctx = testCtx({ db, now: NOW.toISOString(), cronSecret: SECRET });
+
+		const res = await invoke(sweepPost, { ctx, headers: { 'x-cron-secret': SECRET } });
+
+		expect(res.status).toBe(200);
+		expect(res.body).toEqual({ success: true, scanned: 0, pinned: 0 });
 	});
 });
 
