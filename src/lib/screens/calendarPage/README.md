@@ -64,6 +64,7 @@ The public API is designed at S1. The entries are filled as their steps land; th
 | [ui/TaskChip.svelte](ui/TaskChip.svelte) | component | One due-Task chip (dashed, no calendar colour, recurring mark); read-only until tasks exports a detail sheet. | visual:check |
 | [ui/MonthView.svelte](ui/MonthView.svelte) | component | The weekday headers and the full matrix from the grid rules, and the ONE `matchMedia` read of the 768px breakpoint (`narrow`) shared by every cell. | visual:check |
 | [ui/MonthCell.svelte](ui/MonthCell.svelte) | component | The fixed-height cell (72/92/104px), chips + `+N more`, hover tools, and the width/Selection tap fork. | visual:check |
+| [ui/MonthCell.svelte.test.ts](ui/MonthCell.svelte.test.ts) | test | The day number sits on its own row above the chips; event and task chips stack full width with truncated titles (#329). | — |
 | [ui/WeekView.svelte](ui/WeekView.svelte) | component | The week span (settings week start) with its band, hour grid and empty note. | visual:check |
 | [ui/WeekAllDayBand.svelte](ui/WeekAllDayBand.svelte) | component | The week header and all-day band: all-day chips plus each day's due Tasks. | visual:check |
 | [ui/HourGrid.svelte](ui/HourGrid.svelte) | component | ONE hour grid for 1..7 columns: hour rows, now line, lane chips, range painter + steppers, drop target, autoscroll. | visual:check |

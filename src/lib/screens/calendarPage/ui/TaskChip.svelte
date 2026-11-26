@@ -19,9 +19,18 @@
 		title?: string;
 		/** Opens tasks' detail sheet for this row. */
 		onopen?: (task: CalendarPageTaskRow) => void;
+		/** Extra layout classes from the view (the month cell stacks chips full width). */
+		class?: string;
 	}
 
-	let { task, density = 'glyph', now, title = 'Due task', onopen }: Props = $props();
+	let {
+		task,
+		density = 'glyph',
+		now,
+		title = 'Due task',
+		onopen,
+		class: extraClass = ''
+	}: Props = $props();
 
 	const overdue = $derived(
 		task.dueDate ? new Date(task.dueDate).getTime() < now.getTime() : false
@@ -34,7 +43,7 @@
 	data-chip-kind="task"
 	title={title}
 	onclick={() => onopen?.(task)}
-	class="relative flex min-w-0 items-center gap-1 overflow-hidden rounded-md border border-dashed bg-white px-1 py-0.5 text-[11px] font-medium leading-tight text-slate-600 {chip.containerClass} {overdue
+	class="relative flex min-w-0 items-center gap-1 overflow-hidden rounded-md border border-dashed bg-white px-1 py-0.5 text-[11px] font-medium leading-tight text-slate-600 {extraClass} {chip.containerClass} {overdue
 		? 'text-red-600'
 		: ''}"
 >

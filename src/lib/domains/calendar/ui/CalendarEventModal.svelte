@@ -40,7 +40,6 @@
 	import CalendarEventDetail from './CalendarEventDetail.svelte';
 	import CalendarEventExportMenu from './CalendarEventExportMenu.svelte';
 	import CalendarEventForm from './CalendarEventForm.svelte';
-	import CalendarEventGuestNote from './CalendarEventGuestNote.svelte';
 	import CalendarEventModalBar from './CalendarEventModalBar.svelte';
 	import CalendarEventRsvpRow from './CalendarEventRsvpRow.svelte';
 	import CalendarEventSeriesCard from './CalendarEventSeriesCard.svelte';
@@ -278,8 +277,6 @@
 		{#if !event.isAd && checklist}
 			{@render checklist({ eventId: event.masterId || event.id })}
 		{/if}
-
-		<CalendarEventGuestNote guestCount={modal.guests.length} />
 
 		{#if modal.actionError}
 			<div class="px-4 pb-3 sm:px-6">

@@ -96,31 +96,38 @@
 </svelte:head>
 
 <div class="mx-auto w-full px-2 py-4 sm:px-4 lg:px-8">
-	<header class="mb-4 flex flex-wrap items-center justify-between gap-3">
+	<!-- #330: same max-w-5xl / mx-auto container the cards use (DashboardBand), so
+	     the header lines up with them. A centered stack at every width: title +
+	     date, then the nav pill and the two links grouped on one wrapping row. -->
+	<header class="mx-auto mb-4 flex w-full max-w-5xl flex-col items-center gap-3 text-center">
 		<div>
 			<h1 class="text-xl font-bold text-slate-900">Day Dashboard</h1>
 			<p class="text-sm text-slate-500">{dateLabel}{data.isToday ? ' · today' : ''}</p>
 		</div>
-		<DayNav
-			period="day"
-			isToday={data.isToday}
-			todayHref="/calendar/dashboard"
-			previousHref={previousHref}
-			{nextHref}
-		/>
-		<a
-			href={dayViewHref}
-			class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-			aria-label="Open day view for {dateLabel}"
-		>
-			Open Day View
-		</a>
-		<a
-			href={backHref}
-			class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-		>
-			Back to Calendar
-		</a>
+		<div class="flex w-full flex-wrap items-center justify-center gap-2">
+			<DayNav
+				period="day"
+				isToday={data.isToday}
+				todayHref="/calendar/dashboard"
+				previousHref={previousHref}
+				{nextHref}
+			/>
+			<div class="flex flex-wrap items-center justify-center gap-2">
+				<a
+					href={dayViewHref}
+					class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+					aria-label="Open day view for {dateLabel}"
+				>
+					Open Day View
+				</a>
+				<a
+					href={backHref}
+					class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+				>
+					Back to Calendar
+				</a>
+			</div>
+		</div>
 	</header>
 
 	{#await data.data}

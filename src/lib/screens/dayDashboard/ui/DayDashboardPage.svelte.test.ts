@@ -81,6 +81,21 @@ describe('DayDashboardPage', () => {
 		await waitFor(() => expect(screen.getByText('Day at a Glance')).toBeTruthy());
 	});
 
+	it('centers the header in the same max-width container as the cards', async () => {
+		const { container } = render(DayDashboardPage, {
+			props: { data: pageData(), refresh: async () => {} }
+		});
+		const header = container.querySelector('header');
+		expect(header).toBeTruthy();
+		expect(header!.className).toContain('max-w-5xl');
+		expect(header!.className).toContain('mx-auto');
+		expect(header!.className).toContain('items-center');
+		expect(header!.className).not.toContain('justify-between');
+		expect(screen.getByRole('link', { name: /open day view/i }).className).toContain('h-10');
+		expect(screen.getByRole('link', { name: 'Back to Calendar' }).className).toContain('h-10');
+		await waitFor(() => expect(screen.getByText('Day at a Glance')).toBeTruthy());
+	});
+
 	it('sends "Back to Calendar" to the board when the Default View is dashboard', async () => {
 		render(DayDashboardPage, {
 			props: { data: pageData({ defaultView: 'dashboard' }), refresh: async () => {} }

@@ -14,7 +14,6 @@ export { default as CalendarEventSeriesCard } from './CalendarEventSeriesCard.sv
 export { default as CalendarEventRsvpRow } from './CalendarEventRsvpRow.svelte';
 export { default as CalendarEventRsvpList } from './CalendarEventRsvpList.svelte';
 export { default as CalendarEventAttendeeGroups } from './CalendarEventAttendeeGroups.svelte';
-export { default as CalendarEventGuestNote } from './CalendarEventGuestNote.svelte';
 export { default as CalendarEventExportMenu } from './CalendarEventExportMenu.svelte';
 export { default as CalendarEventModalBar } from './CalendarEventModalBar.svelte';
 export { default as CalendarEventActionBar } from './CalendarEventActionBar.svelte';

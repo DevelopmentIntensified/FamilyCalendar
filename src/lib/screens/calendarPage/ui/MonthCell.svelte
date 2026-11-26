@@ -107,30 +107,33 @@
 			{/if}
 		</div>
 
+		<!-- #329: the day number owns the first row; no chip shares it, so every
+		     chip below starts at one left edge and spans the cell. -->
+		<span
+			data-testid="day-disc"
+			class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold {isToday
+				? 'bg-primary-600 text-white'
+				: !inMonth
+					? 'text-slate-400'
+					: 'text-slate-600'}"
+		>
+			{day.day}
+		</span>
 		<div
 			data-testid="month-chips"
-			class="flex min-h-0 flex-1 flex-wrap content-start items-start gap-x-1 gap-y-[2px] overflow-hidden {state.selectionMode
+			class="flex min-h-0 flex-1 flex-col items-stretch gap-y-[2px] overflow-hidden {state.selectionMode
 				? 'pointer-events-auto'
 				: narrow
 					? 'pointer-events-none'
 					: '[&>button]:pointer-events-auto'}"
 			inert={!state.selectionMode && narrow ? true : undefined}
 		>
-			<span
-				data-testid="day-disc"
-				class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold {isToday
-					? 'bg-primary-600 text-white'
-					: !inMonth
-						? 'text-slate-400'
-						: 'text-slate-600'}"
-			>
-				{day.day}
-			</span>
 			{#each shownRows as row (row.id)}
 				<CalendarChip
 					{row}
 					calendars={state.shell.calendars}
 					density="glyph"
+					class="w-full"
 					selectionMode={state.selectionMode}
 					selected={state.selectedSet.has(row.id)}
 					onopen={(target) => state.openEdit(target.id)}
@@ -138,7 +141,13 @@
 				/>
 			{/each}
 			{#each shownTasks as task (task.id)}
-				<TaskChip {task} now={state.now} onopen={(row) => state.openTaskDetail(row.id)} density="glyph" />
+				<TaskChip
+					{task}
+					now={state.now}
+					onopen={(row) => state.openTaskDetail(row.id)}
+					density="glyph"
+					class="w-full"
+				/>
 			{/each}
 		</div>
 
